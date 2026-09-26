@@ -1,0 +1,7 @@
+{
+  "name": "spike-markdoc-spans",
+  "private": true,
+  "type": "module",
+  "scripts": { "spike": "node spans.mjs && node probes.mjs && node fence-probe.mjs" },
+  "dependencies": { "@markdoc/markdoc": "0.5.10" }
+}

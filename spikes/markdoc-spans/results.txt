@@ -1,0 +1,67 @@
+targets bound: 23 (expected 23); adapter errors: []
+id                   kind        parent            lines     LF bytes    LF CRLF BOM NOEOL
+overview             heading                       15-16     390-461     ok ok ok ok
+p_takeaway           paragraph                     18-21     462-703     ok ok ok ok
+p_limits             paragraph                     23-26     704-940     ok ok ok ok
+p_vocabulary         paragraph                     28-30     941-1112    ok ok ok ok
+p_trace              paragraph                     60-63     2459-2701   ok ok ok ok
+handoff              graph                         32-58     1113-2458   ok ok ok ok
+producer             node        handoff           35-37     1338-1449   ok ok ok ok
+queue                node        handoff           39-42     1450-1658   ok ok ok ok
+worker               node        handoff           44-46     1659-1808   ok ok ok ok
+enqueue              edge        handoff           48-51     1809-2081   ok ok ok ok
+dequeue              edge        handoff           53-57     2082-2445   ok ok ok ok
+full_queue_trace     trace                         65-88     2702-3979   ok ok ok ok
+actor_producer       actor       full_queue_trace  69-69     2929-2997   ok ok ok ok
+actor_consumer       actor       full_queue_trace  70-70     2997-3063   ok ok ok ok
+event_call           event       full_queue_trace  72-74     3064-3235   ok ok ok ok
+event_wait           event       full_queue_trace  76-78     3236-3449   ok ok ok ok
+event_remove         event       full_queue_trace  80-82     3450-3648   ok ok ok ok
+event_resume         event       full_queue_trace  84-87     3649-3966   ok ok ok ok
+wait_code            annotated                     90-97     3980-4468   ok ok ok ok
+capacity_loop        annotation  wait_code         93-96     4181-4451   ok ok ok ok
+def_backpressure     definition                    99-103    4469-4764   ok ok ok ok
+src_queue            source                        105-134   4765-5718   ok ok ok ok
+src_condition_docs   source                        136-136   5719-5948   ok ok ok ok
+target counts per variant: {"appendix-a.md":23,"appendix-a.crlf.md":23,"appendix-a.bom.md":23,"appendix-a.noeol.md":23}
+RESULT: PASS
+P1            PASS  markers/tags in a fence are inert                                                        targets=ex_code
+P1b           FAIL  Markdoc default: tags inside a fence are inert (no adapter fix)                          targets=ex_code,g (fence tags parsed; see fence-probe.mjs)
+P2            PASS  marker followed by marker is detected                                                    marker a followed by comment
+P3-list       PASS  marker binds to a following list                                                         kind=list lines=3-5
+P3-table      PASS  marker binds to a following table                                                        kind=table lines=3-6
+P3-blockquote PASS  marker binds to a following blockquote                                                   kind=blockquote lines=3-4
+P3-heading    PASS  marker binds to a following heading                                                      kind=heading lines=3-4
+P3-fence      PASS  marker binds to a following fence                                                        kind=fence lines=3-6
+P3-hr         PASS  marker binds to a following hr                                                           kind=hr lines=3-4
+P3-setext     FAIL  setext heading parses as a heading                                                       kind=paragraph (Markdoc disables lheading)
+P3-gap        PASS  marker + blank line + block binds (next nonblank token)                                  bound
+P4-tight      PASS  marker inside tight list/quote surfaces as a nested comment                              nested comments=1
+P4-loose      PASS  marker inside loose list/quote surfaces as a nested comment                              nested comments=1
+P4-quote      PASS  marker inside quote list/quote surfaces as a nested comment                              nested comments=1
+P4-tag        PASS  marker inside a custom tag body surfaces as a nested comment                             nested comments=1; top-level targets=d
+P5a           PASS  marker directly after a paragraph line interrupts it and binds                           kind=paragraph
+P5b           FAIL  text after --> on a marker line is preserved (not silently dropped)                      text nodes=["Para."]; errors=malformed marker line 1: "<!-- ex:id x --> trailing words"
+P5c           PASS  inline marker in prose is visible as an inline comment node                              inline comment nodes=1
+P5d           PASS  multi-line ex:id comment is visible (content check needed, raw-line regex misses it)     content="ex:id x" targets=0 errors=0
+P5e           PASS  4-space-indented marker is rejected by the grammar                                       malformed marker line 1: "    <!-- ex:id x -->"
+P5f           PASS  unclosed marker comment falls back to text (detectable by raw scan only)                 comments=0
+P5g           PASS  marker before a custom tag is detectable                                                 marker x before custom tag
+P6-default    PASS  raw HTML surfacing with default                                                          token types html_block=false html_inline=false; AST types=document,paragraph,inline,text,fence,code; text nodes containing tags=2
+P6-html:true  PASS  raw HTML surfacing with html:true                                                        token types html_block=true html_inline=true; AST types=document,html_block,paragraph,inline,text,html_inline,fence,code; text nodes containing tags=0
+P6-detect     PASS  html:true yields html tokens for prose HTML only (none from fence/inline code)           ["<div class=\"x\">block</div>","<span>","</span>","<img src=x onerror=alert(1)>"]
+P6-comments   PASS  with html:true, ex:id markers still become comment tokens (not html_block)               targets=x
+P7-literals   PASS  array/object/float/negative literals parse to JS values                                  {"arr":[1,2.5,"s"],"obj":{"a":{"b":[true,null]}},"f":1.5,"n":-3}
+P7-varfn      PASS  variables and functions are distinct AST classes (rejectable before transform)           v=Variable fn=Function2
+P7-depth      PASS  deeply nested literal parses (depth limit must be ours)                                  parsed=true
+P8            FAIL  multi-line tag opening is REJECTED by Markdoc (else we must enforce one-line)            accepted as tag graph attrs={"id":"g","title":"T"} lines=0,2,3,4
+P9            PASS  inline term/cite/focus are inline tags within the paragraph lines                        inline=term@1,2,cite@1,2,focus@1,2 para=1,2 targets=p
+P10           PASS  GFM tables parse by default                                                              type=table
+P11           PASS  tag syntax in inline code is inert                                                       document,paragraph,inline,text,code
+P12           PASS  if/partial surface as tag names before transform                                         tags=if,partial
+P13           PASS  block tag not on its own line is distinguishable (inline tag)                            inline=true errors=[]
+valid_tag      raw content kept: true | fence children: tag:graph,text | parse errors: - | validate: tag-undefined | default render: "<article><pre data-language=\"markdown\">\n</pre></article>"
+broken_tag     raw content kept: true | fence children: text | parse errors: - | validate: - | default render: "<article><pre data-language=\"markdown\">{% graph id=&quot;g\n</pre></article>"
+unclosed_tag   raw content kept: true | fence children: tag:graph | parse errors: missing-closing | validate: missing-closing,tag-undefined | default render: "<article><pre data-language=\"markdown\">\nno close\n</pre></article>"
+variable       raw content kept: true | fence children: text,text,text | parse errors: - | validate: - | default render: "<article><pre data-language=\"text\">price INJECTED\n</pre></article>"
+process_false  raw content kept: true | fence children: - | parse errors: - | validate: - | default render: "<article><pre data-language=\"markdown\">{% graph id=&quot;g&quot; %}\n</pre></arti"
