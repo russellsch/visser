@@ -1,0 +1,86 @@
+import type { Diagnostic } from '../../core/src/types.ts';
+
+// Exit codes (§15.6).
+export const EXIT = {
+  ok: 0,
+  internal: 1,
+  invalid: 2,
+  unavailable: 3,
+  security: 4,
+  conflict: 5,
+} as const;
+
+export class CliError extends Error {
+  readonly code: string;
+  readonly exitCode: number;
+  constructor(code: string, message: string, exitCode: number) {
+    super(message);
+    this.code = code;
+    this.exitCode = exitCode;
+  }
+}
+
+export type ParsedArgs = {
+  positional: string[];
+  flags: Map<string, string | true>;
+};
+
+// Parse `--name value`, `--name=value`, and boolean `--name` flags.
+// `booleans` lists flags that never take a value.
+const BOOLEAN_FLAGS = new Set(['json', 'check', 'help']);
+
+export function parseArgs(args: string[]): ParsedArgs {
+  const positional: string[] = [];
+  const flags = new Map<string, string | true>();
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (!arg.startsWith('--')) {
+      positional.push(arg);
+      continue;
+    }
+    const eq = arg.indexOf('=');
+    if (eq !== -1) {
+      flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+      continue;
+    }
+    const name = arg.slice(2);
+    const next = args[i + 1];
+    if (BOOLEAN_FLAGS.has(name) || next === undefined || next.startsWith('--')) {
+      flags.set(name, true);
+    } else {
+      flags.set(name, next);
+      i++;
+    }
+  }
+  return { positional, flags };
+}
+
+export function stringFlag(args: ParsedArgs, name: string): string | undefined {
+  const value = args.flags.get(name);
+  if (value === true) throw new CliError('E_USAGE', `--${name} needs a value`, EXIT.invalid);
+  return value;
+}
+
+export function printDiagnostics(diagnostics: Diagnostic[], json: boolean): void {
+  if (json) {
+    process.stdout.write(JSON.stringify({ diagnostics }, null, 2) + '\n');
+    return;
+  }
+  for (const d of diagnostics) {
+    const where = [d.path, d.startLine].filter((x) => x !== undefined).join(':');
+    const target = d.targetId ? ` [${d.targetId}]` : '';
+    process.stderr.write(`${d.severity} ${d.code}${where ? ` ${where}` : ''}${target}: ${d.message}\n`);
+    if (d.suggestedAction) process.stderr.write(`  -> ${d.suggestedAction}\n`);
+  }
+}
+
+// Exit code for a set of diagnostics: the most severe class wins.
+export function exitCodeFor(diagnostics: Diagnostic[]): number {
+  const errors = diagnostics.filter((d) => d.severity === 'error');
+  if (errors.length === 0) return EXIT.ok;
+  const security = ['E_PATH_ESCAPE', 'E_UNSAFE_CONTENT', 'E_EXTENSION_UNTRUSTED', 'E_TOOLKIT_UNTRUSTED', 'E_INTEGRITY'];
+  if (errors.some((d) => security.includes(d.code))) return EXIT.security;
+  if (errors.some((d) => ['E_REF_STALE', 'E_WRITE_CONFLICT'].includes(d.code))) return EXIT.conflict;
+  if (errors.some((d) => ['E_TOOLKIT_MISSING', 'E_SOURCE_UNAVAILABLE', 'E_UNSUPPORTED'].includes(d.code))) return EXIT.unavailable;
+  return EXIT.invalid;
+}

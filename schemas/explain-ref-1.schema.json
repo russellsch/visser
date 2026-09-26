@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-ref-1.schema.json",
+  "title": "Explain reference packet (explain-ref/1, §11.3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "docId", "targetId", "sourceRevision", "bodySha256", "issuedBy"],
+  "properties": {
+    "schema": { "const": "explain-ref/1" },
+    "uri": { "type": "string", "pattern": "^explain://" },
+    "docId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "targetId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+    "sourceRevision": { "$ref": "#/$defs/sha256" },
+    "bodySha256": { "$ref": "#/$defs/sha256" },
+    "viewedBuildId": { "$ref": "#/$defs/sha256" },
+    "label": { "$ref": "#/$defs/shortLine" },
+    "kind": { "$ref": "#/$defs/shortLine" },
+    "sourceHint": { "$ref": "#/$defs/shortLine" },
+    "issuedBy": { "enum": ["reader", "refs-show"] },
+    "quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact", "projection"],
+      "properties": {
+        "exact": { "type": "string", "minLength": 1 },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" },
+        "projection": { "const": "explain-text/1" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "shortLine": { "type": "string", "maxLength": 200, "pattern": "^[^\\u0000-\\u001f\\u007f]*$" }
+  }
+}

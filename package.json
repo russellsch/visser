@@ -1,0 +1,29 @@
+{
+  "name": "explain-toolkit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/cli"
+  ],
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --pretty false",
+    "test": "vitest run",
+    "test:contracts": "node scripts/check-contracts.mjs",
+    "test:browser": "node -e \"console.error('E_UNSUPPORTED: browser tests start in Phase 1'); process.exit(3)\"",
+    "test:offline": "node -e \"console.error('E_UNSUPPORTED: offline test starts in Phase 1'); process.exit(3)\"",
+    "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 1'); process.exit(3)\"",
+    "release:pack": "node -e \"console.error('E_UNSUPPORTED: release packing starts in Phase 4'); process.exit(3)\""
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "vitest": "5.0.2"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-resolve-1.schema.json",
+  "title": "Explain resolver result (explain-resolve/1, §11.6). Skeleton: `current.target` is refined when TargetRecord serialization is fixed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "diagnostics"],
+  "properties": {
+    "schema": { "const": "explain-resolve/1" },
+    "status": { "enum": ["exact", "stale", "deleted", "ambiguous", "missing", "invalid"] },
+    "docId": { "type": "string" },
+    "targetId": { "type": "string" },
+    "viewedRevision": { "$ref": "#/$defs/sha256" },
+    "currentRevision": { "$ref": "#/$defs/sha256" },
+    "targetBodyUnchanged": { "type": "boolean" },
+    "quoteFound": { "type": "boolean" },
+    "labelMatches": { "type": "boolean" },
+    "kindMatches": { "type": "boolean" },
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "sourceText", "parentContext", "dependencies"],
+      "properties": {
+        "target": { "type": "object" },
+        "sourceText": { "type": "string" },
+        "parentContext": { "type": "string" },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "text"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[EW]_[A-Z_]+$" },
+        "severity": { "enum": ["error", "warning"] },
+        "message": { "type": "string" },
+        "path": { "type": "string" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "targetId": { "type": "string" },
+        "suggestedAction": { "type": "string" }
+      }
+    }
+  }
+}

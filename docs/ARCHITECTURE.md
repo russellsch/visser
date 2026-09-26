@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.6, 26 September 2026. Revision 1.6 is an editorial consolidation of 1.5 with no normative change. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.7, 26 September 2026. Revision 1.7 adds the Phase 0 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -391,6 +391,7 @@ Marker rules:
 - The next nonblank token must be an addressable sibling block; another intervening comment or marker is an error.
 - The adapter rejects with `E_SYNTAX` any comment line with trailing text after `-->` (Markdoc silently drops that text) and any comment whose content starts with `ex:id` but is not a whole-line marker (a multi-line marker passes a raw-line check).
 - An ordinary comment must stand alone as a block, with blank lines around it; a comment line inside a paragraph splits it and is `E_SYNTAX`.
+- A marker must follow a blank line (or the frontmatter): without one, Markdoc makes the marker interrupt the paragraph above it. `ids assign` inserts that blank line when needed.
 - IDs are document-wide, case-sensitive, ASCII, and never generated from line numbers or current text hashes.
 
 `ids assign` creates random IDs such as `b_7tmj7g2h7p9xq4c8` using 80 random bits encoded in lowercase base32, retries collisions, and never changes existing IDs. Human-readable IDs such as `enqueue` are allowed and remain fixed when their label changes.
@@ -406,6 +407,7 @@ Marker rules:
 | Blockquote | Whole outer blockquote. |
 | Code fence | Whole code block; optional code-line selection is descriptive, not a separate persistent identity. |
 | Standalone image | Figure block. Meaningful regions use an `annotated` component. |
+| Horizontal rule | Not addressable: it needs no marker, and a marker before it is `E_SYNTAX`. |
 | Custom component | Its explicit `id` attribute. |
 | Every catalogue child tag with an `id` (graph group/node/edge, state/transition, factor/causal-link, stage/conversion, task/dependency, trace actor/event/branch, compare option/criterion/cell, annotation), plus `source`, `definition`, and `detail` | Each has its own explicit `id`. |
 | Prose inside component detail | Detail belongs to the component/entity target. Use `detail` child with an explicit ID if separate addressing is useful. |
@@ -427,7 +429,7 @@ Allowed content: CommonMark prose, ordinary tables through the pinned tokenizer 
 
 **Fences are raw leaves.** By default Markdoc parses tags and variables inside fences: a fenced `{% graph %}` example renders as an empty `<pre>`, an unclosed tag in a fence is a critical error, and a fenced `{% $x %}` is replaced by a variable value. The adapter therefore discards the parsed children of every fence before validation or transformation and takes code text only from the fence token's raw content. Tag, variable, function, and raw-HTML rules apply only outside fences and inline code. **Do not regex-strip code fences to implement this.** Use the tokenizer/AST so examples containing dangerous-looking text remain valid displayed examples. Fixtures: a fenced tag example, an unclosed fenced tag, and a fenced `{% $x %}`, all rendered verbatim.
 
-**Rejected content.** Raw HTML other than recognized comments, JSX, script tags, styles, event-handler attributes, Markdoc `if`/`partial`, variables, functions, and unknown tags. HTML inside a fenced code block is ordinary displayed code.
+**Rejected content** (`E_UNSAFE_CONTENT` for dynamic features and raw HTML, `E_SYNTAX` for malformed or unknown syntax). Raw HTML other than recognized comments (with `html: true`, an inline `<!-- -->` arrives as an `html_inline` token and is treated as a comment), JSX, script tags, styles, event-handler attributes, Markdoc `if`/`partial`, variables, functions, and unknown tags. HTML inside a fenced code block is ordinary displayed code.
 
 **Raw-HTML detection is the adapter's job, not a Markdoc guarantee.** With HTML disabled, markdown-it under Markdoc turns raw HTML into escaped literal text, so no HTML node reaches the AST and the build would succeed with wrong output. The adapter tokenizes with `html: true`, which yields `html_block`/`html_inline` tokens for prose HTML only (none from fences or inline code, while `ex:id` markers remain comment tokens), and rejects those tokens. Fixtures: a `<div>` block, inline `<span>`, an `<img onerror>` in prose (all rejected), and the same text in a fence and in inline code (all accepted).
 
@@ -530,7 +532,7 @@ type BuildManifest = {
 **Derived target fields (normative):**
 
 - `kind` is a fixed enum: the ordinary block kinds (`heading`, `paragraph`, `list`, `table`, `blockquote`, `code`, `figure`), each catalogue tag name, and `source`, `definition`, `detail`.
-- `label` is the `label` or `title` attribute (inherited from an `entity` when omitted); a heading uses its text; other ordinary blocks use the first 80 code points of `plainText`.
+- `label` is the `label` or `title` attribute, or `term` for a definition (inherited from an `entity` when omitted); a heading uses its text; other ordinary blocks use the first 80 code points of `plainText`.
 - `plainText` of a container is only its own leading body; each child has its own. An entity's `plainText` is its label, a newline, then its body text.
 - `parentId` is structural containment only (for example `enqueue` → `handoff`); `ownerComponentId` is the top-level component, which differs from `parentId` only for deeper nesting. `sectionId` is the nearest preceding heading target at the same or a higher level.
 - `inspectable` is true exactly when the target has a canonical detail element.

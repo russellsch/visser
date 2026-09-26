@@ -61,3 +61,14 @@ Unlike Rounds 1–8, this round executed code. Three spikes under `spikes/` test
 ## Revision 1.6 — Editorial consolidation
 
 No normative change. Merged layered edits into single statements (§6.3, §6.5, §7.4, §7.5, §8.2, §12.7, §18.5), split §11.9 into replace, refresh, retire, and show subsections, and moved this history out of the specification.
+
+## Revision 1.7 — Phase 0 amendments
+
+Phase 0 implementation on Node 24.21.0 and Markdoc 0.5.10 required these explicit amendments (§17.3):
+
+- A marker must follow a blank line or the frontmatter, because Markdoc lets a marker interrupt the paragraph above it (§6.3).
+- Horizontal rules are not addressable (§6.4).
+- Dynamic features and raw HTML are `E_UNSAFE_CONTENT`; malformed or unknown syntax is `E_SYNTAX`. An inline HTML comment arrives as an `html_inline` token and is treated as a comment (§6.5).
+- A definition's label is its `term` attribute (§7.1).
+
+Implementation choices that are not spec changes: TypeScript 5.9.3 rather than 7.x (the `tsc` behavior of 7.x was not verified); one root `tsconfig.json` with `erasableSyntaxOnly`, because Node 24 type stripping rejects parameter properties and project references cannot use `noEmit`.

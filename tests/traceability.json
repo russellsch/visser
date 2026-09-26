@@ -1,0 +1,150 @@
+{
+  "schema": "explain-traceability/1",
+  "note": "Maps requirements (\u00a72.2) and acceptance tests (\u00a718) to test tags and the phase that must cover them. status 'covered' means every tag must appear in a passing test in reports/vitest-junit.xml; 'partial' is the same check plus a note on what remains; 'planned' has no tests yet.",
+  "entries": [
+    {
+      "id": "HASH-VECTORS",
+      "phase": 0,
+      "status": "covered",
+      "tags": [
+        "@R18"
+      ],
+      "note": "95 cross-language vectors; scripts/check-contracts.mjs reruns the Python implementation."
+    },
+    {
+      "id": "R01",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R01"
+      ],
+      "note": "Markdown projection is complete for Appendix A families. The no-JavaScript reading test is Phase 1."
+    },
+    {
+      "id": "R02",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R02"
+      ],
+      "note": "Frontmatter docId schema, duplicate-ID rejection, and ID stability under moves (spans, model tests). Copy and deletion lifecycle are Phases 1 and 3."
+    },
+    {
+      "id": "R03",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R03"
+      ],
+      "note": "All Appendix A block and entity kinds get targets with proven spans. Browser selection-to-resolver tests are Phase 1-2."
+    },
+    {
+      "id": "R04",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R04"
+      ],
+      "note": "Nodes and edges are inspectable targets in the model. Browser inspection is Phase 1."
+    },
+    {
+      "id": "R11",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R11"
+      ],
+      "note": "Variables, functions, if/partial, raw HTML, and unknown tags are rejected before transform. Untrusted-extension fixtures are Phase 5."
+    },
+    {
+      "id": "R12",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R12"
+      ],
+      "note": "Reference URI and packet parsing identify a target only by doc ID and target ID. Resolver behavior (renamed file, repeated text) is Phase 1."
+    },
+    {
+      "id": "R14",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R14"
+      ],
+      "note": "Markdown projection is generated from the model with full target and relationship coverage. HTML and reference-map derivation are Phase 1."
+    },
+    {
+      "id": "R18",
+      "phase": 0,
+      "status": "covered",
+      "tags": [
+        "@R18"
+      ],
+      "note": "Source revision, build ID, canonical JSON, and cross-language vectors."
+    },
+    {
+      "id": "R19",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@R19"
+      ],
+      "note": "ids assign preserves existing IDs and other bytes. Guarded-edit preservation (T15) is Phase 1."
+    },
+    {
+      "id": "T02",
+      "phase": 0,
+      "status": "covered",
+      "tags": [
+        "@T02"
+      ],
+      "note": "Inserting a paragraph above a target keeps its ID and shifts only its span."
+    },
+    {
+      "id": "T03",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@T03"
+      ],
+      "note": "A moved block keeps its ID and body hash. The stale packet result is Phase 1."
+    },
+    {
+      "id": "T04",
+      "phase": 0,
+      "status": "partial",
+      "tags": [
+        "@T04"
+      ],
+      "note": "Identical paragraphs get independent IDs and spans. Quote-based resolution is Phase 1."
+    },
+    {
+      "id": "T05",
+      "phase": 0,
+      "status": "covered",
+      "tags": [
+        "@T05"
+      ],
+      "note": "Duplicate IDs fail with E_ID_DUPLICATE (fixtures/negative/E_ID_DUPLICATE). Resolver-level rejection is Phase 1."
+    },
+    {
+      "id": "T10",
+      "phase": 1,
+      "status": "partial",
+      "tags": [
+        "@T10"
+      ],
+      "note": "Packet-level check that uri and bodySha256 must agree. Resolver-level 'current revision with wrong body digest is invalid' is Phase 1."
+    },
+    {
+      "id": "T14",
+      "phase": 0,
+      "status": "covered",
+      "tags": [
+        "@T14"
+      ],
+      "note": "Same source with a different toolkit gives a different build ID."
+    }
+  ]
+}

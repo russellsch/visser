@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-lock-1.schema.json",
+  "title": "Explain document lock (explain-lock/1, §12.3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "toolkit",
+    "extensions",
+    "imports"
+  ],
+  "properties": {
+    "schema": {
+      "const": "explain-lock/1"
+    },
+    "toolkit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sha256",
+        "origin"
+      ],
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "archiveSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "origin": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "repository",
+                "tag",
+                "asset"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "github-release"
+                },
+                "repository": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+                },
+                "tag": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "asset": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "archive"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "local-dir"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "origin"
+            ],
+            "properties": {
+              "origin": {
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "github-release",
+                      "archive"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "archiveSha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "archiveSha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "origin"
+            ],
+            "properties": {
+              "origin": {
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "local-dir"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "type": "object",
+              "properties": {
+                "archiveSha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "required": [
+                "archiveSha256"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "extensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "sha256"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "version": {
+            "$ref": "#/$defs/version"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idPrefix",
+          "origin",
+          "sha256"
+        ],
+        "properties": {
+          "idPrefix": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+          },
+          "origin": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+    }
+  }
+}
