@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.5, 26 September 2026 (1.0 plus the review corrections in §20, Rounds 6–8 and 10, and the executed spike results in Rounds 9 and 10).  
+> **Design revision:** 1.6, 26 September 2026. Revision 1.6 is an editorial consolidation of 1.5 with no normative change. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -385,7 +385,13 @@ A full queue makes the producer wait. It does not imply that workers stopped.
 
 This is an **Explain convention**, not a built-in Markdoc identity feature. Markdoc documents comment tokenization with `allowComments: true`; the parser adapter must characterize the exact pinned version.[S03] Only comments matching this reserved marker grammar are metadata. Ordinary comments are retained in source and excluded from the reader.
 
-Marker grammar: a whole line matching `^[ ]{0,3}<!-- ex:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$`. The next nonblank token must be an addressable sibling block; another intervening comment or marker is an error. Markdoc silently drops text after `-->` on a block comment line, and a marker split over several lines passes a raw-line check, so the adapter also rejects with `E_SYNTAX`: any comment line with trailing text, and any comment whose content starts with `ex:id` but is not a whole-line marker. An ordinary comment must stand alone as a block (blank lines around it); a comment line inside a paragraph splits it and is `E_SYNTAX`. IDs are document-wide, case-sensitive, ASCII, and never generated from line numbers or current text hashes.
+Marker rules:
+
+- A marker is a whole line matching `^[ ]{0,3}<!-- ex:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$`.
+- The next nonblank token must be an addressable sibling block; another intervening comment or marker is an error.
+- The adapter rejects with `E_SYNTAX` any comment line with trailing text after `-->` (Markdoc silently drops that text) and any comment whose content starts with `ex:id` but is not a whole-line marker (a multi-line marker passes a raw-line check).
+- An ordinary comment must stand alone as a block, with blank lines around it; a comment line inside a paragraph splits it and is `E_SYNTAX`.
+- IDs are document-wide, case-sensitive, ASCII, and never generated from line numbers or current text hashes.
 
 `ids assign` creates random IDs such as `b_7tmj7g2h7p9xq4c8` using 80 random bits encoded in lowercase base32, retries collisions, and never changes existing IDs. Human-readable IDs such as `enqueue` are allowed and remain fixed when their label changes.
 
@@ -411,15 +417,19 @@ Custom tag blocks do not also get preceding ID markers. Duplicate identity decla
 
 ### 6.5 Restricted Markdoc profile
 
-Allowed content: CommonMark prose, ordinary tables through the pinned tokenizer configuration, inline code, fenced code, local images, safe links, and catalogue tags. Tags may have string/number/boolean/array/object literals; variable and function AST nodes are rejected before transformation. Tag and attribute names are schema-validated.
+Allowed content: CommonMark prose, ordinary tables through the pinned tokenizer configuration, inline code, fenced code, local images, safe links, and catalogue tags. Tags may have string/number/boolean/array/object literals; variable and function AST nodes are rejected before transformation. Tag and attribute names are schema-validated. Inline `term`, `cite`, and `focus` tags are allowed inside prose; they are owned by that prose block, not rewritten independently.
 
-Block tags must start and end on their own lines. Opening attributes must fit on one logical line in the authoring profile; code formatters must not reflow tag openings. Markdoc accepts multi-line openings, so the adapter enforces this rule. Headings are ATX (`#`) only: Markdoc disables setext headings, so `Title\n---` would silently become a paragraph and a rule; the adapter rejects setext underlines with `E_SYNTAX`. Markdoc also disables indented code blocks; code uses fences only.
+**Block structure.** The characterization of Markdoc 0.5.10 (`spikes/markdoc-spans/`) found behaviors the adapter must enforce itself:
 
-**Fences are raw leaves.** By default Markdoc parses tags and variables inside fences: a fenced `{% graph %}` example renders as an empty `<pre>`, an unclosed tag in a fence is a critical error, and a fenced `{% $x %}` is replaced by a variable value. The adapter therefore discards the parsed children of every fence before validation or transformation and takes code text only from the fence token's raw content. Tag, variable, function, and raw-HTML rules apply only outside fences and inline code. Fixtures: a fenced tag example, an unclosed fenced tag, and a fenced `{% $x %}`, all rendered verbatim. Inline `term`, `cite`, and `focus` tags are allowed inside prose; they are owned by that prose block, not rewritten independently.
+- Block tags start and end on their own lines, and opening attributes fit on one logical line. Markdoc accepts multi-line openings, so the adapter enforces this; code formatters must not reflow tag openings.
+- Headings are ATX (`#`) only. Markdoc disables setext headings, so `Title\n---` would silently become a paragraph and a rule; the adapter rejects setext underlines with `E_SYNTAX`.
+- Code uses fences only; Markdoc disables indented code blocks.
 
-Reject raw HTML other than recognized comments; HTML inside a fenced code block is ordinary displayed code. Reject JSX, script tags, styles, event-handler attributes, Markdoc `if`/`partial`, variables, functions, and unknown tags. **Do not regex-strip code fences to implement this.** Use the tokenizer/AST so examples containing dangerous-looking text remain valid displayed examples.
+**Fences are raw leaves.** By default Markdoc parses tags and variables inside fences: a fenced `{% graph %}` example renders as an empty `<pre>`, an unclosed tag in a fence is a critical error, and a fenced `{% $x %}` is replaced by a variable value. The adapter therefore discards the parsed children of every fence before validation or transformation and takes code text only from the fence token's raw content. Tag, variable, function, and raw-HTML rules apply only outside fences and inline code. **Do not regex-strip code fences to implement this.** Use the tokenizer/AST so examples containing dangerous-looking text remain valid displayed examples. Fixtures: a fenced tag example, an unclosed fenced tag, and a fenced `{% $x %}`, all rendered verbatim.
 
-Raw-HTML rejection is an Explain adapter responsibility, not a Markdoc guarantee. With HTML disabled, the markdown-it tokenizer under Markdoc can turn raw HTML into escaped literal text, so no HTML node reaches the AST and the build would succeed with wrong output. Phase 0 characterization must record how block and inline raw HTML surface in the pinned version. The adapter then detects them from tokens outside code spans and fences (the spike confirmed: tokenizing with `html: true` yields `html_block`/`html_inline` tokens for prose HTML only, none from fences or inline code, while `ex:id` markers remain comment tokens). Fixtures: a `<div>` block, inline `<span>`, an `<img onerror>` in prose (all rejected), and the same text in a fence and in inline code (all accepted).
+**Rejected content.** Raw HTML other than recognized comments, JSX, script tags, styles, event-handler attributes, Markdoc `if`/`partial`, variables, functions, and unknown tags. HTML inside a fenced code block is ordinary displayed code.
+
+**Raw-HTML detection is the adapter's job, not a Markdoc guarantee.** With HTML disabled, markdown-it under Markdoc turns raw HTML into escaped literal text, so no HTML node reaches the AST and the build would succeed with wrong output. The adapter tokenizes with `html: true`, which yields `html_block`/`html_inline` tokens for prose HTML only (none from fences or inline code, while `ex:id` markers remain comment tokens), and rejects those tokens. Fixtures: a `<div>` block, inline `<span>`, an `<img onerror>` in prose (all rejected), and the same text in a fence and in inline code (all accepted).
 
 ### 6.6 Primitive tags
 
@@ -590,17 +600,17 @@ Sort file entries by normalized relative path, using the same code-point order a
 
 `bodySha256 = sha256(normalized original target span)`.
 
-`buildId = sha256(canonicalJSON({schema:'explain-build-input/1', sourceRevision, toolkitSha256, extensionDigests, effectiveRenderOptions}))`. Hash extension digests in sorted order. `effectiveRenderOptions` must use only the canonical hash-input value domain (strings, booleans, safe integers, arrays, objects); a fractional option is serialized as a fixed-decimal string. It is exactly `{"audience": "private"|"public", "includeSource": bool, "layoutFallback": bool}` with every key always present, so an omitted key and a default value cannot hash differently. Serving options (host, port, public origin, base path, cache policy) are never members. Extension digests are unique lowercase 64-hex strings sorted ascending. Layout defaults and security/render behavior come from the exact toolkit digest. No wall clock, random layout seed, or current working-directory path enters a build.
+`buildId = sha256(canonicalJSON({schema:'explain-build-input/1', sourceRevision, toolkitSha256, extensionDigests, effectiveRenderOptions}))`. `effectiveRenderOptions` is exactly `{"audience": "private"|"public", "includeSource": bool, "layoutFallback": bool}` with every key always present, so an omitted key and a default value cannot hash differently. Serving options (host, port, public origin, base path, cache policy) are never members. Extension digests are unique lowercase 64-hex strings sorted ascending. Layout defaults and security/render behavior come from the exact toolkit digest. No wall clock, random layout seed, or current working-directory path enters a build.
 
 Moving a block changes the source revision but not its target identity. Moving a source file within its bundle changes the revision because its declared path changes. Moving the whole document folder does not change relative bundle paths. Reformatting a block changes its body digest but not its identity.
 
 ### 7.5 Determinism boundaries
 
-Identical source, lock, normalized options, and toolkit release must produce identical artifact bytes on supported platforms. Set a constant ELK layout seed, preserve authored node ordering, round final coordinates to a fixed three-decimal representation, and write deterministic object/attribute ordering. Verify this across the pinned Linux/macOS test matrix, with pinned Node majors; `build.json` records the Node version, which is not part of the toolkit digest. Windows is not a supported platform for the byte-determinism promise in v1.
+Identical source, lock, normalized options, and toolkit release must produce identical artifact bytes on supported platforms. Set a constant ELK layout seed, preserve authored node ordering, round final coordinates to a fixed three-decimal representation, and write deterministic object/attribute ordering. Verify this across the pinned Linux/macOS test matrix, with pinned Node majors; `build.json` records the Node version, which is not part of the toolkit digest. Windows is not a supported platform for the byte-determinism promise in v1. If ELK cannot meet the promise, cache/emit its final layout as a derived build artifact and document the unresolved cross-platform limitation; do not claim byte determinism until the test passes.
 
 ELK options come only from a fixed allowlist in the toolkit: algorithm `layered`, a constant `randomSeed`, `considerModelOrder=NODES_AND_EDGES`, a fixed `hierarchyHandling`, and fixed spacing and thoroughness. Documents cannot pass raw ELK options, and `measureExecutionTime` is never set. "Authored order" means the order of the input node and edge arrays: ELK output depends on that order (the spike saw 3–5 distinct layouts from shuffled input) and is stable for a fixed order. The toolkit may switch to cheaper fixed options above a documented figure size, because that choice depends only on node and edge counts. The Linux spike (`spikes/elk-determinism/`) found byte-identical rounded layouts across in-process runs, separate processes, a worker, and Node 24 and 25; macOS remains untested.
 
-Label and node sizes given to ELK come from a text-metrics table bundled in the toolkit (per-character advance widths for the reader's default font size, with a fixed fallback width for characters not in the table). Build never measures text with installed system fonts or a browser. The table is part of the toolkit digest. The browser may render with different fonts, so labels need padding and wrapping tolerance; this is a visual concern, not an identity concern. If ELK cannot meet it, cache/emit its final layout as a derived build artifact and document the unresolved cross-platform limitation; do not claim byte determinism until the test passes.
+Label and node sizes given to ELK come from a text-metrics table bundled in the toolkit (per-character advance widths for the reader's default font size, with a fixed fallback width for characters not in the table). Build never measures text with installed system fonts or a browser. The table is part of the toolkit digest. The browser may render with different fonts, so labels need padding and wrapping tolerance; this is a visual concern, not an identity concern.
 
 Screenshot pixels may differ across operating-system fonts and browsers. Byte-identical HTML is a separate promise from pixel-identical typography.
 
@@ -642,15 +652,17 @@ explain capture git \
   --id src_enqueue
 ```
 
-Resolve `HEAD` to a full commit before capture. Invoke Git with an argument array and `shell: false`. The repository may be untrusted: reject a `--rev` that begins with `-` and pass `--end-of-options`; read blob bytes with `git cat-file blob <oid>` (no textconv or filters); run Git with `--no-pager -c core.fsmonitor= -c core.hooksPath=/dev/null`; never run a command that refreshes the index (the Git spike showed `git status` still runs a repository clean filter even with those `-c` flags). Additional rules from the Git spike (`spikes/git-hardening/`, Git 2.43):
+The repository may be untrusted. The Git spike (`spikes/git-hardening/`, Git 2.43) tested this procedure against hostile fixture repositories:
 
-- Build Git's environment from an allowlist (`PATH`, `HOME`, locale), never inherited, so a parent `GIT_DIR`, `GIT_WORK_TREE`, `GIT_CONFIG_*`, `GIT_EXEC_PATH`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, or `GIT_NAMESPACE` cannot redirect the read. Set `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`.
-- Before capture, resolve `git rev-parse --absolute-git-dir` and `--show-toplevel`. Reject with `E_PATH_ESCAPE` if the realpath of the toplevel differs from the realpath of `--repo`, or if the git dir is outside it: a `.git` gitfile can otherwise redirect the capture to another repository while the metadata names the requested one. A linked worktree or submodule needs explicit `--allow-external-gitdir`, and the actual git dir is recorded.
-- If `objects/info/alternates` exists in the git dir, refuse with `E_PATH_ESCAPE` unless `--allow-alternates` is passed, and record the alternate paths; otherwise a capture can read another repository's objects.
-- Never pass `-c safe.directory=*`; Git's dubious-ownership refusal surfaces as `E_SOURCE_UNAVAILABLE` (exit 3).
-- Confirm the object is a blob with `cat-file -t` before reading. A blob with mode `120000` (a committed symlink) is rejected for text capture.
+1. Run every Git command with an argument array, `shell: false`, and `--no-pager -c core.fsmonitor= -c core.hooksPath=/dev/null`.
+2. Build Git's environment from an allowlist (`PATH`, `HOME`, locale), never inherited, so a parent `GIT_DIR`, `GIT_WORK_TREE`, `GIT_CONFIG_*`, `GIT_EXEC_PATH`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, or `GIT_NAMESPACE` cannot redirect the read. Set `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`.
+3. Resolve `git rev-parse --absolute-git-dir` and `--show-toplevel`. Reject with `E_PATH_ESCAPE` if the realpath of the toplevel differs from the realpath of `--repo`, or if the git dir is outside it; a `.git` gitfile can otherwise redirect the capture to another repository while the metadata names the requested one. A linked worktree or submodule needs explicit `--allow-external-gitdir`, and the actual git dir is recorded.
+4. If `objects/info/alternates` exists in the git dir, refuse with `E_PATH_ESCAPE` unless `--allow-alternates` is passed, and record the alternate paths; otherwise a capture can read another repository's objects.
+5. Reject a `--rev` that begins with `-`. Resolve it to a full commit with `git rev-parse --verify --end-of-options '<rev>^{commit}'`, then resolve `<commit>:<path>` to an object ID the same way.
+6. Confirm the object is a blob with `cat-file -t`. A blob with mode `120000` (a committed symlink) is rejected for text capture.
+7. Read the bytes with `git cat-file blob --end-of-options <oid>`. This runs no textconv or filter; `git show`, `cat-file --textconv`, and `cat-file --filters` can run repository-configured drivers. Commit-specific extraction never reads current checkout text.[S06]
 
-Working-tree capture reads the file directly under §15.4 path rules. Use `git rev-parse --verify '<rev>^{commit}'` followed by blob retrieval for the resolved commit/path. Git documents `show` for displaying objects; commit-specific extraction must not read current checkout text by accident.[S06]
+Never run a command that refreshes the index: the spike showed `git status` still runs a repository clean filter even with the step 1 flags. Never pass `-c safe.directory=*`; Git's dubious-ownership refusal surfaces as `E_SOURCE_UNAVAILABLE` (exit 3). Working-tree capture reads the file directly under §15.4 path rules.
 
 Support SHA-1 and SHA-256 repository object formats by asking Git for the resolved object, not assuming every commit is exactly 40 characters. Reject binary/invalid UTF-8 content for text capture. Line numbers are 1-based inclusive in the original file; preserve indentation. Record optional symbol names as hints, not as the primary identity.
 
@@ -1081,7 +1093,7 @@ explain refs replace \
   --expected-revision FULL_CURRENT_SOURCE_REVISION
 ```
 
-The replacement is the whole target span, including its existing marker or opening/closing tag. It must contain exactly one addressable root with the retained ID (a component root may own nested entity targets). For a split, new sibling roots may come before or after it, each with a new document-unique ID; they need no separate packet. A nested ID may move into a new sibling root if it appears exactly once in the replacement. A heading replacement changes that heading only, not its whole outline section; broader changes use explicitly scoped agent edits and whole-document validation. The same target ID must remain unless using the separate `refs retire` operation below. Every nested target ID inside the current span must also remain in the replacement; a replacement that drops a nested ID is rejected with `E_ID_RETENTION` (exit 2), and the caller retires that ID first. New nested IDs are allowed if they are unique in the whole document. `refs replace` refuses to modify captured evidence or a shared component implementation. It cannot edit arbitrary paths from a packet.
+The replacement is the whole target span, including its existing marker or opening/closing tag. It must contain exactly one addressable root with the retained ID (a component root may own nested entity targets). For a split, new sibling roots may come before or after it, each with a new document-unique ID; they need no separate packet. A nested ID may move into a new sibling root if it appears exactly once in the replacement. A heading replacement changes that heading only, not its whole outline section; broader changes use explicitly scoped agent edits and whole-document validation. The same target ID must remain unless using the separate `refs retire` operation (§11.11). Every nested target ID inside the current span must also remain in the replacement; a replacement that drops a nested ID is rejected with `E_ID_RETENTION` (exit 2), and the caller retires that ID first. New nested IDs are allowed if they are unique in the whole document. `refs replace` refuses to modify captured evidence or a shared component implementation. It cannot edit arbitrary paths from a packet.
 
 Algorithm:
 
@@ -1092,17 +1104,23 @@ Algorithm:
 5. Immediately re-read and compare original raw file hash before rename. Abort on change.
 6. Rename the temporary file over the original; release lock; output old/new revision, changed and added targets, containing targets (ancestors whose body hash changed as a consequence), the dependent targets of each changed target (through `TargetRecord.dependencies`), and a unified diff.
 
-A stale packet must first be deliberately refreshed with `refs refresh --packet request.yaml --expected-current REV --acknowledge-stale`, which emits a new packet and changes no document. It must not happen implicitly inside `replace`. The refresh output states `targetBodyUnchanged`. If the target body changed since the viewed revision, refresh also requires `--acknowledge-body-change`, prints the current target text, and emits `E_REF_STALE` without the flag. This keeps a refreshed packet from authorizing a write over text the reader never saw.
-
-`refs retire --packet request.yaml --reason TEXT [--replacement TARGET_ID] --expected-revision REV` is the deliberate deletion operation. It requires `exact` resolution, removes the whole target span, and adds one `retiredTargets` entry for the target and for each nested target in that span. It writes both changes in one guarded single-file write with the same lock and recheck steps as `refs replace`. It rejects the operation with `E_REF_BROKEN` (exit 2) if a live target still refers to a removed ID, and lists those referrers. `--replacement` must name a live target outside the removed span; nested entries get no replacement. It also rejects the operation if an existing `retiredTargets` entry names a removed ID as its replacement, so chains cannot form. The frontmatter change is a minimal text insertion into the existing `retiredTargets` mapping (or a new mapping at the end of the frontmatter); retire never reserializes the whole frontmatter. The inserted entry uses two-space indentation, `ID:` then `reason: "<JSON-escaped text>"` and optional `replacement: ID`. Retire removes the span plus one adjacent separating blank line, so the result has no double blank line. Merge uses `refs replace` on the retained target and then `refs retire` on the other targets. Because each write changes the source revision, the agent gets a current packet for the next step with `refs show`.
-
-`refs show DOC TARGET_ID [--quote TEXT] [--json]` prints a current packet for any live target with `issuedBy: refs-show`. It is read-only, applies the same root confinement as `refs resolve`, and never creates a packet for a retired or missing target. A `refs show` packet is only for targets the user did not reference (for example the partner block in a merge or split). For the user's own target, the agent keeps the user's packet and follows resolve, refresh, and replace; replacing it with a `refs show` packet would bypass the body-change acknowledgement.
-
-**Concurrency boundary:** this coordinates Explain writers and detects external edits observed at the final pre-write check. Portable filesystem rename is not compare-and-swap against a noncooperating editor. For guaranteed exclusion, use an exclusively owned worktree or require all writers to honor the lock. Do not claim CRDT, transactional multi-file edits, or protection against every uncooperative writer race.
+**Concurrency boundary:** replace, retire, and every other guarded write coordinate Explain writers and detect external edits observed at the final pre-write check. Portable filesystem rename is not compare-and-swap against a noncooperating editor. For guaranteed exclusion, use an exclusively owned worktree or require all writers to honor the lock. Do not claim CRDT, transactional multi-file edits, or protection against every uncooperative writer race.
 
 The coding agent may use its own editing tools, but must follow the same reference/revision/validation contract. Direct edits are not falsely advertised as having gone through Explain's guard.
 
-### 11.10 Excerpt selections and source line references
+### 11.10 Packet refresh
+
+A stale packet must first be deliberately refreshed with `refs refresh --packet request.yaml --expected-current REV --acknowledge-stale`, which emits a new packet and changes no document. It must not happen implicitly inside `replace`. The refresh output states `targetBodyUnchanged`. If the target body changed since the viewed revision, refresh also requires `--acknowledge-body-change`, prints the current target text, and emits `E_REF_STALE` without the flag. This keeps a refreshed packet from authorizing a write over text the reader never saw.
+
+### 11.11 Retire, delete, and merge
+
+`refs retire --packet request.yaml --reason TEXT [--replacement TARGET_ID] --expected-revision REV` is the deliberate deletion operation. It requires `exact` resolution, removes the whole target span, and adds one `retiredTargets` entry for the target and for each nested target in that span. It writes both changes in one guarded single-file write with the same lock and recheck steps as `refs replace`. It rejects the operation with `E_REF_BROKEN` (exit 2) if a live target still refers to a removed ID, and lists those referrers. `--replacement` must name a live target outside the removed span; nested entries get no replacement. It also rejects the operation if an existing `retiredTargets` entry names a removed ID as its replacement, so chains cannot form. The frontmatter change is a minimal text insertion into the existing `retiredTargets` mapping (or a new mapping at the end of the frontmatter); retire never reserializes the whole frontmatter. The inserted entry uses two-space indentation, `ID:` then `reason: "<JSON-escaped text>"` and optional `replacement: ID`. Retire removes the span plus one adjacent separating blank line, so the result has no double blank line. Merge uses `refs replace` on the retained target and then `refs retire` on the other targets. Because each write changes the source revision, the agent gets a current packet for the next step with `refs show`.
+
+### 11.12 Current packets for other targets
+
+`refs show DOC TARGET_ID [--quote TEXT] [--json]` prints a current packet for any live target with `issuedBy: refs-show`. It is read-only, applies the same root confinement as `refs resolve`, and never creates a packet for a retired or missing target. A `refs show` packet is only for targets the user did not reference (for example the partner block in a merge or split). For the user's own target, the agent keeps the user's packet and follows resolve, refresh, and replace; replacing it with a `refs show` packet would bypass the body-change acknowledgement.
+
+### 11.13 Excerpt selections and source line references
 
 Selecting text inside a paragraph returns that paragraph's stable ID and a quote. Selecting code in the evidence viewer returns the `source` target and selected original source lines, labelled **captured evidence**. The default action offers **Change the explanation of this code**, not **Edit this repository file**.
 
@@ -1238,7 +1256,7 @@ Install small adapter `SKILL.md` files in these supported locations:
 
 These locations are documented by the respective products at the research date.[S13][S14] Host discovery and duplicate-name rules can differ; do not assume that a repository wrapper always overrides a user wrapper.
 
-Both wrappers use the same location-independent dispatcher contract: locate the nearest repository `.explain/bin/explain.cjs`, otherwise the user shim. A repository shim or repository toolchain is executable code chosen by whoever controls the repository: it runs only when its toolkit digest is in the user-scope trust store (§14.2), which `install --scope repo` and `vendor` record when the user runs them. Otherwise the dispatcher uses the user installation or fails with `E_TOOLKIT_UNTRUSTED`. Then ask it for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
+Both wrappers use the same location-independent dispatcher contract: locate the nearest repository `.explain/bin/explain.cjs`, otherwise the user shim. A repository shim or repository toolchain is executable code chosen by whoever controls the repository: it runs only when its toolkit digest is in the user-scope trust store (§14.2), which `install --scope repo` and `vendor` record when the user runs them. Otherwise the dispatcher uses the user installation or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the selected shim for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
 
 `explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reports conflicting adapters and the actual toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
 
@@ -1713,7 +1731,25 @@ Run a build and serve/read session with outbound network denied after installati
 
 Export under a project subpath and read on a static server with no application rewrite behavior. Verify no origin credentials/absolute user paths appear in output. Public export of a private document must stop without explicit approval.
 
-Adversarial fixtures: a repository shim that creates a sentinel file is refused by the user wrapper (`E_TOOLKIT_UNTRUSTED`, no sentinel); a committed `.explain/trust.json` has no effect; a repository config with host `0.0.0.0` still binds loopback; `../` and absolute `documentRoots` fail; a fixture repository with an fsmonitor hook and a textconv driver runs neither during capture and `--rev=--output=x` is rejected; a `.git` gitfile pointing to another repository, `objects/info/alternates` pointing outside the repository, and an inherited `GIT_DIR` are each refused or ignored; `spikes/git-hardening/attack.mjs` is the starting fixture set; a multi-line packet label is rejected and a forged label reports `labelMatches: false`; each §2.3 literal/line/target limit fails fast; a symlinked asset and a text file named `.png` are rejected; a public document citing an "internal" fixture repository stops public export; `java\tscript:`, uppercase `JAVASCRIPT:`, entity-encoded schemes, and `\\host/x` links are rejected; a symlinked `edit-locks` directory or `index.md` is refused; an RLO character in an excerpt renders as an escape; an archive with a case collision is rejected. Also test `install --from-release` against a local HTTPS mock of the release-asset API, with digest match, digest mismatch, and a redirect to a disallowed host (R10). Also test: an abandoned edit lock produces `E_WRITE_CONFLICT` with lock details and no write; archive and extracted-size caps, including a high-ratio compressed archive; the CSP header from `serve` and the CSP meta element in static export; an exact `--public-origin` Host match that succeeds and a near-match that fails; and encoded traversal forms such as `%2e%2e`, `%2f`, `%5c`, and backslashes in request paths.
+Adversarial fixtures:
+
+- A repository shim that creates a sentinel file is refused by the user wrapper (`E_TOOLKIT_UNTRUSTED`, no sentinel).
+- A committed `.explain/trust.json` has no effect.
+- A repository config with host `0.0.0.0` still binds loopback.
+- `../` and absolute `documentRoots` fail.
+- A fixture repository with an fsmonitor hook and a textconv driver runs neither during capture and `--rev=--output=x` is rejected.
+- A `.git` gitfile pointing to another repository, `objects/info/alternates` pointing outside the repository, and an inherited `GIT_DIR` are each refused or ignored.
+- `spikes/git-hardening/attack.mjs` is the starting fixture set.
+- A multi-line packet label is rejected and a forged label reports `labelMatches: false`.
+- Each §2.3 literal/line/target limit fails fast.
+- A symlinked asset and a text file named `.png` are rejected.
+- A public document citing an "internal" fixture repository stops public export.
+- `java\tscript:`, uppercase `JAVASCRIPT:`, entity-encoded schemes, and `\\host/x` links are rejected.
+- A symlinked `edit-locks` directory or `index.md` is refused.
+- An RLO character in an excerpt renders as an escape.
+- An archive with a case collision is rejected.
+
+Also test `install --from-release` against a local HTTPS mock of the release-asset API, with digest match, digest mismatch, and a redirect to a disallowed host (R10). Also test: an abandoned edit lock produces `E_WRITE_CONFLICT` with lock details and no write; archive and extracted-size caps, including a high-ratio compressed archive; the CSP header from `serve` and the CSP meta element in static export; an exact `--public-origin` Host match that succeeds and a near-match that fails; and encoded traversal forms such as `%2e%2e`, `%2f`, `%5c`, and backslashes in request paths.
 
 ### 18.6 Determinism and size tests
 
@@ -1824,7 +1860,7 @@ All ADRs below are accepted for v1. Revisit triggers indicate when a deliberate 
 
 ## 20. Pressure-test rounds and applied corrections
 
-Rounds 1–5 are design-review passes, not claims that independent agents reviewed the document or that the product was implemented. The delivered design incorporates the corrections below. Executable verification, where performed, is separately reported in `VALIDATION.md`.
+Rounds 1–5 are design-review passes, not claims that independent agents reviewed the document or that the product was implemented. Later model reviews and executed spikes (revisions 1.1–1.5) are recorded in `REVISIONS.md`. The delivered design incorporates the corrections below. Executable verification, where performed, is separately reported in `VALIDATION.md`.
 
 ### Round 1 — Product intent versus accidental scope expansion
 
@@ -1875,62 +1911,6 @@ Rounds 1–5 are design-review passes, not claims that independent agents review
 **Corrections:** explicit normalized-text versus raw-byte hashing; generated revision metadata excluded from source; build ID in immutable URLs; parser characterization gate; line-bounded editing units; HTML meta/header distinction; trusted-code extension language; cooperating-writer lock boundary; exact CLI outputs, diagnostics, and executable fixtures.
 
 **Residual:** Markdoc integration, cross-platform layout determinism, and actual size/performance require implementation tests. They are not asserted as proven by this specification.
-
-### Round 6 — External model review (revision 1.1)
-
-Two independent Kimi K3 reviews read revision 1.0: one for contract consistency, one for third-party assumptions, security, and handoff executability. The author checked each finding against the text before accepting it. This is an independent-model review, not a human review or an implementation test.
-
-**Accepted corrections (revision 1.1):** normative definition of `entity` (§9.3); nested-ID retention in `refs replace` and a new guarded `refs retire` command (§11.9, §17.1); body-change acknowledgement in `refs refresh` (§11.9); `retiredTargets` in the frontmatter schema (§6.2); manifest source digests equal the revision-input digests (§7.1); canonical-domain render options (§7.4); `capture file --kind` for web/supplied/example sources (§17.1); no v1 garbage-collection command (§12.4); raw-HTML rejection as an adapter duty with fixtures (§6.5); a bundled text-metrics table for layout, and no Windows determinism claim (§7.5); `local-dir` and `archive` lock origins for bootstrap (§12.3); tailnet-reach warning for private documents (§13.4); explicit server limits (§15.4); manual lock recovery (§11.9); five added security tests (§18.5); clarified per-document JS budget (§2.3); companion files marked absent and replaced by materialization steps (Appendices A–C).
-
-**Rejected or unchanged:** reproducible tar packing is not required, because the lock pins the published archive digest and the toolkit digest comes from the file tree. The budget-realism and Markdoc-maintenance notes need no change: §2.3 already labels budgets as targets, and §5.2 pins exact versions. Comment-marker adjacency stays the largest Phase 0 risk and is already gated by §7.3.
-
-**Residual:** the reviews did not execute Markdoc, ELK, or Tailscale. Their third-party checks are documentation-based. The lost `verification/` fixtures must be regenerated.
-
-### Round 7 — Three-lens model review (revision 1.2)
-
-Three independent Claude Opus 5.5 reviews read revision 1.1: one for regressions from the 1.1 edits plus identity/hashing, one for the catalogue, projection, and reader, and one for plan executability and requirement coverage. The author checked every finding against the text; all findings were accepted, some with a narrower fix. This is a model review, not a human review or an implementation test.
-
-**Identity, hashing, and editing:** `refs show` creates current packets for merge/split steps; `refs replace` accepts new sibling roots for a split; retire rules prevent replacement chains, report live referrers as `E_REF_BROKEN`, and insert frontmatter text minimally; edit results report dependent targets; the edit lock lives under `.explain/locks/` (renamed `.explain/edit-locks/` in Round 8); `local-dir`/`archive` lock diagnostics; code-point (not UTF-16) sort order; NFC-only bundle paths; entity-inherited labels.
-
-**Catalogue and reader:** relationship `kind` mapping per family; `evidenceIds` from attributes plus body citations; `after` means all prerequisites and cannot join exclusive branches; ordinal traces reject times and the renderer prints the ordering caveat; transform merges; `annotated` source preconditions; plan `kind` separated from `label`; moved details return for print and Expand details; JS and no-JS deep-link contracts; generated DOM text excluded from quotes; per-view `data-ex-target`/`data-ex-rel` hooks.
-
-**Plan and coverage:** Phase 0 emits `dist/release` and implements `init` with a `local-dir` lock; Phase 1 includes refresh and a minimal guarded replace, matching the handoff; every §17.1 command has a phase; JSON output schemas; complete §4.3 write list; §17.9 functions for every command; scripts in the §5.3 layout; tests T15–T20, R03 per-kind browser references, R10 release-API mock, R15 extension harness, R16 editorial fixtures; automated versus human release gates; per-phase exit checks and a network-blocked rule.
-
-**Residual:** none of these checks executed code. The largest open risks remain Markdoc comment-marker adjacency (§7.3) and ELK determinism (§7.5).
-
-### Round 8 — Four-lens model review (revision 1.3)
-
-Four independent Claude Opus 5.5 reviews read revision 1.2: regressions from the 1.2 edits, adversarial security and privacy, LLM authorability, and a literal walkthrough of Appendix A from parse to retire. The author checked every finding against the text; all were accepted, one with a narrower fix (packet text limits and match flags instead of an `untrusted` output wrapper), and two duplicate findings were merged. This is a model review, not a human review or an implementation test.
-
-**Regressions fixed:** `refs show` could bypass the body-change guard (now `issuedBy` and a rule that it serves only non-referenced targets); every dev rebuild broke locks (`--dev-toolkit`); T15 was unsatisfiable for nested targets; edit locks renamed to `.explain/edit-locks/` and gitignored; split siblings may precede the retained root; `quoteFound` added to `ResolveResult`; new codes `E_PATH_INVALID`, `E_ID_RETENTION`, `E_UNSUPPORTED`; module owners for new functions; repeated ordinal caveat removed from Appendix A.
-
-**Security:** repository shims/toolchains run only when trusted in user scope; trust store location fixed in user scope; repository config cannot expose the server; document roots confined; Git hardened against hostile repositories; packet field limits and label/kind match flags; parse and literal limits (`E_LIMIT`); bundle files regular with magic-byte checks; public export lists all non-example sources; WHATWG link parsing; `O_NOFOLLOW` lock files; bidi escapes; archive case collisions; adversarial fixtures in §18.5.
-
-**Authorability:** a required `references/format.md` grammar guide; skill steps for `init`, `capture file --kind example`, the resolve/refresh/replace/show procedure, span-error recovery, and `export --format markdown`; markers only at top level; guide checklist with attribute tables and diagnostics; a prose-first fixture; Appendix A labelled as syntax coverage.
-
-**Walkthrough:** canonical elements carry body digests so any target can be copied exactly; normative derived target fields (`kind`, `label`, `plainText`, `parentId`, `sectionId`, `inspectable`, `dependencies`); derived `order` relationship IDs; collision-free instance IDs; declared content files; `effectiveRenderOptions` membership; projection ID lines; retire whitespace and YAML format; page-title and `question` DOM rules.
-
-**Residual:** none of these checks executed code. Markdoc comment-marker adjacency (§7.3) and ELK determinism (§7.5) remain the largest open risks.
-
-### Round 9 — Executed spikes (revision 1.4)
-
-Unlike Rounds 1–8, this round executed code. Three spikes under `spikes/` tested the largest open risks; the author reran each spike's commands and confirmed the reported results before changing the spec. Node was v25.9.0 (plus a local v24.21.0 for ELK); results need a rerun on the pinned toolchain.
-
-**Markdoc spans (`spikes/markdoc-spans/`, Markdoc 0.5.10):** the marker and byte-span design works. All 23 Appendix A targets bound with identical byte spans across LF, CRLF, BOM, and no-final-newline variants. Spec changes: fences are raw leaves (Markdoc parses tags and variables inside fences by default); strict comment rules (trailing text after `-->` is silently dropped, and multi-line markers evade raw-line checks); ATX headings only and fences only (Markdoc disables setext headings and indented code); the adapter enforces one-line tag openings; `html: true` confirmed as the raw-HTML detection method.
-
-**Hash vectors (`spikes/hash-vectors/`):** independent TypeScript and Python implementations agreed on 93 of 95 vectors; the 2 divergences exposed an integer-lexing gap. The UTF-16 sort bug was reproduced (a naive sort gives a different revision). Spec changes: exact string escaping, scalar-value strings, text-level integer grammar, `-0`, not-JCS warning, bundle path grammar and diagnostics, digest kind by role, docId regex, fixed `effectiveRenderOptions` keys, sorted extension digests, and canonical-bytes-only URI parsing.
-
-**ELK determinism (`spikes/elk-determinism/`, elkjs 0.12.0):** byte-identical rounded layouts on Linux across processes, workers, and Node 24/25; 8 cold 40-node/80-edge layouts took under 1 s of layout time on a 16-core desktop. A 200-node/400-edge layout took 3–4 s, so the node/edge caps, not a wall-clock timeout, bound layout cost. Spec changes: fixed ELK option allowlist, the meaning of authored order, a 60 s safety timeout, and the Node version recorded in `build.json`.
-
-**Residual:** macOS determinism, a slower laptop, real font metrics, full-pipeline timing, and Node 24 reruns of the Markdoc and hash spikes are untested.
-
-### Round 10 — Git spike and testing review (revision 1.5)
-
-**Git hardening spike (`spikes/git-hardening/`, Git 2.43, executed):** the author reran it. The §8.2 read path ran no hostile-repository code across fsmonitor (including through `include.path` and `includeIf`), hooks, textconv, filters, `diff.external`, pagers, and credential or proxy settings; `--end-of-options` and the leading-dash check both stopped option injection. Three redirection gaps were confirmed: a `.git` gitfile made the capture return another repository's content under the requested repository's name, `alternates` allowed a foreign commit to resolve, and an inherited `GIT_DIR` redirected a naive read. `git status` ran a clean filter even with the `-c` flags. Spec changes: allowlisted Git environment, git-dir and toplevel containment, alternates refusal, blob and symlink-blob checks, no `safe.directory` override, `E_SOURCE_UNAVAILABLE`, and new §18.5 fixtures.
-
-**Testing and validation review (Claude Opus 5.5, documentation only):** all 13 findings accepted. Spec changes: an applicable Playwright matrix with per-commit and full-matrix tiers; deterministic clipboard stubs; a two-part print test because print emulation does not fire `beforeprint`; measurable oracles (§18.8); Linux-container-only pixel baselines with human first approval; `tests/traceability.json` and report-based gate evidence where missing browsers mean not run; a concrete network-denial mechanism; size budgets gate and timing budgets report; a `beforeRename` seam for race tests; axe scope; a path from the spikes into Node 24 Phase 0 tests; fixture conventions; and a human-gate record template.
-
-**Residual:** Playwright was not installed, so the reviewer marked some engine details UNVERIFIED; the stub-based tests avoid depending on them.
 
 ## 21. Release gates, limitations, and deferred work
 
