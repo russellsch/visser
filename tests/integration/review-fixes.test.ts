@@ -29,7 +29,7 @@ function secondDocument(fx: Fixture, repo: string, name: string, digest: string)
   const doc = join(repo, 'docs', name);
   const r = spawnSync(process.execPath, [cli, 'init', doc, '--kind', 'plan', '--title', `Doc ${name}`, '--toolkit-dir', release], { encoding: 'utf8', env: fx.env });
   if (r.status !== 0) throw new Error(r.stderr);
-  const lockPath = join(doc, 'explain.lock.json');
+  const lockPath = join(doc, 'visser.lock.json');
   const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
   lock.toolkit.sha256 = digest;
   writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
@@ -41,7 +41,7 @@ describe('B1: repository-controlled JSON is read bounded and without following s
     const fx = fixture();
     const A = installUser(fx, release);
     const { doc } = repoWithDocument(fx, 'repo', A);
-    const lock = join(dirname(doc), 'explain.lock.json');
+    const lock = join(dirname(doc), 'visser.lock.json');
     rmSync(lock);
     symlinkSync('/dev/zero', lock);
     const started = Date.now();
@@ -57,14 +57,14 @@ describe('B1: repository-controlled JSON is read bounded and without following s
     const { repo, doc } = repoWithDocument(fx, 'repo', A);
     const secret = join(fx.root, 'secret.txt');
     writeFileSync(secret, SECRET + '\n');
-    const lock = join(dirname(doc), 'explain.lock.json');
+    const lock = join(dirname(doc), 'visser.lock.json');
     rmSync(lock);
     symlinkSync(secret, lock);
     const viaLock = bounded(fx, ['check', doc]);
     expect(viaLock.status).toBe(4);
     expect(viaLock.stdout + viaLock.stderr).not.toContain('aws_secret');
 
-    const config = join(repo, '.explain', 'config.json');
+    const config = join(repo, '.visser', 'config.json');
     symlinkSync(secret, config);
     const viaConfig = bounded(fx, ['skill', 'show'], repo);
     expect(viaConfig.status).toBe(4);
@@ -75,7 +75,7 @@ describe('B1: repository-controlled JSON is read bounded and without following s
     const fx = fixture();
     const A = installUser(fx, release);
     const { doc } = repoWithDocument(fx, 'repo', A);
-    writeFileSync(join(dirname(doc), 'explain.lock.json'), SECRET + '\n');
+    writeFileSync(join(dirname(doc), 'visser.lock.json'), SECRET + '\n');
     const r = bounded(fx, ['check', doc]);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('is not valid JSON');
@@ -88,7 +88,7 @@ describe('B1: repository-controlled JSON is read bounded and without following s
     const { doc } = repoWithDocument(fx, 'repo', A);
     const secret = join(fx.root, 'secret.json');
     writeFileSync(secret, JSON.stringify({ note: SECRET }));
-    const lock = join(dirname(doc), 'explain.lock.json');
+    const lock = join(dirname(doc), 'visser.lock.json');
     rmSync(lock);
     symlinkSync(secret, lock);
     const r = run(fx, cli, ['upgrade', doc, '--to', 'a'.repeat(64)]);
@@ -108,10 +108,10 @@ describe('B2: export --collection through the shim', () => {
     writeFileSync(join(fx.home, 'default'), A + '\n');
     const { repo } = repoWithDocument(fx, 'repo', B);
     secondDocument(fx, repo, 'b', B);
-    writeFileSync(join(repo, 'c.json'), JSON.stringify({ schema: 'explain-collection/1', title: 'C', documents: [{ path: 'docs/a' }, { path: 'docs/b' }] }));
+    writeFileSync(join(repo, 'c.json'), JSON.stringify({ schema: 'visser-collection/1', title: 'C', documents: [{ path: 'docs/a' }, { path: 'docs/b' }] }));
     const r = run(fx, fx.shim, ['export', '--collection', join(repo, 'c.json'), '--format', 'site', '--out', join(fx.root, 'out')], repo);
     expect(r.status, r.stderr).toBe(0);
-    expect(existsSync(join(fx.root, 'out', '_explain', 'assets', B))).toBe(true);
+    expect(existsSync(join(fx.root, 'out', '_visser', 'assets', B))).toBe(true);
   });
 
   it('stops with E_USAGE and names the digests when documents pin different toolkits', () => {
@@ -122,7 +122,7 @@ describe('B2: export --collection through the shim', () => {
     installUser(fx, bDir);
     const { repo } = repoWithDocument(fx, 'repo', A);
     secondDocument(fx, repo, 'b', B);
-    writeFileSync(join(repo, 'c.json'), JSON.stringify({ schema: 'explain-collection/1', title: 'C', documents: [{ path: 'docs/a' }, { path: 'docs/b' }] }));
+    writeFileSync(join(repo, 'c.json'), JSON.stringify({ schema: 'visser-collection/1', title: 'C', documents: [{ path: 'docs/a' }, { path: 'docs/b' }] }));
     const r = run(fx, fx.shim, ['export', '--collection', join(repo, 'c.json'), '--format', 'site', '--out', join(fx.root, 'out')], repo);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('E_USAGE');
@@ -173,7 +173,7 @@ describe('B4 and B5: upgrade version and trust edge cases', () => {
     expect(flagged.status, flagged.stderr).toBe(2);
     expect(flagged.stderr).toContain('E_SYNTAX');
     expect(flagged.stderr).not.toContain('internal error');
-    expect(JSON.parse(readFileSync(join(dirname(doc), 'explain.lock.json'), 'utf8')).toolkit.sha256).toBe(A);
+    expect(JSON.parse(readFileSync(join(dirname(doc), 'visser.lock.json'), 'utf8')).toolkit.sha256).toBe(A);
   });
 
   it('B4: --allow-downgrade skips the comparison when the CURRENT version is not semver', () => {
@@ -188,7 +188,7 @@ describe('B4 and B5: upgrade version and trust edge cases', () => {
     expect(refused.stderr).toContain('E_SYNTAX');
     const moved = run(fx, fx.shim, ['upgrade', doc, '--to', T, '--allow-downgrade']);
     expect(moved.status, moved.stderr).toBe(0);
-    expect(JSON.parse(readFileSync(join(dirname(doc), 'explain.lock.json'), 'utf8')).toolkit.sha256).toBe(T);
+    expect(JSON.parse(readFileSync(join(dirname(doc), 'visser.lock.json'), 'utf8')).toolkit.sha256).toBe(T);
   });
 
   it('B5: --allow-downgrade moves a document off an untrusted current toolkit without trusting it', () => {
@@ -197,14 +197,14 @@ describe('B4 and B5: upgrade version and trust edge cases', () => {
     const uDir = join(fx.root, 'u');
     const U = versioned(uDir, '0.0.0', 'u');
     const { repo, doc } = repoWithDocument(fx, 'repo', U);
-    mkdirSync(join(repo, '.explain', 'toolchains'), { recursive: true });
-    cpSync(uDir, join(repo, '.explain', 'toolchains', U), { recursive: true });
+    mkdirSync(join(repo, '.visser', 'toolchains'), { recursive: true });
+    cpSync(uDir, join(repo, '.visser', 'toolchains', U), { recursive: true });
     const refused = run(fx, fx.shim, ['upgrade', doc, '--to', T]);
     expect(refused.status).toBe(4);
     expect(refused.stderr).toContain('--allow-downgrade');
     const moved = run(fx, fx.shim, ['upgrade', doc, '--to', T, '--allow-downgrade']);
     expect(moved.status, moved.stderr).toBe(0);
-    expect(JSON.parse(readFileSync(join(dirname(doc), 'explain.lock.json'), 'utf8')).toolkit.sha256).toBe(T);
+    expect(JSON.parse(readFileSync(join(dirname(doc), 'visser.lock.json'), 'utf8')).toolkit.sha256).toBe(T);
     const trustPath = join(fx.home, 'trust.json');
     const trust = existsSync(trustPath) ? JSON.parse(readFileSync(trustPath, 'utf8')) : { toolkits: {} };
     expect(trust.toolkits[U]).toBeUndefined();

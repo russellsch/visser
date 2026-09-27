@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: fa23a11c-4aeb-42dc-afff-83524d9a7520
 title: An order is accepted before payment is charged
 kind: architecture
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # An order is accepted before payment is charged
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 In this illustrative service, a successful response to the client means the
 order is stored and a charge request is queued. It does not mean the card was
 charged. A separate worker charges the card later and can retry without
@@ -66,7 +66,7 @@ A retry with the same key cannot charge twice.
 {% edge id="e_update" from="n_worker" to="n_store" kind="call" label="mark paid or failed" /%}
 {% /graph %}
 
-<!-- ex:id p_trace -->
+<!-- vs:id p_trace -->
 One possible path for a single order follows. Other orders interleave freely.
 
 {% trace id="one_order" title="One order from request to charge" question="When does the client get its answer relative to the charge?" scale="ordinal" %}

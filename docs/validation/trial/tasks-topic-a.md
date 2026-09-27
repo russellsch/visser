@@ -14,5 +14,5 @@ Why does the producer not hold the lock while it waits? Show the place in the do
 **A-T4. Identify a limitation or uncertainty.**
 A team wants to use this queue in a service that must shut down cleanly within 5 seconds. What does the document say that is relevant, and what does it not establish?
 
-**A-T5 (Explain condition only). Request a precise change.**
+**A-T5 (Visser condition only). Request a precise change.**
 Copy a reference to the part of the document that explains why the capacity check is a loop. Write a one-line request for an agent to add one sentence about spurious wakeups to that part.

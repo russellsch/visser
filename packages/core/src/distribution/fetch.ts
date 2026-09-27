@@ -101,7 +101,7 @@ function checkHop(url: URL, policy: FetchPolicy): void {
 }
 
 function send(url: URL, headers: Record<string, string>, policy: FetchPolicy, op: Operation): Promise<IncomingMessage> {
-  const sendHeaders: Record<string, string> = { 'User-Agent': 'explain-installer', ...headers };
+  const sendHeaders: Record<string, string> = { 'User-Agent': 'visser-installer', ...headers };
   // The token goes only to the API host, never to a redirect target elsewhere.
   if (policy.token !== undefined && url.host === policy.tokenHost) sendHeaders['Authorization'] = `Bearer ${policy.token}`;
   const options: RequestOptions = { method: 'GET', headers: sendHeaders, timeout: policy.timeoutMs ?? 30_000 };
@@ -198,9 +198,9 @@ async function readCapped(res: IncomingMessage, url: URL, cap: number, onChunk: 
 
 export type ReleaseAsset = { name: string; url: string; size?: number };
 
-/** The release asset for `explain-VERSION.tar.gz` (the name `release:pack` writes). */
+/** The release asset for `visser-VERSION.tar.gz` (the name `release:pack` writes). */
 export function assetName(version: string): string {
-  return `explain-${version.replace(/^v/, '')}.tar.gz`;
+  return `visser-${version.replace(/^v/, '')}.tar.gz`;
 }
 
 export async function resolveReleaseAsset(apiBase: string, repository: string, version: string, policy: FetchPolicy): Promise<ReleaseAsset> {
@@ -259,7 +259,7 @@ export async function downloadAsset(assetUrl: string, dest: string, policy: Fetc
 
 /** The token for GitHub requests, from the environment. Never logged. */
 export function githubToken(env: NodeJS.ProcessEnv): string | undefined {
-  const token = env['EXPLAIN_GITHUB_TOKEN'] || env['GITHUB_TOKEN'] || undefined;
+  const token = env['VISSER_GITHUB_TOKEN'] || env['GITHUB_TOKEN'] || undefined;
   if (token !== undefined && /[\r\n\0]/.test(token)) fail('E_USAGE', 'the GitHub token in the environment contains a control character');
   return token;
 }

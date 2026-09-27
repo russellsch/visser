@@ -4,7 +4,7 @@
 // CSP or other security headers, has no rewrite rules, and no SPA fallback, so
 // the exported pages must work with their meta CSP and relative URLs alone.
 //
-// usage: node tests/browser/static-server.mjs --dir DIR --prefix /explain-demo/ --port 4340
+// usage: node tests/browser/static-server.mjs --dir DIR --prefix /visser-demo/ --port 4340
 import { createServer } from 'node:http';
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';

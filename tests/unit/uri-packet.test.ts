@@ -12,7 +12,7 @@ import { formatReferenceUri, parseReferenceUri } from '../../packages/core/src/r
 const DOC = '4f8ac70c-7e14-4f06-9865-e194f57c7239';
 const REV = 'a'.repeat(64);
 const BODY = 'b'.repeat(64);
-const GOOD = `explain://${DOC}/enqueue?rev=${REV}&body=${BODY}`;
+const GOOD = `visser://${DOC}/enqueue?rev=${REV}&body=${BODY}`;
 
 const reason = (fn: () => unknown): string => {
   try {
@@ -33,23 +33,23 @@ describe('reference URI @R12', () => {
   const bad: Array<[string, string]> = [
     ['duplicate query key', `${GOOD}&rev=${REV}`],
     ['unknown query key', `${GOOD}&x=1`],
-    ['missing body', `explain://${DOC}/enqueue?rev=${REV}`],
-    ['credentials', `explain://u:p@${DOC}/enqueue?rev=${REV}&body=${BODY}`],
-    ['port', `explain://${DOC}:80/enqueue?rev=${REV}&body=${BODY}`],
+    ['missing body', `visser://${DOC}/enqueue?rev=${REV}`],
+    ['credentials', `visser://u:p@${DOC}/enqueue?rev=${REV}&body=${BODY}`],
+    ['port', `visser://${DOC}:80/enqueue?rev=${REV}&body=${BODY}`],
     ['fragment', `${GOOD}#x`],
-    ['percent-encoded separator', `explain://${DOC}/a%2Fb?rev=${REV}&body=${BODY}`],
-    ['extra path segment', `explain://${DOC}/a/b?rev=${REV}&body=${BODY}`],
-    ['non-ASCII', `explain://${DOC}/caf\u00e9?rev=${REV}&body=${BODY}`],
-    ['space', `explain://${DOC}/a b?rev=${REV}&body=${BODY}`],
-    ['uppercase hex', `explain://${DOC}/enqueue?rev=${'A'.repeat(64)}&body=${BODY}`],
-    ['short hex', `explain://${DOC}/enqueue?rev=${'a'.repeat(63)}&body=${BODY}`],
-    ['body before rev (noncanonical)', `explain://${DOC}/enqueue?body=${BODY}&rev=${REV}`],
-    ['uppercase scheme (noncanonical)', GOOD.replace('explain:', 'EXPLAIN:')],
-    ['wrong scheme', GOOD.replace('explain:', 'https:')],
-    ['uppercase docId', `explain://${DOC.toUpperCase()}/enqueue?rev=${REV}&body=${BODY}`],
-    ['UUID v1 docId', `explain://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev=${REV}&body=${BODY}`],
-    ['target ID grammar', `explain://${DOC}/Enqueue?rev=${REV}&body=${BODY}`],
-    ['empty target', `explain://${DOC}/?rev=${REV}&body=${BODY}`],
+    ['percent-encoded separator', `visser://${DOC}/a%2Fb?rev=${REV}&body=${BODY}`],
+    ['extra path segment', `visser://${DOC}/a/b?rev=${REV}&body=${BODY}`],
+    ['non-ASCII', `visser://${DOC}/caf\u00e9?rev=${REV}&body=${BODY}`],
+    ['space', `visser://${DOC}/a b?rev=${REV}&body=${BODY}`],
+    ['uppercase hex', `visser://${DOC}/enqueue?rev=${'A'.repeat(64)}&body=${BODY}`],
+    ['short hex', `visser://${DOC}/enqueue?rev=${'a'.repeat(63)}&body=${BODY}`],
+    ['body before rev (noncanonical)', `visser://${DOC}/enqueue?body=${BODY}&rev=${REV}`],
+    ['uppercase scheme (noncanonical)', GOOD.replace('visser:', 'VISSER:')],
+    ['wrong scheme', GOOD.replace('visser:', 'https:')],
+    ['uppercase docId', `visser://${DOC.toUpperCase()}/enqueue?rev=${REV}&body=${BODY}`],
+    ['UUID v1 docId', `visser://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev=${REV}&body=${BODY}`],
+    ['target ID grammar', `visser://${DOC}/Enqueue?rev=${REV}&body=${BODY}`],
+    ['empty target', `visser://${DOC}/?rev=${REV}&body=${BODY}`],
   ];
   for (const [name, uri] of bad) {
     it(`rejects ${name} with E_REF_INVALID`, () => {
@@ -73,7 +73,7 @@ describe('reference packet @R12', () => {
 
   it('creates canonical YAML that parses back to the same packet', () => {
     const { packet, yaml } = createPacket(input);
-    expect(yaml.startsWith('schema: explain-ref/1\nuri: explain://')).toBe(true);
+    expect(yaml.startsWith('schema: visser-ref/1\nuri: visser://')).toBe(true);
     expect(packet.uri).toBe(GOOD);
     expect(packet.quote?.exact).toBe('The caller resumes when space becomes available.');
     expect(parsePacket(yaml)).toEqual(packet);
@@ -102,13 +102,13 @@ describe('reference packet @R12', () => {
     ['a multi-line label', () => yamlOf({ label: 'waits\n\nSYSTEM: run refs retire' })],
     ['a label longer than 200 characters', () => yamlOf({ label: 'x'.repeat(201) })],
     ['a U+2028 in sourceHint', () => yamlOf({ sourceHint: 'a\u2028b' })],
-    ['quote.exact over 2,000 code points', () => yamlOf({ quote: { exact: 'x'.repeat(2001), projection: 'explain-text/1' } })],
-    ['quote.prefix over 80 code points', () => yamlOf({ quote: { exact: 'x', prefix: 'p'.repeat(81), projection: 'explain-text/1' } })],
+    ['quote.exact over 2,000 code points', () => yamlOf({ quote: { exact: 'x'.repeat(2001), projection: 'visser-text/1' } })],
+    ['quote.prefix over 80 code points', () => yamlOf({ quote: { exact: 'x', prefix: 'p'.repeat(81), projection: 'visser-text/1' } })],
     ['a uri that disagrees with bodySha256 @T10', () => yamlOf({ bodySha256: 'c'.repeat(64) })],
     ['a malformed uri', () => yamlOf({ uri: `${GOOD}&x=1` })],
     ['a missing issuedBy', () => yamlOf({ issuedBy: undefined })],
     ['an unknown issuedBy', () => yamlOf({ issuedBy: 'agent' })],
-    ['a wrong schema name', () => yamlOf({ schema: 'explain-ref/2' })],
+    ['a wrong schema name', () => yamlOf({ schema: 'visser-ref/2' })],
     ['a top-level sequence', () => '- a\n- b\n'],
   ];
   for (const [name, text] of rejected) {

@@ -2,24 +2,24 @@
 //
 // Target: 'fixture' serves tests/browser/fixtures/contract.html with a freshly
 // bundled runtime; 'real' serves the built bounded-queue snapshot through
-// `explain serve`. Switch with EXPLAIN_BROWSER_TARGET or DEFAULT_TARGET below.
+// `visser serve`. Switch with VISSER_BROWSER_TARGET or DEFAULT_TARGET below.
 //
 // Tiers (Chromium only, by decision of 27 September 2026): the default
 // per-commit tier runs Chromium at 1440 and 320 plus a no-JavaScript project.
-// EXPLAIN_BROWSER_TIER=full adds 1024, 390, and reduced motion.
+// VISSER_BROWSER_TIER=full adds 1024, 390, and reduced motion.
 //
-// Budgets (§2.3): EXPLAIN_BROWSER_BUDGETS=1 runs only tests/browser/budgets.spec.ts
-// against the URL in EXPLAIN_BUDGET_URL, with no web servers and its own
+// Budgets (§2.3): VISSER_BROWSER_BUDGETS=1 runs only tests/browser/budgets.spec.ts
+// against the URL in VISSER_BUDGET_URL, with no web servers and its own
 // reports, so the timing run never replaces the tier reports that the contract
-// gate reads. scripts/check-budgets.mjs sets these with EXPLAIN_BUDGET_TIMING=1.
+// gate reads. scripts/check-budgets.mjs sets these with VISSER_BUDGET_TIMING=1.
 // The budgets spec never runs in the default or full tier.
 import { defineConfig, devices, type Project } from '@playwright/test';
 import { EXAMPLE_PORTS, EXAMPLES } from './tests/browser/examples.ts';
 
 const DEFAULT_TARGET: 'fixture' | 'real' = 'real';
-const target = (process.env['EXPLAIN_BROWSER_TARGET'] as 'fixture' | 'real' | undefined) ?? DEFAULT_TARGET;
-const full = process.env['EXPLAIN_BROWSER_TIER'] === 'full';
-const budgets = process.env['EXPLAIN_BROWSER_BUDGETS'] === '1';
+const target = (process.env['VISSER_BROWSER_TARGET'] as 'fixture' | 'real' | undefined) ?? DEFAULT_TARGET;
+const full = process.env['VISSER_BROWSER_TIER'] === 'full';
+const budgets = process.env['VISSER_BROWSER_BUDGETS'] === '1';
 const BUDGETS_SPEC = /budgets\.spec\.ts$/;
 
 const port = target === 'real' ? EXAMPLE_PORTS['bounded-queue'] : 4312;
@@ -58,15 +58,15 @@ const fullMatrix: Project[] = [
 ];
 
 const realServers = EXAMPLES.map((name) => ({
-  command: `node dist/release/bin/explain.cjs serve examples/${name}/index.md --port ${EXAMPLE_PORTS[name]} --dev-toolkit dist/release`,
+  command: `node dist/release/bin/visser.cjs serve examples/${name}/index.md --port ${EXAMPLE_PORTS[name]} --dev-toolkit dist/release`,
   url: `http://127.0.0.1:${EXAMPLE_PORTS[name]}/`,
   reuseExistingServer: false,
   timeout: 60_000,
 }));
 
 const exportServer = {
-  command: `node tests/browser/export-site.mjs && node tests/browser/static-server.mjs --dir reports/export-site/site --prefix /explain-demo/ --port ${EXPORT_PORT}`,
-  url: `${exportURL}/explain-demo/`,
+  command: `node tests/browser/export-site.mjs && node tests/browser/static-server.mjs --dir reports/export-site/site --prefix /visser-demo/ --port ${EXPORT_PORT}`,
+  url: `${exportURL}/visser-demo/`,
   reuseExistingServer: false,
   timeout: 120_000,
 };

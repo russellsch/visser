@@ -1,4 +1,4 @@
-// `explain refs resolve|show|refresh|replace|retire` (§11.6, §11.9–11.12, §17.1).
+// `visser refs resolve|show|refresh|replace|retire` (§11.6, §11.9–11.12, §17.1).
 // Exit codes (§15.6): 0 exact/success, 2 invalid, missing, deleted, ambiguous, or
 // ID retention, 3 unsupported or no repository, 4 path escape, 5 stale or write conflict.
 import { readFileSync, statSync } from 'node:fs';
@@ -14,11 +14,11 @@ import { retireTarget } from '../../../core/src/references/retire.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag, printJson } from '../cli-util.ts';
 
 const USAGE = [
-  'usage: explain refs resolve --packet FILE [--doc PATH] [--root DIR] [--json]',
-  '       explain refs show DOC TARGET_ID [--quote TEXT] [--root DIR] [--json]',
-  '       explain refs refresh --packet FILE --expected-current REV --acknowledge-stale [--acknowledge-body-change] [--doc PATH] [--root DIR] [--json]',
-  '       explain refs replace --packet FILE --replacement FILE --expected-revision REV [--retire ID --reason TEXT]... [--doc PATH] [--root DIR] [--json]',
-  '       explain refs retire --packet FILE --reason TEXT [--replacement ID] --expected-revision REV [--doc PATH] [--root DIR] [--json]',
+  'usage: visser refs resolve --packet FILE [--doc PATH] [--root DIR] [--json]',
+  '       visser refs show DOC TARGET_ID [--quote TEXT] [--root DIR] [--json]',
+  '       visser refs refresh --packet FILE --expected-current REV --acknowledge-stale [--acknowledge-body-change] [--doc PATH] [--root DIR] [--json]',
+  '       visser refs replace --packet FILE --replacement FILE --expected-revision REV [--retire ID --reason TEXT]... [--doc PATH] [--root DIR] [--json]',
+  '       visser refs retire --packet FILE --reason TEXT [--replacement ID] --expected-revision REV [--doc PATH] [--root DIR] [--json]',
 ].join('\n');
 
 function booleanFlag(args: ParsedArgs, name: string): boolean {
@@ -38,7 +38,7 @@ function repoRoot(args: ParsedArgs): string {
   const explicit = stringFlag(args, 'root');
   const root = explicit ?? findRepoRoot(process.cwd());
   if (!root) {
-    throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .explain) found; pass --root DIR', EXIT.unavailable);
+    throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .visser) found; pass --root DIR', EXIT.unavailable);
   }
   return root;
 }
@@ -90,7 +90,7 @@ async function resolve(args: ParsedArgs): Promise<number> {
     packet = readPacket(required(args, 'packet'));
   } catch (error) {
     if (error instanceof CliError) throw error;
-    const result: ResolveResult = { schema: 'explain-resolve/1', status: 'invalid', diagnostics: [fromHashError(error)] };
+    const result: ResolveResult = { schema: 'visser-resolve/1', status: 'invalid', diagnostics: [fromHashError(error)] };
     printResolve(result, json);
     return EXIT.invalid;
   }
@@ -106,7 +106,7 @@ async function show(args: ParsedArgs): Promise<number> {
   const json = booleanFlag(args, 'json');
   const quote = stringFlag(args, 'quote');
   const result = showReference(doc, targetId, { repoRoot: repoRoot(args), ...(quote !== undefined ? { quote } : {}) });
-  if (json) printJson('show', { schema: 'explain-show/1', packet: result.packet, yaml: result.yaml, ...(result.quoteFound !== undefined ? { quoteFound: result.quoteFound } : {}) });
+  if (json) printJson('show', { schema: 'visser-show/1', packet: result.packet, yaml: result.yaml, ...(result.quoteFound !== undefined ? { quoteFound: result.quoteFound } : {}) });
   else process.stdout.write(result.yaml);
   if (result.quoteFound === false) printDiagnostics([{ code: 'W_QUOTE_NOT_FOUND', severity: 'warning', message: 'the quote is not in the target text' }], false);
   return EXIT.ok;
@@ -120,14 +120,14 @@ async function refresh(args: ParsedArgs): Promise<number> {
   const doc = stringFlag(args, 'doc');
   try {
     const result = refreshReference(packet, expected, acknowledgements, { repoRoot: repoRoot(args), ...(doc !== undefined ? { doc } : {}) });
-    if (json) printJson('refresh', { schema: 'explain-refresh/1', refused: false, packet: result.packet, yaml: result.yaml, ...(result.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: result.targetBodyUnchanged } : {}) });
+    if (json) printJson('refresh', { schema: 'visser-refresh/1', refused: false, packet: result.packet, yaml: result.yaml, ...(result.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: result.targetBodyUnchanged } : {}) });
     else process.stdout.write(result.yaml);
     return EXIT.ok;
   } catch (error) {
     if (!(error instanceof RefreshRefused)) throw error;
     const diagnostics: Diagnostic[] = [{ code: 'E_REF_STALE', severity: 'error', message: error.message, targetId: packet.targetId }];
     if (json) {
-      printJson('refresh', { schema: 'explain-refresh/1', refused: true, ...(error.resolution.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: error.resolution.targetBodyUnchanged } : {}), ...(error.resolution.currentRevision !== undefined ? { currentRevision: error.resolution.currentRevision } : {}), ...(error.currentText !== undefined ? { currentText: error.currentText } : {}), diagnostics });
+      printJson('refresh', { schema: 'visser-refresh/1', refused: true, ...(error.resolution.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: error.resolution.targetBodyUnchanged } : {}), ...(error.resolution.currentRevision !== undefined ? { currentRevision: error.resolution.currentRevision } : {}), ...(error.currentText !== undefined ? { currentText: error.currentText } : {}), diagnostics });
     } else {
       // stdout carries only packets (`refs refresh … > ref2.yaml`), so the text a
       // refusal asks the agent to show the user goes to stderr.

@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 title: Fixture
 kind: teaching
@@ -7,14 +7,14 @@ capturedAt: 2026-09-26T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id l -->
+<!-- vs:id l -->
 - a
 - b
 
-<!-- ex:id t -->
+<!-- vs:id t -->
 | a | b |
 |---|---|
 | 1 | 2 |
 
-<!-- ex:id q -->
+<!-- vs:id q -->
 > quoted

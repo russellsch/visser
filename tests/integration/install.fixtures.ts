@@ -6,17 +6,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { canonicalJSON } from '../../packages/core/src/model/hash.ts';
 
-export function tempDir(prefix = 'explain-install-'): string {
+export function tempDir(prefix = 'visser-install-'): string {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
 export const RELEASE_FILES: Record<string, string> = {
-  'bin/explain.cjs': "process.stdout.write('fake toolkit\\n');\n",
+  'bin/visser.cjs': "process.stdout.write('fake toolkit\\n');\n",
   'bin/shim.cjs': "process.stdout.write('fake shim\\n');\n",
   'workers/layout.cjs': '// layout worker\n',
   'browser/reader.js': '// reader\n',
-  'schemas/explain-ref-1.schema.json': '{}\n',
-  'skills/explain/SKILL.md': '# skill\n',
+  'schemas/visser-ref-1.schema.json': '{}\n',
+  'skills/visual-explain/SKILL.md': '# skill\n',
   'LICENSES.txt': 'notices\n',
 };
 
@@ -28,7 +28,7 @@ export function makeRelease(dir: string, files: Record<string, string> = RELEASE
     writeFileSync(full, text);
     return { path, sha256: createHash('sha256').update(text).digest('hex') };
   }).sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
-  const manifest = { schema: 'explain-release/1', version, files: entries };
+  const manifest = { schema: 'visser-release/1', version, files: entries };
   writeFileSync(join(dir, 'release.json'), canonicalJSON(manifest) + '\n');
   return createHash('sha256').update(canonicalJSON(manifest)).digest('hex');
 }

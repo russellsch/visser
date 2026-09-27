@@ -43,11 +43,11 @@ describe('example bundles (§17.5) @R14', () => {
 
       it('projects every target once and every relationship tuple', () => {
         const text = projectText(bundle.parsed);
-        const ids = [...text.matchAll(/<!-- ex:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]!);
+        const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]!);
         expect(ids.sort()).toEqual([...bundle.model.targets.keys()].sort());
         for (const rel of bundle.model.relationships) {
           if (rel.kind === 'order') {
-            const block = text.slice(text.indexOf(`<!-- ex:target ${rel.to} -->`));
+            const block = text.slice(text.indexOf(`<!-- vs:target ${rel.to} -->`));
             expect(block.split('\n').find((l) => l.startsWith('after:')), rel.id).toContain(rel.from);
             continue;
           }

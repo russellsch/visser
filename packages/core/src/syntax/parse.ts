@@ -37,7 +37,7 @@ export type Analysis = {
 const utf8 = new TextEncoder();
 const decodeStrict = new TextDecoder('utf-8', { fatal: true });
 
-/** Parse one Explain source file into targets with proven byte spans (§17.9 parseSource). */
+/** Parse one Visser source file into targets with proven byte spans (§17.9 parseSource). */
 export function parseSource(bytes: Uint8Array, relPath: string): ParsedSource {
   return analyzeSource(bytes, relPath).source;
 }
@@ -149,16 +149,16 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
       const line = node.lines[0] ?? 0;
       const kind = blockKind(node);
       unmarked.push({ line, kind });
-      report('E_ID_MISSING', `${kind} has no ID marker`, line, { suggestedAction: 'run `explain ids assign`' });
+      report('E_ID_MISSING', `${kind} has no ID marker`, line, { suggestedAction: 'run `visser ids assign`' });
     }
   }
 
   // Unclosed or unparsed marker comments are visible only in the raw lines (spike P5f).
   for (let i = 0; i < src.lines.length; i++) {
     const line = src.lines[i] ?? '';
-    if (!line.trimStart().startsWith('<!--') || !/ex:id/.test(line)) continue;
+    if (!line.trimStart().startsWith('<!--') || !/vs:id/.test(line)) continue;
     if (commentLines.has(i) || fenceLines.some(([s, e]) => i >= s && i < e)) continue;
-    report('E_SYNTAX', 'malformed ex:id marker comment', i);
+    report('E_SYNTAX', 'malformed vs:id marker comment', i);
   }
 
   // Identity checks.
@@ -284,7 +284,7 @@ function checkHtmlToken(tok: MToken, parentLine: number | undefined, report: Rep
     const c = tok.content.trim();
     if (c.startsWith('<!--')) {
       if (!/^<!--[\s\S]*-->$/.test(c) || /-->[\s\S]/.test(c)) report('E_SYNTAX', 'comment has text after -->', line);
-      else if (/^<!--\s*ex:id\b/.test(c)) report('E_SYNTAX', 'ex:id marker must be a whole line before a top-level block', line);
+      else if (/^<!--\s*vs:id\b/.test(c)) report('E_SYNTAX', 'vs:id marker must be a whole line before a top-level block', line);
     } else {
       report('E_UNSAFE_CONTENT', `raw HTML is not allowed: ${JSON.stringify(c.slice(0, 40))}`, line);
     }
@@ -385,7 +385,7 @@ function escapeRe(s: string): string {
 function checkNestedComment(node: MNode, src: SourceText, report: Report) {
   const content = String(node.attributes['content'] ?? '');
   const s = node.lines[0];
-  if (/^\s*ex:id\b/.test(content)) {
+  if (/^\s*vs:id\b/.test(content)) {
     report('E_SYNTAX', 'ID markers are allowed only at the top level; use a detail child with an explicit id', s);
     return;
   }
@@ -414,11 +414,11 @@ function checkTopComment(
   const e = node.lines[node.lines.length - 1];
   if (s === undefined || e === undefined) return undefined;
   const prevOk = s === 0 || isBlank(src.lines[s - 1]) || s - 1 === fmClose;
-  const isExId = /^\s*ex:id\b/.test(content);
+  const isExId = /^\s*vs:id\b/.test(content);
   const m = e - s === 1 ? MARKER_LINE.exec(src.lines[s] ?? '') : null;
   if (!m) {
     if (isExId) {
-      report('E_SYNTAX', 'malformed ex:id marker; a marker is one whole line', s);
+      report('E_SYNTAX', 'malformed vs:id marker; a marker is one whole line', s);
       return undefined;
     }
     if (!checkCommentShape(node, src, report)) return undefined;

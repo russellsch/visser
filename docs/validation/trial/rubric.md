@@ -26,7 +26,7 @@ For tasks T3, the "locate" part counts only if the participant shows the place i
 | B-T3 | (a) the link is inferred, not observed; (b) the evidence is the log that shows the same query repeated while the pool filled; (c) shows the log excerpt or the link that cites it. |
 | B-T4 | (a) the role of client retries is a hypothesis; (b) the reason: no retry metrics were available. (Also accept the inferred stampede link, if the participant says it is inferred and why.) |
 
-## Reference task (Explain only, reported separately)
+## Reference task (Visser only, reported separately)
 
 | Task | Success |
 |---|---|

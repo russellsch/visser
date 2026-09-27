@@ -189,7 +189,7 @@ export function validateBundlePath(p: string): void {
 export type BundleFile = { path: string; kind: 'text' | 'binary'; content: Uint8Array };
 
 export type SourceManifest = {
-  schema: 'explain-source-manifest/1';
+  schema: 'visser-source-manifest/1';
   docId: string;
   files: Array<{ path: string; sha256: Sha256 }>;
 };
@@ -221,7 +221,7 @@ export function sourceManifest(docId: string, files: readonly BundleFile[]): Sou
   });
   if (!seen.has('index.md')) throw new HashError('E_PATH_INVALID', 'E_MANIFEST', 'index.md is required');
   entries.sort((a, b) => compareCodePoints(a.path, b.path));
-  return { schema: 'explain-source-manifest/1', docId, files: entries };
+  return { schema: 'visser-source-manifest/1', docId, files: entries };
 }
 
 /** §17.9 computeSourceRevision: sha256 of the canonical manifest. */
@@ -281,7 +281,7 @@ export function buildIdFromInput(input: {
   }
   ext.sort(compareCodePoints);
   const canonical = canonicalJSON({
-    schema: 'explain-build-input/1',
+    schema: 'visser-build-input/1',
     sourceRevision: input.sourceRevision,
     toolkitSha256: input.toolkitSha256,
     extensionDigests: ext,

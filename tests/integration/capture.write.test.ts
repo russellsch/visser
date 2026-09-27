@@ -34,7 +34,7 @@ function errorsOf(doc: string) {
 describe('writing a captured source @R07 @R19', () => {
   it('places a new source after the last existing source, so the file keeps capture order, and keeps every other byte', async () => {
     const repo = fx.repo('r');
-    const doc = fx.doc('d', '<!-- ex:id intro -->\nIntro.\n\n<!-- ex:id outro -->\nOutro.\n');
+    const doc = fx.doc('d', '<!-- vs:id intro -->\nIntro.\n\n<!-- vs:id outro -->\nOutro.\n');
     captureGit({ repo, file: 'a.txt', lines: '1:1', doc, id: 'src_first', title: 'First', repositoryLabel: 'app', capturedAt: AT });
     captureGit({ repo, file: 'a.txt', lines: '2:3', doc, id: 'src_second', title: 'Second', repositoryLabel: 'app', capturedAt: AT });
     const before = readFileSync(doc, 'utf8');
@@ -57,12 +57,12 @@ describe('writing a captured source @R07 @R19', () => {
     writeFileSync(doc, again.replace('Intro.', 'Intro {% cite ref="src_first" /%} {% cite ref="src_second" /%} {% cite ref="src_third" /%}.'));
     const page = await compileDocument(loadBundle(doc), { version: '0.0.0', sha256: 'a'.repeat(64) }, { audience: 'private', includeSource: false, layoutFallback: false, nodeVersion: 'v24.21.0' });
     const html = new TextDecoder().decode(page.files.find((f) => f.path.endsWith('/index.html'))!.bytes);
-    expect([...html.matchAll(/class="ex-cite"[^>]*>\[(\d+)\]/g)].map((m) => m[1])).toEqual(['1', '2', '3']);
+    expect([...html.matchAll(/class="vs-cite"[^>]*>\[(\d+)\]/g)].map((m) => m[1])).toEqual(['1', '2', '3']);
   });
 
   it('accepts a capture that resolves an existing citation', () => {
     const repo = fx.repo('r');
-    const doc = fx.doc('d', '<!-- ex:id intro -->\nIntro {% cite ref="src_a" /%}\n');
+    const doc = fx.doc('d', '<!-- vs:id intro -->\nIntro {% cite ref="src_a" /%}\n');
     expect(errorsOf(doc).map((d) => d.code)).toContain('E_REF_BROKEN');
     captureGit({ repo, file: 'a.txt', lines: '1:1', doc, id: 'src_a', title: 'A', repositoryLabel: 'app', capturedAt: AT });
     expect(errorsOf(doc)).toEqual([]);
@@ -125,7 +125,7 @@ describe('the guarded write for capture (§11.9)', () => {
   it('refuses while another writer holds the lock, and writes nothing', () => {
     const repo = fx.repo('r');
     const doc = fx.doc('d');
-    const locks = join(fx.root, 'd', '.explain', 'edit-locks');
+    const locks = join(fx.root, 'd', '.visser', 'edit-locks');
     mkdirSync(locks, { recursive: true });
     writeFileSync(join(locks, `${DOC_ID}.lock`), JSON.stringify({ pid: 1, token: 'other' }));
     const snapshot = readFileSync(doc);
@@ -136,7 +136,7 @@ describe('the guarded write for capture (§11.9)', () => {
   it('detects an external write before rename and keeps the external version', () => {
     const repo = fx.repo('r');
     const doc = fx.doc('d');
-    const external = readFileSync(doc, 'utf8') + '\n<!-- ex:id late -->\nAdded by someone else.\n';
+    const external = readFileSync(doc, 'utf8') + '\n<!-- vs:id late -->\nAdded by someone else.\n';
     expect(codeOf(() => captureGit({ repo, file: 'a.txt', lines: '1:1', doc, id: 'src_a', title: 'A', repositoryLabel: 'app', capturedAt: AT, fsContext: { beforeRename: (p) => writeFileSync(p, external) } }))).toBe('E_WRITE_CONFLICT');
     expect(readFileSync(doc, 'utf8')).toBe(external);
   });
@@ -185,15 +185,15 @@ describe('capture file kinds @R07', () => {
 });
 
 describe('capture from the built release CLI @R07', () => {
-  it('captures and verifies with dist/release/bin/explain.cjs', () => {
-    const cli = join(process.cwd(), 'dist', 'release', 'bin', 'explain.cjs');
+  it('captures and verifies with dist/release/bin/visser.cjs', () => {
+    const cli = join(process.cwd(), 'dist', 'release', 'bin', 'visser.cjs');
     expect(existsSync(cli), 'run `npm run build` first').toBe(true);
     const repo = fx.repo('r');
     const doc = fx.doc('d');
-    const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, EXPLAIN_HOME: join(fx.root, 'explain-home') } });
+    const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...process.env, VISSER_HOME: join(fx.root, 'visser-home') } });
     const cap = run('capture', 'git', '--repo', repo, '--file', 'a.txt', '--lines', '1:2', '--doc', doc, '--id', 'src_a', '--title', 'A', '--repository-label', 'app', '--captured-at', AT, '--json');
     expect(cap.status, cap.stderr + cap.stdout).toBe(0);
-    expect(JSON.parse(cap.stdout)).toMatchObject({ schema: 'explain-capture/1', id: 'src_a' });
+    expect(JSON.parse(cap.stdout)).toMatchObject({ schema: 'visser-capture/1', id: 'src_a' });
     const check = run('check', doc, '--json', '--repo-map', `app=${repo}`, '--verify-origins');
     expect(check.status, check.stderr + check.stdout).toBe(0);
     expect(JSON.parse(check.stdout).origins).toEqual([{ id: 'src_a', kind: 'git', state: 'origin-matched' }]);

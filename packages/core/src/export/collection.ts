@@ -1,4 +1,4 @@
-// Collection input `explain-collection/1` (§13.5). Each document path is
+// Collection input `visser-collection/1` (§13.5). Each document path is
 // relative to the collection file and must resolve inside the repository.
 import { lstatSync, realpathSync } from 'node:fs';
 import { readBoundedJson } from '../model/bounded-read.ts';
@@ -26,7 +26,7 @@ export function readCollection(file: string, repoRoot: string): Collection {
   const value = readBoundedJson(file, file);
   if (value === undefined) fail('E_SOURCE_UNAVAILABLE', `cannot read the collection ${file}`);
   const check = validateAgainst('collection', value);
-  if (!check.ok) fail('E_SYNTAX', `${file} is not a valid explain-collection/1 file: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_SYNTAX', `${file} is not a valid visser-collection/1 file: ${check.errors.join('; ')}`);
   const collection = value as { title: string; documents: Array<{ path: string }> };
   const root = realpathSync(repoRoot);
   const base = dirname(resolve(file));

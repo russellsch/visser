@@ -73,7 +73,7 @@ export function stringFlag(args: ParsedArgs, name: string): string | undefined {
 
 export function printDiagnostics(diagnostics: Diagnostic[], json: boolean): void {
   if (json) {
-    printJson('diagnostics', { schema: 'explain-diagnostics/1', diagnostics });
+    printJson('diagnostics', { schema: 'visser-diagnostics/1', diagnostics });
     return;
   }
   for (const d of diagnostics) {
@@ -107,7 +107,7 @@ export function printJson(name: SchemaName, value: unknown): void {
 }
 
 /**
- * A reader that closes the pipe early (`explain skill show | head -1`) makes
+ * A reader that closes the pipe early (`visser skill show | head -1`) makes
  * later writes fail with EPIPE. Ignore the rest of the output on that stream,
  * and let the command finish: a write command must not stop half-way, and the
  * exit code stays the command's own.

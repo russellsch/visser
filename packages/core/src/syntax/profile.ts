@@ -1,7 +1,7 @@
 // Restricted authoring profile constants (ARCHITECTURE.md §2.3, §6.3–6.6, §9).
 
 /** A whole-line ID marker (§6.3). Group 1 is the target ID. */
-export const MARKER_LINE = /^[ ]{0,3}<!-- ex:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$/;
+export const MARKER_LINE = /^[ ]{0,3}<!-- vs:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$/;
 
 /** Target ID grammar (§6.3). */
 export const TARGET_ID = /^[a-z][a-z0-9_-]{0,63}$/;

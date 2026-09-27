@@ -1,6 +1,6 @@
 // Shared helpers for browser journeys. Tests address the page only through the
 // DOM contract (packages/core/src/compiler/dom-contract.ts), so the same tests
-// run against the fixture and against the real `explain serve` snapshot.
+// run against the fixture and against the real `visser serve` snapshot.
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test as base } from '@playwright/test';
 import { EXAMPLE_PORTS, type ExampleName } from './examples.ts';
@@ -11,7 +11,7 @@ import { EXAMPLE_PORTS, type ExampleName } from './examples.ts';
  * GitHub Pages does. Projects with `metadata.site === 'export'` read it.
  */
 export const EXPORT_PORT = 4340;
-export const EXPORT_PREFIX = '/explain-demo/';
+export const EXPORT_PREFIX = '/visser-demo/';
 export const EXPORT_ORIGIN = `http://127.0.0.1:${EXPORT_PORT}`;
 const exportMap = new URL('../../reports/export-site/map.json', import.meta.url);
 
@@ -136,7 +136,7 @@ export const isNarrow = (page: Page) => (page.viewportSize()?.width ?? 1440) <= 
  * SVG map switch the figure to its map view first.
  */
 export async function showMap(page: Page, figureId: string): Promise<void> {
-  const toggle = page.locator(`[id="x-${figureId}"] .ex-view-toggle`);
+  const toggle = page.locator(`[id="x-${figureId}"] .vs-view-toggle`);
   if ((await toggle.count()) > 0 && (await toggle.isVisible()) && (await toggle.getAttribute('aria-pressed')) !== 'true') {
     await toggle.click();
   }

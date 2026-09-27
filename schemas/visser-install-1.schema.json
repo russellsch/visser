@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-install-1.schema.json",
+  "title": "visser install --json (§12.1, §12.2, §17.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "scope", "version", "toolkitSha256", "origin", "path", "alreadyInstalled", "trusted", "invocation"],
+  "properties": {
+    "schema": { "const": "visser-install/1" },
+    "scope": { "enum": ["user", "repo"] },
+    "version": { "type": "string", "minLength": 1 },
+    "toolkitSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "origin": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "local-dir" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "archiveSha256"],
+          "properties": {
+            "kind": { "const": "archive" },
+            "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repository", "version", "archiveSha256"],
+          "properties": {
+            "kind": { "const": "github-release" },
+            "repository": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+            "version": { "type": "string", "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+            "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      ]
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "alreadyInstalled": { "type": "boolean" },
+    "trusted": { "const": true },
+    "shim": { "type": "string", "minLength": 1 },
+    "shimReplaced": { "type": "boolean" },
+    "default": { "const": true },
+    "invocation": { "type": "string", "minLength": 1 }
+  }
+}

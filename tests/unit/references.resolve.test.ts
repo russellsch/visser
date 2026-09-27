@@ -18,7 +18,7 @@ import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 const EXAMPLE = new URL('../../examples/bounded-queue/index.md', import.meta.url).pathname;
 
 function tempRepo(): { repo: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-refs-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-refs-'));
   mkdirSync(join(repo, '.git'));
   mkdirSync(join(repo, 'docs/explanations/queue'), { recursive: true });
   const doc = join(repo, 'docs/explanations/queue/index.md');
@@ -62,14 +62,14 @@ describe('registry (§11.5)', () => {
 
   it('rejects document roots that escape the repository', () => {
     const { repo } = tempRepo();
-    mkdirSync(join(repo, '.explain'));
+    mkdirSync(join(repo, '.visser'));
     for (const root of ['../outside', '/etc', 'docs/../../x']) {
-      writeFileSync(join(repo, '.explain/config.json'), JSON.stringify({ schema: 'explain-workspace/1', documentRoots: [root] }));
+      writeFileSync(join(repo, '.visser/config.json'), JSON.stringify({ schema: 'visser-workspace/1', documentRoots: [root] }));
       expect(() => documentRoots(repo)).toThrow(/E_PATH_ESCAPE|inside the repository|relative/);
     }
-    const outside = mkdtempSync(join(tmpdir(), 'explain-outside-'));
+    const outside = mkdtempSync(join(tmpdir(), 'visser-outside-'));
     symlinkSync(outside, join(repo, 'linked'));
-    writeFileSync(join(repo, '.explain/config.json'), JSON.stringify({ schema: 'explain-workspace/1', documentRoots: ['linked'] }));
+    writeFileSync(join(repo, '.visser/config.json'), JSON.stringify({ schema: 'visser-workspace/1', documentRoots: ['linked'] }));
     expect(() => documentRoots(repo)).toThrow(/outside the repository/);
   });
 
@@ -113,7 +113,7 @@ describe('resolution (§11.6)', () => {
   it('keeps the binding when a paragraph is inserted above the target @T02', () => {
     const { repo, doc } = tempRepo();
     const packet = packetFor(repo, doc, 'p_limits');
-    edit(doc, (t) => t.replace('<!-- ex:id p_limits -->', '<!-- ex:id p_new -->\nA new paragraph.\n\n<!-- ex:id p_limits -->'));
+    edit(doc, (t) => t.replace('<!-- vs:id p_limits -->', '<!-- vs:id p_new -->\nA new paragraph.\n\n<!-- vs:id p_limits -->'));
     const { result } = resolveReference(packet, { repoRoot: repo });
     expect(result.status).toBe('stale');
     expect(result.targetBodyUnchanged).toBe(true);
@@ -131,7 +131,7 @@ describe('resolution (§11.6)', () => {
 
   it('resolves identical paragraphs independently by ID, not by quote @T04', () => {
     const { repo, doc } = tempRepo();
-    edit(doc, (t) => t.replace('<!-- ex:id p_vocabulary -->', '<!-- ex:id p_twin_a -->\nSame words.\n\n<!-- ex:id p_twin_b -->\nSame words.\n\n<!-- ex:id p_vocabulary -->'));
+    edit(doc, (t) => t.replace('<!-- vs:id p_vocabulary -->', '<!-- vs:id p_twin_a -->\nSame words.\n\n<!-- vs:id p_twin_b -->\nSame words.\n\n<!-- vs:id p_vocabulary -->'));
     const a = packetFor(repo, doc, 'p_twin_a', 'Same words.');
     const b = packetFor(repo, doc, 'p_twin_b', 'Same words.');
     const ra = resolveReference(a, { repoRoot: repo }).result;
@@ -176,7 +176,7 @@ describe('resolution (§11.6)', () => {
     const packet = packetFor(repo, doc, 'p_limits');
     edit(doc, (t) => t
       .replace('visibility: private\n', 'visibility: private\nretiredTargets:\n  p_limits:\n    reason: "merged into p_takeaway"\n    replacement: p_takeaway\n')
-      .replace(/<!-- ex:id p_limits -->\n[\s\S]*?\n\n/, ''));
+      .replace(/<!-- vs:id p_limits -->\n[\s\S]*?\n\n/, ''));
     const deleted = resolveReference(packet, { repoRoot: repo }).result;
     expect(deleted.status).toBe('deleted');
     expect(deleted.diagnostics[0]!.message).toContain('p_takeaway');

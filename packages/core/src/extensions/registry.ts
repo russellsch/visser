@@ -1,7 +1,7 @@
 // The extension registry (§12.4, §14.2, §14.3). A document names an extension
 // with `{% extension use="NAME" %}`; its lock pins NAME to an exact digest; the
-// digest resolves to a verified copy in REPO/.explain/extensions/DIGEST or
-// ${EXPLAIN_HOME}/extensions/DIGEST; and the copy runs only if the digest is in
+// digest resolves to a verified copy in REPO/.visser/extensions/DIGEST or
+// ${VISSER_HOME}/extensions/DIGEST; and the copy runs only if the digest is in
 // the USER trust store. Nothing here imports or runs a path from Markdown.
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +9,7 @@ import type { Diagnostic } from '../types.ts';
 import type { TargetModel } from '../model/targets.ts';
 import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
-import { explainHome, isExtensionTrusted } from '../distribution/trust.ts';
+import { visserHome, isExtensionTrusted } from '../distribution/trust.ts';
 import { checkComponentInput, verifyExtensionDir, type VerifiedExtension } from './manifest.ts';
 import { componentInputs, DEFAULT_LIMITS, runBuildEntry, type ComponentInput, type ComponentOutput, type RunLimits } from './run.ts';
 
@@ -31,11 +31,11 @@ function fail(code: string, message: string): never {
 }
 
 export function userExtensionsDir(env: NodeJS.ProcessEnv = process.env): string {
-  return join(explainHome(env), 'extensions');
+  return join(visserHome(env), 'extensions');
 }
 
 export function repoExtensionsDir(repoRoot: string): string {
-  return join(repoRoot, '.explain', 'extensions');
+  return join(repoRoot, '.visser', 'extensions');
 }
 
 /**
@@ -65,7 +65,7 @@ export function locateExtension(digest: string, repoRoot: string | undefined, en
 
 /** The `extensions` entries of a bundle's lock, or [] when there is no lock. */
 export function lockedExtensions(bundleRoot: string): LockedExtension[] {
-  const path = join(bundleRoot, 'explain.lock.json');
+  const path = join(bundleRoot, 'visser.lock.json');
   if (!existsSync(path)) return [];
   let lock: unknown;
   try {
@@ -74,7 +74,7 @@ export function lockedExtensions(bundleRoot: string): LockedExtension[] {
     fail('E_SYNTAX', `${path} is not valid JSON`);
   }
   const check = validateAgainst('lock', lock);
-  if (!check.ok) fail('E_SYNTAX', `${path} violates explain-lock/1: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_SYNTAX', `${path} violates visser-lock/1: ${check.errors.join('; ')}`);
   return ((lock as { extensions?: LockedExtension[] }).extensions ?? []);
 }
 
@@ -112,12 +112,12 @@ export function bindExtensions(model: TargetModel, opts: BindOptions): { binding
     };
     const entry = locked.find((e) => e.name === name);
     if (!entry) {
-      unusable('E_EXTENSION_MISSING', `extension ${name} is not pinned in explain.lock.json; run \`explain extension pin DOC DIGEST\``);
+      unusable('E_EXTENSION_MISSING', `extension ${name} is not pinned in visser.lock.json; run \`visser extension pin DOC DIGEST\``);
       continue;
     }
     const found = locateExtension(entry.sha256, opts.repoRoot, env);
     if (found.state === 'missing') {
-      unusable('E_EXTENSION_MISSING', `extension ${name} ${entry.sha256} is not installed; run \`explain extension install --from-dir DIR --scope user\``, entry.sha256);
+      unusable('E_EXTENSION_MISSING', `extension ${name} ${entry.sha256} is not installed; run \`visser extension install --from-dir DIR --scope user\``, entry.sha256);
       continue;
     }
     const { ext } = found;
@@ -131,7 +131,7 @@ export function bindExtensions(model: TargetModel, opts: BindOptions): { binding
       }
     }
     if (!found.trusted) {
-      unusable('E_EXTENSION_UNTRUSTED', `extension ${name} ${entry.sha256} is not in the user trust store; review it with \`explain extension inspect ${entry.sha256}\`, then run \`explain extension trust ${entry.sha256}\``, entry.sha256);
+      unusable('E_EXTENSION_UNTRUSTED', `extension ${name} ${entry.sha256} is not in the user trust store; review it with \`visser extension inspect ${entry.sha256}\`, then run \`visser extension trust ${entry.sha256}\``, entry.sha256);
       continue;
     }
     const limits = opts.limits ?? DEFAULT_LIMITS;

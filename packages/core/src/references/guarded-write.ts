@@ -1,6 +1,6 @@
 // Guarded single-file write (§11.9), shared by every command that writes
 // source: refs replace, refs retire, capture, and the fork's docId rewrite.
-// It coordinates cooperating Explain writers and detects external edits seen
+// It coordinates cooperating Visser writers and detects external edits seen
 // at the final pre-write check; it is not compare-and-swap against a
 // noncooperating editor.
 import { constants, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeSync, chmodSync } from 'node:fs';
@@ -25,9 +25,9 @@ export type Lock = { path: string; token: string };
 
 export function acquireLock(repoRoot: string, docId: string, ctx: FsContext | undefined): Lock {
   const realRepo = realpathSync(repoRoot);
-  const explainDir = join(repoRoot, '.explain');
-  const lockDir = join(explainDir, 'edit-locks');
-  for (const dir of [explainDir, lockDir]) {
+  const visserDir = join(repoRoot, '.visser');
+  const lockDir = join(visserDir, 'edit-locks');
+  for (const dir of [visserDir, lockDir]) {
     if (existsSync(dir)) {
       if (lstatSync(dir).isSymbolicLink()) fail('E_PATH_ESCAPE', `${relative(repoRoot, dir)} is a symbolic link`);
       if (!isInside(realpathSync(dir), realRepo)) fail('E_PATH_ESCAPE', `${relative(repoRoot, dir)} is outside the repository`);

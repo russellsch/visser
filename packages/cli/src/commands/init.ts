@@ -1,5 +1,5 @@
-// `explain init PATH --kind K --title T [--toolkit-dir DIR]` (§17.1, §12.3).
-// Creates index.md and explain.lock.json; never overwrites existing content.
+// `visser init PATH --kind K --title T [--toolkit-dir DIR]` (§17.1, §12.3).
+// Creates index.md and visser.lock.json; never overwrites existing content.
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -13,7 +13,7 @@ export async function runInit(args: ParsedArgs): Promise<number> {
   const kind = stringFlag(args, 'kind');
   const title = stringFlag(args, 'title');
   if (!target || !kind || !title) {
-    throw new CliError('E_USAGE', 'usage: explain init PATH --kind KIND --title TITLE [--toolkit-dir DIR]', EXIT.invalid);
+    throw new CliError('E_USAGE', 'usage: visser init PATH --kind KIND --title TITLE [--toolkit-dir DIR]', EXIT.invalid);
   }
   if (!KINDS.includes(kind)) {
     throw new CliError('E_USAGE', `--kind must be one of ${KINDS.join(', ')}`, EXIT.invalid);
@@ -31,7 +31,7 @@ export async function runInit(args: ParsedArgs): Promise<number> {
   const capturedAt = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const index = [
     '---',
-    'format: explain/1',
+    'format: visser/1',
     `docId: ${docId}`,
     `title: ${JSON.stringify(title)}`,
     `kind: ${kind}`,
@@ -39,12 +39,12 @@ export async function runInit(args: ParsedArgs): Promise<number> {
     'visibility: private',
     '---',
     '',
-    '<!-- ex:id overview -->',
+    '<!-- vs:id overview -->',
     `# ${title}`,
     '',
   ].join('\n');
   const lock = {
-    schema: 'explain-lock/1',
+    schema: 'visser-lock/1',
     toolkit: { version: release.version, sha256: release.sha256, origin: { kind: 'local-dir' } },
     extensions: [],
     imports: [],
@@ -52,7 +52,7 @@ export async function runInit(args: ParsedArgs): Promise<number> {
 
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.md'), index, { flag: 'wx' });
-  writeFileSync(join(dir, 'explain.lock.json'), JSON.stringify(lock, null, 2) + '\n', { flag: 'wx' });
+  writeFileSync(join(dir, 'visser.lock.json'), JSON.stringify(lock, null, 2) + '\n', { flag: 'wx' });
   process.stdout.write(`created ${target}/index.md (docId ${docId})\nlocked toolkit ${release.version} ${release.sha256} (local-dir)\n`);
   return EXIT.ok;
 }

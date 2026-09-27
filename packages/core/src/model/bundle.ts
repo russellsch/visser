@@ -41,7 +41,7 @@ function listBundleFiles(root: string, dir = root): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
-    if (name === 'explain.lock.json' && dir === root) continue;
+    if (name === 'visser.lock.json' && dir === root) continue;
     if (lstatSync(full).isDirectory()) out.push(...listBundleFiles(root, full));
     else out.push(relative(root, full).split(sep).join('/'));
   }

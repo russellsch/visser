@@ -11,7 +11,7 @@ import { parseArgs } from '../../packages/cli/src/cli-util.ts';
 const EXAMPLE = new URL('../../examples/bounded-queue/index.md', import.meta.url).pathname;
 
 function tempRepo(): { repo: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-replace-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-replace-'));
   mkdirSync(join(repo, '.git'));
   mkdirSync(join(repo, 'docs/explanations/queue'), { recursive: true });
   const doc = join(repo, 'docs/explanations/queue/index.md');
@@ -23,7 +23,7 @@ function readerPacket(repo: string, doc: string, id: string): ReferencePacket {
   return parsePacket(showReference(doc, id, { repoRoot: repo }).yaml.replace('issuedBy: refs-show', 'issuedBy: reader'));
 }
 
-/** Run `explain refs ...` in-process and capture stdout, stderr, and the exit code. */
+/** Run `visser refs ...` in-process and capture stdout, stderr, and the exit code. */
 async function refs(...argv: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   let stdout = '';
   let stderr = '';
@@ -59,7 +59,7 @@ describe('guarded replace (§11.9)', () => {
       if (id !== 'enqueue' && id !== 'handoff') expect(now.bodySha256, id).toBe(record.bodySha256);
     }
     expect(after.model.targets.get('enqueue')!.label).toBe('put blocks while full');
-    expect(existsSync(join(repo, '.explain/edit-locks', `${packet.docId}.lock`))).toBe(false);
+    expect(existsSync(join(repo, '.visser/edit-locks', `${packet.docId}.lock`))).toBe(false);
   });
 
   it('rejects a replacement that drops a nested ID @T18', () => {
@@ -79,7 +79,7 @@ describe('guarded replace (§11.9)', () => {
     const { repo, doc } = tempRepo();
     const packet = readerPacket(repo, doc, 'p_limits');
     const current = resolveReference(packet, { repoRoot: repo }).result;
-    const renamed = current.current!.sourceText.replace('ex:id p_limits', 'ex:id p_other');
+    const renamed = current.current!.sourceText.replace('vs:id p_limits', 'vs:id p_other');
     expect(() => replaceTarget(packet, new TextEncoder().encode(renamed), current.currentRevision!, { repoRoot: repo }))
       .toThrow(expect.objectContaining({ code: 'E_ID_RETENTION' }));
   });
@@ -88,8 +88,8 @@ describe('guarded replace (§11.9)', () => {
     const { repo, doc } = tempRepo();
     const packet = readerPacket(repo, doc, 'p_limits');
     const current = resolveReference(packet, { repoRoot: repo }).result;
-    const bare = current.current!.sourceText.replace(/^<!-- ex:id p_limits -->\r?\n/, '');
-    expect(bare).not.toContain('ex:id');
+    const bare = current.current!.sourceText.replace(/^<!-- vs:id p_limits -->\r?\n/, '');
+    expect(bare).not.toContain('vs:id');
     let error: unknown;
     try {
       replaceTarget(packet, new TextEncoder().encode(bare), current.currentRevision!, { repoRoot: repo });
@@ -98,7 +98,7 @@ describe('guarded replace (§11.9)', () => {
     }
     expect(error).toMatchObject({ code: 'E_ID_MISSING' });
     const message = (error as Error).message;
-    expect(message).toContain('the replacement must start with `<!-- ex:id p_limits -->`');
+    expect(message).toContain('the replacement must start with `<!-- vs:id p_limits -->`');
     expect(message).not.toMatch(/\(line \d+\)/);
   });
 
@@ -106,7 +106,7 @@ describe('guarded replace (§11.9)', () => {
     const { repo, doc } = tempRepo();
     const packet = readerPacket(repo, doc, 'p_limits');
     const current = resolveReference(packet, { repoRoot: repo }).result;
-    const split = '<!-- ex:id p_limits_intro -->\nThis is a teaching implementation.\n\n<!-- ex:id p_limits -->\nIt has no timeout or cancellation.\n';
+    const split = '<!-- vs:id p_limits_intro -->\nThis is a teaching implementation.\n\n<!-- vs:id p_limits -->\nIt has no timeout or cancellation.\n';
     const result = replaceTarget(packet, new TextEncoder().encode(split), current.currentRevision!, { repoRoot: repo });
     expect(result.addedTargets).toEqual(['p_limits_intro']);
     expect(result.changedTargets).toEqual(['p_limits']);
@@ -142,15 +142,15 @@ describe('guarded replace (§11.9)', () => {
     })).toThrow(expect.objectContaining({ code: 'E_WRITE_CONFLICT' }));
     expect(readFileSync(doc, 'utf8')).toBe(external);
     expect(readdirSync(join(repo, 'docs/explanations/queue'))).toEqual(['index.md']);
-    expect(existsSync(join(repo, '.explain/edit-locks', `${packet.docId}.lock`))).toBe(false);
+    expect(existsSync(join(repo, '.visser/edit-locks', `${packet.docId}.lock`))).toBe(false);
   });
 
   it('refuses while another writer holds the lock @R13', () => {
     const { repo, doc } = tempRepo();
     const packet = readerPacket(repo, doc, 'enqueue');
     const current = resolveReference(packet, { repoRoot: repo }).result;
-    mkdirSync(join(repo, '.explain/edit-locks'), { recursive: true });
-    const lockPath = join(repo, '.explain/edit-locks', `${packet.docId}.lock`);
+    mkdirSync(join(repo, '.visser/edit-locks'), { recursive: true });
+    const lockPath = join(repo, '.visser/edit-locks', `${packet.docId}.lock`);
     writeFileSync(lockPath, JSON.stringify({ pid: 1, startedAt: '2026-09-27T00:00:00Z', token: 'other' }));
     expect(() => replaceTarget(packet, new TextEncoder().encode(current.current!.sourceText), current.currentRevision!, { repoRoot: repo }))
       .toThrow(expect.objectContaining({ code: 'E_WRITE_CONFLICT', message: expect.stringContaining('token') }));
@@ -162,10 +162,10 @@ describe('guarded replace (§11.9)', () => {
     const packet = readerPacket(repo, doc, 'enqueue');
     const current = resolveReference(packet, { repoRoot: repo }).result;
     const body = new TextEncoder().encode(current.current!.sourceText);
-    mkdirSync(join(repo, '.explain'));
-    symlinkSync(mkdtempSync(join(tmpdir(), 'explain-evil-')), join(repo, '.explain/edit-locks'));
+    mkdirSync(join(repo, '.visser'));
+    symlinkSync(mkdtempSync(join(tmpdir(), 'visser-evil-')), join(repo, '.visser/edit-locks'));
     expect(() => replaceTarget(packet, body, current.currentRevision!, { repoRoot: repo })).toThrow(expect.objectContaining({ code: 'E_PATH_ESCAPE' }));
-    rmSync(join(repo, '.explain/edit-locks'));
+    rmSync(join(repo, '.visser/edit-locks'));
     const real = join(repo, 'real.md');
     copyFileSync(doc, real);
     rmSync(doc);
@@ -178,17 +178,17 @@ describe('guarded replace (§11.9)', () => {
     writeFileSync(doc, readFileSync(doc, 'utf8').replace(/\n/g, '\r\n'));
     const packet = readerPacket(repo, doc, 'p_limits');
     const current = resolveReference(packet, { repoRoot: repo }).result;
-    replaceTarget(packet, new TextEncoder().encode('<!-- ex:id p_limits -->\nShorter limits paragraph.\n'), current.currentRevision!, { repoRoot: repo });
+    replaceTarget(packet, new TextEncoder().encode('<!-- vs:id p_limits -->\nShorter limits paragraph.\n'), current.currentRevision!, { repoRoot: repo });
     const text = readFileSync(doc, 'utf8');
-    expect(text).toContain('<!-- ex:id p_limits -->\r\nShorter limits paragraph.\r\n');
+    expect(text).toContain('<!-- vs:id p_limits -->\r\nShorter limits paragraph.\r\n');
     expect(text.replace(/\r\n/g, '')).not.toContain('\n');
   });
 });
 
-describe('explain refs CLI', () => {
+describe('visser refs CLI', () => {
   it('runs the Phase 1 slice: show, move, stale resolve, refresh, replace, exact resolve @T03 @T09 @R12 @R13', async () => {
     const { repo, doc } = tempRepo();
-    const dir = mkdtempSync(join(tmpdir(), 'explain-packets-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-packets-'));
     const shown = await refs('show', doc, 'enqueue', '--root', repo);
     expect(shown.code).toBe(0);
     const packetPath = join(dir, 'packet.yaml');
@@ -221,7 +221,7 @@ describe('explain refs CLI', () => {
     const replaced = await refs('replace', '--packet', freshPath, '--replacement', replacementPath, '--expected-revision', staleResult.currentRevision, '--root', repo, '--json');
     expect(replaced.code, replaced.stderr).toBe(0);
     const edit = JSON.parse(replaced.stdout);
-    expect(edit).toMatchObject({ schema: 'explain-edit/1', changedTargets: ['enqueue'], containingTargets: ['handoff'] });
+    expect(edit).toMatchObject({ schema: 'visser-edit/1', changedTargets: ['enqueue'], containingTargets: ['handoff'] });
     expect(edit.diff).toContain('+{% edge id="enqueue" from="producer" to="queue" kind="blocking-call" label="put blocks while the queue is full" %}');
 
     // The refreshed packet described the pre-edit text, so it is now stale; a new show is exact.
@@ -232,9 +232,9 @@ describe('explain refs CLI', () => {
 
   it('maps outcomes to exit codes, including a malformed retire packet', async () => {
     const { repo, doc } = tempRepo();
-    const dir = mkdtempSync(join(tmpdir(), 'explain-packets-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-packets-'));
     const bad = join(dir, 'bad.yaml');
-    writeFileSync(bad, 'schema: explain-ref/1\ndocId: nope\n');
+    writeFileSync(bad, 'schema: visser-ref/1\ndocId: nope\n');
     const invalid = await refs('resolve', '--packet', bad, '--root', repo, '--json');
     expect(invalid.code).toBe(2);
     expect(JSON.parse(invalid.stdout).status).toBe('invalid');

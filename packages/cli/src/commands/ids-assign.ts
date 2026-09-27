@@ -1,4 +1,4 @@
-// `explain ids assign DOC [--check]` (§6.3, §17.1). Inserts missing markers;
+// `visser ids assign DOC [--check]` (§6.3, §17.1). Inserts missing markers;
 // `--check` reports what would change without writing.
 import { randomBytes } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { CliError, EXIT, type ParsedArgs } from '../cli-util.ts';
 
 export async function runIdsAssign(args: ParsedArgs): Promise<number> {
   const doc = args.positional[0];
-  if (!doc) throw new CliError('E_USAGE', 'usage: explain ids assign DOC [--check]', EXIT.invalid);
+  if (!doc) throw new CliError('E_USAGE', 'usage: visser ids assign DOC [--check]', EXIT.invalid);
   const original = readFileSync(doc);
   const result = assignIds(new Uint8Array(original), (n) => new Uint8Array(randomBytes(n)));
   if (result.added.length === 0) {
@@ -16,7 +16,7 @@ export async function runIdsAssign(args: ParsedArgs): Promise<number> {
     return EXIT.ok;
   }
   if (args.flags.has('check')) {
-    process.stdout.write(`${result.added.length} block(s) need IDs; run \`explain ids assign ${doc}\`\n`);
+    process.stdout.write(`${result.added.length} block(s) need IDs; run \`visser ids assign ${doc}\`\n`);
     return EXIT.invalid;
   }
   // Write through a temporary file in the same directory, then rename.

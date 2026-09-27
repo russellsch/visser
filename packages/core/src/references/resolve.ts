@@ -9,7 +9,7 @@ import { locateDocument } from './registry.ts';
 export type ResolveStatus = 'exact' | 'stale' | 'deleted' | 'ambiguous' | 'missing' | 'invalid';
 
 export type ResolveResult = {
-  schema: 'explain-resolve/1';
+  schema: 'visser-resolve/1';
   status: ResolveStatus;
   docId?: string;
   targetId?: string;
@@ -90,7 +90,7 @@ function retiredTargets(bundle: LoadedBundle): Record<string, { reason?: string;
 /** §11.6 resolution algorithm. The packet must already be schema-valid (parsePacket). */
 export function resolveReference(packet: ReferencePacket, opts: ResolveOptions): Resolution {
   const base: ResolveResult = {
-    schema: 'explain-resolve/1',
+    schema: 'visser-resolve/1',
     status: 'missing',
     docId: packet.docId,
     targetId: packet.targetId,
@@ -171,7 +171,7 @@ export function resolveReference(packet: ReferencePacket, opts: ResolveOptions):
       current: currentView(bundle, record),
       diagnostics: [diag('E_REF_STALE', bodyUnchanged
         ? 'the document changed since the packet was copied; the target text is unchanged'
-        : 'the document changed since the packet was copied, including the target text', { targetId: record.id, suggestedAction: 'reconcile, then run `explain refs refresh`' })],
+        : 'the document changed since the packet was copied, including the target text', { targetId: record.id, suggestedAction: 'reconcile, then run `visser refs refresh`' })],
     };
   } else {
     result = {

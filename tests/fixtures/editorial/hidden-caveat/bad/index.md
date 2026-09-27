@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 8018faae-1969-4d9d-b8b2-eacc42661120
 title: The cache always serves fresh prices
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # The cache always serves fresh prices
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 Readers see the current price after an update.
 
 {% detail id="d_caveat" label="Caveat" %}

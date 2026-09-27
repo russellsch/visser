@@ -2,7 +2,7 @@
 
 **Date:** 26 September 2026.  
 **Subject:** `ARCHITECTURE.md` revision 1.0 and its companion files.  
-**Status:** an architecture and implementation specification with executable contract-model tests. This bundle is not an implemented Explain toolkit.
+**Status:** an architecture and implementation specification with executable contract-model tests. This bundle is not an implemented Visser toolkit.
 
 > **Repository note (revision 1.1):** this repository contains only `docs/`. The `verification/`, `examples/`, and `skill/` companion files are absent, so the commands and results in "Executed checks" cannot be run again here. They record what the original bundle reported, not evidence for this repository. In revision 1.1, the Appendix A captured-code digest was recomputed from `ARCHITECTURE.md` and matched (26 lines, `46211103…f358`).
 

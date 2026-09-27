@@ -1,5 +1,5 @@
-// Bounded reads of repository-controlled files (explain.lock.json,
-// .explain/config.json, collection files). A cloned repository controls these
+// Bounded reads of repository-controlled files (visser.lock.json,
+// .visser/config.json, collection files). A cloned repository controls these
 // paths, so a read must not follow a symbolic link (for example to /dev/zero
 // or to a private file), must refuse anything but a regular file, and must stop
 // at a size cap. A parse error never echoes file content.

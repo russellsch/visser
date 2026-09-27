@@ -1,7 +1,7 @@
 // Reference fixture for the §2.3 budgets: about 5,000 words, 8 visuals (one of
 // each family: architecture, trace, state, transform, cause, compare, plan,
 // Mermaid), at most 40 nodes and 80 edges in any one visual, and 20 excerpt
-// files of about 5 KiB each (about 100 KiB in total) that `explain capture
+// files of about 5 KiB each (about 100 KiB in total) that `visser capture
 // file` adds as sources. No photographs.
 //
 // Output is deterministic: a fixed-seed generator picks the prose, so two runs
@@ -40,7 +40,7 @@ function sentence(r) {
 function paragraph(r, id, sentences) {
   const lines = [];
   for (let i = 0; i < sentences; i++) lines.push(sentence(r));
-  return `<!-- ex:id ${id} -->\n${lines.join(' ')}\n`;
+  return `<!-- vs:id ${id} -->\n${lines.join(' ')}\n`;
 }
 
 function architecture() {
@@ -150,7 +150,7 @@ export function generateFixture(dir, docId) {
   const r = rng(20260927);
   const parts = [
     '---',
-    'format: explain/1',
+    'format: visser/1',
     `docId: ${docId}`,
     'title: How the job platform keeps one owner per job',
     'kind: architecture',
@@ -158,7 +158,7 @@ export function generateFixture(dir, docId) {
     'visibility: private',
     '---',
     '',
-    '<!-- ex:id overview -->',
+    '<!-- vs:id overview -->',
     '# How the job platform keeps one owner per job',
     '',
   ];

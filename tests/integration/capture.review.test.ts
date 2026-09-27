@@ -148,7 +148,7 @@ describe('recorded commits must be full IDs (review A3) @R07', () => {
   function docWith(commit: string, repository: string): string {
     const sha = createHash('sha256').update(excerpt).digest('hex');
     return fx.doc(`docs-commit-${Math.random().toString(36).slice(2)}`,
-      `<!-- ex:id p -->\nText {% cite ref="s" /%}\n\n{% source id="s" kind="git" title="t" repository="${repository}" commit=${JSON.stringify(commit)} file="a.py" start=2 end=2 excerptSha256="${sha}" %}\n\`\`\`\ntwo\n\`\`\`\n{% /source %}\n`);
+      `<!-- vs:id p -->\nText {% cite ref="s" /%}\n\n{% source id="s" kind="git" title="t" repository="${repository}" commit=${JSON.stringify(commit)} file="a.py" start=2 end=2 excerptSha256="${sha}" %}\n\`\`\`\ntwo\n\`\`\`\n{% /source %}\n`);
   }
 
   it('check rejects moving refs and abbreviated IDs; verify never reports them as matched', () => {
@@ -172,7 +172,7 @@ describe('one repository-identity rule for captured and hand-written sources (re
     expect(identityProblem('https://TOKEN@github.com/o/r.git')).toBeDefined();
     expect(identityProblem('ssh://git@github.com/o/r.git')).toBeUndefined();
     const text = readFileSync(new URL('../../fixtures/positive/repository-ssh-user.md', import.meta.url), 'utf8');
-    const dir = fx.doc('docs-ssh', text.slice(text.indexOf('<!-- ex:id')));
+    const dir = fx.doc('docs-ssh', text.slice(text.indexOf('<!-- vs:id')));
     expect(loadBundle(dir).diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
   });
 });
@@ -180,7 +180,7 @@ describe('one repository-identity rule for captured and hand-written sources (re
 describe('capture relies on the guarded write to refuse an invalid candidate (review B6c)', () => {
   it('a document with an unrelated broken cite is not written', () => {
     const repo = fx.repo('r');
-    const doc = fx.doc('docs-broken', '<!-- ex:id intro -->\nIntro {% cite ref="src_missing" /%}\n');
+    const doc = fx.doc('docs-broken', '<!-- vs:id intro -->\nIntro {% cite ref="src_missing" /%}\n');
     const before = readFileSync(doc);
     const r = failure(() => captureGit({ repo, file: 'a.txt', lines: '1:1', doc, id: 'src_a', title: 'A', repositoryLabel: 'app', capturedAt: '2026-09-27T00:00:00Z' }));
     expect(r.code).toBe('E_REF_BROKEN');

@@ -48,9 +48,9 @@ in a `graph mode="cause"` with a `basis` on each link.
 
 ## Trust
 
-An extension is executable code. `explain extension install` never trusts it.
+An extension is executable code. `visser extension install` never trusts it.
 Review this guide, `schema.json`, and `build.cjs` with
-`explain extension inspect DIGEST`, and then run
-`explain extension trust DIGEST`. A trusted build entry runs in a separate
+`visser extension inspect DIGEST`, and then run
+`visser extension trust DIGEST`. A trusted build entry runs in a separate
 process with a time and memory limit. That process is **not a sandbox**: it
-has the same operating-system privileges as the `explain` command.
+has the same operating-system privileges as the `visser` command.

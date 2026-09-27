@@ -12,8 +12,8 @@ import type { VerifiedExtension } from './manifest.ts';
 export type Scalar = string | number | boolean;
 
 export type ComponentInput = {
-  schema: 'explain-component-input/1';
-  api: 'explain-component/1';
+  schema: 'visser-component-input/1';
+  api: 'visser-component/1';
   component: { id: string; title: string; question: string; attributes: Record<string, Scalar> };
   parts: Array<{ id: string; label: string; text: string; attributes: Record<string, Scalar> }>;
 };
@@ -21,7 +21,7 @@ export type ComponentInput = {
 export type SvgNode = { tag: string; attrs?: Record<string, string | number>; target?: string; children?: Array<string | SvgNode> };
 
 export type ComponentOutput = {
-  schema: 'explain-component-output/1';
+  schema: 'visser-component-output/1';
   svg: SvgNode;
   parts: Record<string, { text: string }>;
 };
@@ -61,8 +61,8 @@ export function componentInputs(model: TargetModel): Array<{ id: string; use: st
       id: record.id,
       use: String(a['use'] ?? ''),
       input: {
-        schema: 'explain-component-input/1',
-        api: 'explain-component/1',
+        schema: 'visser-component-input/1',
+        api: 'visser-component/1',
         component: { id: record.id, title: String(a['title'] ?? ''), question: String(a['question'] ?? ''), attributes: scalars(a, ['id', 'title', 'question', 'use']) },
         parts,
       },
@@ -108,7 +108,7 @@ export function runBuildEntry(ext: VerifiedExtension, input: ComponentInput, lim
     fail('E_EXTENSION_FAILED', `extension ${name} did not print one JSON value`);
   }
   const check = validateAgainst('componentOutput', output);
-  if (!check.ok) fail('E_EXTENSION_FAILED', `extension ${name} output violates explain-component-output/1: ${check.errors.slice(0, 5).join('; ')}`);
+  if (!check.ok) fail('E_EXTENSION_FAILED', `extension ${name} output violates visser-component-output/1: ${check.errors.slice(0, 5).join('; ')}`);
   // Every part needs a text fallback (§18.6a): the figure is never the only form.
   for (const part of input.parts) {
     if (!output.parts[part.id]) fail('E_EXTENSION_FAILED', `extension ${name} gave no text fallback for part ${part.id}`);

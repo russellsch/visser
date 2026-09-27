@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 7a94392a-cf3b-4fc2-8044-23c6609be447
 title: A pooled connection can only close after it drains
 kind: teaching
@@ -12,16 +12,16 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # A pooled connection can only close after it drains
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 In this illustrative pool, a connection that is asked to close first stops
 accepting new requests, then waits for the requests it already carries. Only
 an empty connection closes cleanly. A transport failure is the exception: it
 goes straight to closed and fails the requests it was carrying.
 
-<!-- ex:id p_scope -->
+<!-- vs:id p_scope -->
 The states and events below describe a teaching design, not a particular
 library. The diagram shows which transitions the design permits; it does not
 prove that an implementation never reaches another state.
@@ -87,10 +87,10 @@ The third timeout ends the attempt instead of retrying.
 {% /transition %}
 {% /graph %}
 
-<!-- ex:id h_consequences -->
+<!-- vs:id h_consequences -->
 ## What this means for callers
 
-<!-- ex:id l_consequences -->
+<!-- vs:id l_consequences -->
 - A graceful shutdown can take as long as the slowest in-flight request.
 - A transport error bypasses draining, so a request can fail during shutdown.
 - Retrying a failed request selects a different connection; it never revives a

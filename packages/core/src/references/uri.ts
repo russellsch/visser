@@ -1,5 +1,5 @@
 // Canonical reference URI (ARCHITECTURE.md §11.2):
-//   explain://DOC_UUID/TARGET_ID?rev=SOURCE_REVISION&body=TARGET_BODY_SHA256
+//   visser://DOC_UUID/TARGET_ID?rev=SOURCE_REVISION&body=TARGET_BODY_SHA256
 import { HashError, TARGET_ID, UUID_V4, isSha256 } from '../model/hash.ts';
 
 export type ReferenceParts = { docId: string; targetId: string; rev: string; body: string };
@@ -18,7 +18,7 @@ function validateParts(p: ReferenceParts): void {
 /** Emit the canonical form. Query order is always `rev`, then `body`. */
 export function formatReferenceUri(p: ReferenceParts): string {
   validateParts(p);
-  return `explain://${p.docId}/${p.targetId}?rev=${p.rev}&body=${p.body}`;
+  return `visser://${p.docId}/${p.targetId}?rev=${p.rev}&body=${p.body}`;
 }
 
 /**
@@ -33,7 +33,7 @@ export function parseReferenceUri(raw: string): ReferenceParts {
   } catch {
     return invalid('unparseable');
   }
-  if (url.protocol !== 'explain:') invalid('scheme');
+  if (url.protocol !== 'visser:') invalid('scheme');
   if (raw.includes('#')) invalid('fragment');
   if (url.username !== '' || url.password !== '') invalid('credentials');
   if (url.port !== '') invalid('port');

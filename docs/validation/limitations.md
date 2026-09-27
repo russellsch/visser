@@ -7,7 +7,7 @@ below is a known gap. None of them is hidden behind a passing test.
 
 - **Comprehension (R16).** The trial is prepared in
   `comprehension-trial.md` and `trial/`, but no participant has taken it.
-  Explain makes no claim that it improves comprehension.
+  Visser makes no claim that it improves comprehension.
 - **Touch devices (R05).** Definitions open on tap in emulated narrow
   viewports only. Nobody has checked them on a real touch device.
 - See `human-gates.md` for the full list.
@@ -46,7 +46,7 @@ below is a known gap. None of them is hidden behind a passing test.
 
 - The public-export allowlist trusts the recorded `repository` name of a
   source. The author controls that name, and Git remotes are also set by the
-  repository, so Explain cannot prove that a repository is public. The export
+  repository, so Visser cannot prove that a repository is public. The export
   report warns with `W_PUBLIC_BY_NAME` for each such source.
 - A trusted extension's build entry resolves modules like any Node program.
   A bare `require` that the extension does not contain can load code from

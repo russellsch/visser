@@ -203,3 +203,18 @@ Four Claude Opus 5.5 reviews read the Phase 4 and 5 code and proved each finding
 ## Revision 1.22 — first real authoring run
 
 An agent wrote "How Explain works" with only the skill and logged 10 problems (`docs/validation/dogfood-1.md`). Fixed: a trace now renders a figure (actor lifelines, order-layer rows, `after` arrows, message arrows, wait and failure boxes), with the lists kept for narrow screens and no-JS reading; the development mark is part of the build ID, so a snapshot folder is never replaced; a new captured source goes after the last source, so citations number in reading order; `check --verify-origins` uses the document's own clone and warns once per repository; clearer messages for a missing lock and a replacement without its marker; `check --review` prints the prompt count; a refused refresh prints the current text on stderr; the skill covers documents in the toolkit's own repository and requires a citation for each claim about code.
+
+## Revision 1.23 — rename to Visser
+
+By user decision, the tool is named Visser, and the agent skill is named `visual-explain`. The rename is complete, because nothing was published yet:
+
+- The command is `visser`, the release entry is `bin/visser.cjs`, and the installed user shim is `${VISSER_HOME:-~/.visser}/bin/visser.cjs`.
+- Every `EXPLAIN_*` environment variable is now `VISSER_*`. `GITHUB_TOKEN` stays as a fallback.
+- The repository folder is `.visser/`, and the lock file is `visser.lock.json`.
+- The frontmatter format is `format: visser/1`, schema names are `visser-*/1`, and the schema `$id` host is `visser.invalid`.
+- The URI scheme is `visser://`, and the ID marker is `<!-- vs:id X -->`.
+- DOM classes, CSS custom properties, and data attributes use the prefix `vs-`, for example `data-vs-target`.
+- The skill folder is `skills/visual-explain/`, and repository wrappers install at `.claude/skills/visual-explain/` and `.agents/skills/visual-explain/`.
+- The release archive is `visser-VERSION.tar.gz`.
+
+Error and warning codes, Markdoc tag names, target ID formats, and the default document root `docs/explanations/` do not change. The hash vectors were regenerated with the same pipeline, because the source-manifest and build-input schema names and the URI scheme are hash inputs. Revisions 1.1–1.22 above use the old names.

@@ -14,7 +14,7 @@ const QUEUE = new URL('../../examples/bounded-queue/index.md', import.meta.url).
 const FLOW = new URL('../../examples/mermaid-flowchart/index.md', import.meta.url).pathname;
 
 function tempRepo(example = QUEUE): { repo: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-retire-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-retire-'));
   mkdirSync(join(repo, '.git'));
   mkdirSync(join(repo, 'docs/explanations/doc'), { recursive: true });
   const doc = join(repo, 'docs/explanations/doc/index.md');
@@ -204,10 +204,10 @@ describe('refs replace --retire for nested IDs (§11.11)', () => {
   });
 });
 
-describe('explain refs retire CLI', () => {
+describe('visser refs retire CLI', () => {
   it('retires with --json output and maps refusals to exit codes', async () => {
     const { repo, doc } = tempRepo();
-    const dir = mkdtempSync(join(tmpdir(), 'explain-packets-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-packets-'));
     const packetPath = join(dir, 'p.yaml');
     writeFileSync(packetPath, showReference(doc, 'p_limits', { repoRoot: repo }).yaml);
     const rev = revision(doc);
@@ -227,7 +227,7 @@ describe('explain refs retire CLI', () => {
 
   it('pairs repeated --retire and --reason flags for refs replace', async () => {
     const { repo, doc } = tempRepo(FLOW);
-    const dir = mkdtempSync(join(tmpdir(), 'explain-packets-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-packets-'));
     const packetPath = join(dir, 'p.yaml');
     writeFileSync(packetPath, showReference(doc, 'cdn_path', { repoRoot: repo }).yaml);
     const view = resolveReference(parsePacket(readFileSync(packetPath, 'utf8')), { repoRoot: repo }).result;

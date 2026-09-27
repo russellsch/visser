@@ -30,9 +30,9 @@ function openssl(...args: string[]): void {
 
 /** A test CA, a server certificate it signs (127.0.0.1 and localhost), and a rogue self-signed certificate. */
 function makePki(): void {
-  pki = tempDir('explain-pki-');
+  pki = tempDir('visser-pki-');
   writeFileSync(join(pki, 'san.cnf'), 'subjectAltName=IP:127.0.0.1,DNS:localhost\n');
-  openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'ca.key', '-out', 'ca.pem', '-days', '2', '-subj', '/CN=Explain Test CA');
+  openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'ca.key', '-out', 'ca.pem', '-days', '2', '-subj', '/CN=Visser Test CA');
   openssl('req', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'server.key', '-out', 'server.csr', '-subj', '/CN=127.0.0.1');
   openssl('x509', '-req', '-in', 'server.csr', '-CA', 'ca.pem', '-CAkey', 'ca.key', '-CAcreateserial', '-out', 'server.pem', '-days', '2', '-extfile', 'san.cnf');
   openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'rogue.key', '-out', 'rogue.pem', '-days', '2', '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1,DNS:localhost');
@@ -68,12 +68,12 @@ let toolkitSha256: string;
 function standardRoutes(opts: { body?: Buffer; assetName?: string; assetUrl?: string; redirectTo?: string } = {}): void {
   const body = opts.body ?? archive;
   api.handle = (req, res) => {
-    if (req.url === '/repos/octo/explain/releases/tags/v0.0.1') {
+    if (req.url === '/repos/octo/visser/releases/tags/v0.0.1') {
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ tag_name: 'v0.0.1', assets: [{ name: opts.assetName ?? 'explain-0.0.1.tar.gz', url: opts.assetUrl ?? `${api.base}/repos/octo/explain/releases/assets/7`, size: body.length }] }));
-    } else if (req.url === '/repos/octo/explain/releases/assets/7') {
+      res.end(JSON.stringify({ tag_name: 'v0.0.1', assets: [{ name: opts.assetName ?? 'visser-0.0.1.tar.gz', url: opts.assetUrl ?? `${api.base}/repos/octo/visser/releases/assets/7`, size: body.length }] }));
+    } else if (req.url === '/repos/octo/visser/releases/assets/7') {
       res.statusCode = 302;
-      res.setHeader('location', opts.redirectTo ?? `${assets.base}/download/explain-0.0.1.tar.gz?${QUERY_SECRET}`);
+      res.setHeader('location', opts.redirectTo ?? `${assets.base}/download/visser-0.0.1.tar.gz?${QUERY_SECRET}`);
       res.end();
     } else {
       res.statusCode = 404;
@@ -97,7 +97,7 @@ function allowAssetHost(host = assets.host): void {
 }
 
 const opts = (extra: Record<string, unknown> = {}) => ({
-  repository: 'octo/explain', version: 'v0.0.1', archiveSha256, scope: 'user' as const, env, apiBase: api.base, extraCa: [caPem], ...extra,
+  repository: 'octo/visser', version: 'v0.0.1', archiveSha256, scope: 'user' as const, env, apiBase: api.base, extraCa: [caPem], ...extra,
 });
 
 /** Nothing was installed or trusted. */
@@ -131,8 +131,8 @@ afterAll(async () => {
 beforeEach(() => {
   box = tempDir();
   home = join(box, 'home');
-  env = { ...process.env, EXPLAIN_HOME: home, GITHUB_TOKEN: TOKEN };
-  delete env['EXPLAIN_GITHUB_TOKEN'];
+  env = { ...process.env, VISSER_HOME: home, GITHUB_TOKEN: TOKEN };
+  delete env['VISSER_GITHUB_TOKEN'];
   api.seen.length = 0;
   assets.seen.length = 0;
   rogue.seen.length = 0;
@@ -145,9 +145,9 @@ describe('install --from-release (§12.5) @R10', () => {
     const result = await installFromRelease(opts());
     expect(validateAgainst('install', result)).toEqual({ ok: true });
     expect(result.toolkitSha256).toBe(toolkitSha256);
-    expect(result.origin).toEqual({ kind: 'github-release', repository: 'octo/explain', version: 'v0.0.1', archiveSha256 });
+    expect(result.origin).toEqual({ kind: 'github-release', repository: 'octo/visser', version: 'v0.0.1', archiveSha256 });
     expect(existsSync(join(home, 'toolchains', toolkitSha256, 'release.json'))).toBe(true);
-    expect(readTrust(env).toolkits[toolkitSha256]?.source).toBe('install --from-release octo/explain@v0.0.1 --scope user');
+    expect(readTrust(env).toolkits[toolkitSha256]?.source).toBe('install --from-release octo/visser@v0.0.1 --scope user');
     // The API received the documented headers and the token; the asset host received neither the token nor more than one request.
     expect(api.seen[0]?.headers['accept']).toBe('application/vnd.github+json');
     expect(api.seen[0]?.headers['authorization']).toBe(`Bearer ${TOKEN}`);
@@ -177,8 +177,8 @@ describe('install --from-release (§12.5) @R10', () => {
   it('@R10 more than three redirects are refused; exactly three are followed', async () => {
     const chain = (hops: number) => {
       api.handle = (req, res) => {
-        if (req.url === '/repos/octo/explain/releases/tags/v0.0.1') {
-          res.end(JSON.stringify({ assets: [{ name: 'explain-0.0.1.tar.gz', url: `${api.base}/hop/0` }] }));
+        if (req.url === '/repos/octo/visser/releases/tags/v0.0.1') {
+          res.end(JSON.stringify({ assets: [{ name: 'visser-0.0.1.tar.gz', url: `${api.base}/hop/0` }] }));
           return;
         }
         const n = Number(req.url?.split('/')[2]);
@@ -198,7 +198,7 @@ describe('install --from-release (§12.5) @R10', () => {
     const cap = archive.length - 1;
     // Declared: Content-Length over the cap (the API size is left out so the download itself decides).
     api.handle = (req, res) => {
-      if (req.url?.endsWith('/tags/v0.0.1')) res.end(JSON.stringify({ assets: [{ name: 'explain-0.0.1.tar.gz', url: `${assets.base}/download/a` }] }));
+      if (req.url?.endsWith('/tags/v0.0.1')) res.end(JSON.stringify({ assets: [{ name: 'visser-0.0.1.tar.gz', url: `${assets.base}/download/a` }] }));
       else { res.statusCode = 404; res.end(); }
     };
     await expect(installFromRelease(opts({ maxDownloadBytes: cap }))).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/Content-Length is larger/) });
@@ -212,7 +212,7 @@ describe('install --from-release (§12.5) @R10', () => {
   });
 
   it('@R10 an http: URL is refused, as an asset URL, as a redirect, and as the API base', async () => {
-    standardRoutes({ assetUrl: `http://${api.host}/repos/octo/explain/releases/assets/7` });
+    standardRoutes({ assetUrl: `http://${api.host}/repos/octo/visser/releases/assets/7` });
     await expect(installFromRelease(opts())).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/https: only/) });
     standardRoutes({ redirectTo: `http://${assets.host}/download/x.tar.gz` });
     await expect(installFromRelease(opts())).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/https: only/) });
@@ -228,14 +228,14 @@ describe('install --from-release (§12.5) @R10', () => {
   });
 
   it('a missing release or asset is E_TOOLKIT_MISSING', async () => {
-    standardRoutes({ assetName: 'explain-9.9.9.tar.gz' });
-    await expect(installFromRelease(opts())).rejects.toMatchObject({ code: 'E_TOOLKIT_MISSING', message: expect.stringMatching(/no asset explain-0.0.1.tar.gz/) });
+    standardRoutes({ assetName: 'visser-9.9.9.tar.gz' });
+    await expect(installFromRelease(opts())).rejects.toMatchObject({ code: 'E_TOOLKIT_MISSING', message: expect.stringMatching(/no asset visser-0.0.1.tar.gz/) });
     await expect(installFromRelease(opts({ version: 'v0.0.2' }))).rejects.toMatchObject({ code: 'E_TOOLKIT_MISSING', message: expect.stringMatching(/was not found/) });
   });
 
   it('a release whose toolkit version differs from --version is refused', async () => {
     api.handle = (req, res) => {
-      if (req.url === '/repos/octo/explain/releases/tags/v0.0.2') res.end(JSON.stringify({ assets: [{ name: 'explain-0.0.2.tar.gz', url: `${assets.base}/download/b` }] }));
+      if (req.url === '/repos/octo/visser/releases/tags/v0.0.2') res.end(JSON.stringify({ assets: [{ name: 'visser-0.0.2.tar.gz', url: `${assets.base}/download/b` }] }));
       else { res.statusCode = 404; res.end(); }
     };
     await expect(installFromRelease(opts({ version: 'v0.0.2' }))).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/contains toolkit version 0.0.1/) });
@@ -243,7 +243,7 @@ describe('install --from-release (§12.5) @R10', () => {
   });
 
   it('a bad OWNER/REPO or version is E_USAGE, and no request is sent', async () => {
-    for (const repository of ['octo', 'octo/explain/x', '../x', 'octo/ex plain', `${'a'.repeat(40)}/x`]) {
+    for (const repository of ['octo', 'octo/visser/x', '../x', 'octo/ex plain', `${'a'.repeat(40)}/x`]) {
       await expect(installFromRelease(opts({ repository }))).rejects.toMatchObject({ code: 'E_USAGE' });
     }
     for (const version of ['latest', '1.2', '1.2.3/../x', 'v1.2.3?x=1', '']) {
@@ -258,7 +258,7 @@ describe('the install --from-release command', () => {
   let err: string[];
   const saved = { ...process.env };
   beforeEach(() => {
-    Object.assign(process.env, { EXPLAIN_HOME: home, GITHUB_TOKEN: TOKEN, EXPLAIN_TEST_API_BASE: api.base, EXPLAIN_TEST_CA_FILE: join(pki, 'ca.pem') });
+    Object.assign(process.env, { VISSER_HOME: home, GITHUB_TOKEN: TOKEN, VISSER_TEST_API_BASE: api.base, VISSER_TEST_CA_FILE: join(pki, 'ca.pem') });
     out = [];
     err = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => { out.push(String(chunk)); return true; });
@@ -266,22 +266,22 @@ describe('the install --from-release command', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    for (const key of ['EXPLAIN_HOME', 'GITHUB_TOKEN', 'EXPLAIN_TEST_API_BASE', 'EXPLAIN_TEST_CA_FILE']) {
+    for (const key of ['VISSER_HOME', 'GITHUB_TOKEN', 'VISSER_TEST_API_BASE', 'VISSER_TEST_CA_FILE']) {
       if (saved[key] === undefined) delete process.env[key];
       else process.env[key] = saved[key];
     }
   });
 
-  const args = (...extra: string[]) => parseArgs(['--from-release', 'octo/explain', '--version', 'v0.0.1', '--sha256', archiveSha256, '--scope', 'user', ...extra]);
+  const args = (...extra: string[]) => parseArgs(['--from-release', 'octo/visser', '--version', 'v0.0.1', '--sha256', archiveSha256, '--scope', 'user', ...extra]);
 
-  it('@R10 the token and the signed query never appear in output, diagnostics, or any file under EXPLAIN_HOME', async () => {
+  it('@R10 the token and the signed query never appear in output, diagnostics, or any file under VISSER_HOME', async () => {
     expect(await runInstall(args('--json'))).toBe(0);
     const result = JSON.parse(out.join(''));
     expect(validateAgainst('install', result)).toEqual({ ok: true });
-    expect(err.join('')).toMatch(/EXPLAIN_TEST_API_BASE is set/);
+    expect(err.join('')).toMatch(/VISSER_TEST_API_BASE is set/);
     // A failing run: its diagnostics name the host, never the token or the query.
     standardRoutes({ body: Buffer.from('not the archive') });
-    expect(await runInstall(parseArgs(['--from-release', 'octo/explain', '--version', 'v0.0.1', '--sha256', 'e'.repeat(64), '--scope', 'user', '--json']))).toBe(4);
+    expect(await runInstall(parseArgs(['--from-release', 'octo/visser', '--version', 'v0.0.1', '--sha256', 'e'.repeat(64), '--scope', 'user', '--json']))).toBe(4);
     standardRoutes({ redirectTo: `https://localhost:1/download/x?${QUERY_SECRET}` });
     expect(await runInstall(args())).toBe(4);
     const everything = [out.join(''), err.join(''), ...filesUnder(home).map((p) => readFileSync(p, 'latin1'))].join('\n');
@@ -290,8 +290,8 @@ describe('the install --from-release command', () => {
   });
 
   it('exit codes: usage 2 (missing --sha256 or --version), missing asset 3, policy 4', async () => {
-    await expect(runInstall(parseArgs(['--from-release', 'octo/explain', '--version', 'v0.0.1', '--scope', 'user']))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
-    await expect(runInstall(parseArgs(['--from-release', 'octo/explain', '--sha256', archiveSha256, '--scope', 'user']))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
+    await expect(runInstall(parseArgs(['--from-release', 'octo/visser', '--version', 'v0.0.1', '--scope', 'user']))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
+    await expect(runInstall(parseArgs(['--from-release', 'octo/visser', '--sha256', archiveSha256, '--scope', 'user']))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
     expect(await runInstall(parseArgs(['--from-release', 'octo', '--version', 'v0.0.1', '--sha256', archiveSha256, '--scope', 'user']))).toBe(2);
     standardRoutes({ assetName: 'other.tar.gz' });
     expect(await runInstall(args())).toBe(3);
@@ -321,12 +321,12 @@ describe('install --from-release: review fixes (§12.5)', () => {
       }, 100);
       res.on('close', () => clearInterval(timer));
     };
-    const before = new Set(readdirSync(tmpdir()).filter((n) => n.startsWith('explain-download-')));
+    const before = new Set(readdirSync(tmpdir()).filter((n) => n.startsWith('visser-download-')));
     const started = Date.now();
     await expect(installFromRelease(opts({ downloadDeadlineMs: 800 }))).rejects.toMatchObject({ code: 'E_SOURCE_UNAVAILABLE', message: expect.stringMatching(/took longer than 800 ms/) });
     expect(Date.now() - started).toBeLessThan(5_000);
     nothingInstalled();
-    const after = readdirSync(tmpdir()).filter((n) => n.startsWith('explain-download-') && !before.has(n));
+    const after = readdirSync(tmpdir()).filter((n) => n.startsWith('visser-download-') && !before.has(n));
     expect(after).toEqual([]);
   });
 

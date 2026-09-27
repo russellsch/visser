@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 2b0c5e2a-2222-4a22-8a22-222222222222
 title: Image decode pipeline
 kind: teaching
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Image decode pipeline
 
 {% transform id="decode" title="Pixels change layout, not content" question="How does the representation change from file to GPU texture?" %}

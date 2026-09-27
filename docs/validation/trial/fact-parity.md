@@ -4,7 +4,7 @@ Both formats of a topic must contain each fact below, and no other fact. A secon
 
 ## Topic A: bounded queue (`examples/bounded-queue`)
 
-| # | Fact | Explain page | Baseline |
+| # | Fact | Visser page | Baseline |
 |---|---|---|---|
 | A1 | The queue limits the number of stored items; producers wait when it is full. | ☐ | ☐ |
 | A2 | A consumer taking an item creates space; it does not mean that processing of that item has finished. | ☐ | ☐ |
@@ -19,7 +19,7 @@ Both formats of a topic must contain each fact below, and no other fact. A secon
 
 ## Topic B: cache stampede (`examples/cache-stampede`)
 
-| # | Fact | Explain page | Baseline |
+| # | Fact | Visser page | Baseline |
 |---|---|---|---|
 | B1 | The stall needed two conditions at once: a hot cache key expired, and many requests missed it concurrently. | ☐ | ☐ |
 | B2 | Keys expire daily and peak traffic occurs daily; neither alone caused a stall on other days. | ☐ | ☐ |

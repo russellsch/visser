@@ -18,7 +18,7 @@ const STATE = ['stateDiagram-v2', `  %% ${SECRET}`, '  [*] --> Idle', '  Idle --
 const ER = ['erDiagram', `%% ${SECRET}`, '  CUSTOMER ||--o{ INVOICE : "is billed by"', ''].join('\n');
 
 const doc = (flow: string) => `---
-format: explain/1
+format: visser/1
 docId: 2b6d1c0e-6f2a-4c3e-9b1d-5a7e8f9c0d1e
 title: Mermaid comment test
 kind: teaching
@@ -26,7 +26,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Mermaid comment test
 
 {% mermaid id="flow" title="Where the producer waits" question="Where does the producer wait?" %}
@@ -56,7 +56,7 @@ const TOOLKIT = {
 const OPTIONS = { audience: 'private' as const, includeSource: false, layoutFallback: false };
 
 function load(flow: string) {
-  const dir = mkdtempSync(join(tmpdir(), 'explain-mermaid-comments-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-mermaid-comments-'));
   writeFileSync(join(dir, 'index.md'), doc(flow));
   const bundle = loadBundle(join(dir, 'index.md'));
   expect(bundle.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
@@ -76,7 +76,7 @@ describe('Mermaid comments in generated output (§13.5)', () => {
     }
     // The figures still carry their source for the runtime and for readers.
     const html = text(result.files.find((f) => f.path.endsWith('index.html'))!.bytes);
-    expect(html).toContain('<pre class="ex-mermaid-source"><code class="language-mermaid">flowchart LR\n  Producer[Producer]');
+    expect(html).toContain('<pre class="vs-mermaid-source"><code class="language-mermaid">flowchart LR\n  Producer[Producer]');
     const md = text(result.files.find((f) => f.path.endsWith('document.md'))!.bytes);
     expect(md).toContain('```mermaid\nflowchart LR\n  Producer[Producer]');
     expect(md).toContain('stateDiagram-v2\n  [*] --> Idle');
@@ -97,8 +97,8 @@ describe('Mermaid comments in generated output (§13.5)', () => {
     const result = await compileDocument(withComments, TOOLKIT, OPTIONS);
     const html = text(result.files.find((f) => f.path.endsWith('index.html'))!.bytes);
     const flow = withComments.model.targets.get('flow')!;
-    expect(html).toContain(`data-ex-body="${flow.bodySha256}"`);
-    expect(html).toContain(`data-ex-rev="${withComments.sourceRevision}"`);
+    expect(html).toContain(`data-vs-body="${flow.bodySha256}"`);
+    expect(html).toContain(`data-vs-rev="${withComments.sourceRevision}"`);
     // The comment is part of the target span, so its hash differs from the clean source.
     expect(flow.bodySha256).not.toBe(without.model.targets.get('flow')!.bodySha256);
   });

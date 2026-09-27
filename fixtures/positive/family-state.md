@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 1b0c5e2a-1111-4a11-8a11-111111111111
 title: Connection lifecycle
 kind: architecture
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Connection lifecycle
 
 {% graph id="conn_states" mode="state" title="A connection closes once" question="Which events move a connection between states?" %}

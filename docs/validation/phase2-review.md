@@ -16,7 +16,7 @@ This report is evidence that an agent inspected the screenshots. It is not visua
 
 ## Examples
 
-Every example passes `explain check` with no diagnostics: `bounded-queue` (architecture, trace, annotated), `connection-lifecycle` (state), `image-pipeline` (transform), `cache-stampede` (cause), `queue-designs` (compare), `schema-migration` (plan), `order-intake` (cross-domain), and `deadline-retry` (prose-first, with the only standalone figure).
+Every example passes `visser check` with no diagnostics: `bounded-queue` (architecture, trace, annotated), `connection-lifecycle` (state), `image-pipeline` (transform), `cache-stampede` (cause), `queue-designs` (compare), `schema-migration` (plan), `order-intake` (cross-domain), and `deadline-retry` (prose-first, with the only standalone figure).
 
 ## Screenshots inspected
 

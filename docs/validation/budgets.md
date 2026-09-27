@@ -1,6 +1,6 @@
 # Performance budgets (§2.3)
 
-Measured on 27 September 2026 with `EXPLAIN_BUDGET_TIMING=1 npm run test:budgets`. The raw numbers are in `reports/budgets.json`.
+Measured on 27 September 2026 with `VISSER_BUDGET_TIMING=1 npm run test:budgets`. The raw numbers are in `reports/budgets.json`.
 
 Size, count, and limit rows are gates: `npm run test:budgets` exits 1 if one fails. Timing rows are reported only. They are not gates, because shared machine timing is too noisy.
 
@@ -18,7 +18,7 @@ This is a fast desktop machine. The spec asks for a "contemporary laptop" for th
 
 ## Reference fixture
 
-`tests/fixtures/budget/generate.mjs` writes the fixture. `scripts/check-budgets.mjs` then runs `explain init`, the generator, and `explain capture file` for each of the 20 excerpts.
+`tests/fixtures/budget/generate.mjs` writes the fixture. `scripts/check-budgets.mjs` then runs `visser init`, the generator, and `visser capture file` for each of the 20 excerpts.
 
 | Property | Value |
 |---|---|
@@ -55,7 +55,7 @@ Other tests cover the limits that this script does not gate:
 |---|---|---|---|
 | `mermaid.js` size | 5,575,485 bytes, 1,608,869 gzip | reported only | |
 | Built page | 675,821 bytes, 55,027 gzip | none | `document.md` is 145,390 bytes |
-| Offline build of the fixture | 1,295 ms (runs 1,286 to 1,303) | under 3 s | Wall clock of `explain build` from `dist/release`, including Node start. |
+| Offline build of the fixture | 1,295 ms (runs 1,286 to 1,303) | under 3 s | Wall clock of `visser build` from `dist/release`, including Node start. |
 | Initial usable page | 635.5 ms (runs 625.4 to 670.4), gzip | under 2 s (target) | Profile: 390x844 mobile, 150 ms latency, 1.6 Mbit/s down, 750 kbit/s up, CPU 4x, cache off |
 | First Mermaid figure drawn | 9,433.6 ms (runs 9,403.7 to 9,458.7), gzip | none | Same runs as the initial usable page |
 | Inspector after a click | 14.1 ms (5 targets, 5 clicks each) | under 100 ms | 1440x1000, no throttling |
@@ -73,7 +73,7 @@ Other tests cover the limits that this script does not gate:
 
 ```sh
 npm run test:budgets                           # gates only, about 10 s
-EXPLAIN_BUDGET_TIMING=1 npm run test:budgets   # gates plus timing, about 3 min of Chromium
+VISSER_BUDGET_TIMING=1 npm run test:budgets   # gates plus timing, about 3 min of Chromium
 ```
 
-The timing run uses Playwright with `EXPLAIN_BROWSER_BUDGETS=1`. It writes its own reports (`reports/budgets-playwright.json`), so it does not replace the tier reports that the contract gate reads.
+The timing run uses Playwright with `VISSER_BROWSER_BUDGETS=1`. It writes its own reports (`reports/budgets-playwright.json`), so it does not replace the tier reports that the contract gate reads.

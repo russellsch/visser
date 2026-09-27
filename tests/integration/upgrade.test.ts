@@ -1,4 +1,4 @@
-// `explain upgrade DOC --to DIGEST` (§12.3, §17.1, §11.9): the target toolkit
+// `visser upgrade DOC --to DIGEST` (§12.3, §17.1, §11.9): the target toolkit
 // is resolved with the trust gate, its own CLI checks and rebuilds, versions
 // come from release.json, and the lock changes only through a guarded write.
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -18,7 +18,7 @@ function toolkit(dest: string, version: string, change?: (dir: string) => void):
   change?.(dest);
   const listed = JSON.parse(readFileSync(join(dest, 'release.json'), 'utf8')) as { files: Array<{ path: string; sha256: string }> };
   const files = listed.files.map((f) => ({ path: f.path, sha256: createHash('sha256').update(readFileSync(join(dest, ...f.path.split('/')))).digest('hex') }));
-  writeFileSync(join(dest, 'release.json'), canonicalJSON({ schema: 'explain-release/1', version, files }) + '\n');
+  writeFileSync(join(dest, 'release.json'), canonicalJSON({ schema: 'visser-release/1', version, files }) + '\n');
   return digestOf(dest);
 }
 
@@ -51,7 +51,7 @@ function setup(pinned: 'old' | 'new' = 'old') {
   installUser(fx, join(fx.root, 'tk-a'));
   installUser(fx, join(fx.root, 'tk-b'));
   const { repo, doc } = repoWithDocument(fx, 'repo', pinned === 'old' ? A : B);
-  const lockPath = join(repo, 'docs', 'a', 'explain.lock.json');
+  const lockPath = join(repo, 'docs', 'a', 'visser.lock.json');
   return { fx, A, B, repo, doc, lockPath };
 }
 
@@ -70,10 +70,10 @@ describe('compareVersions (Semantic Versioning 2.0.0 precedence)', () => {
   });
 });
 
-describe('explain upgrade', () => {
+describe('visser upgrade', () => {
   it('moves the lock to a newer installed toolkit, runs its check and rebuild, and keeps old snapshots', async () => {
     const { fx, A, B, repo, doc, lockPath } = setup('old');
-    const outDir = join(repo, '.explain', 'output');
+    const outDir = join(repo, '.visser', 'output');
     mkdirSync(join(outDir, 'd', 'old-snapshot'), { recursive: true });
     writeFileSync(join(outDir, 'd', 'old-snapshot', 'index.html'), 'old');
     const r = await upgrade(fx, [doc, '--to', B, '--json']);
@@ -107,9 +107,9 @@ describe('explain upgrade', () => {
     const sentinel = join(fx.root, 'sentinel');
     const code = `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'ran');\n`;
     const S = toolkit(join(fx.root, 'tk-s'), '9.0.0', (dir) => {
-      for (const f of ['bin/explain.cjs', 'workers/layout.cjs', 'workers/mermaid-parse.cjs']) writeFileSync(join(dir, f), code);
+      for (const f of ['bin/visser.cjs', 'workers/layout.cjs', 'workers/mermaid-parse.cjs']) writeFileSync(join(dir, f), code);
     });
-    cpSync(join(fx.root, 'tk-s'), join(repo, '.explain', 'toolchains', S), { recursive: true });
+    cpSync(join(fx.root, 'tk-s'), join(repo, '.visser', 'toolchains', S), { recursive: true });
     const before = readFileSync(lockPath);
     const r = await upgrade(fx, [doc, '--to', S]);
     expect(r.code).toBe(4);
@@ -122,7 +122,7 @@ describe('explain upgrade', () => {
     const { fx, doc, lockPath } = setup('old');
     const marker = join(fx.root, 'marker.json');
     const F = toolkit(join(fx.root, 'tk-f'), '0.3.0', (dir) => {
-      writeFileSync(join(dir, 'bin', 'explain.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write(JSON.stringify({ schema: 'explain-check/1', ok: false, targetCount: 0, diagnostics: [{ code: 'E_SEMANTIC', severity: 'error', message: 'rejected by 0.3.0' }] }));\nprocess.exitCode = 2;\n`);
+      writeFileSync(join(dir, 'bin', 'visser.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write(JSON.stringify({ schema: 'visser-check/1', ok: false, targetCount: 0, diagnostics: [{ code: 'E_SEMANTIC', severity: 'error', message: 'rejected by 0.3.0' }] }));\nprocess.exitCode = 2;\n`);
     });
     installUser(fx, join(fx.root, 'tk-f'));
     const before = readFileSync(lockPath);
@@ -146,8 +146,8 @@ describe('explain upgrade', () => {
   it('refuses while another writer holds the document\'s edit lock', async () => {
     const { fx, B, repo, doc, lockPath } = setup('old');
     const docId = /docId: ([0-9a-f-]+)/.exec(readFileSync(doc, 'utf8'))![1]!;
-    mkdirSync(join(repo, '.explain', 'edit-locks'), { recursive: true });
-    writeFileSync(join(repo, '.explain', 'edit-locks', `${docId}.lock`), '{"pid":1}\n');
+    mkdirSync(join(repo, '.visser', 'edit-locks'), { recursive: true });
+    writeFileSync(join(repo, '.visser', 'edit-locks', `${docId}.lock`), '{"pid":1}\n');
     const before = readFileSync(lockPath);
     const r = await upgrade(fx, [doc, '--to', B]);
     expect(r.code).toBe(5);
@@ -196,6 +196,6 @@ describe('explain upgrade', () => {
     cpSync(doc, join(bare, 'index.md'));
     const noLock = await upgrade(fx, [join(bare, 'index.md'), '--to', B]);
     expect(noLock.code).toBe(3);
-    expect(noLock.err).toContain('no explain.lock.json');
+    expect(noLock.err).toContain('no visser.lock.json');
   }, 120_000);
 });

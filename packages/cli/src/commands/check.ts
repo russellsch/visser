@@ -1,4 +1,4 @@
-// `explain check DOC [--json] [--verify-origins [--repo-map LABEL=PATH]] [--release] [--review]` (§17.1).
+// `visser check DOC [--json] [--verify-origins [--repo-map LABEL=PATH]] [--release] [--review]` (§17.1).
 // Validates syntax, IDs, frontmatter, spans, semantics, and capture consistency.
 // `--verify-origins` (§8.5) also compares each captured source with its local
 // origin; it never fetches. Origin states appear only here, never on pages.
@@ -82,7 +82,7 @@ export async function runCheck(args: ParsedArgs): Promise<number> {
     all.push(...added);
   }
   if (json) {
-    printJson('check', { schema: 'explain-check/1', ok: code === EXIT.ok, targetCount: targets.size, diagnostics: all, ...(origins ? { origins } : {}) });
+    printJson('check', { schema: 'visser-check/1', ok: code === EXIT.ok, targetCount: targets.size, diagnostics: all, ...(origins ? { origins } : {}) });
   } else {
     printDiagnostics(all, false);
     if (origins) {

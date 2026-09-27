@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 5a738973-bfc7-4cb5-8fda-35afbc0914ac
 title: This retry loop stops at a deadline, not after a count
 kind: teaching
@@ -12,38 +12,38 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # This retry loop stops at a deadline, not after a count
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The loop below retries a failing call with growing delays, but it stops on
 time, not on an attempt count. Before each sleep it checks whether the sleep
 would pass the deadline; if so, it gives up and raises the last error. The
 caller therefore gets an answer within the deadline plus the duration of one
 call.
 
-<!-- ex:id p_why -->
+<!-- vs:id p_why -->
 A count-based limit answers the wrong question. Five attempts can take a
 second or a minute depending on the delays and on how long each failing call
 takes. A caller with its own timeout cares about elapsed time, so the loop
 measures elapsed time.
 
-<!-- ex:id q_requirement -->
+<!-- vs:id q_requirement -->
 > The caller must receive either a result or an error within its own time
 > budget; it does not care how many attempts were made.
 
-<!-- ex:id t_budget -->
+<!-- vs:id t_budget -->
 | Limit | What it bounds | What it leaves unbounded |
 |---|---|---|
 | Attempt count | Number of calls | Total elapsed time |
 | Deadline | Elapsed time before the last attempt starts | Duration of that last attempt |
 
-<!-- ex:id p_overrun -->
+<!-- vs:id p_overrun -->
 The bound is not exact. The deadline check happens before sleeping, not
 during the call, so one slow call can run past the deadline. If the caller
 needs a hard bound, the call itself must accept a timeout.
 
-<!-- ex:id fig_overrun -->
+<!-- vs:id fig_overrun -->
 ![Illustrative timeline: three calls separated by growing sleeps all end before the 1000 ms deadline; the fourth call starts at about 920 ms, before the deadline, and ends after it.](assets/retry-timeline.png)
 
 {% annotated id="loop_code" title="Where the deadline is enforced" question="Which line guarantees that the loop ends?" source="src_retry" %}
@@ -79,10 +79,10 @@ def call_with_retries(call, deadline_s, first_delay_s=0.1, max_delay_s=2.0):
 ```
 {% /source %}
 
-<!-- ex:id p_usage -->
+<!-- vs:id p_usage -->
 A caller passes its own budget and a zero-argument callable:
 
-<!-- ex:id c_usage -->
+<!-- vs:id c_usage -->
 ```python
 profile = call_with_retries(lambda: fetch_profile(user_id), deadline_s=1.5)
 ```
@@ -93,6 +93,6 @@ retry in lockstep. The example leaves jitter out to keep the deadline logic
 visible; adding it does not change where the loop exits.
 {% /detail %}
 
-<!-- ex:id p_use -->
+<!-- vs:id p_use -->
 Use a count limit only when each attempt has a real cost, such as a paid
 request. Otherwise, a deadline expresses what the caller needs.

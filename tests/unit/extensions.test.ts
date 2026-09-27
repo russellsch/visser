@@ -12,10 +12,10 @@ import { parseArgs } from '../../packages/cli/src/cli-util.ts';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 import { copyExample, fixedOutputSource, makeExtension, sentinelSource, signExtension } from '../integration/extension.fixtures.ts';
 
-const tmp = () => mkdtempSync(join(tmpdir(), 'explain-extu-'));
+const tmp = () => mkdtempSync(join(tmpdir(), 'visser-extu-'));
 
 const INPUT: ComponentInput = {
-  schema: 'explain-component-input/1', api: 'explain-component/1',
+  schema: 'visser-component-input/1', api: 'visser-component/1',
   component: { id: 'lanes', title: 'T', question: 'Q?', attributes: { unit: 'ms' } },
   parts: [{ id: 'lane_a', label: 'A', text: '', attributes: { start: 0, end: 5 } }],
 };
@@ -37,7 +37,7 @@ describe('extension manifest verification', () => {
         const m = JSON.parse(readFileSync(join(d, 'extension.json'), 'utf8'));
         m.browserEntry = 'browser.js';
         writeFileSync(join(d, 'extension.json'), JSON.stringify(m));
-      }, /violates explain-extension\/1/],
+      }, /violates visser-extension\/1/],
     ];
     for (const [label, change, message] of cases) {
       const dir = join(tmp(), 'x');
@@ -55,7 +55,7 @@ describe('extension SVG allowlist (§15.2)', () => {
 
   it('wraps each target group in the core link and escapes text', () => {
     const html = render(extensionSvg(svg([good]), ctx));
-    expect(html).toContain('<a class="ex-ext-part" href="#x-lane_a"');
+    expect(html).toContain('<a class="vs-ext-part" href="#x-lane_a"');
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>');
   });
@@ -88,7 +88,7 @@ describe('build entry runner (§14.3)', () => {
       ['crash', 'process.stderr.write("\\u001b[31mboom\\n"); process.exit(3);', /exited with 3: \?\[31mboom/],
       ['too much', 'process.stdout.write("x".repeat(3000));', /more than/, { timeoutMs: 5000, heapMb: 64, outputBytes: 1000 }],
       ['not JSON', 'process.stdout.write("hello");', /one JSON value/],
-      ['no fallback', fixedOutputSource({ schema: 'explain-component-output/1', svg: { tag: 'svg' }, parts: {} }), /no text fallback for part lane_a/],
+      ['no fallback', fixedOutputSource({ schema: 'visser-component-output/1', svg: { tag: 'svg' }, parts: {} }), /no text fallback for part lane_a/],
     ];
     for (const [label, source, message, limits] of cases) {
       const dir = join(tmp(), 'x');
@@ -100,29 +100,29 @@ describe('build entry runner (§14.3)', () => {
 
   it('runs with a minimal environment: no caller secrets', () => {
     const dir = join(tmp(), 'x');
-    makeExtension(dir, "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write(JSON.stringify({ schema: 'explain-component-output/1', svg: { tag: 'svg' }, parts: { lane_a: { text: Object.keys(process.env).sort().join(',') || 'none' } } })));\n");
-    process.env['EXPLAIN_TEST_SECRET'] = 'x';
+    makeExtension(dir, "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write(JSON.stringify({ schema: 'visser-component-output/1', svg: { tag: 'svg' }, parts: { lane_a: { text: Object.keys(process.env).sort().join(',') || 'none' } } })));\n");
+    process.env['VISSER_TEST_SECRET'] = 'x';
     try {
       const out = runBuildEntry(verifyExtensionDir(dir), INPUT);
-      expect(out.parts['lane_a']!.text).not.toContain('EXPLAIN_TEST_SECRET');
+      expect(out.parts['lane_a']!.text).not.toContain('VISSER_TEST_SECRET');
     } finally {
-      delete process.env['EXPLAIN_TEST_SECRET'];
+      delete process.env['VISSER_TEST_SECRET'];
     }
   });
 });
 
-describe('explain extension (command)', () => {
+describe('visser extension (command)', () => {
   let home: string;
   let stdout: string;
   beforeEach(() => {
     home = tmp();
-    process.env['EXPLAIN_HOME'] = home;
+    process.env['VISSER_HOME'] = home;
     stdout = '';
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => { stdout += String(chunk); return true; });
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    delete process.env['EXPLAIN_HOME'];
+    delete process.env['VISSER_HOME'];
   });
 
   it('@R11 inspect shows the manifest, schema, and guide without running the build entry', async () => {
@@ -140,7 +140,7 @@ describe('explain extension (command)', () => {
   it('trust and --revoke write only the extensions map', async () => {
     const D = 'c'.repeat(64);
     expect(await runExtension(parseArgs(['trust', D, '--json']))).toBe(0);
-    expect(JSON.parse(stdout)).toMatchObject({ schema: 'explain-extension-trust/1', trusted: true, changed: true });
+    expect(JSON.parse(stdout)).toMatchObject({ schema: 'visser-extension-trust/1', trusted: true, changed: true });
     stdout = '';
     expect(await runExtension(parseArgs(['trust', D, '--revoke', '--json']))).toBe(0);
     expect(JSON.parse(stdout)).toMatchObject({ trusted: false, changed: true });

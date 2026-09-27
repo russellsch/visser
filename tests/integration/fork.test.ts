@@ -1,4 +1,4 @@
-// explain fork (§11.5, §17.1, §18.1 T06).
+// visser fork (§11.5, §17.1, §18.1 T06).
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +13,7 @@ const QUEUE = new URL('../../examples/bounded-queue/', import.meta.url).pathname
 const RETRY = new URL('../../examples/deadline-retry/', import.meta.url).pathname;
 
 function tempRepo(example = QUEUE): { repo: string; dir: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-fork-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-fork-'));
   mkdirSync(join(repo, '.git'));
   const dir = join(repo, 'docs/explanations/source');
   mkdirSync(dir, { recursive: true });
@@ -56,10 +56,10 @@ describe('fork (§11.5)', () => {
   it('copies declared files and the lock only, never an undeclared file', () => {
     const { repo, dir, doc } = tempRepo(RETRY);
     writeFileSync(join(dir, 'notes.txt'), 'private scratch notes\n');
-    writeFileSync(join(dir, 'explain.lock.json'), '{"schema":"explain-lock/1"}\n');
+    writeFileSync(join(dir, 'visser.lock.json'), '{"schema":"visser-lock/1"}\n');
     const dest = join(repo, 'docs/explanations/copy');
     const result = forkDocument(doc, dest, { repoRoot: repo });
-    expect(result.files.sort()).toEqual(['assets/retry-timeline.png', 'explain.lock.json', 'index.md']);
+    expect(result.files.sort()).toEqual(['assets/retry-timeline.png', 'index.md', 'visser.lock.json']);
     expect(existsSync(join(dest, 'notes.txt'))).toBe(false);
     expect(readFileSync(join(dest, 'assets/retry-timeline.png'))).toEqual(readFileSync(join(dir, 'assets/retry-timeline.png')));
   });
@@ -93,7 +93,7 @@ describe('fork (§11.5)', () => {
 
     const lock = tempRepo();
     writeFileSync(join(lock.repo, 'lock.json'), '{}\n');
-    symlinkSync(join(lock.repo, 'lock.json'), join(lock.dir, 'explain.lock.json'));
+    symlinkSync(join(lock.repo, 'lock.json'), join(lock.dir, 'visser.lock.json'));
     expect(codeOf(() => forkDocument(lock.doc, join(lock.repo, 'docs/explanations/copy'), { repoRoot: lock.repo }))).toBe('E_PATH_ESCAPE');
     expect(existsSync(join(lock.repo, 'docs/explanations/copy'))).toBe(false);
   });
@@ -112,12 +112,12 @@ describe('fork (§11.5)', () => {
 
   it('refuses to fork a document with errors', () => {
     const { repo, doc } = tempRepo();
-    writeFileSync(doc, readFileSync(doc, 'utf8').replace('<!-- ex:id p_limits -->\n', ''));
+    writeFileSync(doc, readFileSync(doc, 'utf8').replace('<!-- vs:id p_limits -->\n', ''));
     expect(codeOf(() => forkDocument(doc, join(repo, 'docs/explanations/copy'), { repoRoot: repo }))).toBe('E_ID_MISSING');
   });
 });
 
-describe('explain fork CLI', () => {
+describe('visser fork CLI', () => {
   async function fork(...argv: string[]): Promise<{ code: number; stdout: string }> {
     let stdout = '';
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => ((stdout += String(chunk)), true));
@@ -136,7 +136,7 @@ describe('explain fork CLI', () => {
     const { repo, doc } = tempRepo();
     const ok = await fork(doc, join(repo, 'docs/explanations/copy'), '--root', repo, '--json');
     expect(ok.code).toBe(0);
-    expect(JSON.parse(ok.stdout).schema).toBe('explain-fork/1');
+    expect(JSON.parse(ok.stdout).schema).toBe('visser-fork/1');
     expect((await fork(doc, join(repo, 'docs/explanations/copy'), '--root', repo)).code).toBe(2);
     expect((await fork(doc, join(repo, 'outside'), '--root', repo)).code).toBe(4);
     expect((await fork(doc, '--root', repo)).code).toBe(2);

@@ -91,7 +91,7 @@ export function extensionSvg(root: SvgNode, ctx: SvgContext): HNode {
     if (label === undefined) bad(`${where}: target ${node.target} is not a part of this component`);
     if (seen.has(node.target)) bad(`${where}: part ${node.target} appears twice in the figure`);
     seen.add(node.target);
-    return h('a', { class: 'ex-ext-part', href: `#${DOM.canonicalId(node.target)}`, id: DOM.svgInstanceId(ctx.figureId, node.target), [DOM.attr.target]: node.target, [DOM.attr.interactive]: true, 'aria-label': label }, element);
+    return h('a', { class: 'vs-ext-part', href: `#${DOM.canonicalId(node.target)}`, id: DOM.svgInstanceId(ctx.figureId, node.target), [DOM.attr.target]: node.target, [DOM.attr.interactive]: true, 'aria-label': label }, element);
   };
 
   if (root.tag !== 'svg') bad(`${where}: the output root must be <svg>, not <${root.tag}>`);

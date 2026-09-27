@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 6b0c5e2a-6666-4a66-8a66-666666666666
 title: Request path
 kind: architecture
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Request path
 
 {% graph id="req_map" mode="architecture" title="The gateway owns retries" question="Where are the boundaries between client, gateway, and store?" %}

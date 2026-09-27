@@ -1,5 +1,5 @@
-// `explain export DOC --format markdown [--out FILE]` (§7.6) and
-// `explain export DOC|--collection FILE --format site --out DIR
+// `visser export DOC --format markdown [--out FILE]` (§7.6) and
+// `visser export DOC|--collection FILE --format site --out DIR
 //   [--audience private|public] [--allow-private-content] [--include-source]
 //   [--toolkit-dir DIR | --dev-toolkit DIR] [--json]` (§13.1, §13.5).
 //
@@ -27,8 +27,8 @@ import { compileWithToolkit, copyAssets, repoRootFor } from './build.ts';
 import { loadDocument } from './load.ts';
 
 const USAGE = [
-  'usage: explain export DOC --format markdown [--out FILE]',
-  '       explain export DOC|--collection FILE --format site --out DIR [--audience private|public]',
+  'usage: visser export DOC --format markdown [--out FILE]',
+  '       visser export DOC|--collection FILE --format site --out DIR [--audience private|public]',
   '         [--allow-private-content] [--include-source] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]',
 ].join('\n');
 
@@ -134,7 +134,7 @@ async function exportSite(args: ParsedArgs): Promise<number> {
   if (audience === 'public') {
     const dev = planned.find((p) => p.toolkit.development);
     if (dev) {
-      throw new CliError('E_USAGE', `a public export refuses development builds: ${dev.bundle.indexPath} uses --dev-toolkit with a toolkit that differs from its lock. Export with the locked toolkit, or run \`explain upgrade\``, EXIT.invalid);
+      throw new CliError('E_USAGE', `a public export refuses development builds: ${dev.bundle.indexPath} uses --dev-toolkit with a toolkit that differs from its lock. Export with the locked toolkit, or run \`visser upgrade\``, EXIT.invalid);
     }
   }
   const sources = planned.flatMap((p) => p.sources);
@@ -177,13 +177,13 @@ async function exportSite(args: ParsedArgs): Promise<number> {
       }
       packs.set(digest, pack);
     }
-    for (const [digest, pack] of packs) copyAssets(pack.release, join(staging, '_explain', 'assets', digest), [...pack.files].sort());
+    for (const [digest, pack] of packs) copyAssets(pack.release, join(staging, '_visser', 'assets', digest), [...pack.files].sort());
     if (collection) {
       const first = results[0]!.plan.toolkit.release;
-      const css = readFileSync(join(staging, '_explain', 'assets', first.sha256, 'reader.css'));
+      const css = readFileSync(join(staging, '_visser', 'assets', first.sha256, 'reader.css'));
       const html = collectionIndexHtml(collection.title, results.map(({ plan }) => ({ title: plan.doc.title, path: plan.doc.path })), {
         audience,
-        stylesheet: `_explain/assets/${first.sha256}/reader.css`,
+        stylesheet: `_visser/assets/${first.sha256}/reader.css`,
         stylesheetSha256: createHash('sha256').update(css).digest('hex'),
       });
       writeFileSync(join(staging, 'index.html'), html, { flag: 'wx' });
@@ -202,7 +202,7 @@ async function exportSite(args: ParsedArgs): Promise<number> {
   if (audience === 'public' && byName.length > 0) warnings.push(publicByNameWarning(byName));
   warnings.push(...STATIC_HOST_WARNINGS);
   const report = {
-    schema: 'explain-export/1' as const,
+    schema: 'visser-export/1' as const,
     format: 'site' as const,
     audience,
     out,
@@ -218,7 +218,7 @@ async function exportSite(args: ParsedArgs): Promise<number> {
     })),
     sources,
     mermaidPages: results.filter(({ result }) => result.needsMermaid).map(({ plan }) => plan.doc.path),
-    assetPacks: [...packs].map(([digest, pack]) => ({ toolkitSha256: digest, path: `_explain/assets/${digest}`, files: [...pack.files].sort() })),
+    assetPacks: [...packs].map(([digest, pack]) => ({ toolkitSha256: digest, path: `_visser/assets/${digest}`, files: [...pack.files].sort() })),
     warnings,
   };
   if (json) {

@@ -16,14 +16,14 @@ import { join } from 'node:path';
 import { EXAMPLES } from './examples.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 const work = join(root, 'reports/export-site');
 const site = join(work, 'site');
 
-function explain(args, cwd = root) {
+function visser(args, cwd = root) {
   const result = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8' });
   if (result.status !== 0) {
-    throw new Error(`explain ${args.join(' ')} exited ${result.status}\n${result.stdout}\n${result.stderr}`);
+    throw new Error(`visser ${args.join(' ')} exited ${result.status}\n${result.stdout}\n${result.stderr}`);
   }
   return result.stdout;
 }
@@ -34,11 +34,11 @@ mkdirSync(work, { recursive: true });
 // 1. The private collection.
 const collection = join(work, 'collection.json');
 writeFileSync(collection, JSON.stringify({
-  schema: 'explain-collection/1',
-  title: 'Explain examples',
+  schema: 'visser-collection/1',
+  title: 'Visser examples',
   documents: EXAMPLES.map((name) => ({ path: `../../examples/${name}` })),
 }, null, 2));
-const report = JSON.parse(explain(['export', '--collection', collection, '--format', 'site', '--out', site, '--dev-toolkit', join(root, 'dist/release'), '--json']));
+const report = JSON.parse(visser(['export', '--collection', collection, '--format', 'site', '--out', site, '--dev-toolkit', join(root, 'dist/release'), '--json']));
 
 const map = {};
 for (const name of EXAMPLES) {
@@ -49,16 +49,16 @@ for (const name of EXAMPLES) {
 }
 
 // 2. A public document in a new repository, exported without a development toolkit.
-const repo = mkdtempSync(join(tmpdir(), 'explain-public-'));
-mkdirSync(join(repo, '.explain'));
+const repo = mkdtempSync(join(tmpdir(), 'visser-public-'));
+mkdirSync(join(repo, '.visser'));
 const docDir = join(repo, 'docs/public-notes');
-explain(['init', docDir, '--kind', 'teaching', '--title', 'Public notes'], repo);
+visser(['init', docDir, '--kind', 'teaching', '--title', 'Public notes'], repo);
 const indexPath = join(docDir, 'index.md');
 writeFileSync(indexPath, readFileSync(indexPath, 'utf8').replace('visibility: private', 'visibility: public')
   + '\nA public page that the static host serves under a project prefix.\n');
-explain(['ids', 'assign', indexPath], repo);
+visser(['ids', 'assign', indexPath], repo);
 const publicOut = join(repo, 'site');
-const publicReport = JSON.parse(explain(['export', indexPath, '--format', 'site', '--audience', 'public', '--out', publicOut, '--json'], repo));
+const publicReport = JSON.parse(visser(['export', indexPath, '--format', 'site', '--audience', 'public', '--out', publicOut, '--json'], repo));
 cpSync(publicOut, join(site, 'public'), { recursive: true });
 map.public = `public/${publicReport.documents[0].path}`;
 rmSync(repo, { recursive: true, force: true });

@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: b65b45cc-961d-4290-9813-a5994b1d6d95
 title: The order in which a request is handled
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # The order in which a request is handled
 
-<!-- ex:id p_intro -->
+<!-- vs:id p_intro -->
 The map below shows the request path.
 
 {% graph id="request_path" mode="architecture" title="The order in which a request is handled" question="What happens first, and what happens next?" %}

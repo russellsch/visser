@@ -1,4 +1,4 @@
-// `explain fork DOC DEST` (§11.5, §17.1): a new, independent document with a
+// `visser fork DOC DEST` (§11.5, §17.1): a new, independent document with a
 // new docId. Internal target IDs, provenance, and retiredTargets are kept; only
 // declared bundle files and the lock are copied; nothing is overwritten.
 import { randomUUID } from 'node:crypto';
@@ -18,7 +18,7 @@ export type ForkOptions = {
 };
 
 export type ForkResult = {
-  schema: 'explain-fork/1';
+  schema: 'visser-fork/1';
   sourceDocId: string;
   docId: string;
   path: string; // new index.md
@@ -77,11 +77,11 @@ export function forkDocument(doc: string, dest: string, opts: ForkOptions): Fork
   // Declared files only (§7.4), plus the lock. loadBundle has already refused
   // symlinked declared assets; check again at copy time.
   const files = bundle.files.map((f) => f.path);
-  const lockPath = join(sourceRoot, 'explain.lock.json');
+  const lockPath = join(sourceRoot, 'visser.lock.json');
   const copies = [...files];
   if (existsSync(lockPath) || (() => { try { lstatSync(lockPath); return true; } catch { return false; } })()) {
-    regularFile(lockPath, 'explain.lock.json');
-    copies.push('explain.lock.json');
+    regularFile(lockPath, 'visser.lock.json');
+    copies.push('visser.lock.json');
   }
 
   const docId = opts.newDocId ?? randomUUID();
@@ -130,5 +130,5 @@ export function forkDocument(doc: string, dest: string, opts: ForkOptions): Fork
     rmSync(staging, { recursive: true, force: true });
     throw error;
   }
-  return { schema: 'explain-fork/1', sourceDocId: bundle.docId, docId, path: join(realTarget, 'index.md'), files: copies };
+  return { schema: 'visser-fork/1', sourceDocId: bundle.docId, docId, path: join(realTarget, 'index.md'), files: copies };
 }

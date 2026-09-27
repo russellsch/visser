@@ -10,10 +10,10 @@ import { guideHeader, guideTemplate, PATTERNS } from '../../packages/core/src/ca
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { TAG_SPECS } from '../../packages/core/src/model/validate.ts';
 
-const DIR = new URL('../../skills/explain/references/catalogue/', import.meta.url).pathname;
+const DIR = new URL('../../skills/visual-explain/references/catalogue/', import.meta.url).pathname;
 const WRAPPER = [
   '---',
-  'format: explain/1',
+  'format: visser/1',
   'docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239',
   'title: Catalogue template',
   'kind: reference',
@@ -21,7 +21,7 @@ const WRAPPER = [
   'visibility: private',
   '---',
   '',
-  '<!-- ex:id overview -->',
+  '<!-- vs:id overview -->',
   '# Catalogue template',
   '',
   '',
@@ -30,7 +30,7 @@ const WRAPPER = [
 const COMMON = ['## Use it when', '## Do not use it when', '## Misleading example', '## Rules', '## Template', '## Diagnostics'];
 const COMPONENT = ['## Tags and attributes', '## Narrow screens and text'];
 
-const work = mkdtempSync(join(tmpdir(), 'explain-catalogue-'));
+const work = mkdtempSync(join(tmpdir(), 'visser-catalogue-'));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
 
 /** Text outside fenced blocks. */

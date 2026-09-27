@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { canonicalJSON } from '../../packages/core/src/model/hash.ts';
 
 export const root = new URL('../..', import.meta.url).pathname;
-export const cli = join(root, 'dist/release/bin/explain.cjs');
+export const cli = join(root, 'dist/release/bin/visser.cjs');
 export const example = join(root, 'examples/extensions/timeline-lanes');
 
 const PERMISSIVE_SCHEMA = JSON.stringify({ type: 'object' });
@@ -16,7 +16,7 @@ const PERMISSIVE_SCHEMA = JSON.stringify({ type: 'object' });
 /** Rewrite extension.json for the files in `dir`; returns the digest. */
 export function signExtension(dir: string, meta: { name: string; version: string }): string {
   const files = ['GUIDE.md', 'build.cjs', 'schema.json'].map((path) => ({ path, sha256: createHash('sha256').update(readFileSync(join(dir, path))).digest('hex') }));
-  const manifest = { schema: 'explain-extension/1', name: meta.name, version: meta.version, api: 'explain-component/1', buildEntry: 'build.cjs', browserEntry: null, schemaFile: 'schema.json', guide: 'GUIDE.md', files };
+  const manifest = { schema: 'visser-extension/1', name: meta.name, version: meta.version, api: 'visser-component/1', buildEntry: 'build.cjs', browserEntry: null, schemaFile: 'schema.json', guide: 'GUIDE.md', files };
   writeFileSync(join(dir, 'extension.json'), JSON.stringify(manifest, null, 2) + '\n');
   return createHash('sha256').update(canonicalJSON(manifest)).digest('hex');
 }
@@ -66,10 +66,10 @@ export type Ctx = {
 };
 
 export function context(): Ctx {
-  const base = mkdtempSync(join(tmpdir(), 'explain-ext-'));
+  const base = mkdtempSync(join(tmpdir(), 'visser-ext-'));
   const repo = join(base, 'repo');
   mkdirSync(join(repo, '.git'), { recursive: true });
-  const env = { ...process.env, EXPLAIN_HOME: join(base, 'home') };
+  const env = { ...process.env, VISSER_HOME: join(base, 'home') };
   const run = (...args: string[]) => {
     const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env, cwd: repo });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };

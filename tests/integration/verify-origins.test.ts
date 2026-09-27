@@ -64,12 +64,12 @@ describe('check --verify-origins @R07', () => {
     const bundle = join(repo, 'docs', 'explanations', 'notes');
     mkdirSync(bundle, { recursive: true });
     const doc = join(bundle, 'index.md');
-    writeFileSync(doc, `${frontmatter()}\n<!-- ex:id intro -->\nIntro paragraph.\n`);
+    writeFileSync(doc, `${frontmatter()}\n<!-- vs:id intro -->\nIntro paragraph.\n`);
     captureGit({ repo, file: 'a.txt', lines: '1:2', doc, id: 'src_a', title: 'A', capturedAt: AT });
     const recorded = loadBundle(doc).parsed.targets.find((t) => t.id === 'src_a')!.attributes['repository'];
     expect(documentRepository(bundle)).toEqual([recorded, repo]);
-    const cli = join(new URL('../..', import.meta.url).pathname, 'dist/release/bin/explain.cjs');
-    const r = spawnSync(process.execPath, [cli, 'check', doc, '--verify-origins', '--json'], { encoding: 'utf8', env: { ...process.env, EXPLAIN_HOME: join(fx.root, 'home') } });
+    const cli = join(new URL('../..', import.meta.url).pathname, 'dist/release/bin/visser.cjs');
+    const r = spawnSync(process.execPath, [cli, 'check', doc, '--verify-origins', '--json'], { encoding: 'utf8', env: { ...process.env, VISSER_HOME: join(fx.root, 'home') } });
     expect(r.status, r.stderr).toBe(0);
     expect(JSON.parse(r.stdout).origins).toEqual([{ id: 'src_a', kind: 'git', state: 'origin-matched' }]);
   });

@@ -9,7 +9,7 @@ const TOOLKIT = { version: '0.0.0', sha256: 'e'.repeat(64) };
 const OPTIONS = { audience: 'private' as const, includeSource: false, layoutFallback: false };
 
 const FRONTMATTER = `---
-format: explain/1
+format: visser/1
 docId: 7d2b9c1e-3f4a-4b5c-8d6e-9f0a1b2c3d4e
 title: Family fixture
 kind: reference
@@ -20,7 +20,7 @@ visibility: private
 
 function doc(figure: string): string {
   return `${FRONTMATTER}
-<!-- ex:id h_fixture -->
+<!-- vs:id h_fixture -->
 # Family fixture
 
 ${figure}
@@ -28,7 +28,7 @@ ${figure}
 }
 
 async function compile(text: string): Promise<{ bundle: LoadedBundle; result: CompileResult; html: string }> {
-  const dir = mkdtempSync(join(tmpdir(), 'explain-family-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-family-'));
   writeFileSync(join(dir, 'index.md'), text);
   const bundle = loadBundle(join(dir, 'index.md'));
   expect(bundle.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
@@ -64,15 +64,15 @@ function commonChecks(bundle: LoadedBundle, result: CompileResult, html: string)
 
 /** Every relationship has an instance in the map (desktop) and in the list (narrow and no-JS) views. */
 function relationshipViews(bundle: LoadedBundle, html: string, figureId: string) {
-  const map = section(html, '<div class="ex-viewport"', '</svg>');
-  const lists = section(html, '<div class="ex-lists"', '</figure>');
+  const map = section(html, '<div class="vs-viewport"', '</svg>');
+  const lists = section(html, '<div class="vs-lists"', '</figure>');
   const rels = bundle.model.relationships.filter((r) => bundle.model.targets.get(r.id)?.parentId === figureId);
   expect(rels.length).toBeGreaterThan(0);
   for (const r of rels) {
-    expect(map, `map instance of ${r.id}`).toContain(`data-ex-rel="${r.id}"`);
-    expect(lists, `list instance of ${r.id}`).toContain(`data-ex-rel="${r.id}"`);
+    expect(map, `map instance of ${r.id}`).toContain(`data-vs-rel="${r.id}"`);
+    expect(lists, `list instance of ${r.id}`).toContain(`data-vs-rel="${r.id}"`);
   }
-  expect(html).toMatch(new RegExp(`<figure[^>]*id="x-${figureId}"[^>]*data-ex-views="map list"`));
+  expect(html).toMatch(new RegExp(`<figure[^>]*id="x-${figureId}"[^>]*data-vs-views="map list"`));
 }
 
 const STATE = doc(`{% graph id="lifecycle" mode="state" title="Connection lifecycle" question="Which events move a connection between states?" %}
@@ -210,11 +210,11 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     const { bundle, result, html } = await compile(STATE);
     commonChecks(bundle, result, html);
     relationshipViews(bundle, html, 'lifecycle');
-    const map = section(html, '<div class="ex-viewport"', '</svg>');
+    const map = section(html, '<div class="vs-viewport"', '</svg>');
     const text = svgText(map);
     expect(text).toContain('(initial)');
     expect(text).toContain('(terminal)');
-    expect(map).toMatch(/class="ex-node ex-terminal"/);
+    expect(map).toMatch(/class="vs-node vs-terminal"/);
     expect(text).toContain('connect [host reachable]');
     expect(section(html, 'id="x-tr_connect"', '</details>')).toMatch(/<dt>action<\/dt><dd>start heartbeat<\/dd>/);
   });
@@ -236,7 +236,7 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     const { bundle, result, html } = await compile(PLAN);
     commonChecks(bundle, result, html);
     relationshipViews(bundle, html, 'rollout');
-    const map = svgText(section(html, '<div class="ex-viewport"', '</svg>'));
+    const map = svgText(section(html, '<div class="vs-viewport"', '</svg>'));
     expect(map).toContain('status: complete');
     expect(map).toContain('status: proposed');
     expect(map).toContain('rows complete (input)');
@@ -247,38 +247,38 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     const { bundle, result, html } = await compile(TRANSFORM);
     commonChecks(bundle, result, html);
     relationshipViews(bundle, html, 'pipe');
-    const markup = section(html, '<div class="ex-viewport"', '</svg>');
+    const markup = section(html, '<div class="vs-viewport"', '</svg>');
     const map = svgText(markup);
     expect(map).toContain('float32 tensor');
     expect(map).toContain('shape: batch × height');
     expect(map).toContain('loss: JPEG artifacts remain');
     expect(markup).toContain('id="v-pipe.cv_threshold"');
     expect(markup).toContain('id="v-pipe.cv_orientation"');
-    expect(markup).not.toContain('ex-role-');
+    expect(markup).not.toContain('vs-role-');
   });
 
   it('compare: semantic table, stacked cards, Not provided, value status, no ranking', async () => {
     const { bundle, result, html } = await compile(COMPARE);
     commonChecks(bundle, result, html);
-    const table = section(html, '<table class="ex-compare-table"', '</table>');
-    const cards = section(html, '<div class="ex-compare-cards"', '</figure>');
+    const table = section(html, '<table class="vs-compare-table"', '</table>');
+    const cards = section(html, '<div class="vs-compare-cards"', '</figure>');
     expect(table).toContain('<th scope="col">');
     expect(table).toContain('<th scope="row">');
     expect(table).toContain('Not provided');
     expect(table).toContain('(measured)');
     for (const cell of ['cell_bm', 'cell_bf', 'cell_um']) {
-      expect(table).toContain(`data-ex-target="${cell}"`);
-      expect(cards).toContain(`data-ex-target="${cell}"`);
+      expect(table).toContain(`data-vs-target="${cell}"`);
+      expect(cards).toContain(`data-vs-target="${cell}"`);
     }
     for (const option of ['o_bounded', 'o_unbounded']) {
-      expect(cards.split(`data-ex-target="${option}"`).length - 1).toBe(1); // the options line
+      expect(cards.split(`data-vs-target="${option}"`).length - 1).toBe(1); // the options line
     }
     expect(cards).toContain('Not provided');
     // One link per option row: no generated "Details" link in the cards.
     expect(cards).not.toContain('>Details<');
     expect(cards).toContain('aria-label="Bounded queue: Failure behavior"');
     expect(html.toLowerCase()).not.toMatch(/winner|score/);
-    expect(html).not.toMatch(/<figure[^>]*id="x-queues"[^>]*data-ex-views/);
+    expect(html).not.toMatch(/<figure[^>]*id="x-queues"[^>]*data-vs-views/);
   });
 
   it('compiles each family deterministically', async () => {

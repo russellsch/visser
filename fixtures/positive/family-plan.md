@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 5b0c5e2a-5555-4a55-8a55-555555555555
 title: Migration plan
 kind: plan
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Migration plan
 
 {% graph id="migration" mode="plan" title="Schema change before backfill" question="What must finish before the backfill starts?" %}

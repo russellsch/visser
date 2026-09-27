@@ -21,7 +21,7 @@ async function compileText(text: string, toolkit = TOOLKIT): Promise<CompileResu
   const { mkdtempSync, writeFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
-  const dir = mkdtempSync(join(tmpdir(), 'explain-compile-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-compile-'));
   writeFileSync(join(dir, 'index.md'), text);
   const b: LoadedBundle = loadBundle(join(dir, 'index.md'));
   return compileDocument(b, toolkit, OPTIONS);
@@ -49,38 +49,38 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
   it('puts body digest, kind, and label on every canonical element', () => {
     for (const [id, record] of bundle.model.targets) {
       const tag = html.match(new RegExp(`<[a-z]+[^>]*\\sid="x-${id}"[^>]*>`))![0];
-      expect(tag).toContain(`data-ex-target="${id}"`);
-      expect(tag).toContain(`data-ex-body="${record.bodySha256}"`);
-      expect(tag).toContain(`data-ex-kind="${record.kind}"`);
+      expect(tag).toContain(`data-vs-target="${id}"`);
+      expect(tag).toContain(`data-vs-body="${record.bodySha256}"`);
+      expect(tag).toContain(`data-vs-kind="${record.kind}"`);
     }
   });
 
   it('renders every relationship as an SVG or list instance and a list item @R04', () => {
     for (const r of bundle.model.relationships) {
-      const instances = [...html.matchAll(new RegExp(`data-ex-rel="${r.id.replace(/[~]/g, '\\~')}"`, 'g'))];
+      const instances = [...html.matchAll(new RegExp(`data-vs-rel="${r.id.replace(/[~]/g, '\\~')}"`, 'g'))];
       expect(instances.length, r.id).toBeGreaterThanOrEqual(1);
       expect(html).toContain(`id="l-${r.kind === 'order' ? 'full_queue_trace' : 'handoff'}.${r.id}"`);
     }
     expect(html).toContain('id="v-handoff.enqueue"');
-    expect(html).toContain('class="ex-hit"');
+    expect(html).toContain('class="vs-hit"');
   });
 
   it('marks ordinal traces and generated citation text', () => {
-    expect(html).toMatch(/<p class="ex-trace-scale" data-ex-generated="">Ordering, not duration\.<\/p>/);
+    expect(html).toMatch(/<p class="vs-trace-scale" data-vs-generated="">Ordering, not duration\.<\/p>/);
     // Order layers are partial-order depth, marked generated so quotes skip them.
-    expect(html).toContain('<span class="ex-event-layer" data-ex-generated="">Order layer 1 </span>');
-    expect(html).toContain('<span class="ex-event-layer" data-ex-generated="">Order layer 4 </span>');
-    expect(html).toMatch(/<a class="ex-cite" href="#x-src_queue" title="Illustrative bounded queue" data-ex-generated="">\[1\]<\/a>/);
-    expect(html).toContain('class="ex-term" href="#x-def_backpressure" data-ex-term="def_backpressure"');
-    expect(html).toContain('data-ex-focus="enqueue event_wait event_remove"');
+    expect(html).toContain('<span class="vs-event-layer" data-vs-generated="">Order layer 1 </span>');
+    expect(html).toContain('<span class="vs-event-layer" data-vs-generated="">Order layer 4 </span>');
+    expect(html).toMatch(/<a class="vs-cite" href="#x-src_queue" title="Illustrative bounded queue" data-vs-generated="">\[1\]<\/a>/);
+    expect(html).toContain('class="vs-term" href="#x-def_backpressure" data-vs-term="def_backpressure"');
+    expect(html).toContain('data-vs-focus="enqueue event_wait event_remove"');
     expect(html).toMatch(/<svg[^>]*role="group" aria-label="[^"]+"/);
     expect(html).not.toContain('role="img"');
-    expect(html).toMatch(/id="v-handoff\.enqueue"[^>]*>(?:(?!<\/a>).)*class="ex-hit"(?:(?!<\/a>).)*put waits while full/s);
+    expect(html).toMatch(/id="v-handoff\.enqueue"[^>]*>(?:(?!<\/a>).)*class="vs-hit"(?:(?!<\/a>).)*put waits while full/s);
     // Defect 3 (phase1-review.md): one compact snapshot line after the title.
-    expect(html).toContain('<p class="ex-meta" data-ex-generated="">Snapshot captured ');
-    expect(html.indexOf('id="x-overview"')).toBeLessThan(html.indexOf('class="ex-meta"'));
+    expect(html).toContain('<p class="vs-meta" data-vs-generated="">Snapshot captured ');
+    expect(html.indexOf('id="x-overview"')).toBeLessThan(html.indexOf('class="vs-meta"'));
     const listItem = html.slice(html.indexOf('id="l-handoff.enqueue"'));
-    expect(listItem.slice(0, listItem.indexOf('</a>'))).toMatch(/<span data-ex-generated=""> \u2192 <\/span>/);
+    expect(listItem.slice(0, listItem.indexOf('</a>'))).toMatch(/<span data-vs-generated=""> \u2192 <\/span>/);
   });
 
   it('shows the capture-consistent state and the link-only state', () => {
@@ -90,7 +90,7 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
 
   it('numbers annotated code with original line numbers', () => {
     const fig = html.slice(html.indexOf('id="x-wait_code"'));
-    expect(fig).toContain('<span class="ex-ln" data-ex-generated="">14</span>');
+    expect(fig).toContain('<span class="vs-ln" data-vs-generated="">14</span>');
     expect(fig).toContain('id="v-wait_code.capacity_loop.14"');
   });
 
@@ -103,8 +103,8 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
   });
 
   it('links shared assets with relative URLs only', () => {
-    expect(html).toContain(`href="../../../../_explain/assets/${TOOLKIT.sha256}/reader.css"`);
-    expect(html).toContain(`src="../../../../_explain/assets/${TOOLKIT.sha256}/reader.js"`);
+    expect(html).toContain(`href="../../../../_visser/assets/${TOOLKIT.sha256}/reader.css"`);
+    expect(html).toContain(`src="../../../../_visser/assets/${TOOLKIT.sha256}/reader.js"`);
     expect(html).not.toMatch(/(href|src)="\//);
   });
 
@@ -121,7 +121,7 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
 
   it('writes deterministic public build metadata @R18', () => {
     const manifest = JSON.parse(new TextDecoder().decode(file('build.json').bytes));
-    expect(manifest).toMatchObject({ schema: 'explain-build/1', docId: bundle.docId, sourceRevision: bundle.sourceRevision, buildId: result.buildId, toolkitSha256: TOOLKIT.sha256 });
+    expect(manifest).toMatchObject({ schema: 'visser-build/1', docId: bundle.docId, sourceRevision: bundle.sourceRevision, buildId: result.buildId, toolkitSha256: TOOLKIT.sha256 });
     expect(manifest.sourceFiles).toEqual([{ path: 'index.md', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
     expect(manifest.outputFiles.map((f: { path: string }) => f.path)).toEqual(['index.html', 'document.md']);
     expect(JSON.stringify(manifest)).not.toContain('/home/');

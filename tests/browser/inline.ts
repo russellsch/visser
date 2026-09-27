@@ -6,14 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 
 export type InlineServer = { url: string; indexPath: string; close: () => void };
 
 /** A document with the given body under the standard frontmatter. */
 export function inlineDoc(title: string, body: string, docId = '6c1f3e2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b'): string {
   return `---
-format: explain/1
+format: visser/1
 docId: ${docId}
 title: ${JSON.stringify(title)}
 kind: teaching
@@ -21,7 +21,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # ${title}
 
 ${body}
@@ -55,7 +55,7 @@ function startOnce(indexPath: string, port: number): Promise<{ url: string; chil
 }
 
 export async function serveInline(markdown: string): Promise<InlineServer> {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-inline-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-inline-'));
   mkdirSync(join(repo, '.git'));
   const dir = join(repo, 'docs/explanations/inline');
   mkdirSync(dir, { recursive: true });

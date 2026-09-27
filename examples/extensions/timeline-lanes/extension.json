@@ -1,8 +1,8 @@
 {
-  "schema": "explain-extension/1",
+  "schema": "visser-extension/1",
   "name": "timeline-lanes",
   "version": "0.1.0",
-  "api": "explain-component/1",
+  "api": "visser-component/1",
   "buildEntry": "build.cjs",
   "browserEntry": null,
   "schemaFile": "schema.json",

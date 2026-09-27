@@ -1,4 +1,4 @@
-// `explain install --from-dir|--archive --scope user|repo` (§12.1, §12.2,
+// `visser install --from-dir|--archive --scope user|repo` (§12.1, §12.2,
 // §12.4, §12.6). The installer verifies the source, stages a copy inside the
 // target toolchains directory, verifies the staged tree, and activates it by
 // rename to toolchains/DIGEST/. Both scopes record the digest in the user trust
@@ -11,7 +11,7 @@ import { distributionHosts } from '../export/user-config.ts';
 import { downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, resolveReleaseAsset, validRepository, VERSION_PATTERN } from './fetch.ts';
 import { HashError } from '../model/hash.ts';
 import { verifyReleaseDir, type VerifiedRelease } from './release.ts';
-import { addTrust, explainHome } from './trust.ts';
+import { addTrust, visserHome } from './trust.ts';
 import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from './ustar.ts';
 
 export type InstallScope = 'user' | 'repo';
@@ -41,7 +41,7 @@ export type InstallOrigin =
   | { kind: 'github-release'; repository: string; version: string; archiveSha256: string };
 
 export type InstallResult = {
-  schema: 'explain-install/1';
+  schema: 'visser-install/1';
   scope: InstallScope;
   version: string;
   toolkitSha256: string;
@@ -101,14 +101,14 @@ function copyRelease(source: string, staging: string): void {
   for (const file of manifest.files) write(file.path, readFileSync(join(source, ...file.path.split('/'))));
 }
 
-/** Install the user shim atomically at EXPLAIN_HOME/bin/explain.cjs. */
+/** Install the user shim atomically at VISSER_HOME/bin/visser.cjs. */
 function installShim(release: string, home: string): string {
   const shim = join(release, 'bin', 'shim.cjs');
   if (!existsSync(shim)) fail('E_INTEGRITY', `the release at ${release} has no bin/shim.cjs`);
   const binDir = join(home, 'bin');
   ensureDir(binDir, 'the user bin directory');
-  const target = join(binDir, 'explain.cjs');
-  const temp = join(binDir, `.explain.${randomBytes(8).toString('hex')}.tmp`);
+  const target = join(binDir, 'visser.cjs');
+  const temp = join(binDir, `.visser.${randomBytes(8).toString('hex')}.tmp`);
   const fd = openSync(temp, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o755);
   try {
     writeSync(fd, readFileSync(shim));
@@ -126,7 +126,7 @@ function installShim(release: string, home: string): string {
   return target;
 }
 
-/** Write EXPLAIN_HOME/default (one digest line) atomically; read by the user shim. */
+/** Write VISSER_HOME/default (one digest line) atomically; read by the user shim. */
 function writeDefaultPointer(home: string, digest: string): void {
   const target = join(home, 'default');
   const temp = join(home, `.default.${randomBytes(8).toString('hex')}.tmp`);
@@ -167,17 +167,17 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
   if (opts.archiveSha256 !== undefined && opts.archive === undefined) fail('E_USAGE', '--sha256 applies to --archive only');
   if (opts.archiveSha256 !== undefined && !/^[0-9a-f]{64}$/.test(opts.archiveSha256)) fail('E_USAGE', '--sha256 must be 64 lowercase hex characters');
 
-  const home = explainHome(env);
+  const home = visserHome(env);
   let base: string;
   if (opts.scope === 'user') {
-    ensureDir(home, 'EXPLAIN_HOME', 0o700);
+    ensureDir(home, 'VISSER_HOME', 0o700);
     base = join(home, 'toolchains');
   } else {
-    if (!opts.repoRoot) fail('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .explain) found; pass --root DIR');
+    if (!opts.repoRoot) fail('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .visser) found; pass --root DIR');
     const repo = resolve(opts.repoRoot);
     notSymlink(repo, 'the repository root');
-    ensureDir(join(repo, '.explain'), 'the repository .explain directory');
-    base = join(repo, '.explain', 'toolchains');
+    ensureDir(join(repo, '.visser'), 'the repository .visser directory');
+    base = join(repo, '.visser', 'toolchains');
   }
   ensureDir(base, 'the toolchains directory');
 
@@ -232,10 +232,10 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     // repository. A release without bin/shim.cjs installs only next to an
     // existing user shim.
     if (opts.scope === 'user') {
-      const userShimExists = pathExists(join(home, 'bin', 'explain.cjs'));
+      const userShimExists = pathExists(join(home, 'bin', 'visser.cjs'));
       const releaseHasShim = existsSync(join(staging, 'bin', 'shim.cjs'));
       if (!releaseHasShim && !userShimExists) {
-        fail('E_INTEGRITY', `the release has no bin/shim.cjs and there is no user shim at ${join(home, 'bin', 'explain.cjs')}; install a release that has one first. Nothing was installed.`);
+        fail('E_INTEGRITY', `the release has no bin/shim.cjs and there is no user shim at ${join(home, 'bin', 'visser.cjs')}; install a release that has one first. Nothing was installed.`);
       }
       replaceShim = releaseHasShim && (opts.setDefault === true || !userShimExists);
     }
@@ -283,10 +283,10 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
   addTrust(staged.sha256, trustSource(opts), env, opts.now);
   const shim = replaceShim ? installShim(target, home) : undefined;
   if (opts.setDefault) writeDefaultPointer(home, staged.sha256);
-  const userShim = join(home, 'bin', 'explain.cjs');
-  const invocation = shim ?? (existsSync(userShim) ? userShim : join(target, 'bin', 'explain.cjs'));
+  const userShim = join(home, 'bin', 'visser.cjs');
+  const invocation = shim ?? (existsSync(userShim) ? userShim : join(target, 'bin', 'visser.cjs'));
   return {
-    schema: 'explain-install/1',
+    schema: 'visser-install/1',
     scope: opts.scope,
     version: staged.version,
     toolkitSha256: staged.sha256,
@@ -312,8 +312,8 @@ export type ReleaseInstallOptions = Omit<InstallOptions, 'fromDir' | 'archive' |
   /**
    * Test seams. `apiBase` replaces https://api.github.com and becomes the
    * token host; `extraCa` adds CA certificates to Node's roots (verification
-   * stays on). The CLI sets them only from EXPLAIN_TEST_API_BASE and
-   * EXPLAIN_TEST_CA_FILE.
+   * stays on). The CLI sets them only from VISSER_TEST_API_BASE and
+   * VISSER_TEST_CA_FILE.
    */
   apiBase?: string;
   extraCa?: string[];
@@ -355,7 +355,7 @@ export async function installFromRelease(opts: ReleaseInstallOptions): Promise<I
   };
   const asset = await resolveReleaseAsset(apiBase, opts.repository, opts.version, policy);
   if (asset.size !== undefined && asset.size > maxBytes) fail('E_INTEGRITY', `refused: the asset ${asset.name} is larger than ${maxBytes} bytes`);
-  const dir = mkdtempSync(join(tmpdir(), 'explain-download-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-download-'));
   try {
     const file = join(dir, asset.name);
     const downloaded = await downloadAsset(asset.url, file, policy);

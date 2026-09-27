@@ -1,6 +1,6 @@
 'use strict';
-// timeline-lanes build entry (explain-component/1). Reads one component input
-// as JSON on stdin and prints one explain-component-output/1 value on stdout.
+// timeline-lanes build entry (visser-component/1). Reads one component input
+// as JSON on stdin and prints one visser-component-output/1 value on stdout.
 // Each part is one lane: a labelled bar from `start` to `end` on a shared axis.
 // It uses no network, no files, and no other modules.
 
@@ -52,7 +52,7 @@ function main(text) {
   const parts = {};
   for (const lane of lanes) parts[lane.id] = { text: `${lane.label}: from ${fmt(lane.start)} to ${fmt(lane.end)}${suffix}` };
   return {
-    schema: 'explain-component-output/1',
+    schema: 'visser-component-output/1',
     svg: { tag: 'svg', attrs: { viewBox: `0 0 ${fmt(width)} ${fmt(height)}`, width: fmt(width), height: fmt(height) }, children: [axis, ...laneNodes] },
     parts,
   };

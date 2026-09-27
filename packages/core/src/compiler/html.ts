@@ -53,7 +53,7 @@ function allowedAttribute(tag: string, name: string): boolean {
   if (/^on/i.test(name) || name === 'style') return false;
   if (GLOBAL_ATTRS.has(name)) return true;
   if (/^aria-[a-z]+$/.test(name)) return true;
-  if (/^data-ex-[a-z-]+$/.test(name)) return true;
+  if (/^data-vs-[a-z-]+$/.test(name)) return true;
   return (ELEMENT_ATTRS[tag] ?? []).includes(name);
 }
 
@@ -99,7 +99,7 @@ export function render(node: HNode | string): string {
 
 // --- URL safety (§15.2) ---------------------------------------------------
 
-const BASE = 'https://explain.invalid/d/doc/rev/build/index.html';
+const BASE = 'https://visser.invalid/d/doc/rev/build/index.html';
 
 export type LinkCheck = { ok: true; href: string; external: boolean } | { ok: false; reason: string };
 

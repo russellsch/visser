@@ -1,5 +1,5 @@
 // The public-repository allowlist (§13.5): `publicRepositories` in the user
-// config `${EXPLAIN_HOME:-~/.explain}/config.json`. Repository config is never
+// config `${VISSER_HOME:-~/.visser}/config.json`. Repository config is never
 // read for it, so a cloned repository cannot declare its own sources public.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -11,7 +11,7 @@ import { join } from 'node:path';
  * list: the export then needs --allow-private-content (fail closed).
  */
 export function publicRepositories(env: NodeJS.ProcessEnv = process.env): Set<string> {
-  const home = env['EXPLAIN_HOME'] ?? join(env['HOME'] ?? homedir(), '.explain');
+  const home = env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
   const path = join(home, 'config.json');
   const out = new Set<string>();
   if (!existsSync(path)) return out;
@@ -34,7 +34,7 @@ export function publicRepositories(env: NodeJS.ProcessEnv = process.env): Set<st
  * malformed config gives an empty set.
  */
 export function distributionHosts(env: NodeJS.ProcessEnv = process.env): Set<string> {
-  const home = env['EXPLAIN_HOME'] ?? join(env['HOME'] ?? homedir(), '.explain');
+  const home = env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
   const path = join(home, 'config.json');
   const out = new Set<string>();
   if (!existsSync(path)) return out;

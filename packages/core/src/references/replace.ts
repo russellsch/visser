@@ -1,4 +1,4 @@
-// Guarded single-file replacement (§11.9). Coordinates cooperating Explain
+// Guarded single-file replacement (§11.9). Coordinates cooperating Visser
 // writers and detects external edits seen at the final pre-write check; it is
 // not compare-and-swap against a noncooperating editor.
 import { relative, sep } from 'node:path';
@@ -14,7 +14,7 @@ import { checkReason, type RetiredEntry } from './frontmatter-edit.ts';
 import { withRetiredEntries } from './retire.ts';
 
 export type EditResult = {
-  schema: 'explain-edit/1';
+  schema: 'visser-edit/1';
   docId: string;
   targetId: string;
   oldRevision: string;
@@ -81,8 +81,8 @@ function validateCandidate(before: LoadedBundle, after: LoadedBundle, targetId: 
     const inside = first.startLine !== undefined && first.startLine >= firstLine && first.startLine <= lastLine;
     const record = before.model.targets.get(targetId);
     const oldSpan = record ? new TextDecoder().decode(before.parsed.rawBytes.subarray(record.span.startByte, record.span.endByte)) : '';
-    if (first.code === 'E_ID_MISSING' && inside && oldSpan.startsWith(`<!-- ex:id ${targetId} -->`)) {
-      fail('E_ID_MISSING', `the replacement must start with \`<!-- ex:id ${targetId} -->\`, and every other block in it needs its own marker: ${first.message.replace(/\s*\(line \d+\)$/, '')}`);
+    if (first.code === 'E_ID_MISSING' && inside && oldSpan.startsWith(`<!-- vs:id ${targetId} -->`)) {
+      fail('E_ID_MISSING', `the replacement must start with \`<!-- vs:id ${targetId} -->\`, and every other block in it needs its own marker: ${first.message.replace(/\s*\(line \d+\)$/, '')}`);
     }
     const where = first.startLine === undefined ? '' : inside ? ` (line ${first.startLine - firstLine + 1} of the replacement)` : ` (line ${first.startLine} of the document)`;
     fail(first.code, `the document would be invalid after replacement: ${first.message.replace(/\s*\(line \d+\)$/, '')}${where}`);
@@ -180,7 +180,7 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
   const oldText = new TextDecoder().decode(original).replace(/\r\n?/g, '\n');
   const newText = new TextDecoder().decode(candidate).replace(/\r\n?/g, '\n');
   return {
-    schema: 'explain-edit/1',
+    schema: 'visser-edit/1',
     docId: packet.docId,
     targetId: packet.targetId,
     oldRevision: bundle.sourceRevision!,

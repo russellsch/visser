@@ -1,13 +1,13 @@
-# Explain
+# Visser
 
-Explain is a toolkit that compiles technical explanations into static web pages. You write the explanation in restricted Markdoc. Explain produces HTML and SVG pages, and every paragraph, figure, and figure part gets a stable ID. An LLM agent can use these IDs to refer to an exact part of an explanation and to change only that part.
+Visser is a toolkit that compiles technical explanations into static web pages. You write the explanation in restricted Markdoc. Visser produces HTML and SVG pages, and every paragraph, figure, and figure part gets a stable ID. An LLM agent can use these IDs to refer to an exact part of an explanation and to change only that part.
 
-Explain helps a reader build a correct mental model of a system. Each claim links to its evidence, and the reader can open the evidence without losing their place.
+Visser helps a reader build a correct mental model of a system. Each claim links to its evidence, and the reader can open the evidence without losing their place.
 
 ## Requirements
 
 - Node 24.
-- Chromium, only for the browser tests. Explain does not test other browsers.
+- Chromium, only for the browser tests. Visser does not test other browsers.
 
 ## Build from source
 
@@ -30,10 +30,10 @@ The release goes to `dist/release`.
 1. Install the release for your user, and make it the default toolkit:
 
    ```sh
-   node dist/release/bin/explain.cjs install --from-dir dist/release --scope user --default
+   node dist/release/bin/visser.cjs install --from-dir dist/release --scope user --default
    ```
 
-2. Run all later commands through the user shim at `~/.explain/bin/explain.cjs`. A later install replaces the shim only with `--default`. If `EXPLAIN_HOME` is set, the shim is at `$EXPLAIN_HOME/bin/explain.cjs`.
+2. Run all later commands through the user shim at `~/.visser/bin/visser.cjs`. A later install replaces the shim only with `--default`. If `VISSER_HOME` is set, the shim is at `$VISSER_HOME/bin/visser.cjs`.
 
 The installer does not change `PATH` or your shell startup files. Add an alias yourself if you want one.
 
@@ -44,46 +44,46 @@ Other sources:
 
 ## Quick start
 
-In these steps, `explain` means `node ~/.explain/bin/explain.cjs`. Run the steps inside a Git repository. The default document root is `docs/explanations`.
+In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps inside a Git repository. The default document root is `docs/explanations`.
 
 1. Create a document:
 
    ```sh
-   explain init docs/explanations/queue --kind teaching --title "Bounded queue"
+   visser init docs/explanations/queue --kind teaching --title "Bounded queue"
    ```
 
-2. Write the explanation in `docs/explanations/queue/index.md`. Read `skills/explain/references/format.md` for the rules.
+2. Write the explanation in `docs/explanations/queue/index.md`. Read `skills/visual-explain/references/format.md` for the rules.
 
 3. Add ID markers to new blocks:
 
    ```sh
-   explain ids assign docs/explanations/queue/index.md
+   visser ids assign docs/explanations/queue/index.md
    ```
 
 4. Check the document:
 
    ```sh
-   explain check docs/explanations/queue/index.md
+   visser check docs/explanations/queue/index.md
    ```
 
 5. Optional: get editorial review prompts. The prompts are warnings and do not change the exit code.
 
    ```sh
-   explain check --review docs/explanations/queue/index.md
+   visser check --review docs/explanations/queue/index.md
    ```
 
 6. Build the page:
 
    ```sh
-   explain build docs/explanations/queue/index.md
+   visser build docs/explanations/queue/index.md
    ```
 
-   The output goes to `.explain/output` in the repository.
+   The output goes to `.visser/output` in the repository.
 
 7. Read the page in a browser:
 
    ```sh
-   explain serve docs/explanations/queue/index.md
+   visser serve docs/explanations/queue/index.md
    ```
 
    The server listens on `127.0.0.1:4310` by default. It prints the full URL of the page.
@@ -91,7 +91,7 @@ In these steps, `explain` means `node ~/.explain/bin/explain.cjs`. Run the steps
 8. Export a static site:
 
    ```sh
-   explain export docs/explanations/queue/index.md --format site --out site
+   visser export docs/explanations/queue/index.md --format site --out site
    ```
 
    The export writes only to a new or empty folder. It publishes nothing. Use `--audience public` for a public site. A public export stops if it contains private material.
@@ -100,17 +100,17 @@ In these steps, `explain` means `node ~/.explain/bin/explain.cjs`. Run the steps
 
 A reference packet is a small YAML record. It identifies one target by document ID, target ID, and source revision.
 
-- `explain refs show DOC TARGET_ID` prints a packet for a target.
-- `explain refs resolve --packet FILE` finds the target and tells you if it changed.
-- `explain refs replace --packet FILE --replacement FILE --expected-revision REV` replaces one target. The replacement must keep the target's `<!-- ex:id ... -->` marker. The command stops if the document changed since the packet was issued.
+- `visser refs show DOC TARGET_ID` prints a packet for a target.
+- `visser refs resolve --packet FILE` finds the target and tells you if it changed.
+- `visser refs replace --packet FILE --replacement FILE --expected-revision REV` replaces one target. The replacement must keep the target's `<!-- vs:id ... -->` marker. The command stops if the document changed since the packet was issued.
 
 ## Agent skill
 
-The skill for agents is in `skills/explain/SKILL.md`. The installed toolkit holds a copy.
+The skill for agents is in `skills/visual-explain/SKILL.md`. The installed toolkit holds a copy.
 
-- `explain skill show` prints the pinned skill and the paths to its guides.
-- `explain catalogue list` lists the explanation patterns.
-- `explain catalogue show NAME --part template` prints a template for one pattern.
+- `visser skill show` prints the pinned skill and the paths to its guides.
+- `visser catalogue list` lists the explanation patterns.
+- `visser catalogue show NAME --part template` prints a template for one pattern.
 
 ## Tests
 
@@ -118,7 +118,7 @@ The skill for agents is in `skills/explain/SKILL.md`. The installed toolkit hold
 |---|---|
 | `npm test` | Unit and integration tests |
 | `npx playwright test` | Browser tests, default tier |
-| `EXPLAIN_BROWSER_TIER=full npx playwright test` | Browser tests, full tier |
+| `VISSER_BROWSER_TIER=full npx playwright test` | Browser tests, full tier |
 | `npm run test:offline` | Build and read without a network (needs `unshare`) |
 | `npm run test:budgets` | Size budgets |
 | `npm run test:clean-machine` | Install and use from an empty home folder |
@@ -135,4 +135,4 @@ Run `check-contracts.mjs` after the full test runs, because it reads their repor
 
 ## Status
 
-The first-release functionality is complete. The human comprehension trial has not run. Explain makes no claim that it improves comprehension.
+The first-release functionality is complete. The human comprehension trial has not run. Visser makes no claim that it improves comprehension.

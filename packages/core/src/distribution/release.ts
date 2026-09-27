@@ -43,7 +43,7 @@ export function verifyReleaseDir(dir: string): VerifiedRelease {
     fail('E_INTEGRITY', 'release.json is not valid JSON');
   }
   const schema = validateAgainst('release', manifest);
-  if (!schema.ok) fail('E_INTEGRITY', `release.json violates explain-release/1: ${schema.errors.join('; ')}`);
+  if (!schema.ok) fail('E_INTEGRITY', `release.json violates visser-release/1: ${schema.errors.join('; ')}`);
 
   const listed = new Set<string>();
   for (const file of manifest.files) {

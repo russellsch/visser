@@ -1,13 +1,15 @@
-# Dogfood run 1: "How Explain works"
+# Dogfood run 1: "How Visser works"
+
+> **Note (revision 1.23):** this run happened before the rename from Explain to Visser. The log now uses the new names (`visser`, `VISSER_HOME`, `skills/visual-explain/`). At the time of the run the command was `explain` and the page was `how-explain-works`.
 
 Date: 27 September 2026. Toolkit: `dist/release` built from commit `9fdeb25`,
 digest `9d3613f2e8fe…`. The author was an agent (Claude Opus 5.5) that
-followed `skills/explain/SKILL.md`. The agent ran every `explain` command
-through the installed user shim, with a temporary `EXPLAIN_HOME`.
+followed `skills/visual-explain/SKILL.md`. The agent ran every `visser` command
+through the installed user shim, with a temporary `VISSER_HOME`.
 
 ## Result
 
-- Document: `docs/explanations/how-explain-works/index.md`.
+- Document: `docs/explanations/how-visser-works/index.md`.
 - Reading words: 1,931, without markers, tags, and captured code.
 - Targets: 77. Visuals: 1 architecture map (8 nodes, 7 edges) and 1 trace
   (3 actors, 11 events, 2 exclusive branches). There is also 1 table, 4
@@ -27,14 +29,14 @@ through the installed user shim, with a temporary `EXPLAIN_HOME`.
 
 ## Lock convention
 
-The examples in `examples/` have no `explain.lock.json`. The test suite builds
+The examples in `examples/` have no `visser.lock.json`. The test suite builds
 them with `--dev-toolkit dist/release`. Every rebuild of the toolkit changes
 its digest, so a committed lock goes stale at the next build. This bundle
 follows the same rule: the agent removed the lock after it finished. To build
 the document, run:
 
 ```sh
-node dist/release/bin/explain.cjs build docs/explanations/how-explain-works/index.md --dev-toolkit dist/release
+node dist/release/bin/visser.cjs build docs/explanations/how-visser-works/index.md --dev-toolkit dist/release
 ```
 
 ## Time for each step (wall clock)
@@ -62,17 +64,17 @@ with no error.
 
 ### P1 (major): the skill has no rule for a document in the toolkit's own repository
 
-- **Action:** the agent removed the lock, as the examples do, and then ran `explain check DOC` through the shim.
-- **Result:** `E_TOOLKIT_MISSING: no explain.lock.json …; run explain init or pass --dev-toolkit`, exit 3.
+- **Action:** the agent removed the lock, as the examples do, and then ran `visser check DOC` through the shim.
+- **Result:** `E_TOOLKIT_MISSING: no visser.lock.json …; run visser init or pass --dev-toolkit`, exit 3.
 - **Expected:** a documented path. The skill forbids any entry point other than the shim, and it never mentions `--dev-toolkit`.
-- **Fix:** in `skills/explain/SKILL.md`, add one paragraph: "A document in the toolkit repository has no lock; run commands with `--dev-toolkit dist/release`." Alternatively, add `init --no-lock` in `packages/cli/src/commands/init.ts`.
+- **Fix:** in `skills/visual-explain/SKILL.md`, add one paragraph: "A document in the toolkit repository has no lock; run commands with `--dev-toolkit dist/release`." Alternatively, add `init --no-lock` in `packages/cli/src/commands/init.ts`.
 
 ### P2 (major): a trace renders only as a list, at every width
 
 - **Action:** the agent chose `trace` for "what happens in one build, and whose code runs", as the catalogue guide advises.
 - **Result:** the page shows a numbered list with "Order layer N" on each event, and bare lists of actors and branches. No lane figure appears at 1440. The renderer also adds "Ordering, not duration." under the author's own text, so the agent's similar sentence was printed twice.
 - **Expected:** the guide describes a figure with waits and partial order. For a linear run, the result is only a longer numbered list, and the skill says to remove a visual that prose answers as well.
-- **Fix:** in `skills/explain/references/catalogue/trace.md`, state that the trace renders as an ordered, layered list. Alternatively, draw lanes in `packages/core/src/compiler/compile.ts`. The guide should also say that the page already prints "Ordering, not duration."
+- **Fix:** in `skills/visual-explain/references/catalogue/trace.md`, state that the trace renders as an ordered, layered list. Alternatively, draw lanes in `packages/core/src/compiler/compile.ts`. The guide should also say that the page already prints "Ordering, not duration."
 
 ### P3 (minor): `capture` puts each new source directly after the title, so citation numbers run backwards
 
@@ -98,13 +100,13 @@ with no error.
 ### P6 (minor): wrong advice in `E_TOOLKIT_MISSING`
 
 - **Action:** a command on a bundle without a lock.
-- **Result:** the message says "run `explain init`". `init` on the existing bundle gives `E_USAGE … init never overwrites content`, exit 2.
-- **Fix:** in `packages/cli/src/toolkit.ts` and `shim.ts`, say "restore `explain.lock.json`, or pass `--dev-toolkit DIR`".
+- **Result:** the message says "run `visser init`". `init` on the existing bundle gives `E_USAGE … init never overwrites content`, exit 2.
+- **Fix:** in `packages/cli/src/toolkit.ts` and `shim.ts`, say "restore `visser.lock.json`, or pass `--dev-toolkit DIR`".
 
 ### P7 (minor): a replacement without its marker gives an unclear message
 
 - **Result:** `E_ID_MISSING: … paragraph has no ID marker (line 228)`. Line 228 is in the candidate document, not in the replacement file.
-- **Fix:** in `packages/core/src/references/replace.ts`, say "the replacement must start with `<!-- ex:id p_next -->`".
+- **Fix:** in `packages/core/src/references/replace.ts`, say "the replacement must start with `<!-- vs:id p_next -->`".
 
 ### P8 (minor): `check --review` gives no sign that the review ran
 
@@ -122,7 +124,7 @@ with no error.
 
 - The first draft passed `check`, `--review`, and `--verify-origins`, but it held 3 false claims about the code:
   - that the trust check applies only when no user copy exists;
-  - that nothing ever runs from `.explain/`;
+  - that nothing ever runs from `.visser/`;
   - that the layout worker has a memory limit.
 - The agent found them only when it read the cited code again. A `cite` shows where a claim comes from; it does not prove the claim.
 - The skill says this in one sentence. It could ask the author to reread each cited excerpt against its sentence before delivery.

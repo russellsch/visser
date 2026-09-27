@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: ffc34c36-b720-4b59-9098-5fed31068f6c
 title: Why the deploy broke checkout
 kind: root-cause
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Why the deploy broke checkout
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The deploy broke checkout.
 
 {% graph id="mechanism" mode="cause" title="The deploy broke checkout" question="Why did checkout fail?" %}

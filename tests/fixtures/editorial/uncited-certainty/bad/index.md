@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: ebbd43ef-7f3a-4429-8552-f7ca8da68fab
 title: What the log shows about the stall
 kind: root-cause
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # What the log shows about the stall
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The stall always starts with a cache expiry.
 
 {% source id="src_log" kind="example" title="Illustrative cache and pool log" language="text" start=1 end=6 excerptSha256="0fdc481c509983652fa861eff76950383f95f2de3d2607d6ef756b869b9de215" %}

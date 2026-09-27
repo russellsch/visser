@@ -16,7 +16,7 @@ describe('runtime packet builder (§11.3) @R12', () => {
     const reference = createPacket({ ...base, issuedBy: 'reader', viewedBuildId: fields.viewedBuildId, label: fields.label, kind: fields.kind, quote: fields.quote }).packet;
     expect(parsed).toEqual(reference);
     expect(parsed.uri).toBe(referenceUri(base));
-    expect(parsed.quote).toEqual({ exact: 'rechecks capacity', prefix: 'put ', suffix: ' after', projection: 'explain-text/1' });
+    expect(parsed.quote).toEqual({ exact: 'rechecks capacity', prefix: 'put ', suffix: ' after', projection: 'visser-text/1' });
   });
 
   it('keeps Object.keys order identical to createPacket', () => {

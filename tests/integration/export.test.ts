@@ -1,5 +1,5 @@
-// `explain export --format site` (§13.1, §13.5, §17.7 4b) through the built
-// CLI. Every test uses its own EXPLAIN_HOME and a temporary repository.
+// `visser export --format site` (§13.1, §13.5, §17.7 4b) through the built
+// CLI. Every test uses its own VISSER_HOME and a temporary repository.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,16 +9,16 @@ import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
-const cli = join(release, 'bin/explain.cjs');
+const cli = join(release, 'bin/visser.cjs');
 
 
 type Ctx = { env: NodeJS.ProcessEnv; repo: string; run: (...args: string[]) => ReturnType<typeof spawnSync> & { stdout: string; stderr: string } };
 
 function context(): Ctx {
-  const base = mkdtempSync(join(tmpdir(), 'explain-export-'));
+  const base = mkdtempSync(join(tmpdir(), 'visser-export-'));
   const repo = join(base, 'repo');
   mkdirSync(join(repo, '.git'), { recursive: true });
-  const env = { ...process.env, EXPLAIN_HOME: join(base, 'home') };
+  const env = { ...process.env, VISSER_HOME: join(base, 'home') };
   const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env, cwd: repo }) as ReturnType<Ctx['run']>;
   return { env, repo, run };
 }
@@ -34,7 +34,7 @@ function initDoc(ctx: Ctx, name: string, opts: { title?: string; visibility?: 'p
 
 /** A git source captured from a small local repository, recorded under `label`. */
 function captureGitSource(ctx: Ctx, index: string, label: string): void {
-  const lib = mkdtempSync(join(tmpdir(), 'explain-lib-'));
+  const lib = mkdtempSync(join(tmpdir(), 'visser-lib-'));
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd: lib, stdio: 'pipe' });
   git('init', '-q');
   writeFileSync(join(lib, 'a.py'), 'one = 1\ntwo = 2\n');
@@ -66,14 +66,14 @@ describe('export --format site', () => {
     const ctx = context();
     const docs = Array.from({ length: 20 }, (_, i) => initDoc(ctx, `doc${String(i).padStart(2, '0')}`));
     const collection = join(ctx.repo, 'docs', 'collection.json');
-    writeFileSync(collection, JSON.stringify({ schema: 'explain-collection/1', title: 'All notes', documents: docs.map((d) => ({ path: relative(dirname(collection), dirname(d)) })) }));
+    writeFileSync(collection, JSON.stringify({ schema: 'visser-collection/1', title: 'All notes', documents: docs.map((d) => ({ path: relative(dirname(collection), dirname(d)) })) }));
     const site = join(ctx.repo, 'site');
     const report = exportJson(ctx.run('export', '--collection', collection, '--format', 'site', '--out', site, '--json'));
     expect(report.documents).toHaveLength(20);
     expect(report.assetPacks).toHaveLength(1);
     expect(report.assetPacks[0].files).toEqual(['reader.css', 'reader.js']);
 
-    expect(readdirSync(join(site, '_explain', 'assets'))).toEqual([report.assetPacks[0].toolkitSha256]);
+    expect(readdirSync(join(site, '_visser', 'assets'))).toEqual([report.assetPacks[0].toolkitSha256]);
     const files = walk(site);
     const readers = files.filter((f) => f.endsWith('/reader.js') || f.endsWith('/reader.css'));
     expect(readers.map((f) => relative(site, f)).sort()).toEqual([`${report.assetPacks[0].path}/reader.css`, `${report.assetPacks[0].path}/reader.js`]);
@@ -143,8 +143,8 @@ describe('export --format site', () => {
     captureGitSource(ctx, index, 'public-lib');
 
     // Repository config cannot declare its own sources public.
-    mkdirSync(join(ctx.repo, '.explain'), { recursive: true });
-    writeFileSync(join(ctx.repo, '.explain', 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
+    mkdirSync(join(ctx.repo, '.visser'), { recursive: true });
+    writeFileSync(join(ctx.repo, '.visser', 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
     const refused = ctx.run('export', index, '--format', 'site', '--out', join(ctx.repo, 'site1'), '--audience', 'public', '--json');
     expect(refused.status).toBe(2);
     const diagnostics = JSON.parse(refused.stdout).diagnostics;
@@ -152,8 +152,8 @@ describe('export --format site', () => {
     expect(diagnostics[0]).toMatchObject({ code: 'E_PRIVATE_EXPORT', targetId: 'src_a' });
     expect(diagnostics[0].message).toContain('public-lib');
 
-    mkdirSync(ctx.env.EXPLAIN_HOME!, { recursive: true });
-    writeFileSync(join(ctx.env.EXPLAIN_HOME!, 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
+    mkdirSync(ctx.env.VISSER_HOME!, { recursive: true });
+    writeFileSync(join(ctx.env.VISSER_HOME!, 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
     const report = exportJson(ctx.run('export', index, '--format', 'site', '--out', join(ctx.repo, 'site2'), '--audience', 'public', '--json'));
     expect(report.sources).toEqual([expect.objectContaining({ id: 'src_a', kind: 'git', repository: 'public-lib', publicRepository: true })]);
     expect(report.warnings.map((w: { code: string }) => w.code)).not.toContain('W_PRIVATE_ORIGIN');
@@ -164,8 +164,8 @@ describe('export --format site', () => {
     const index = initDoc(ctx, 'pub', { visibility: 'public' });
     // The label is free text from `capture git --repository-label`; nothing ties it to the real origin.
     captureGitSource(ctx, index, 'public-lib');
-    mkdirSync(ctx.env.EXPLAIN_HOME!, { recursive: true });
-    writeFileSync(join(ctx.env.EXPLAIN_HOME!, 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
+    mkdirSync(ctx.env.VISSER_HOME!, { recursive: true });
+    writeFileSync(join(ctx.env.VISSER_HOME!, 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
     const report = exportJson(ctx.run('export', index, '--format', 'site', '--out', join(ctx.repo, 'site'), '--audience', 'public', '--json'));
     const warning = report.warnings.find((w: { code: string }) => w.code === 'W_PUBLIC_BY_NAME');
     expect(warning, 'W_PUBLIC_BY_NAME').toBeDefined();
@@ -188,7 +188,7 @@ describe('export --format site', () => {
   it('@R20 a public export refuses a development build; a private export marks it', () => {
     const ctx = context();
     const index = initDoc(ctx, 'dev', { visibility: 'public' });
-    const lockPath = join(dirname(index), 'explain.lock.json');
+    const lockPath = join(dirname(index), 'visser.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     lock.toolkit.sha256 = 'f'.repeat(64);
     writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
@@ -242,7 +242,7 @@ describe('export --format site', () => {
     const ctx = context();
     const index = initDoc(ctx, 'x', { title: 'Queues & "more"' });
     const collection = join(ctx.repo, 'collection.json');
-    writeFileSync(collection, JSON.stringify({ schema: 'explain-collection/1', title: 'A <b>bold</b> "title"', documents: [{ path: 'docs/x/index.md' }] }));
+    writeFileSync(collection, JSON.stringify({ schema: 'visser-collection/1', title: 'A <b>bold</b> "title"', documents: [{ path: 'docs/x/index.md' }] }));
     const site = join(ctx.repo, 'site');
     const report = exportJson(ctx.run('export', '--collection', collection, '--format', 'site', '--out', site, '--json'));
     expect(report.collection).toEqual({ title: 'A <b>bold</b> "title"', path: 'index.html' });
@@ -258,9 +258,9 @@ describe('export --format site', () => {
   it('a collection path outside the repository is E_PATH_ESCAPE', () => {
     const ctx = context();
     initDoc(ctx, 'x');
-    const outside = mkdtempSync(join(tmpdir(), 'explain-outside-'));
+    const outside = mkdtempSync(join(tmpdir(), 'visser-outside-'));
     const collection = join(ctx.repo, 'collection.json');
-    writeFileSync(collection, JSON.stringify({ schema: 'explain-collection/1', title: 'T', documents: [{ path: relative(ctx.repo, outside) }] }));
+    writeFileSync(collection, JSON.stringify({ schema: 'visser-collection/1', title: 'T', documents: [{ path: relative(ctx.repo, outside) }] }));
     writeFileSync(join(outside, 'index.md'), '---\n---\n');
     const result = ctx.run('export', '--collection', collection, '--format', 'site', '--out', join(ctx.repo, 'site'));
     expect(result.status).toBe(4);
@@ -273,6 +273,6 @@ describe('export --format site', () => {
     const index = initDoc(ctx, 'md');
     const result = ctx.run('export', index, '--format', 'markdown');
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('<!-- ex:target overview -->');
+    expect(result.stdout).toContain('<!-- vs:target overview -->');
   });
 });

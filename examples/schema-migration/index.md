@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 02b1b7a3-403d-4b15-9bf4-30d098eadbda
 title: What must finish before the old column can be dropped
 kind: plan
@@ -12,17 +12,17 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # What must finish before the old column can be dropped
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 Renaming a column in a live service is four changes, not one: add the new
 column, write to both, backfill, and switch reads. The old column can be dropped
 only after reads have switched and a person decides the rollback window is over.
 Backfill and the dual-write deployment can proceed in parallel once the new
 column exists.
 
-<!-- ex:id p_scope -->
+<!-- vs:id p_scope -->
 This is an illustrative plan. Status values describe the example, not a real
 project, and the plan has no dates.
 

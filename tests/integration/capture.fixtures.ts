@@ -20,11 +20,11 @@ export type Fixture = {
 export const DOC_ID = '4f8ac70c-7e14-4f06-9865-e194f57c7239';
 
 export function frontmatter(): string {
-  return `---\nformat: explain/1\ndocId: ${DOC_ID}\ntitle: Capture test\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n`;
+  return `---\nformat: visser/1\ndocId: ${DOC_ID}\ntitle: Capture test\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n`;
 }
 
 export function makeFixture(): Fixture {
-  const root = mkdtempSync(join(tmpdir(), 'explain-capture-'));
+  const root = mkdtempSync(join(tmpdir(), 'visser-capture-'));
   const sentinels = join(root, 'sentinels');
   mkdirSync(sentinels);
   const env = {
@@ -53,7 +53,7 @@ export function makeFixture(): Fixture {
     git(dir, 'commit', '-q', '-m', 'init');
     return dir;
   };
-  const doc = (name = 'docs', body = '<!-- ex:id intro -->\nIntro paragraph.\n') => {
+  const doc = (name = 'docs', body = '<!-- vs:id intro -->\nIntro paragraph.\n') => {
     const dir = join(root, name);
     mkdirSync(join(dir, '.git'), { recursive: true }); // repository root marker for the edit lock
     const path = join(dir, 'index.md');

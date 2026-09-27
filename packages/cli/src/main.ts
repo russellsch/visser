@@ -1,4 +1,4 @@
-// Explain CLI entry (§17.1). Phase 0 implements init, ids assign, check, and
+// Visser CLI entry (§17.1). Phase 0 implements init, ids assign, check, and
 // export --format markdown. Every other public command exits 3 with E_UNSUPPORTED.
 import type { Diagnostic } from '../../core/src/types.ts';
 import { runInit } from './commands/init.ts';
@@ -30,7 +30,7 @@ export async function main(argv: string[]): Promise<number> {
       case 'init':
         return await runInit(parseArgs(rest));
       case 'ids':
-        if (rest[0] !== 'assign') throw new CliError('E_USAGE', 'usage: explain ids assign DOC [--check]', EXIT.invalid);
+        if (rest[0] !== 'assign') throw new CliError('E_USAGE', 'usage: visser ids assign DOC [--check]', EXIT.invalid);
         return await runIdsAssign(parseArgs(rest.slice(1)));
       case 'check':
         return await runCheck(parseArgs(rest));
@@ -63,7 +63,7 @@ export async function main(argv: string[]): Promise<number> {
       case undefined:
       case '--help':
       case '-h':
-        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs|capture|fork|install|trust toolkit|doctor|skill show|upgrade|catalogue list|catalogue show|extension> ...\n');
+        process.stdout.write('usage: visser <init|ids assign|check|build|serve|export|refs|capture|fork|install|trust toolkit|doctor|skill show|upgrade|catalogue list|catalogue show|extension> ...\n');
         return command === undefined ? EXIT.invalid : EXIT.ok;
       default: {
         const phase = DEFERRED.get(command);

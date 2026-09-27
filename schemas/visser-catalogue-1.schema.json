@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-catalogue-1.schema.json",
+  "title": "visser catalogue list|show --json (§9.1, §17.1)",
+  "type": "object",
+  "$defs": {
+    "toolkit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "version", "dir"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "version": { "type": "string", "minLength": 1 },
+        "dir": { "type": "string", "minLength": 1 }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "title", "question", "path"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "tag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag", "required", "optional", "enums", "parents"],
+      "properties": {
+        "tag": { "type": "string", "minLength": 1 },
+        "required": { "$ref": "#/$defs/attributes" },
+        "optional": { "$ref": "#/$defs/attributes" },
+        "enums": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        },
+        "parents": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "required": ["schema", "toolkit", "entries"],
+      "properties": {
+        "schema": { "const": "visser-catalogue/1" },
+        "toolkit": { "$ref": "#/$defs/toolkit" },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "required": ["schema", "toolkit", "entry", "part", "guide"],
+      "properties": {
+        "schema": { "const": "visser-catalogue/1" },
+        "toolkit": { "$ref": "#/$defs/toolkit" },
+        "entry": { "$ref": "#/$defs/entry" },
+        "part": { "const": "guide" },
+        "guide": { "type": "string", "minLength": 1 }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "required": ["schema", "toolkit", "entry", "part", "template"],
+      "properties": {
+        "schema": { "const": "visser-catalogue/1" },
+        "toolkit": { "$ref": "#/$defs/toolkit" },
+        "entry": { "$ref": "#/$defs/entry" },
+        "part": { "const": "template" },
+        "template": { "type": "string", "minLength": 1 }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "required": ["schema", "toolkit", "entry", "part", "tags"],
+      "properties": {
+        "schema": { "const": "visser-catalogue/1" },
+        "toolkit": { "$ref": "#/$defs/toolkit" },
+        "entry": { "$ref": "#/$defs/entry" },
+        "part": { "const": "schema" },
+        "tags": { "type": "array", "items": { "$ref": "#/$defs/tag" } }
+      }
+    }
+  ]
+}

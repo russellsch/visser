@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 70484962-c89d-49b3-8193-7ba4696d87ee
 title: Blocking or dropping when consumers fall behind
 kind: decision
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Blocking or dropping when consumers fall behind
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 Both designs bound memory. They differ in who pays when consumers fall behind:
 the blocking queue slows producers down, and the dropping queue loses work.
 The right choice depends on whether losing an item is acceptable.
@@ -69,6 +69,6 @@ Limited by consumer speed.
 {% /cell %}
 {% /compare %}
 
-<!-- ex:id p_missing -->
+<!-- vs:id p_missing -->
 The drop-newest throughput cell is deliberately absent, so it renders as not
 provided: this document has no measurement for it, and zero would be wrong.

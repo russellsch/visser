@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const release = join(new URL('../..', import.meta.url).pathname, 'dist/release');
-const cli = join(release, 'bin/explain.cjs');
+const cli = join(release, 'bin/visser.cjs');
 
 let repo: string;
 let doc: string;
@@ -16,15 +16,15 @@ let packetText: string;
 let run: (...args: string[]) => ReturnType<typeof spawnSync> & { stdout: string; stderr: string };
 
 beforeEach(() => {
-  const root = mkdtempSync(join(tmpdir(), 'explain-handoff-cases-'));
+  const root = mkdtempSync(join(tmpdir(), 'visser-handoff-cases-'));
   repo = join(root, 'repo');
   mkdirSync(join(repo, '.git'), { recursive: true });
-  const env = { ...process.env, EXPLAIN_HOME: join(root, 'home') };
+  const env = { ...process.env, VISSER_HOME: join(root, 'home') };
   run = (...args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env, cwd: repo }) as ReturnType<typeof spawnSync> & { stdout: string; stderr: string };
   const bundle = join(repo, 'docs', 'explanations', 'notes');
   expect(run('init', bundle, '--kind', 'teaching', '--title', 'Notes', '--toolkit-dir', release).status).toBe(0);
   doc = join(bundle, 'index.md');
-  appendFileSync(doc, '\n<!-- ex:id p_one -->\nFirst claim.\n');
+  appendFileSync(doc, '\n<!-- vs:id p_one -->\nFirst claim.\n');
   const show = run('refs', 'show', doc, 'p_one');
   expect(show.status, show.stderr).toBe(0);
   packetText = show.stdout;

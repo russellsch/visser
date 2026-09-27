@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 7b0c5e2a-7777-4a77-8a77-777777777777
 title: Login outcomes
 kind: teaching
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Login outcomes
 
 {% trace id="login" title="A login ends in success or lockout" question="What happens after the password check?" %}

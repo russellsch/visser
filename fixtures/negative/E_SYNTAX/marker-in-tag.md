@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 title: Fixture
 kind: teaching
@@ -8,6 +8,6 @@ visibility: private
 ---
 
 {% detail id="d" label="L" %}
-<!-- ex:id inner -->
+<!-- vs:id inner -->
 Body.
 {% /detail %}

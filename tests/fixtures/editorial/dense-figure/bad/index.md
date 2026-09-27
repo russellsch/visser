@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: cbea82ac-70e9-46e2-bb87-ede4d5c96df8
 title: Every service in the checkout path
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Every service in the checkout path
 
-<!-- ex:id p_intro -->
+<!-- vs:id p_intro -->
 The map shows every service that a checkout request reaches.
 
 {% graph id="all_services" mode="architecture" title="Every checkout service" question="Which services does a checkout call?" %}

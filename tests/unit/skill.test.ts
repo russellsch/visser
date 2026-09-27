@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { PATTERNS } from '../../packages/core/src/catalogue/index.ts';
 
 const read = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), 'utf8');
-const SKILL = read('skills/explain/SKILL.md');
-const HANDOFF = read('skills/explain/references/handoff.md');
-const WRAPPER = read('skills/explain/wrapper/SKILL.md');
+const SKILL = read('skills/visual-explain/SKILL.md');
+const HANDOFF = read('skills/visual-explain/references/handoff.md');
+const WRAPPER = read('skills/visual-explain/wrapper/SKILL.md');
 const MAIN = read('packages/cli/src/main.ts');
 
 // Commands the dispatcher handles, plus the Phase 5 commands that the parent
@@ -28,9 +28,9 @@ const SUBCOMMANDS: Record<string, readonly string[]> = {
 
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
-/** Every `explain CMD [SUB]` mention, in inline code or a shell block. */
+/** Every `visser CMD [SUB]` mention, in inline code or a shell block. */
 function mentions(text: string): Array<{ command: string; sub?: string }> {
-  return [...text.matchAll(/(?:`|^)explain ([a-z]+)(?: ([a-z]+))?/gm)].map((m) => ({ command: m[1]!, ...(m[2] ? { sub: m[2] } : {}) }));
+  return [...text.matchAll(/(?:`|^)visser ([a-z]+)(?: ([a-z]+))?/gm)].map((m) => ({ command: m[1]!, ...(m[2] ? { sub: m[2] } : {}) }));
 }
 
 describe('core skill (§16, Appendix B) @R16', () => {
@@ -42,9 +42,9 @@ describe('core skill (§16, Appendix B) @R16', () => {
     const all = [...mentions(SKILL), ...mentions(HANDOFF)];
     expect(all.length).toBeGreaterThan(15);
     for (const { command, sub } of all) {
-      expect(COMMANDS.has(command), `explain ${command}`).toBe(true);
+      expect(COMMANDS.has(command), `visser ${command}`).toBe(true);
       const subs = SUBCOMMANDS[command];
-      if (subs && sub && !['doc', 'packet'].includes(sub)) expect(subs, `explain ${command} ${sub}`).toContain(sub);
+      if (subs && sub && !['doc', 'packet'].includes(sub)) expect(subs, `visser ${command} ${sub}`).toContain(sub);
     }
   });
 
@@ -55,7 +55,7 @@ describe('core skill (§16, Appendix B) @R16', () => {
   });
 
   it('routes through the user shim, reads the format and handoff guides, and names every catalogue pattern', () => {
-    expect(SKILL).toContain('bin/explain.cjs');
+    expect(SKILL).toContain('bin/visser.cjs');
     expect(SKILL).not.toMatch(/repository shim first/);
     expect(SKILL).toContain('references/format.md');
     expect(SKILL).toContain('references/handoff.md');
@@ -80,9 +80,9 @@ describe('handoff guide', () => {
 
 describe('canonical wrapper (§12.7)', () => {
   it('only loads the pinned skill through the user shim', () => {
-    expect(WRAPPER).toMatch(/^---\nname: explain\n/);
-    expect(WRAPPER).toContain('"${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs" skill show');
-    expect(WRAPPER).not.toMatch(/\.explain\/bin|\.explain\/toolchains/);
+    expect(WRAPPER).toMatch(/^---\nname: visual-explain\n/);
+    expect(WRAPPER).toContain('"${VISSER_HOME:-$HOME/.visser}/bin/visser.cjs" skill show');
+    expect(WRAPPER).not.toMatch(/\.visser\/bin|\.visser\/toolchains/);
     expect(words(WRAPPER)).toBeLessThan(250);
   });
 });

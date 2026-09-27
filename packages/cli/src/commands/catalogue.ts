@@ -1,5 +1,5 @@
-// `explain catalogue list [--json]` and
-// `explain catalogue show NAME [--part guide|template|schema] [--json]` (§9.1, §17.1).
+// `visser catalogue list [--json]` and
+// `visser catalogue show NAME [--part guide|template|schema] [--json]` (§9.1, §17.1).
 // Reads the guides of the resolved toolkit (the same selection as `skill show`:
 // --doc, --toolkit-dir, the workspace or user default, then the running
 // release). The attribute rules in `--part schema` come from the validator of
@@ -9,8 +9,8 @@ import { CliError, EXIT, type ParsedArgs, printJson, stringFlag } from '../cli-u
 import { selectForSkill, type SkillOptions } from './skill.ts';
 
 const USAGE = [
-  'usage: explain catalogue list [--doc PATH] [--toolkit-dir DIR] [--json]',
-  '       explain catalogue show NAME [--part guide|template|schema] [--doc PATH] [--toolkit-dir DIR] [--json]',
+  'usage: visser catalogue list [--doc PATH] [--toolkit-dir DIR] [--json]',
+  '       visser catalogue show NAME [--part guide|template|schema] [--doc PATH] [--toolkit-dir DIR] [--json]',
   `names: ${PATTERNS.map((p) => p.name).join(', ')}`,
 ].join('\n');
 
@@ -36,7 +36,7 @@ export async function runCatalogue(args: ParsedArgs, opts: SkillOptions = {}): P
 
   if (action === 'list') {
     const entries = listCatalogue(toolkit.dir);
-    if (json) printJson('catalogue', { schema: 'explain-catalogue/1', toolkit, entries });
+    if (json) printJson('catalogue', { schema: 'visser-catalogue/1', toolkit, entries });
     else process.stdout.write(entries.map((e) => `${e.name.padEnd(13)} ${e.question}\n`).join('') || 'this toolkit has no catalogue guides\n');
     return EXIT.ok;
   }
@@ -50,7 +50,7 @@ export async function runCatalogue(args: ParsedArgs, opts: SkillOptions = {}): P
   else payload = { tags: patternSchema(pattern) };
 
   if (json) {
-    printJson('catalogue', { schema: 'explain-catalogue/1', toolkit, entry: guide.entry, part, ...payload });
+    printJson('catalogue', { schema: 'visser-catalogue/1', toolkit, entry: guide.entry, part, ...payload });
   } else if ('guide' in payload) {
     process.stdout.write(payload.guide.endsWith('\n') ? payload.guide : `${payload.guide}\n`);
   } else if ('template' in payload) {

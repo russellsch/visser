@@ -9,9 +9,9 @@ import { expect } from '@playwright/test';
 import { byId, copiedTexts, installClipboardSpy, openSnapshot, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 
-function explain(cwd: string, ...args: string[]) {
+function visser(cwd: string, ...args: string[]) {
   const result = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
@@ -22,14 +22,14 @@ test('@T03 @T09 @R12 @R13 browser packet resolves, goes stale after a move, refr
   // 1. Copy the edge reference in the browser.
   await installClipboardSpy(page);
   await openSnapshot(page);
-  await page.locator('#ex-btn-refmode').click();
+  await page.locator('#vs-btn-refmode').click();
   await byId(page, 'v-handoff.enqueue').locator('text').click();
-  await page.locator('#ex-refpanel').getByRole('button', { name: 'Copy reference', exact: true }).click();
+  await page.locator('#vs-refpanel').getByRole('button', { name: 'Copy reference', exact: true }).click();
   const [yaml] = await copiedTexts(page);
   expect(yaml).toContain('targetId: "enqueue"');
 
   // 2. A repository that holds the same source under the default document root.
-  const repo = mkdtempSync(join(tmpdir(), 'explain-slice-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-slice-'));
   mkdirSync(join(repo, '.git'));
   const docDir = join(repo, 'docs/explanations/queue');
   mkdirSync(docDir, { recursive: true });
@@ -38,7 +38,7 @@ test('@T03 @T09 @R12 @R13 browser packet resolves, goes stale after a move, refr
   const packetPath = join(repo, 'request.yaml');
   writeFileSync(packetPath, yaml!);
 
-  const exact = explain(repo, 'refs', 'resolve', '--packet', packetPath, '--json');
+  const exact = visser(repo, 'refs', 'resolve', '--packet', packetPath, '--json');
   expect(exact.status, exact.stderr).toBe(0);
   const exactResult = JSON.parse(exact.stdout);
   expect(exactResult.status).toBe('exact');
@@ -52,7 +52,7 @@ test('@T03 @T09 @R12 @R13 browser packet resolves, goes stale after a move, refr
   const dequeueBlock = source.slice(source.indexOf('{% edge id="dequeue"'), dequeueEnd);
   writeFileSync(doc, source.replace(enqueueBlock + dequeueBlock, dequeueBlock + '\n' + enqueueBlock.trimEnd() + '\n'));
 
-  const stale = explain(repo, 'refs', 'resolve', '--packet', packetPath, '--json');
+  const stale = visser(repo, 'refs', 'resolve', '--packet', packetPath, '--json');
   expect(stale.status).toBe(5);
   const staleResult = JSON.parse(stale.stdout);
   expect(staleResult).toMatchObject({ status: 'stale', targetBodyUnchanged: true });
@@ -61,21 +61,21 @@ test('@T03 @T09 @R12 @R13 browser packet resolves, goes stale after a move, refr
   // 4. A stale packet cannot drive a write.
   const replacementPath = join(repo, 'replacement.md');
   writeFileSync(replacementPath, originalSpan.replace('label="put waits while full"', 'label="put blocks while the queue is full"'));
-  const refused = explain(repo, 'refs', 'replace', '--packet', packetPath, '--replacement', replacementPath, '--expected-revision', staleResult.currentRevision);
+  const refused = visser(repo, 'refs', 'replace', '--packet', packetPath, '--replacement', replacementPath, '--expected-revision', staleResult.currentRevision);
   expect(refused.status).toBe(5);
 
   // 5. Deliberate refresh, then the guarded replace.
-  const refreshed = explain(repo, 'refs', 'refresh', '--packet', packetPath, '--expected-current', staleResult.currentRevision, '--acknowledge-stale');
+  const refreshed = visser(repo, 'refs', 'refresh', '--packet', packetPath, '--expected-current', staleResult.currentRevision, '--acknowledge-stale');
   expect(refreshed.status, refreshed.stderr).toBe(0);
   const freshPath = join(repo, 'fresh.yaml');
   writeFileSync(freshPath, refreshed.stdout);
-  const replaced = explain(repo, 'refs', 'replace', '--packet', freshPath, '--replacement', replacementPath, '--expected-revision', staleResult.currentRevision, '--json');
+  const replaced = visser(repo, 'refs', 'replace', '--packet', freshPath, '--replacement', replacementPath, '--expected-revision', staleResult.currentRevision, '--json');
   expect(replaced.status, replaced.stderr).toBe(0);
   const edit = JSON.parse(replaced.stdout);
   expect(edit.changedTargets).toContain('enqueue');
   expect(readFileSync(doc, 'utf8')).toContain('label="put blocks while the queue is full"');
 
   // 6. The evidence is intact: the document still checks cleanly.
-  const check = explain(repo, 'check', doc);
+  const check = visser(repo, 'check', doc);
   expect(check.status, check.stderr).toBe(0);
 });

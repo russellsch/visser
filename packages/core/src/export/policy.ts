@@ -67,7 +67,7 @@ export function publicExportProblems(documents: readonly ExportedDocument[], sou
       code: 'E_PRIVATE_EXPORT', severity: 'error',
       message: `document ${s.docId}: source ${s.id} (${s.kind}, ${origin}) is not from a repository in the publicRepositories allowlist`,
       targetId: s.id,
-      suggestedAction: 'add the repository to publicRepositories in your user config (~/.explain/config.json), or pass --allow-private-content after review',
+      suggestedAction: 'add the repository to publicRepositories in your user config (~/.visser/config.json), or pass --allow-private-content after review',
     });
   }
   return problems;

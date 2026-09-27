@@ -23,7 +23,7 @@ export function collectionIndexHtml(title: string, entries: readonly IndexEntry[
       h('title', {}, title),
       h('link', { rel: 'stylesheet', href: options.stylesheet, integrity })),
     h('body', {},
-      h('main', { class: 'ex-collection' },
+      h('main', { class: 'vs-collection' },
         h('h1', {}, title),
         h('ul', {}, entries.map((e) => h('li', {}, h('a', { href: e.path }, e.title)))))));
   return '<!doctype html>\n' + render(page) + '\n';

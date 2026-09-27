@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: da29731b-af35-4838-ab9d-8fdbe9b271d9
 title: Two queue classes share one interface but differ on a full queue
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Two queue classes share one interface but differ on a full queue
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 Both classes implement the same `WorkQueue` interface, so a caller can hold
 either one through the interface. They differ in one method: when the buffer is
 full, `BlockingQueue.put` waits, while `DroppingQueue.put` returns `false` and
@@ -55,7 +55,7 @@ classDiagram
 ```
 {% /mermaid %}
 
-<!-- ex:id p_limits -->
+<!-- vs:id p_limits -->
 This is an illustrative design, not a description of a particular library. A
 class diagram shows structure, not timing: it does not show how long
 `BlockingQueue.put` can wait, or that `take` also waits on an empty buffer.

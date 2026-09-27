@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: b654fa4b-f72e-48eb-afbd-4020436f2d69
 title: The services that a checkout waits for
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # The services that a checkout waits for
 
-<!-- ex:id p_intro -->
+<!-- vs:id p_intro -->
 The map shows only the services that a checkout waits for. The others run after
 the reply.
 

@@ -1,5 +1,5 @@
 // Serves the DOM-contract fixture with a freshly bundled runtime, until the
-// real `explain serve` output is used (see tests/browser/support.ts).
+// real `visser serve` output is used (see tests/browser/support.ts).
 // Usage: node tests/browser/fixture-server.mjs --port 4312
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';

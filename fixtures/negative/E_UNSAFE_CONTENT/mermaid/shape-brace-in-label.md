@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: fa260154-120f-4284-bb01-74dc1b9bccad
 title: Mermaid fixture
 kind: teaching
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Mermaid fixture
 
 {% mermaid id="fig" title="Where the request waits" question="Which step blocks?" %}

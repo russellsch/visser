@@ -120,7 +120,7 @@ export function sourceManifest(docId: string, files: BundleFile[]) {
   });
   if (!seen.has("index.md")) throw new HashError("E_MANIFEST", "index.md is required");
   entries.sort((a, b) => compareCodePoints(a.path, b.path));
-  return { schema: "explain-source-manifest/1", docId, files: entries };
+  return { schema: "visser-source-manifest/1", docId, files: entries };
 }
 
 export function sourceRevision(docId: string, files: BundleFile[]) {
@@ -142,7 +142,7 @@ export function buildId(input: {
   if (new Set(ext).size !== ext.length) throw new HashError("E_DUPLICATE_DIGEST", "duplicate extension digest");
   ext.sort(compareCodePoints);
   const canonical = canonicalJSON({
-    schema: "explain-build-input/1",
+    schema: "visser-build-input/1",
     sourceRevision: input.sourceRevision,
     toolkitSha256: input.toolkitSha256,
     extensionDigests: ext,
@@ -162,7 +162,7 @@ function validateRefParts(p: RefParts): void {
 
 export function buildReferenceUri(p: RefParts): string {
   validateRefParts(p);
-  return `explain://${p.docId}/${p.targetId}?rev=${p.rev}&body=${p.body}`;
+  return `visser://${p.docId}/${p.targetId}?rev=${p.rev}&body=${p.body}`;
 }
 
 // Decision D10: after structural checks with a real URL parser, accept only the exact
@@ -172,7 +172,7 @@ export function parseReferenceUri(raw: string): RefParts {
   if (!/^[\x21-\x7e]*$/.test(raw)) bad("non-ASCII, space, or control character");
   let url: URL;
   try { url = new URL(raw); } catch { return bad("unparseable"); }
-  if (url.protocol !== "explain:") bad("scheme");
+  if (url.protocol !== "visser:") bad("scheme");
   if (raw.includes("#")) bad("fragment");
   if (url.username !== "" || url.password !== "") bad("credentials");
   if (url.port !== "") bad("port");

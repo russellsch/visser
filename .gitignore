@@ -2,8 +2,8 @@ node_modules/
 dist/
 reports/
 .cache/
-.explain/toolchains/
-.explain/output/
-.explain/cache/
-.explain/registry.json
-.explain/edit-locks/
+.visser/toolchains/
+.visser/output/
+.visser/cache/
+.visser/registry.json
+.visser/edit-locks/

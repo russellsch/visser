@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-diagnostics-1.schema.json",
+  "title": "Error envelope for any --json command that fails before producing its own output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema": {
+      "const": "visser-diagnostics/1"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "https://visser.invalid/schemas/visser-resolve-1.schema.json#/$defs/diagnostic"
+      }
+    }
+  }
+}

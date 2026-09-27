@@ -1,5 +1,7 @@
 // Byte spans for Appendix A (ARCHITECTURE.md §7.3). Expected values come from
 // spikes/markdoc-spans/results.txt and are re-derived here from the example.
+// Revision 1.23 renamed `format: explain/1` to `format: visser/1`, one byte
+// shorter, so every range is one byte lower than in the spike results.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSource } from '../../packages/core/src/syntax/index.ts';
@@ -9,29 +11,29 @@ const lf = new Uint8Array(readFileSync(EXAMPLE));
 
 // id, kind, parent, startLine-endLine (1-based inclusive), LF byte range.
 const EXPECTED: Array<[string, string, string, string, string]> = [
-  ['overview', 'heading', '', '15-16', '390-461'],
-  ['p_takeaway', 'paragraph', '', '18-21', '462-703'],
-  ['p_limits', 'paragraph', '', '23-26', '704-940'],
-  ['p_vocabulary', 'paragraph', '', '28-30', '941-1112'],
-  ['handoff', 'graph', '', '32-58', '1113-2458'],
-  ['producer', 'node', 'handoff', '35-37', '1338-1449'],
-  ['queue', 'node', 'handoff', '39-42', '1450-1658'],
-  ['worker', 'node', 'handoff', '44-46', '1659-1808'],
-  ['enqueue', 'edge', 'handoff', '48-51', '1809-2081'],
-  ['dequeue', 'edge', 'handoff', '53-57', '2082-2445'],
-  ['p_trace', 'paragraph', '', '60-63', '2459-2701'],
-  ['full_queue_trace', 'trace', '', '65-88', '2702-3979'],
-  ['actor_producer', 'actor', 'full_queue_trace', '69-69', '2929-2997'],
-  ['actor_consumer', 'actor', 'full_queue_trace', '70-70', '2997-3063'],
-  ['event_call', 'event', 'full_queue_trace', '72-74', '3064-3235'],
-  ['event_wait', 'event', 'full_queue_trace', '76-78', '3236-3449'],
-  ['event_remove', 'event', 'full_queue_trace', '80-82', '3450-3648'],
-  ['event_resume', 'event', 'full_queue_trace', '84-87', '3649-3966'],
-  ['wait_code', 'annotated', '', '90-97', '3980-4468'],
-  ['capacity_loop', 'annotation', 'wait_code', '93-96', '4181-4451'],
-  ['def_backpressure', 'definition', '', '99-103', '4469-4764'],
-  ['src_queue', 'source', '', '105-134', '4765-5718'],
-  ['src_condition_docs', 'source', '', '136-136', '5719-5948'],
+  ['overview', 'heading', '', '15-16', '389-460'],
+  ['p_takeaway', 'paragraph', '', '18-21', '461-702'],
+  ['p_limits', 'paragraph', '', '23-26', '703-939'],
+  ['p_vocabulary', 'paragraph', '', '28-30', '940-1111'],
+  ['handoff', 'graph', '', '32-58', '1112-2457'],
+  ['producer', 'node', 'handoff', '35-37', '1337-1448'],
+  ['queue', 'node', 'handoff', '39-42', '1449-1657'],
+  ['worker', 'node', 'handoff', '44-46', '1658-1807'],
+  ['enqueue', 'edge', 'handoff', '48-51', '1808-2080'],
+  ['dequeue', 'edge', 'handoff', '53-57', '2081-2444'],
+  ['p_trace', 'paragraph', '', '60-63', '2458-2700'],
+  ['full_queue_trace', 'trace', '', '65-88', '2701-3978'],
+  ['actor_producer', 'actor', 'full_queue_trace', '69-69', '2928-2996'],
+  ['actor_consumer', 'actor', 'full_queue_trace', '70-70', '2996-3062'],
+  ['event_call', 'event', 'full_queue_trace', '72-74', '3063-3234'],
+  ['event_wait', 'event', 'full_queue_trace', '76-78', '3235-3448'],
+  ['event_remove', 'event', 'full_queue_trace', '80-82', '3449-3647'],
+  ['event_resume', 'event', 'full_queue_trace', '84-87', '3648-3965'],
+  ['wait_code', 'annotated', '', '90-97', '3979-4467'],
+  ['capacity_loop', 'annotation', 'wait_code', '93-96', '4180-4450'],
+  ['def_backpressure', 'definition', '', '99-103', '4468-4763'],
+  ['src_queue', 'source', '', '105-134', '4764-5717'],
+  ['src_condition_docs', 'source', '', '136-136', '5718-5947'],
 ];
 
 const enc = new TextEncoder();
@@ -59,7 +61,7 @@ describe('Appendix A spans @R02 @R03', () => {
     for (const t of lfParsed.targets) {
       const body = sliceText(lf, t.startByte, t.endByte);
       const first = body.split('\n')[0]!;
-      if (t.origin === 'marker') expect(first).toBe(`<!-- ex:id ${t.id} -->`);
+      if (t.origin === 'marker') expect(first).toBe(`<!-- vs:id ${t.id} -->`);
       else expect(first).toMatch(new RegExp(`^\\{% ${t.kind} .*id="${t.id}"`));
       expect(body.endsWith('\n')).toBe(true);
       expect(body).not.toMatch(/\n\s*\n$/);
@@ -69,7 +71,7 @@ describe('Appendix A spans @R02 @R03', () => {
   it('includes the attached marker in a marker target span', () => {
     const p = lfParsed.targets.find((t) => t.id === 'p_takeaway')!;
     expect(sliceText(lf, p.startByte, p.endByte)).toBe(
-      '<!-- ex:id p_takeaway -->\nThe queue bounds the number of stored items by making producers wait when it is\n' +
+      '<!-- vs:id p_takeaway -->\nThe queue bounds the number of stored items by making producers wait when it is\n' +
         'full. A consumer taking an item creates space; it does not mean that processing\n' +
         'of that item has finished. {% cite ref="src_queue" /%}\n',
     );
@@ -110,7 +112,7 @@ describe('Appendix A spans @R02 @R03', () => {
   });
 
   it('keeps a target and its ID when a paragraph is inserted above it @T02', () => {
-    const shifted = enc.encode(text.replace('<!-- ex:id p_limits -->', '<!-- ex:id p_new -->\nInserted.\n\n<!-- ex:id p_limits -->'));
+    const shifted = enc.encode(text.replace('<!-- vs:id p_limits -->', '<!-- vs:id p_new -->\nInserted.\n\n<!-- vs:id p_limits -->'));
     const p = parseSource(shifted, 'index.md');
     expect(p.diagnostics).toEqual([]);
     const before = lfParsed.targets.find((t) => t.id === 'p_limits')!;

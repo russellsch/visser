@@ -1,6 +1,6 @@
-// The format guide (§9.1, skills/explain/references/format.md) is a contract:
-// every `explain-valid` snippet must check with no errors, and every
-// `explain-invalid E_CODE` snippet must fail with that code. A snippet without
+// The format guide (§9.1, skills/visual-explain/references/format.md) is a contract:
+// every `visser-valid` snippet must check with no errors, and every
+// `visser-invalid E_CODE` snippet must fail with that code. A snippet without
 // frontmatter is wrapped in a minimal valid document.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,10 +8,10 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 
-const GUIDE = new URL('../../skills/explain/references/format.md', import.meta.url).pathname;
+const GUIDE = new URL('../../skills/visual-explain/references/format.md', import.meta.url).pathname;
 const WRAPPER = [
   '---',
-  'format: explain/1',
+  'format: visser/1',
   'docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239',
   'title: Format guide snippet',
   'kind: reference',
@@ -19,7 +19,7 @@ const WRAPPER = [
   'visibility: private',
   '---',
   '',
-  '<!-- ex:id overview -->',
+  '<!-- vs:id overview -->',
   '# Format guide snippet',
   '',
   '',
@@ -27,7 +27,7 @@ const WRAPPER = [
 
 type Snippet = { line: number; valid: boolean; code?: string; body: string };
 
-/** Top-level fences whose info string is `markdown explain-valid` or `markdown explain-invalid E_CODE`. */
+/** Top-level fences whose info string is `markdown visser-valid` or `markdown visser-invalid E_CODE`. */
 function extractSnippets(text: string): Snippet[] {
   const lines = text.split('\n');
   const out: Snippet[] = [];
@@ -38,8 +38,8 @@ function extractSnippets(text: string): Snippet[] {
     const close = lines.findIndex((l, j) => j > i && l.startsWith(fence) && l.slice(fence.length).trim() === '');
     if (close === -1) throw new Error(`unclosed fence at line ${i + 1}`);
     const info = open[2]!.trim().split(/\s+/);
-    if (info[0] === 'markdown' && (info[1] === 'explain-valid' || info[1] === 'explain-invalid')) {
-      const valid = info[1] === 'explain-valid';
+    if (info[0] === 'markdown' && (info[1] === 'visser-valid' || info[1] === 'visser-invalid')) {
+      const valid = info[1] === 'visser-valid';
       if (!valid && !/^[EW]_[A-Z_]+$/.test(info[2] ?? '')) throw new Error(`invalid snippet at line ${i + 1} has no diagnostic code`);
       out.push({ line: i + 1, valid, ...(valid ? {} : { code: info[2]! }), body: lines.slice(i + 1, close).join('\n') + '\n' });
     }
@@ -48,7 +48,7 @@ function extractSnippets(text: string): Snippet[] {
   return out;
 }
 
-const work = mkdtempSync(join(tmpdir(), 'explain-format-guide-'));
+const work = mkdtempSync(join(tmpdir(), 'visser-format-guide-'));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
 
 function check(snippet: Snippet): Array<{ code: string; message: string }> {

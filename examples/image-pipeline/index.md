@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: ed3b2b96-656d-42cd-a66e-c98aa19dbbd0
 title: How a stored photo becomes a model input batch
 kind: teaching
@@ -12,17 +12,17 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # How a stored photo becomes a model input batch
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The pipeline changes three things at different points: the encoding (compressed
 bytes to pixel values), the shape and layout (height-width-channel to
 channel-first batches), and the location (host memory to accelerator memory).
 Only the resize step discards information; every later step is reversible up to
 floating-point rounding.
 
-<!-- ex:id p_scope -->
+<!-- vs:id p_scope -->
 This is an illustrative pipeline. The sizes are example values, not the
 requirements of a particular model.
 
@@ -80,6 +80,6 @@ training step.
 {% /conversion %}
 {% /transform %}
 
-<!-- ex:id p_debugging -->
+<!-- vs:id p_debugging -->
 When a model misreads fine detail, check the resize step first: it is the only
 place this pipeline removes information.

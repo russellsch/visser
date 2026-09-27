@@ -13,8 +13,8 @@ import { runCatalogue } from '../../packages/cli/src/commands/catalogue.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
-const cli = join(release, 'bin/explain.cjs');
-const env = () => ({ ...process.env, EXPLAIN_HOME: mkdtempSync(join(tmpdir(), 'explain-home-')) });
+const cli = join(release, 'bin/visser.cjs');
+const env = () => ({ ...process.env, VISSER_HOME: mkdtempSync(join(tmpdir(), 'visser-home-')) });
 
 
 afterEach(() => {
@@ -40,9 +40,9 @@ async function catalogue(...argv: string[]): Promise<{ code: number; json: Recor
 
 describe('catalogue list|show (§17.1) @R16', () => {
   it('the release ships every guide, the handoff guide, and the canonical wrapper', () => {
-    for (const p of PATTERNS) expect(existsSync(join(release, 'skills/explain/references/catalogue', `${p.name}.md`)), p.name).toBe(true);
-    expect(existsSync(join(release, 'skills/explain/references/handoff.md'))).toBe(true);
-    expect(existsSync(join(release, 'skills/explain/wrapper/SKILL.md'))).toBe(true);
+    for (const p of PATTERNS) expect(existsSync(join(release, 'skills/visual-explain/references/catalogue', `${p.name}.md`)), p.name).toBe(true);
+    expect(existsSync(join(release, 'skills/visual-explain/references/handoff.md'))).toBe(true);
+    expect(existsSync(join(release, 'skills/visual-explain/wrapper/SKILL.md'))).toBe(true);
   });
 
   it('list prints every pattern with its question, from the resolved toolkit', async () => {
@@ -80,8 +80,8 @@ describe('catalogue list|show (§17.1) @R16', () => {
   it('schema JSON rejects a show without its part payload', () => {
     const entry = { name: 'trace', title: 'T', question: 'Q?', path: '/x' };
     const toolkit = { sha256: 'a'.repeat(64), version: '0.0.0', dir: '/x' };
-    expect(validateAgainst('catalogue', { schema: 'explain-catalogue/1', toolkit, entry, part: 'guide' }).ok).toBe(false);
-    expect(validateAgainst('catalogue', { schema: 'explain-catalogue/1', toolkit, entry, part: 'guide', template: 'x' }).ok).toBe(false);
+    expect(validateAgainst('catalogue', { schema: 'visser-catalogue/1', toolkit, entry, part: 'guide' }).ok).toBe(false);
+    expect(validateAgainst('catalogue', { schema: 'visser-catalogue/1', toolkit, entry, part: 'guide', template: 'x' }).ok).toBe(false);
   });
 });
 
@@ -89,12 +89,12 @@ describe('handoff guide flow through the built CLI', () => {
   it('resolve, replace, stale, refresh, and retire give the documented exit codes', () => {
     const e = env();
     const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: e, cwd: repo });
-    const repo = mkdtempSync(join(tmpdir(), 'explain-handoff-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-handoff-'));
     mkdirSync(join(repo, '.git'));
     const bundle = join(repo, 'docs', 'explanations', 'notes');
     expect(run('init', bundle, '--kind', 'teaching', '--title', 'Notes', '--toolkit-dir', release).status).toBe(0);
     const doc = join(bundle, 'index.md');
-    appendFileSync(doc, '\n<!-- ex:id p_one -->\nFirst claim.\n\n<!-- ex:id p_two -->\nSecond claim.\n');
+    appendFileSync(doc, '\n<!-- vs:id p_one -->\nFirst claim.\n\n<!-- vs:id p_two -->\nSecond claim.\n');
     expect(run('check', doc).status).toBe(0);
 
     const show = run('refs', 'show', doc, 'p_one');
@@ -108,7 +108,7 @@ describe('handoff guide flow through the built CLI', () => {
     expect(resolved.status).toBe('exact');
 
     const replacement = join(repo, 'new.md');
-    writeFileSync(replacement, '<!-- ex:id p_one -->\nFirst claim, restated.\n');
+    writeFileSync(replacement, '<!-- vs:id p_one -->\nFirst claim, restated.\n');
     const replaced = run('refs', 'replace', '--packet', packet, '--replacement', replacement, '--expected-revision', resolved.currentRevision ?? resolved.viewedRevision, '--json');
     expect(replaced.status, replaced.stderr + replaced.stdout).toBe(0);
 

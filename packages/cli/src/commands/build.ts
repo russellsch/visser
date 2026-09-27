@@ -1,4 +1,4 @@
-// `explain build DOC [--out DIR] [--toolkit-dir DIR | --dev-toolkit DIR]
+// `visser build DOC [--out DIR] [--toolkit-dir DIR | --dev-toolkit DIR]
 //   [--allow-layout-fallback]` (§13.1, §17.1). No source mutation, no network.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -115,11 +115,11 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
   }
 }
 
-/** Nearest ancestor with .git or .explain, else the document folder. */
+/** Nearest ancestor with .git or .visser, else the document folder. */
 export function repoRootFor(start: string): string {
   let dir = resolve(start);
   for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.explain'))) return dir;
+    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.visser'))) return dir;
     const parent = dirname(dir);
     if (parent === dir) return resolve(start);
     dir = parent;
@@ -128,7 +128,7 @@ export function repoRootFor(start: string): string {
 
 export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   const doc = args.positional[0];
-  if (!doc) throw new CliError('E_USAGE', 'usage: explain build DOC [--out DIR] [--toolkit-dir DIR | --dev-toolkit DIR]', EXIT.invalid);
+  if (!doc) throw new CliError('E_USAGE', 'usage: visser build DOC [--out DIR] [--toolkit-dir DIR | --dev-toolkit DIR]', EXIT.invalid);
   const indexPath = resolve(doc);
   if (!existsSync(indexPath)) throw new CliError('E_SOURCE_UNAVAILABLE', `cannot read ${doc}`, EXIT.unavailable);
   const bundle = loadBundle(indexPath);
@@ -153,13 +153,13 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   });
   printDiagnostics(result.diagnostics.filter((d) => d.severity === 'warning'), false);
 
-  const outDir = resolve(stringFlag(args, 'out') ?? join(repoRootFor(bundle.root), '.explain', 'output'));
+  const outDir = resolve(stringFlag(args, 'out') ?? join(repoRootFor(bundle.root), '.visser', 'output'));
   const snapshotDir = `d/${result.docId}/${result.sourceRevision}/${result.buildId}`;
   const finalDir = join(outDir, snapshotDir);
 
   // Shared asset pack (§13.1): each needed file is copied on its own, so a later
   // Mermaid build adds mermaid.js to an asset directory that already exists.
-  const assetDir = join(outDir, '_explain', 'assets', toolkit.release.sha256);
+  const assetDir = join(outDir, '_visser', 'assets', toolkit.release.sha256);
   const needed = ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])];
   if (result.needsMermaid && !existsSync(mermaidPath)) {
     throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${releaseDir} has no browser/mermaid.js; this document needs a toolkit with Mermaid support`, EXIT.unavailable);

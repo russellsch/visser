@@ -1,10 +1,10 @@
-// `explain trust toolkit DIGEST [--revoke] [--json]` (§12.4, §17.1). Writes only
+// `visser trust toolkit DIGEST [--revoke] [--json]` (§12.4, §17.1). Writes only
 // the user trust store; a repository toolchain runs only if its digest is here.
 import { HashError } from '../../../core/src/model/hash.ts';
 import { addTrust, readTrust, revokeTrust } from '../../../core/src/distribution/index.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson } from '../cli-util.ts';
 
-const USAGE = 'usage: explain trust toolkit DIGEST [--revoke] [--json]';
+const USAGE = 'usage: visser trust toolkit DIGEST [--revoke] [--json]';
 
 export async function runTrust(args: ParsedArgs): Promise<number> {
   const json = args.flags.get('json') === true;
@@ -15,14 +15,14 @@ export async function runTrust(args: ParsedArgs): Promise<number> {
   if (!/^[0-9a-f]{64}$/.test(digest)) throw new CliError('E_USAGE', `a toolkit digest is 64 lowercase hex characters, not ${JSON.stringify(digest)}`, EXIT.invalid);
   try {
     const before = Object.hasOwn(readTrust().toolkits, digest);
-    let result: { schema: 'explain-trust/1'; digest: string; trusted: boolean; changed: boolean; source?: string; addedAt?: string };
+    let result: { schema: 'visser-trust/1'; digest: string; trusted: boolean; changed: boolean; source?: string; addedAt?: string };
     if (revoke === true) {
       if (before) revokeTrust(digest);
-      result = { schema: 'explain-trust/1', digest, trusted: false, changed: before };
+      result = { schema: 'visser-trust/1', digest, trusted: false, changed: before };
     } else {
       const store = before ? readTrust() : addTrust(digest, 'trust toolkit');
       const entry = store.toolkits[digest]!;
-      result = { schema: 'explain-trust/1', digest, trusted: true, changed: !before, source: entry.source, addedAt: entry.addedAt };
+      result = { schema: 'visser-trust/1', digest, trusted: true, changed: !before, source: entry.source, addedAt: entry.addedAt };
     }
     if (json) printJson('trust', result);
     else {

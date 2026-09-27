@@ -1,4 +1,4 @@
-// `explain serve DOC [--port N] [--host H] [--public-origin URL] [--base-path P]
+// `visser serve DOC [--port N] [--host H] [--public-origin URL] [--base-path P]
 //   [--cache-private] [--toolkit-dir DIR | --dev-toolkit DIR]` (§13.3, §13.4).
 // Builds a snapshot, then serves only the files in its output manifest.
 import { readFileSync } from 'node:fs';
@@ -52,7 +52,7 @@ export async function runServe(args: ParsedArgs): Promise<number> {
     add(file.path, file.bytes, html ? snapshotCache : 'immutable', html ? pageCsp : undefined);
   }
   for (const name of ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])]) {
-    add(`_explain/assets/${toolkit.release.sha256}/${name}`, readFileSync(join(outDir, '_explain', 'assets', toolkit.release.sha256, name)), 'immutable');
+    add(`_visser/assets/${toolkit.release.sha256}/${name}`, readFileSync(join(outDir, '_visser', 'assets', toolkit.release.sha256, name)), 'immutable');
   }
   const title = typeof outcome.frontmatter['title'] === 'string' ? outcome.frontmatter['title'] : result.docId;
   const index = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>\n<body><p><a href="${escapeHtml(outcome.snapshotPath)}">${escapeHtml(title)}</a></p></body></html>\n`;
@@ -74,7 +74,7 @@ export async function runServe(args: ParsedArgs): Promise<number> {
   if (!LOOPBACK.has(host) || publicOrigin) {
     const visibility = outcome.frontmatter['visibility'] ?? 'private';
     if (visibility === 'private') {
-      process.stderr.write('warning: this private document is reachable beyond loopback; Explain adds no authentication (§13.4)\n');
+      process.stderr.write('warning: this private document is reachable beyond loopback; Visser adds no authentication (§13.4)\n');
     }
   }
   await new Promise<void>((resolveStop) => {

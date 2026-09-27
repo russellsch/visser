@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 6b67def5-43ae-4842-b4a7-19ae2fe6591c
 title: Who is responsible for a request, and in what order it runs
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Who is responsible for a request, and in what order it runs
 
-<!-- ex:id p_intro -->
+<!-- vs:id p_intro -->
 The map shows which component owns each step. The trace after it shows the
 order of one request.
 

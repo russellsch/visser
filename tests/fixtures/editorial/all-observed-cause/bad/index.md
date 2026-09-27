@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 6db47017-9ed8-4e2b-b441-b18452fd0a6a
 title: Why the order API stalled
 kind: root-cause
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Why the order API stalled
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 An expired cache key stalled the order API.
 
 {% graph id="mechanism" mode="cause" title="The expired key stalled the API" question="Which mechanism links the expired key to the timeouts?" %}

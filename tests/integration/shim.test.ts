@@ -1,6 +1,6 @@
 // The user shim (§12.2, §12.7): it runs the resolved toolkit's own
-// bin/explain.cjs, forwards arguments and the exit code, verifies the release
-// first, applies the trust gate, and never runs REPO/.explain/bin.
+// bin/visser.cjs, forwards arguments and the exit code, verifies the release
+// first, applies the trust gate, and never runs REPO/.visser/bin.
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -27,7 +27,7 @@ describe('user shim dispatch', () => {
     const r = run(fx, fx.shim, ['check', doc, '--json']);
     expect(r.status, r.stderr).toBe(7);
     const seen = readMarker(marker);
-    expect(seen.file).toBe(join(fx.home, 'toolchains', M, 'bin', 'explain.cjs'));
+    expect(seen.file).toBe(join(fx.home, 'toolchains', M, 'bin', 'visser.cjs'));
     expect(seen.argv).toEqual(['check', doc, '--json']);
   });
 
@@ -42,13 +42,13 @@ describe('user shim dispatch', () => {
     }
   });
 
-  it('never runs REPO/.explain/bin, even when the lock resolves', () => {
+  it('never runs REPO/.visser/bin, even when the lock resolves', () => {
     const { fx, marker, built, M } = markerSetup();
     installUser(fx, built);
     const { repo, doc } = repoWithDocument(fx, 'repo', M);
     const sentinel = join(fx.root, 'repo-shim-ran');
-    mkdirSync(join(repo, '.explain', 'bin'), { recursive: true });
-    writeFileSync(join(repo, '.explain', 'bin', 'explain.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'x')\n`);
+    mkdirSync(join(repo, '.visser', 'bin'), { recursive: true });
+    writeFileSync(join(repo, '.visser', 'bin', 'visser.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'x')\n`);
     const r = run(fx, fx.shim, ['build', doc], repo);
     expect(r.status, r.stderr).toBe(7);
     expect(existsSync(marker)).toBe(true);
@@ -58,7 +58,7 @@ describe('user shim dispatch', () => {
   it('refuses an untrusted repository toolchain (E_TOOLKIT_UNTRUSTED, nothing runs) and runs it once trusted', () => {
     const { fx, marker, built, M } = markerSetup();
     const { repo, doc } = repoWithDocument(fx, 'repo', M);
-    const repoCopy = join(repo, '.explain', 'toolchains', M);
+    const repoCopy = join(repo, '.visser', 'toolchains', M);
     cpSync(built, repoCopy, { recursive: true });
 
     const refused = run(fx, fx.shim, ['build', doc, '--json']);
@@ -69,7 +69,7 @@ describe('user shim dispatch', () => {
     addTrust(M, 'test', fx.env, now);
     const trusted = run(fx, fx.shim, ['build', doc]);
     expect(trusted.status, trusted.stderr).toBe(7);
-    expect(readMarker(marker).file).toBe(join(repoCopy, 'bin', 'explain.cjs'));
+    expect(readMarker(marker).file).toBe(join(repoCopy, 'bin', 'visser.cjs'));
   });
 
   it('upgrade DOC --to DIGEST runs the TARGET toolkit\'s CLI, through the trust gate', () => {
@@ -82,7 +82,7 @@ describe('user shim dispatch', () => {
     const { repo, doc } = repoWithDocument(fx, 'repo', M);
 
     // An untrusted repository copy of the target: nothing runs.
-    const repoCopy = join(repo, '.explain', 'toolchains', T);
+    const repoCopy = join(repo, '.visser', 'toolchains', T);
     cpSync(targetBuilt, repoCopy, { recursive: true });
     const refused = run(fx, fx.shim, ['upgrade', doc, '--to', T, '--json']);
     expect(refused.status).toBe(4);
@@ -93,7 +93,7 @@ describe('user shim dispatch', () => {
     addTrust(T, 'test', fx.env, now);
     const r = run(fx, fx.shim, ['upgrade', doc, '--to', T]);
     expect(r.status, r.stderr).toBe(9);
-    expect(readMarker(targetMarker).file).toBe(join(repoCopy, 'bin', 'explain.cjs'));
+    expect(readMarker(targetMarker).file).toBe(join(repoCopy, 'bin', 'visser.cjs'));
     expect(existsSync(marker)).toBe(false);
   });
 
@@ -114,7 +114,7 @@ describe('user shim dispatch', () => {
     const r = run(fx, fx.shim, ['build', doc]);
     expect(r.status).toBe(3);
     expect(r.stderr).toContain('E_TOOLKIT_MISSING');
-    expect(r.stderr).toContain('explain install');
+    expect(r.stderr).toContain('visser install');
   });
 
   it('commands without a document use only the user default pointer; none is inferred from installed toolchains', () => {
@@ -135,8 +135,8 @@ describe('user shim dispatch', () => {
     const { fx, marker, built, M } = markerSetup();
     installUser(fx, built);
     const repo = join(fx.root, 'repo');
-    mkdirSync(join(repo, '.explain'), { recursive: true });
-    writeFileSync(join(repo, '.explain', 'config.json'), JSON.stringify({ schema: 'explain-workspace/1', defaultToolkit: { version: '0.0.0', sha256: M } }));
+    mkdirSync(join(repo, '.visser'), { recursive: true });
+    writeFileSync(join(repo, '.visser', 'config.json'), JSON.stringify({ schema: 'visser-workspace/1', defaultToolkit: { version: '0.0.0', sha256: M } }));
     const doctor = run(fx, fx.shim, ['doctor'], repo);
     expect(doctor.status).toBe(3);
     expect(existsSync(marker)).toBe(false);

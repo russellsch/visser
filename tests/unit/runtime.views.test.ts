@@ -11,7 +11,7 @@ describe('figure views on narrow screens (§9.3, R06) @R06', () => {
   it('defaults to the list on narrow screens and shows the map only on request', () => {
     expect(figureView(true, false)).toBe('list');
     expect(figureView(true, true)).toBe('map');
-    expect(VIEW_CLASS.list).toBe('ex-view-list');
-    expect(VIEW_CLASS.map).toBe('ex-view-map');
+    expect(VIEW_CLASS.list).toBe('vs-view-list');
+    expect(VIEW_CLASS.map).toBe('vs-view-map');
   });
 });

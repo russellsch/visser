@@ -142,7 +142,7 @@ export function retireTarget(packet: ReferencePacket, request: RetireRequest, ex
   const oldText = new TextDecoder().decode(original).replace(/\r\n?/g, '\n');
   const newText = new TextDecoder().decode(candidate).replace(/\r\n?/g, '\n');
   return {
-    schema: 'explain-edit/1',
+    schema: 'visser-edit/1',
     docId: packet.docId,
     targetId: packet.targetId,
     oldRevision: bundle.sourceRevision!,

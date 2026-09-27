@@ -1,5 +1,5 @@
 // Narrow-screen alternate views for figures (§9.3–9.10, R06). A figure with a
-// map (data-ex-views) shows its lists by default on narrow screens; "Show map"
+// map (data-vs-views) shows its lists by default on narrow screens; "Show map"
 // switches to the map. Wide screens show both, and no toggle is needed.
 
 export type FigureView = 'both' | 'list' | 'map';
@@ -12,6 +12,6 @@ export function figureView(narrow: boolean, mapChosen: boolean): FigureView {
 
 export const VIEW_CLASS: Record<FigureView, string | undefined> = {
   both: undefined,
-  list: 'ex-view-list',
-  map: 'ex-view-map',
+  list: 'vs-view-list',
+  map: 'vs-view-map',
 };

@@ -12,7 +12,7 @@ import { EXAMPLES, type ExampleName } from './examples.ts';
 import { copiedTexts, installClipboardSpy, openSnapshot, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 const FIGURES = new Set(['graph', 'trace', 'transform', 'compare', 'annotated']);
 
 type Pick = { example: ExampleName; id: string; kind: string; parentId: string | undefined };
@@ -31,13 +31,13 @@ async function clickable(page: Page, pick: Pick): Promise<Locator> {
   const canonicalEl = page.locator(`[id="x-${pick.id}"]`);
   if (FIGURES.has(pick.kind)) {
     // Click the figure's own caption or interpretation, not a child instance.
-    const own = canonicalEl.locator(':scope > figcaption, :scope > p:not([data-ex-generated])').first();
+    const own = canonicalEl.locator(':scope > figcaption, :scope > p:not([data-vs-generated])').first();
     if (await own.count()) return own;
     return canonicalEl;
   }
   if (!pick.parentId && !['definition', 'source', 'detail'].includes(pick.kind)) return canonicalEl;
   // An entity: prefer a visible instance in a figure or list; fall back to its detail summary.
-  const instances = page.locator(`[data-ex-target="${pick.id}"]:not([id="x-${pick.id}"])`);
+  const instances = page.locator(`[data-vs-target="${pick.id}"]:not([id="x-${pick.id}"])`);
   for (let i = 0; i < (await instances.count()); i++) {
     const inst = instances.nth(i);
     if (await inst.isVisible()) {
@@ -49,7 +49,7 @@ async function clickable(page: Page, pick: Pick): Promise<Locator> {
 }
 
 function resolveInRepo(example: ExampleName, packetYaml: string): { status: number | null; stdout: string; stderr: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-kind-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-kind-'));
   mkdirSync(join(repo, '.git'));
   const docDir = join(repo, 'docs/explanations', example);
   mkdirSync(docDir, { recursive: true });
@@ -67,11 +67,11 @@ test.describe('@R03 reference for every target kind', () => {
       test.skip(info.project.name !== 'chromium-1440', 'per-kind references run once, on the desktop project');
       await installClipboardSpy(page);
       await openSnapshot(page, '', pick.example);
-      await page.locator('#ex-btn-refmode').click();
+      await page.locator('#vs-btn-refmode').click();
       const target = await clickable(page, pick);
       await target.scrollIntoViewIfNeeded();
       await target.click();
-      const panel = page.locator('#ex-refpanel');
+      const panel = page.locator('#vs-refpanel');
       await expect(panel).toBeVisible();
       await panel.getByRole('button', { name: 'Copy reference', exact: true }).click();
       const [yaml] = await copiedTexts(page);

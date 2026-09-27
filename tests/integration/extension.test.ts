@@ -49,7 +49,7 @@ describe('extensions (§14)', () => {
     const index = docWithComponent(ctx);
     const pinned = pin(ctx, index, digest);
     expect(pinned.changed).toBe(true);
-    const lock = JSON.parse(readFileSync(join(dirname(index), 'explain.lock.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(join(dirname(index), 'visser.lock.json'), 'utf8'));
     expect(lock.extensions).toEqual([{ name: 'timeline-lanes', version: '0.1.0', sha256: digest }]);
     addTrust(digest, 'test', ctx.env, now, 'extensions');
 
@@ -59,9 +59,9 @@ describe('extensions (§14)', () => {
     expect(built.status, built.stderr).toBe(0);
     const page = builtPage(out);
     expect(page.html).toContain('<svg');
-    expect(page.html.match(/class="ex-ext-part"/g)).toHaveLength(2);
+    expect(page.html.match(/class="vs-ext-part"/g)).toHaveLength(2);
     expect(page.html).toContain('Load config: from 0 to 40 ms');
-    expect(page.html).not.toContain('ex-extension-note');
+    expect(page.html).not.toContain('vs-extension-note');
     expect(page.build['extensions']).toEqual([{ name: 'timeline-lanes', version: '0.1.0', sha256: digest }]);
     expect(validateAgainst('build', page.build)).toEqual({ ok: true });
     // The text projection is derived from the source only.
@@ -72,7 +72,7 @@ describe('extensions (§14)', () => {
     const site = join(ctx.base, 'site');
     const exported = ctx.run('export', index, '--format', 'site', '--out', site);
     expect(exported.status, exported.stderr).toBe(0);
-    expect(builtPage(site).html).toContain('class="ex-ext-part"');
+    expect(builtPage(site).html).toContain('class="vs-ext-part"');
   });
 
   it('@R11 an untrusted extension never runs: build and export stop, check and fallback builds do not execute it', () => {
@@ -96,11 +96,11 @@ describe('extensions (§14)', () => {
     expect(fallback.status, fallback.stderr).toBe(0);
     expect(fallback.stderr).toContain('W_EXTENSION_FALLBACK');
     const page = builtPage(join(ctx.base, 'fb'));
-    expect(page.html).toContain('ex-extension-note');
-    expect(page.html).not.toContain('class="ex-ext-part"');
+    expect(page.html).toContain('vs-extension-note');
+    expect(page.html).not.toContain('class="vs-ext-part"');
     // Every part stays addressable and listed without the extension.
-    expect(page.html).toContain('data-ex-target="lane_config"');
-    expect(page.html).toContain('data-ex-target="lane_pool"');
+    expect(page.html).toContain('data-vs-target="lane_config"');
+    expect(page.html).toContain('data-vs-target="lane_pool"');
     expect(page.build['extensions']).toBeUndefined();
     expect(existsSync(sentinel)).toBe(false);
 
@@ -118,7 +118,7 @@ describe('extensions (§14)', () => {
     const unpinned = ctx.run('build', index, '--out', join(ctx.base, 'a'));
     expect(unpinned.status).toBe(3);
     expect(unpinned.stderr).toContain('E_EXTENSION_MISSING');
-    const lockPath = join(dirname(index), 'explain.lock.json');
+    const lockPath = join(dirname(index), 'visser.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     lock.extensions = [{ name: 'timeline-lanes', version: '0.1.0', sha256: 'e'.repeat(64) }];
     writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
@@ -172,7 +172,7 @@ describe('extensions (§14)', () => {
       const ctx = context();
       const ext = join(ctx.base, 'x');
       const output = {
-        schema: 'explain-component-output/1',
+        schema: 'visser-component-output/1',
         svg: { tag: 'svg', attrs: { viewBox: '0 0 10 10' }, children: [bad, { tag: 'g', target: 'lane_pool' }] },
         parts: { lane_config: { text: 'a' }, lane_pool: { text: 'b' } },
       };
@@ -193,7 +193,7 @@ describe('extensions (§14)', () => {
     const ctx = context();
     const ext = join(ctx.base, 'x');
     const output = {
-      schema: 'explain-component-output/1',
+      schema: 'visser-component-output/1',
       svg: { tag: 'svg', children: [{ tag: 'g', target: 'lane_config' }, { tag: 'g', target: 'lane_pool' }] },
       parts: { lane_config: { text: 'a' } },
     };
@@ -224,7 +224,7 @@ describe('extensions (§14)', () => {
 
   it('the trust store stays compatible: a toolkit-only store reads, and the two maps never mix', () => {
     const ctx = context();
-    const home = ctx.env['EXPLAIN_HOME']!;
+    const home = ctx.env['VISSER_HOME']!;
     const D = 'd'.repeat(64);
     addTrust('a'.repeat(64), 'install', ctx.env, now);
     const legacy = JSON.parse(readFileSync(join(home, 'trust.json'), 'utf8'));
@@ -259,9 +259,9 @@ describe('extensions: review fixes (§14.3)', () => {
     const sentinel = join(ctx.base, 'SENTINEL');
     const source = join(ctx.base, 'evil');
     const digest = makeExtension(source, sentinelSource(sentinel), { schema: REDOS_SCHEMA });
-    cpSync(source, join(ctx.repo, '.explain', 'extensions', digest), { recursive: true });
+    cpSync(source, join(ctx.repo, '.visser', 'extensions', digest), { recursive: true });
     const index = docWithComponent(ctx, 'doc', REDOS_COMPONENT);
-    const lockPath = join(dirname(index), 'explain.lock.json');
+    const lockPath = join(dirname(index), 'visser.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     writeFileSync(lockPath, JSON.stringify({ ...lock, extensions: [{ name: 'timeline-lanes', version: '0.1.0', sha256: digest }] }, null, 2) + '\n');
     for (const args of [['build', index], ['build', index, '--allow-extension-fallback']]) {

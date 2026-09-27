@@ -63,9 +63,9 @@ describe('captured text rules (§8.2)', () => {
 });
 
 describe('fence selection and attribute encoding cannot change document structure', () => {
-  const doc = (block: string) => `---\nformat: explain/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n\n<!-- ex:id intro -->\nIntro.\n\n${block}`;
+  const doc = (block: string) => `---\nformat: visser/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n\n<!-- vs:id intro -->\nIntro.\n\n${block}`;
   const hostile = [
-    'a\n```\n{% /source %}\n\n<!-- ex:id injected -->\nInjected.\n\n{% source id="src_evil" kind="example" title="x" %}\n```\n',
+    'a\n```\n{% /source %}\n\n<!-- vs:id injected -->\nInjected.\n\n{% source id="src_evil" kind="example" title="x" %}\n```\n',
     'b\n`````\n{% /source %}\n',
     'c\n~~~\n{% /source %}\n',
   ];

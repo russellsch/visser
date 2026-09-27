@@ -24,7 +24,7 @@ describe('offline check (R08)', () => {
     try {
       // Run the inner checks without a namespace: the local listener accepts the probe.
       const r = spawnSync(process.execPath, [script, '--inside-namespace'], {
-        encoding: 'utf8', env: { ...process.env, EXPLAIN_OFFLINE_EXTRA_PROBE: `127.0.0.1:${port}` }, timeout: 60_000,
+        encoding: 'utf8', env: { ...process.env, VISSER_OFFLINE_EXTRA_PROBE: `127.0.0.1:${port}` }, timeout: 60_000,
       });
       expect(r.status).toBe(3);
       expect(r.stderr).toContain('not run: the network is reachable');

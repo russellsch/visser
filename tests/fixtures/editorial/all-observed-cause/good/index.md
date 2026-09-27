@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 59b95d53-32aa-49de-8297-1d00926015d8
 title: Why the order API stalled
 kind: root-cause
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Why the order API stalled
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 An expired cache key stalled the order API. The log shows the expiry and the
 exhausted pool; the stampede between them is inferred.
 

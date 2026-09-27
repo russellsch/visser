@@ -1,5 +1,5 @@
-// `explain doctor [--doc PATH] [--json]` (§12.7, §17.1). A read-only report of
-// Node, EXPLAIN_HOME, the user shim, installed and repository toolchains, the
+// `visser doctor [--doc PATH] [--json]` (§12.7, §17.1). A read-only report of
+// Node, VISSER_HOME, the user shim, installed and repository toolchains, the
 // trust store, the document or workspace resolution, skill wrappers, and port
 // 4310. Doctor never executes anything from a repository: it reads files and
 // hashes them, and it reads repository toolchains only when they are trusted.
@@ -11,14 +11,14 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
-import { explainHome, readTrust, verifyReleaseDir, type TrustStore } from '../../../core/src/distribution/index.ts';
+import { visserHome, readTrust, verifyReleaseDir, type TrustStore } from '../../../core/src/distribution/index.ts';
 import { CliError, EXIT, type ParsedArgs, printJson, stringFlag } from '../cli-util.ts';
 import { bundledReleaseDir, defaultPointerPath, findRepositoryRoot, readDefaultPointer, readLock, resolveDigest, workspaceDefault, type Resolved } from '../toolkit.ts';
 
 const DIGEST = /^[0-9a-f]{64}$/;
 const WRAPPER_LIMIT = 1024 * 1024;
 /** The canonical wrapper text inside a toolkit pack; repository and user wrappers are compared with it by hash. */
-export const CANONICAL_WRAPPER = 'skills/explain/wrapper/SKILL.md';
+export const CANONICAL_WRAPPER = 'skills/visual-explain/wrapper/SKILL.md';
 
 type Resolution = {
   state: 'resolved' | 'none' | 'no-lock' | 'error';
@@ -28,10 +28,10 @@ type Toolchain = { scope: 'user' | 'repository'; path: string; name: string; sta
 type Wrapper = { host: 'claude-code' | 'codex'; scope: 'repository' | 'user'; path: string; sha256: string; state: 'matches' | 'differs' | 'no-canonical' };
 
 export type DoctorReport = {
-  schema: 'explain-doctor/1';
+  schema: 'visser-doctor/1';
   ok: boolean;
   node: { version: string; supported: boolean };
-  explainHome: string;
+  visserHome: string;
   userShim: { path: string; present: boolean; sha256?: string; matchesToolkit?: boolean };
   defaultToolkit: Resolution;
   toolchains: Toolchain[];
@@ -95,11 +95,11 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
   const env = opts.env ?? process.env;
   const cwd = opts.cwd ?? process.cwd();
   const own = 'ownRelease' in opts ? opts.ownRelease : bundledReleaseDir();
-  const home = explainHome(env);
+  const home = visserHome(env);
   const diagnostics: Diagnostic[] = [];
   const conflicts: string[] = [];
 
-  let store: TrustStore = { schema: 'explain-trust-store/1', toolkits: {} };
+  let store: TrustStore = { schema: 'visser-trust-store/1', toolkits: {} };
   try {
     store = readTrust(env);
   } catch (error) {
@@ -133,7 +133,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
   // Repository toolchains: repository-controlled code. Only a trusted one is
   // read (verified); an untrusted one is reported by name only.
   if (repoRoot) {
-    const repoToolchains = join(repoRoot, '.explain', 'toolchains');
+    const repoToolchains = join(repoRoot, '.visser', 'toolchains');
     for (const name of listDir(repoToolchains)) {
       const path = join(repoToolchains, name);
       const isTrusted = DIGEST.test(name) && trusted(name);
@@ -166,7 +166,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
       const lock = readLock(bundleRoot);
       document = lock
         ? { path: bundleRoot, lockSha256: lock.sha256, resolution: resolution(() => resolveDigest({ digest: lock.sha256, repoRoot, ownRelease: own, env, origin: lock.origin, version: lock.version })) }
-        : { path: bundleRoot, resolution: { state: 'no-lock', code: 'E_TOOLKIT_MISSING', message: `no explain.lock.json in ${bundleRoot}` } };
+        : { path: bundleRoot, resolution: { state: 'no-lock', code: 'E_TOOLKIT_MISSING', message: `no visser.lock.json in ${bundleRoot}` } };
     } catch (error) {
       document = { path: bundleRoot, resolution: { state: 'error', ...failure(error) } };
     }
@@ -196,7 +196,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
     const found: Wrapper[] = [];
     for (const [scope, base] of [['repository', repoRoot], ['user', userHome]] as const) {
       if (!base) continue;
-      const path = join(base, folder, 'skills', 'explain', 'SKILL.md');
+      const path = join(base, folder, 'skills', 'visual-explain', 'SKILL.md');
       let stat;
       try { stat = lstatSync(path); } catch { continue; }
       if (!stat.isFile()) {
@@ -216,7 +216,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
     wrappers.push(...found);
   }
 
-  const shimPath = join(home, 'bin', 'explain.cjs');
+  const shimPath = join(home, 'bin', 'visser.cjs');
   const userShim: DoctorReport['userShim'] = { path: shimPath, present: regularFile(shimPath) };
   if (userShim.present) {
     userShim.sha256 = sha256File(shimPath);
@@ -232,10 +232,10 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
     && workspace?.resolution.state !== 'error'
     && defaultToolkit.state !== 'error';
   return {
-    schema: 'explain-doctor/1',
+    schema: 'visser-doctor/1',
     ok,
     node: { version: process.version, supported: major === 24 },
-    explainHome: home,
+    visserHome: home,
     userShim,
     defaultToolkit,
     toolchains,
@@ -261,8 +261,8 @@ export async function runDoctor(args: ParsedArgs, opts: DoctorOptions = {}): Pro
     printJson('doctor', report);
   } else {
     const out: string[] = [
-      `node: ${report.node.version}${report.node.supported ? '' : ' (unsupported: Explain needs Node 24)'}`,
-      `EXPLAIN_HOME: ${report.explainHome}`,
+      `node: ${report.node.version}${report.node.supported ? '' : ' (unsupported: Visser needs Node 24)'}`,
+      `VISSER_HOME: ${report.visserHome}`,
       `user shim: ${report.userShim.present ? report.userShim.path : 'missing'}${report.userShim.matchesToolkit === false ? ' (differs from the selected toolkit)' : ''}`,
       `default toolkit: ${describe(report.defaultToolkit)}`,
     ];

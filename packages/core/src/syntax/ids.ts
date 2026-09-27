@@ -31,7 +31,7 @@ export class IdsAssignError extends Error {
 }
 
 /**
- * Insert `<!-- ex:id b_XXXXXXXXXXXXXXXX -->` before each top-level ordinary block that has no
+ * Insert `<!-- vs:id b_XXXXXXXXXXXXXXXX -->` before each top-level ordinary block that has no
  * marker. Existing IDs and all other bytes are unchanged; inserted lines use the file's newline.
  * Idempotent. Refuses (throws IdsAssignError) when the source has other errors, because a
  * malformed marker would otherwise gain a second one.
@@ -63,7 +63,7 @@ export function assignIds(
     const id = newId();
     const prev = u.line - 1;
     const prevOk = u.line === 0 || isBlank(src.lines[prev]) || prev === a.frontmatterCloseLine;
-    const text = `${prevOk ? '' : nl}<!-- ex:id ${id} -->${nl}`;
+    const text = `${prevOk ? '' : nl}<!-- vs:id ${id} -->${nl}`;
     return { offset: src.lineStart[u.line] ?? bytes.length, id, bytes: enc.encode(text) };
   });
 

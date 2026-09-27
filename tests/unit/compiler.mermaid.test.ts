@@ -17,7 +17,7 @@ const SOURCE = [
 const ER_SOURCE = ['erDiagram', '  CUSTOMER ||--o{ INVOICE : "is billed by"', ''].join('\n');
 
 const doc = (source: string) => `---
-format: explain/1
+format: visser/1
 docId: 2b6d1c0e-6f2a-4c3e-9b1d-5a7e8f9c0d1e
 title: Mermaid kernel test
 kind: teaching
@@ -25,7 +25,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Mermaid kernel test
 
 {% mermaid id="flow" title="Where the producer waits" question="Where does the producer wait?" %}
@@ -46,7 +46,7 @@ const OPTIONS = { audience: 'private' as const, includeSource: false, layoutFall
 
 /** A loaded bundle of a real Mermaid document; `parsed` false uses a figure-level ER diagram. */
 function mermaidBundle(parsed = true) {
-  const dir = mkdtempSync(join(tmpdir(), 'explain-mermaid-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-mermaid-'));
   writeFileSync(join(dir, 'index.md'), doc(parsed ? SOURCE : ER_SOURCE));
   const bundle = loadBundle(join(dir, 'index.md'));
   expect(bundle.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
@@ -65,41 +65,41 @@ const page = async (parsed = true) => {
 describe('Mermaid kernel (§9.12)', () => {
   it('emits the static figure: viewport, escaped source, lists with render keys, and a hidden notice', async () => {
     const { html } = await page();
-    expect(html).toContain('data-ex-mermaid="flowchart"');
-    expect(html).toContain('<div class="ex-viewport" id="m-flow" data-ex-viewport="" data-ex-mermaid-render=""></div>');
-    expect(html).toContain('<pre class="ex-mermaid-source"><code class="language-mermaid">flowchart LR');
+    expect(html).toContain('data-vs-mermaid="flowchart"');
+    expect(html).toContain('<div class="vs-viewport" id="m-flow" data-vs-viewport="" data-vs-mermaid-render=""></div>');
+    expect(html).toContain('<pre class="vs-mermaid-source"><code class="language-mermaid">flowchart LR');
     expect(html).toContain('Producer[Producer] --&gt;|put waits| Queue');
-    expect(html).toMatch(/id="l-flow\.producer"[^>]*data-ex-target="producer"[^>]*data-ex-mermaid-key="node:Producer"/);
+    expect(html).toMatch(/id="l-flow\.producer"[^>]*data-vs-target="producer"[^>]*data-vs-mermaid-key="node:Producer"/);
     // A derived relationship is not referenceable: its instance targets the figure.
-    expect(html).toMatch(/id="l-flow\.flow~producer~queue~0"[^>]*data-ex-target="flow"[^>]*data-ex-rel="flow~producer~queue~0"[^>]*data-ex-mermaid-key="edge:L_Producer_Queue_0"/);
+    expect(html).toMatch(/id="l-flow\.flow~producer~queue~0"[^>]*data-vs-target="flow"[^>]*data-vs-rel="flow~producer~queue~0"[^>]*data-vs-mermaid-key="edge:L_Producer_Queue_0"/);
     // An explicit edge ID is a relationship target.
-    expect(html).toMatch(/id="l-flow\.e1"[^>]*data-ex-target="e1"[^>]*data-ex-rel="e1"/);
-    expect(html).toContain('<p class="ex-mermaid-notice" role="status" hidden data-ex-generated=""></p>');
-    expect(html).toContain('data-ex-views="map list"');
-    expect(html).toContain('<figcaption id="ex-t-flow">');
+    expect(html).toMatch(/id="l-flow\.e1"[^>]*data-vs-target="e1"[^>]*data-vs-rel="e1"/);
+    expect(html).toContain('<p class="vs-mermaid-notice" role="status" hidden data-vs-generated=""></p>');
+    expect(html).toContain('data-vs-views="map list"');
+    expect(html).toContain('<figcaption id="vs-t-flow">');
   });
 
   it('gives every Mermaid element a canonical detail in the appendix', async () => {
     const { html } = await page();
     for (const id of ['producer', 'queue', 'worker', 'e1']) {
-      expect(html).toMatch(new RegExp(`<details class="ex-detail ex-kind-mermaid-[a-z]+" id="x-${id}" data-ex-target="${id}"`));
+      expect(html).toMatch(new RegExp(`<details class="vs-detail vs-kind-mermaid-[a-z]+" id="x-${id}" data-vs-target="${id}"`));
     }
     expect(html).toContain('In diagram <a href="#x-flow">');
   });
 
   it('marks figure-level types as not individually inspectable and emits no lists', async () => {
     const { html } = await page(false);
-    expect(html).toContain('data-ex-mermaid="other"');
-    expect(html).toContain('class="ex-mermaid-note"');
-    expect(html).not.toContain('data-ex-mermaid-key');
-    expect(html).not.toContain('data-ex-views');
+    expect(html).toContain('data-vs-mermaid="other"');
+    expect(html).toContain('class="vs-mermaid-note"');
+    expect(html).not.toContain('data-vs-mermaid-key');
+    expect(html).not.toContain('data-vs-views');
   });
 
   it('uses the Mermaid-page CSP and the SRI meta only on pages with a Mermaid figure', async () => {
     const { html, result } = await page();
     expect(html).toContain(`content="${contentSecurityPolicy({ mermaid: true, delivery: 'meta' })}"`);
     expect(html).toContain("style-src 'self' 'unsafe-inline'");
-    expect(html).toContain('<meta name="ex-mermaid" content="sha384-TESTDIGEST">');
+    expect(html).toContain('<meta name="vs-mermaid" content="sha384-TESTDIGEST">');
     expect(result.needsMermaid).toBe(true);
     expect(result.manifest.assets.map((a) => a.path)).toContain('mermaid.js');
 
@@ -107,7 +107,7 @@ describe('Mermaid kernel (§9.12)', () => {
     const plainHtml = decode(plain.files.find((f) => f.path.endsWith('index.html'))!.bytes);
     expect(plain.needsMermaid).toBe(false);
     expect(plainHtml).not.toContain('unsafe-inline');
-    expect(plainHtml).not.toContain('name="ex-mermaid"');
+    expect(plainHtml).not.toContain('name="vs-mermaid"');
     expect(plain.manifest.assets.map((a) => a.path)).not.toContain('mermaid.js');
   });
 
@@ -139,7 +139,7 @@ describe('Mermaid kernel (§9.12)', () => {
   it('projects the real Mermaid figure into document.md', async () => {
     const { result } = await page();
     const md = new TextDecoder().decode(result.files.find((f) => f.path.endsWith('document.md'))!.bytes);
-    expect(md).toContain('<!-- ex:target producer -->');
+    expect(md).toContain('<!-- vs:target producer -->');
     expect(md).toContain('flowchart LR');
   });
 

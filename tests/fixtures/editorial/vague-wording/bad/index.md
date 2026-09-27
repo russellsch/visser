@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 46a3ca29-457b-4a0a-b254-7480d1e1e8f7
 title: How the work queue behaves
 kind: teaching
@@ -12,9 +12,9 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # How the work queue behaves
 
-<!-- ex:id p_summary -->
+<!-- vs:id p_summary -->
 This robust and scalable architecture seamlessly orchestrates asynchronous
 workflows through a sophisticated decoupling layer.

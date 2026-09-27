@@ -1,6 +1,6 @@
 // R06/R14 semantic equivalence (§18.2) and T12/T13 (§18.1): every view of every
-// example exposes the model's targets and relationships through data-ex-target
-// and data-ex-rel; narrow and no-JavaScript views keep each relationship
+// example exposes the model's targets and relationships through data-vs-target
+// and data-vs-rel; narrow and no-JavaScript views keep each relationship
 // visible; HTML ids never repeat; a cross-block selection is never truncated
 // silently.
 import { join } from 'node:path';
@@ -16,8 +16,8 @@ type ViewFacts = { targets: string[]; rels: string[]; visibleRels: string[]; dup
 
 async function viewFacts(page: Page): Promise<ViewFacts> {
   return page.evaluate(() => {
-    const doc = document.getElementById('ex-doc') ?? document.body;
-    const all = Array.from(doc.querySelectorAll<HTMLElement | SVGElement>('[data-ex-target], [data-ex-rel]'));
+    const doc = document.getElementById('vs-doc') ?? document.body;
+    const all = Array.from(doc.querySelectorAll<HTMLElement | SVGElement>('[data-vs-target], [data-vs-rel]'));
     const targets = new Set<string>();
     const rels = new Set<string>();
     const visibleRels = new Set<string>();
@@ -29,9 +29,9 @@ async function viewFacts(page: Page): Promise<ViewFacts> {
       return box.width > 0 && box.height > 0;
     };
     for (const el of all) {
-      const t = el.getAttribute('data-ex-target');
+      const t = el.getAttribute('data-vs-target');
       if (t) targets.add(t);
-      const r = el.getAttribute('data-ex-rel');
+      const r = el.getAttribute('data-vs-rel');
       if (r) {
         rels.add(r);
         if (visible(el)) visibleRels.add(r);
@@ -82,7 +82,7 @@ test('@T13 a cross-block selection is explicit, never silently truncated', async
     const authorText = (el: Element): Text => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-        if (!n.parentElement?.closest('[data-ex-generated]') && (n.textContent ?? '').length > 12) return n as Text;
+        if (!n.parentElement?.closest('[data-vs-generated]') && (n.textContent ?? '').length > 12) return n as Text;
       }
       throw new Error(`no author text in ${el.id}`);
     };
@@ -98,8 +98,8 @@ test('@T13 a cross-block selection is explicit, never silently truncated', async
   });
   const block = byId(page, 'x-p_takeaway');
   await block.hover();
-  await block.locator('.ex-refbtn').click();
-  const panel = page.locator('#ex-refpanel');
+  await block.locator('.vs-refbtn').click();
+  const panel = page.locator('#vs-refpanel');
   await expect(panel).toBeVisible();
   const withText = panel.getByRole('button', { name: 'Copy reference with selected text' });
   if (await withText.isEnabled()) await withText.click();

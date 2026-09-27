@@ -5,7 +5,7 @@ import { assignIds, IdsAssignError, MARKER_LINE, parseSource } from '../../packa
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-const FM = '---\nformat: explain/1\ntitle: T\n---\n\n';
+const FM = '---\nformat: visser/1\ntitle: T\n---\n\n';
 
 // Deterministic "random" source: a counter, so tests are reproducible.
 const counter = () => {
@@ -19,7 +19,7 @@ const counter = () => {
   };
 };
 
-const body = `${FM}# Title\n\nFirst paragraph.\n\n<!-- ex:id keep_me -->\nKept paragraph.\n\n- one\n- two\n\n{% detail id="d" label="L" %}\nInside a tag.\n\n- nested list\n{% /detail %}\n\n> quote\n`;
+const body = `${FM}# Title\n\nFirst paragraph.\n\n<!-- vs:id keep_me -->\nKept paragraph.\n\n- one\n- two\n\n{% detail id="d" label="L" %}\nInside a tag.\n\n- nested list\n{% /detail %}\n\n> quote\n`;
 
 describe('ids assign @R02 @R19', () => {
   it('inserts markers only before unmarked top-level blocks', () => {
@@ -31,12 +31,12 @@ describe('ids assign @R02 @R19', () => {
     expect(p.targets.map((t) => t.id)).toEqual([out.added[0], out.added[1], 'keep_me', out.added[2], 'd', out.added[3]]);
     // Nothing was inserted inside the tag body.
     const inside = dec.decode(out.bytes).split('{% detail')[1]!.split('{% /detail %}')[0]!;
-    expect(inside).not.toContain('ex:id');
+    expect(inside).not.toContain('vs:id');
   });
 
   it('changes no existing bytes other than the inserted marker lines', () => {
     const out = assignIds(enc.encode(body), counter());
-    const stripped = dec.decode(out.bytes).split('\n').filter((l) => !(MARKER_LINE.test(l) && /ex:id b_/.test(l))).join('\n');
+    const stripped = dec.decode(out.bytes).split('\n').filter((l) => !(MARKER_LINE.test(l) && /vs:id b_/.test(l))).join('\n');
     expect(stripped).toBe(body);
   });
 
@@ -56,10 +56,10 @@ describe('ids assign @R02 @R19', () => {
   });
 
   it('adds a blank line when the previous line is not blank', () => {
-    const tight = `${FM}<!-- ex:id p -->\nPara.\n# Heading right after\n`;
+    const tight = `${FM}<!-- vs:id p -->\nPara.\n# Heading right after\n`;
     const out = assignIds(enc.encode(tight), counter());
     expect(out.added).toHaveLength(1);
-    expect(dec.decode(out.bytes)).toContain(`Para.\n\n<!-- ex:id ${out.added[0]} -->\n# Heading right after\n`);
+    expect(dec.decode(out.bytes)).toContain(`Para.\n\n<!-- vs:id ${out.added[0]} -->\n# Heading right after\n`);
     expect(parseSource(out.bytes, 'index.md').diagnostics).toEqual([]);
   });
 
@@ -79,6 +79,6 @@ describe('ids assign @R02 @R19', () => {
   });
 
   it('refuses when the source has errors other than missing IDs', () => {
-    expect(() => assignIds(enc.encode(`${FM}<!-- ex:id p --> trailing\nPara.\n`), counter())).toThrow(IdsAssignError);
+    expect(() => assignIds(enc.encode(`${FM}<!-- vs:id p --> trailing\nPara.\n`), counter())).toThrow(IdsAssignError);
   });
 });

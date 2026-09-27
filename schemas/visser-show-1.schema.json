@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-show-1.schema.json",
+  "title": "visser refs show --json (\u00a711.12)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "packet",
+    "yaml"
+  ],
+  "properties": {
+    "schema": {
+      "const": "visser-show/1"
+    },
+    "packet": {
+      "$ref": "https://visser.invalid/schemas/visser-ref-1.schema.json"
+    },
+    "yaml": {
+      "type": "string"
+    },
+    "quoteFound": {
+      "type": "boolean"
+    }
+  }
+}

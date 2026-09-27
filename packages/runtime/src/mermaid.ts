@@ -81,9 +81,9 @@ export function attachTargets(figure: Element, svg: Element, renderId: string): 
     for (const element of drawn) {
       if (target) element.setAttribute(A.target, target);
       if (rel) element.setAttribute(A.rel, rel);
-      if (derived) element.setAttribute('data-ex-mermaid-derived', '');
+      if (derived) element.setAttribute('data-vs-mermaid-derived', '');
       else element.setAttribute(A.interactive, '');
-      element.setAttribute('data-ex-mermaid-drawn', '');
+      element.setAttribute('data-vs-mermaid-drawn', '');
       // No aria-label here: drawn elements have no role and are not keyboard
       // targets; the lists are the keyboard path (§10.5) and the drawing has
       // its own accessible name.
@@ -126,7 +126,7 @@ function loadScript(src: string, integrity: string): Promise<void> {
 }
 
 function showNotice(figure: Element, text: string): void {
-  const notice = figure.querySelector<HTMLElement>('.ex-mermaid-notice');
+  const notice = figure.querySelector<HTMLElement>('.vs-mermaid-notice');
   if (!notice) return;
   notice.textContent = text;
   notice.hidden = false;
@@ -143,7 +143,7 @@ function removeStray(renderId: string, viewport: Element): void {
 async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void> {
   const figureId = figure.getAttribute(A.target) ?? '';
   const viewport = figure.querySelector<HTMLElement>(`[${A.mermaidRender}]`);
-  const source = figure.querySelector('.ex-mermaid-source code')?.textContent ?? '';
+  const source = figure.querySelector('.vs-mermaid-source code')?.textContent ?? '';
   if (!viewport || !figureId) return;
   const renderId = renderIdFor(figureId);
   try {
@@ -155,16 +155,16 @@ async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void>
     drawn.setAttribute('focusable', 'false');
     // Accessible name from the figure unless the author wrote accTitle.
     if (!drawn.querySelector(':scope > title')) {
-      drawn.setAttribute('aria-labelledby', `ex-t-${figureId}`);
-      drawn.setAttribute('aria-describedby', `ex-q-${figureId}`);
+      drawn.setAttribute('aria-labelledby', `vs-t-${figureId}`);
+      drawn.setAttribute('aria-describedby', `vs-q-${figureId}`);
     }
     attachTargets(figure, drawn, renderId);
     // A wide drawing scrolls inside its viewport; drawn elements are not
     // focusable, so the viewport itself must take focus for keyboard scrolling.
     viewport.setAttribute('tabindex', '0');
     viewport.setAttribute('role', 'region');
-    viewport.setAttribute('aria-labelledby', `ex-t-${figureId}`);
-    figure.classList.add('ex-mermaid-rendered');
+    viewport.setAttribute('aria-labelledby', `vs-t-${figureId}`);
+    figure.classList.add('vs-mermaid-rendered');
     addSourceToggle(figure);
   } catch {
     viewport.replaceChildren();
@@ -174,17 +174,17 @@ async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void>
 }
 
 function addSourceToggle(figure: HTMLElement): void {
-  if (figure.querySelector('.ex-source-toggle')) return;
-  const source = figure.querySelector('.ex-mermaid-source');
+  if (figure.querySelector('.vs-source-toggle')) return;
+  const source = figure.querySelector('.vs-mermaid-source');
   if (!source) return;
   const toggle = document.createElement('button');
   toggle.type = 'button';
-  toggle.className = 'ex-btn ex-source-toggle';
+  toggle.className = 'vs-btn vs-source-toggle';
   toggle.textContent = 'Show source';
   toggle.setAttribute('aria-pressed', 'false');
   toggle.setAttribute(A.generated, '');
   toggle.addEventListener('click', () => {
-    const shown = figure.classList.toggle('ex-mermaid-show-source');
+    const shown = figure.classList.toggle('vs-mermaid-show-source');
     toggle.setAttribute('aria-pressed', String(shown));
     toggle.textContent = shown ? 'Hide source' : 'Show source';
   });

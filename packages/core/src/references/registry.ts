@@ -23,11 +23,11 @@ function escape(message: string): never {
   throw new HashError('E_PATH_ESCAPE', 'E_PATH_ESCAPE', message);
 }
 
-/** Nearest ancestor of `start` (inclusive) that contains `.git` or `.explain`. */
+/** Nearest ancestor of `start` (inclusive) that contains `.git` or `.visser`. */
 export function findRepoRoot(start: string): string | undefined {
   let dir = resolve(start);
   for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.explain'))) return dir;
+    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.visser'))) return dir;
     const parent = dirname(dir);
     if (parent === dir) return undefined;
     dir = parent;
@@ -48,10 +48,10 @@ function assertRelativeRoot(root: string): void {
 
 /** Configured document roots, validated and confined to the repository (§11.5). */
 export function documentRoots(repoRoot: string): string[] {
-  const configPath = join(repoRoot, '.explain', 'config.json');
+  const configPath = join(repoRoot, '.visser', 'config.json');
   let roots = DEFAULT_DOCUMENT_ROOTS;
   // Repository-controlled: no symbolic link, a regular file, bounded, no content in errors.
-  const config = readBoundedJson(configPath, '.explain/config.json');
+  const config = readBoundedJson(configPath, '.visser/config.json');
   if (config !== undefined) {
     // An escaping root is a confinement failure (E_PATH_ESCAPE), not only a schema error.
     const configured = (config as { documentRoots?: unknown }).documentRoots;
@@ -59,7 +59,7 @@ export function documentRoots(repoRoot: string): string[] {
       for (const root of configured) if (typeof root === 'string') assertRelativeRoot(root);
     }
     const result = validateAgainst('workspace', config);
-    if (!result.ok) throw new HashError('E_SYNTAX', 'E_SCHEMA', `.explain/config.json: ${result.errors.join('; ')}`);
+    if (!result.ok) throw new HashError('E_SYNTAX', 'E_SCHEMA', `.visser/config.json: ${result.errors.join('; ')}`);
     if (configured) roots = configured as string[];
   }
   const realRepo = realpathSync(repoRoot);

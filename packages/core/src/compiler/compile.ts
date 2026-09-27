@@ -42,7 +42,7 @@ export type CompileOptions = {
 export type OutputFile = { path: string; bytes: Uint8Array; mediaType: string };
 
 export type BuildManifest = {
-  schema: 'explain-build/1';
+  schema: 'visser-build/1';
   docId: string;
   sourceRevision: string;
   buildId: string;
@@ -203,7 +203,7 @@ class Renderer {
       case 'hardbreak': return h('br');
       case 'em': return h('em', {}, this.inlines(node));
       case 'strong': return h('strong', {}, this.inlines(node));
-      case 's': return h('span', { class: 'ex-strike' }, this.inlines(node));
+      case 's': return h('span', { class: 'vs-strike' }, this.inlines(node));
       case 'inline': return this.inlines(node);
       case 'link': return this.link(node);
       case 'image': return this.image(node);
@@ -246,20 +246,20 @@ class Renderer {
       case 'term': {
         const ref = attrString(node, 'ref')!;
         const text = children.length > 0 ? children : this.label(ref);
-        return h('a', { class: 'ex-term', href: `#${DOM.canonicalId(ref)}`, [DOM.attr.term]: ref }, text);
+        return h('a', { class: 'vs-term', href: `#${DOM.canonicalId(ref)}`, [DOM.attr.term]: ref }, text);
       }
       case 'cite': {
         const ref = attrString(node, 'ref')!;
         const n = this.citationNumber.get(ref);
-        return h('a', { class: 'ex-cite', href: `#${DOM.canonicalId(ref)}`, title: this.label(ref), [DOM.attr.generated]: true }, `[${n ?? ref}]`);
+        return h('a', { class: 'vs-cite', href: `#${DOM.canonicalId(ref)}`, title: this.label(ref), [DOM.attr.generated]: true }, `[${n ?? ref}]`);
       }
       case 'focus': {
         const ids = Array.isArray(node.attributes['targets']) ? (node.attributes['targets'] as unknown[]).filter((x): x is string => typeof x === 'string') : [];
-        return h('a', { class: 'ex-focus', href: `#${DOM.canonicalId(ids[0] ?? '')}`, [DOM.attr.focus]: ids.join(' ') }, children);
+        return h('a', { class: 'vs-focus', href: `#${DOM.canonicalId(ids[0] ?? '')}`, [DOM.attr.focus]: ids.join(' ') }, children);
       }
       case 'detail-link': {
         const ref = attrString(node, 'ref')!;
-        return h('a', { class: 'ex-detail-link', href: `#${DOM.canonicalId(ref)}` }, children.length > 0 ? children : this.label(ref));
+        return h('a', { class: 'vs-detail-link', href: `#${DOM.canonicalId(ref)}` }, children.length > 0 ? children : this.label(ref));
       }
       default:
         return children;
@@ -304,7 +304,7 @@ class Renderer {
   fence(node: MNode): HNode {
     const language = attrString(node, 'language');
     const content = String(node.attributes['content'] ?? '');
-    return h('pre', { class: 'ex-fence' }, h('code', { class: language ? `language-${language.replace(/[^a-z0-9_+-]/gi, '')}` : undefined }, this.safeText(content)));
+    return h('pre', { class: 'vs-fence' }, h('code', { class: language ? `language-${language.replace(/[^a-z0-9_+-]/gi, '')}` : undefined }, this.safeText(content)));
   }
 
   // --- Components ----------------------------------------------------------
@@ -312,9 +312,9 @@ class Renderer {
   figureShell(id: string, node: MNode, kindClass: string, content: Child[], hasMap = false): HNode {
     const question = attrString(node, 'question') ?? '';
     const title = attrString(node, 'title') ?? this.label(id);
-    return h('figure', { class: `ex-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `ex-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
+    return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
       h('figcaption', {}, this.safeText(title, id)),
-      h('p', { id: `ex-q-${id}`, class: 'ex-sr' }, this.safeText(question, id)),
+      h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.safeText(question, id)),
       this.blocks(node),
       content,
     );
@@ -442,7 +442,7 @@ class Renderer {
     const nodeClass = (x: string): string | undefined => {
       if (family !== 'state') return undefined;
       const n = this.nodes.get(x)!;
-      const classes = [n.attributes['initial'] === true ? 'ex-initial' : '', n.attributes['terminal'] === true ? 'ex-terminal' : ''].filter(Boolean);
+      const classes = [n.attributes['initial'] === true ? 'vs-initial' : '', n.attributes['terminal'] === true ? 'vs-terminal' : ''].filter(Boolean);
       return classes.length > 0 ? classes.join(' ') : undefined;
     };
     // Observed links are solid; a missing or unknown basis is dotted.
@@ -459,25 +459,25 @@ class Renderer {
         })
       : null;
 
-    const relList = h('ol', { class: 'ex-rel-list', 'aria-label': REL_LIST_LABEL[family] },
+    const relList = h('ol', { class: 'vs-rel-list', 'aria-label': REL_LIST_LABEL[family] },
       edges.map((e) => {
         const r = this.relationship(e.id)!;
         return h('li', {},
           h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true },
             this.label(r.from), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(e.id), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(r.to)),
-          h('span', { class: 'ex-rel-kind', [DOM.attr.generated]: true }, ` (${this.edgeNotes(family, e.id).map((x) => this.safeText(x, e.id)).join('; ')})`));
+          h('span', { class: 'vs-rel-kind', [DOM.attr.generated]: true }, ` (${this.edgeNotes(family, e.id).map((x) => this.safeText(x, e.id)).join('; ')})`));
       }));
-    const nodeList = h('ul', { class: 'ex-node-list', 'aria-label': NODE_LIST_LABEL[family] },
+    const nodeList = h('ul', { class: 'vs-node-list', 'aria-label': NODE_LIST_LABEL[family] },
       [...groups, ...nodes].map((n) => {
         const note = family === 'architecture' ? (roles.get(n.id) ? [roles.get(n.id)!] : []) : (notes.get(n.id) ?? []);
         return h('li', {},
           h('a', { href: `#${DOM.canonicalId(n.id)}`, id: DOM.listInstanceId(id, n.id), [DOM.attr.target]: n.id, [DOM.attr.interactive]: true }, this.label(n.id)),
-          note.length > 0 ? h('span', { class: 'ex-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
+          note.length > 0 ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
       }));
 
-    return this.figureShell(id, node, `ex-graph ex-family-${family}`, [
-      svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
-      h('div', { class: 'ex-lists' }, nodeList, relList),
+    return this.figureShell(id, node, `vs-graph vs-family-${family}`, [
+      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      h('div', { class: 'vs-lists' }, nodeList, relList),
     ], svg !== null);
   }
 
@@ -513,14 +513,14 @@ class Renderer {
         else throw error;
       }
     }
-    const list = h('ul', { class: 'ex-node-list ex-ext-parts', 'aria-label': 'Parts' },
+    const list = h('ul', { class: 'vs-node-list vs-ext-parts', 'aria-label': 'Parts' },
       parts.map((p) => h('li', {},
         h('a', { href: `#${DOM.canonicalId(p.id)}`, id: DOM.listInstanceId(id, p.id), [DOM.attr.target]: p.id, [DOM.attr.interactive]: true }, this.label(p.id)),
-        texts.has(p.id) ? h('span', { class: 'ex-role', [DOM.attr.generated]: true }, ` (${this.safeText(texts.get(p.id)!, p.id)})`) : null)));
-    return this.figureShell(id, node, `ex-extension ex-ext-${use}`, [
-      svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
-      note ? h('p', { class: 'ex-extension-note', role: 'note', [DOM.attr.generated]: true }, note) : null,
-      h('div', { class: 'ex-lists' }, list),
+        texts.has(p.id) ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(texts.get(p.id)!, p.id)})`) : null)));
+    return this.figureShell(id, node, `vs-extension vs-ext-${use}`, [
+      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      note ? h('p', { class: 'vs-extension-note', role: 'note', [DOM.attr.generated]: true }, note) : null,
+      h('div', { class: 'vs-lists' }, list),
     ], svg !== null);
   }
 
@@ -537,20 +537,20 @@ class Renderer {
       h('a', { href: `#${DOM.canonicalId(target)}`, id: instanceId, [DOM.attr.target]: target, [DOM.attr.interactive]: true }, content);
     const criterionLabel = (c: TargetRecord, instanceId: string): Child => {
       const units = attrString(this.nodes.get(c.id)!, 'units');
-      return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'ex-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
+      return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
     };
     const cellContent = (cell: TargetRecord | undefined, instanceId: string): Child => {
-      if (!cell) return h('span', { class: 'ex-not-provided', [DOM.attr.generated]: true }, 'Not provided');
+      if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
       const n = this.nodes.get(cell.id)!;
       const value = n.attributes['value'];
       const status = attrString(n, 'valueStatus');
       return [
         link(cell.id, instanceId, value !== undefined ? this.safeText(String(value), cell.id) : h('span', { [DOM.attr.generated]: true }, 'Details')),
-        status ? h('span', { class: 'ex-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
-        h('div', { class: 'ex-cell-body' }, this.blocks(n)),
+        status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
+        h('div', { class: 'vs-cell-body' }, this.blocks(n)),
       ];
     };
-    const table = h('table', { class: 'ex-compare-table' },
+    const table = h('table', { class: 'vs-compare-table' },
       h('thead', {}, h('tr', {},
         h('th', { scope: 'col' }, h('span', { [DOM.attr.generated]: true }, 'Criterion')),
         options.map((o) => h('th', { scope: 'col' }, link(o.id, DOM.svgInstanceId(id, o.id), this.label(o.id)))))),
@@ -564,22 +564,22 @@ class Renderer {
     // One link per option row: the option label opens that cell's detail, and the
     // value is plain text, so a card does not repeat a "Details" link per cell. A
     // single options line keeps one narrow-screen instance of each option target.
-    const optionLine = h('p', { class: 'ex-compare-options' },
+    const optionLine = h('p', { class: 'vs-compare-options' },
       h('span', { [DOM.attr.generated]: true }, 'Options: '),
       options.map((o, i) => [i > 0 ? h('span', { [DOM.attr.generated]: true }, ', ') : null, link(o.id, DOM.listInstanceId(id, o.id), this.label(o.id))]));
     const cardValue = (cell: TargetRecord | undefined): Child => {
-      if (!cell) return h('span', { class: 'ex-not-provided', [DOM.attr.generated]: true }, 'Not provided');
+      if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
       const n = this.nodes.get(cell.id)!;
       const value = n.attributes['value'];
       const status = attrString(n, 'valueStatus');
       return [
-        value !== undefined ? h('span', { class: 'ex-cell-value' }, this.safeText(String(value), cell.id)) : null,
-        status ? h('span', { class: 'ex-value-status', [DOM.attr.generated]: true }, `${value !== undefined ? ' ' : ''}(${status})`) : null,
-        h('div', { class: 'ex-cell-body' }, this.blocks(n)),
+        value !== undefined ? h('span', { class: 'vs-cell-value' }, this.safeText(String(value), cell.id)) : null,
+        status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, `${value !== undefined ? ' ' : ''}(${status})`) : null,
+        h('div', { class: 'vs-cell-body' }, this.blocks(n)),
       ];
     };
-    const cards = h('div', { class: 'ex-compare-cards' }, optionLine, criteria.map((c) => h('section', { class: 'ex-compare-card', 'aria-label': this.label(c.id) },
-      h('p', { class: 'ex-compare-criterion' }, criterionLabel(c, DOM.listInstanceId(id, c.id))),
+    const cards = h('div', { class: 'vs-compare-cards' }, optionLine, criteria.map((c) => h('section', { class: 'vs-compare-card', 'aria-label': this.label(c.id) },
+      h('p', { class: 'vs-compare-criterion' }, criterionLabel(c, DOM.listInstanceId(id, c.id))),
       h('dl', {}, options.map((o) => {
         const cell = cellFor(o.id, c.id);
         return [
@@ -589,7 +589,7 @@ class Renderer {
           h('dd', {}, cardValue(cell)),
         ];
       })))));
-    return this.figureShell(id, node, 'ex-compare', [table, cards]);
+    return this.figureShell(id, node, 'vs-compare', [table, cards]);
   }
 
   trace(id: string, node: MNode): HNode {
@@ -600,14 +600,14 @@ class Renderer {
     const scale = attrString(node, 'scale') ?? 'ordinal';
     const timeUnit = attrString(node, 'timeUnit');
     const scaleNote = scale === 'ordinal'
-      ? h('p', { class: 'ex-trace-scale', [DOM.attr.generated]: true }, 'Ordering, not duration.')
-      : h('p', { class: 'ex-trace-scale', [DOM.attr.generated]: true }, `Time scale${timeUnit ? ` in ${timeUnit}` : ''}.`);
-    const actorList = h('ul', { class: 'ex-actor-list', 'aria-label': 'Actors' },
+      ? h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, 'Ordering, not duration.')
+      : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, `Time scale${timeUnit ? ` in ${timeUnit}` : ''}.`);
+    const actorList = h('ul', { class: 'vs-actor-list', 'aria-label': 'Actors' },
       actors.map((a) => {
         const entity = attrString(this.nodes.get(a.id)!, 'entity');
         return h('li', {},
           h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
-          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
       }));
     // Order layer: the longest `after` chain before an event. Events in one layer
     // have no ordering constraint between them; the number is not a timestamp.
@@ -633,39 +633,39 @@ class Renderer {
       // An event with `to` is also a message relationship whose ID is the event ID (§9.2).
       const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
       return [
-        h('span', { class: 'ex-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
+        h('span', { class: 'vs-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
         h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: message ? e.id : undefined, [DOM.attr.interactive]: true },
-          showActor && actor ? h('span', { class: 'ex-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
+          showActor && actor ? h('span', { class: 'vs-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
           this.label(e.id),
-          message ? h('span', { class: 'ex-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
-        h('span', { class: 'ex-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
-        scale === 'time' && time !== undefined ? h('span', { class: 'ex-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
-        branch ? h('span', { class: 'ex-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
+          message ? h('span', { class: 'vs-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
+        h('span', { class: 'vs-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
+        scale === 'time' && time !== undefined ? h('span', { class: 'vs-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
+        branch ? h('span', { class: 'vs-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
         orders.length > 0
-          ? h('span', { class: 'ex-after', [DOM.attr.generated]: true }, ' after: ',
+          ? h('span', { class: 'vs-after', [DOM.attr.generated]: true }, ' after: ',
               orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.label(r.from))]))
           : null,
       ];
     };
     const kindOf = (e: TargetRecord) => attrString(this.nodes.get(e.id)!, 'kind') ?? 'event';
-    const eventList = h('ol', { class: 'ex-trace-events', 'aria-label': 'Events in authored order' },
-      events.map((e) => h('li', { class: `ex-event ex-kind-${kindOf(e)}` }, eventContent(e, '', true))));
+    const eventList = h('ol', { class: 'vs-trace-events', 'aria-label': 'Events in authored order' },
+      events.map((e) => h('li', { class: `vs-event vs-kind-${kindOf(e)}` }, eventContent(e, '', true))));
     // Narrow screens: event cards grouped by actor, in authored order within each
     // actor (§9.4). Order layer, `after`, branch, and message target stay visible.
-    const byActor = h('div', { class: 'ex-trace-by-actor' }, actors.map((a) => {
+    const byActor = h('div', { class: 'vs-trace-by-actor' }, actors.map((a) => {
       const entity = attrString(this.nodes.get(a.id)!, 'entity');
       const own = events.filter((e) => attrString(this.nodes.get(e.id)!, 'actor') === a.id);
-      return h('section', { class: 'ex-actor-group', 'aria-label': this.label(a.id) },
-        h('p', { class: 'ex-actor-heading' },
+      return h('section', { class: 'vs-actor-group', 'aria-label': this.label(a.id) },
+        h('p', { class: 'vs-actor-heading' },
           h('a', { href: `#${DOM.canonicalId(a.id)}`, id: `${DOM.listInstanceId(id, a.id)}.card`, [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
-          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null),
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null),
         own.length > 0
-          ? h('ol', { class: 'ex-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
-              own.map((e) => h('li', { class: `ex-event ex-kind-${kindOf(e)}` }, eventContent(e, '.card', false))))
-          : h('p', { class: 'ex-no-events', [DOM.attr.generated]: true }, 'No events.'));
+          ? h('ol', { class: 'vs-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
+              own.map((e) => h('li', { class: `vs-event vs-kind-${kindOf(e)}` }, eventContent(e, '.card', false))))
+          : h('p', { class: 'vs-no-events', [DOM.attr.generated]: true }, 'No events.'));
     }));
     const branchList = branches.length > 0
-      ? h('ul', { class: 'ex-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
+      ? h('ul', { class: 'vs-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
           h('a', { href: `#${DOM.canonicalId(b.id)}`, id: DOM.listInstanceId(id, b.id), [DOM.attr.target]: b.id, [DOM.attr.interactive]: true }, this.label(b.id)))))
       : null;
     // Wide screens: lifelines and event rows (§9.4). The lists stay the complete
@@ -701,10 +701,10 @@ class Renderer {
           labelOf: (x) => this.label(x),
         })
       : null;
-    return this.figureShell(id, node, 'ex-trace', [
+    return this.figureShell(id, node, 'vs-trace', [
       scaleNote,
-      svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
-      h('div', { class: 'ex-lists' }, actorList, branchList, eventList, byActor),
+      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      h('div', { class: 'vs-lists' }, actorList, branchList, eventList, byActor),
     ], svg !== null);
   }
 
@@ -729,12 +729,12 @@ class Renderer {
   codeLines(sourceId: string, text: string, marks: Map<number, string[]>, figureId?: string): HNode {
     const start = Number(this.nodes.get(sourceId)?.attributes['start'] ?? 1);
     const lines = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n');
-    return h('pre', { class: 'ex-code' }, h('code', {}, lines.map((line, i) => {
+    return h('pre', { class: 'vs-code' }, h('code', {}, lines.map((line, i) => {
       const number = start + i;
       const annotations = marks.get(number) ?? [];
-      return h('span', { class: annotations.length > 0 ? 'ex-line ex-annotated' : 'ex-line' },
-        h('span', { class: 'ex-ln', [DOM.attr.generated]: true }, String(number)),
-        figureId ? annotations.map((a) => h('a', { class: 'ex-annotation-marker', href: `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.interactive]: true, [DOM.attr.generated]: true, 'aria-label': this.label(a) }, '\u25cf')) : null,
+      return h('span', { class: annotations.length > 0 ? 'vs-line vs-annotated' : 'vs-line' },
+        h('span', { class: 'vs-ln', [DOM.attr.generated]: true }, String(number)),
+        figureId ? annotations.map((a) => h('a', { class: 'vs-annotation-marker', href: `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.interactive]: true, [DOM.attr.generated]: true, 'aria-label': this.label(a) }, '\u25cf')) : null,
         this.safeText(line, sourceId),
         '\n');
     })));
@@ -758,16 +758,16 @@ class Renderer {
       for (let n = from; n <= to; n++) marks.set(n, [...(marks.get(n) ?? []), ...(n === from ? [a.id] : [])]);
     }
     if (!captured) this.error('E_REF_BROKEN', `annotated ${id} needs a captured text source; ${sourceId} has none`, id);
-    const list = h('ol', { class: 'ex-annotation-list', 'aria-label': 'Annotations' }, annotations.map((a) => {
+    const list = h('ol', { class: 'vs-annotation-list', 'aria-label': 'Annotations' }, annotations.map((a) => {
       const range = this.nodes.get(a.id)!.attributes['lines'];
       const where = Array.isArray(range) ? `Lines ${range.join('\u2013')}: ` : '';
       return h('li', {},
         h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true },
           h('span', { [DOM.attr.generated]: true }, where), this.label(a.id)));
     }));
-    return this.figureShell(id, node, 'ex-annotated', [
-      h('p', { class: 'ex-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
-      captured ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id)) : null,
+    return this.figureShell(id, node, 'vs-annotated', [
+      h('p', { class: 'vs-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
+      captured ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id)) : null,
       list,
     ]);
   }
@@ -804,18 +804,18 @@ class Renderer {
     const title = attrString(node, 'title') ?? this.label(id);
     const interpretation = this.blocks({ ...node, children: node.children.filter((c) => c.type !== 'fence') });
     // Whole-line `%%` comments never reach the page; the runtime renders from this text (§13.5).
-    const source = h('pre', { class: 'ex-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(stripMermaidComments(figure.source), id)));
+    const source = h('pre', { class: 'vs-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(stripMermaidComments(figure.source), id)));
     const arrow = (text: string) => h('span', { [DOM.attr.generated]: true }, text);
     let lists: Child = null;
     if (figure.parsed) {
-      const nodeList = h('ul', { class: 'ex-node-list', 'aria-label': 'Elements' },
+      const nodeList = h('ul', { class: 'vs-node-list', 'aria-label': 'Elements' },
         figure.elements.map((e) => h('li', {},
           h('a', {
             href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id,
             [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: e.renderKey,
           }, this.label(e.id)),
-          h('span', { class: 'ex-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind}${e.initial ? ', initial' : ''}${e.terminal ? ', terminal' : ''})`))));
-      const relList = h('ol', { class: 'ex-rel-list', 'aria-label': 'Relationships' },
+          h('span', { class: 'vs-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind}${e.initial ? ', initial' : ''}${e.terminal ? ', terminal' : ''})`))));
+      const relList = h('ol', { class: 'vs-rel-list', 'aria-label': 'Relationships' },
         figure.relationships.map((r) => h('li', {},
           h('a', {
             href: `#${DOM.canonicalId(r.referenceable ? r.id : r.from)}`, id: DOM.listInstanceId(id, r.id),
@@ -823,21 +823,21 @@ class Renderer {
             [DOM.attr.target]: r.referenceable ? r.id : id, [DOM.attr.rel]: r.id,
             [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: r.renderKey,
           }, this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
-      lists = h('div', { class: 'ex-lists' }, nodeList, relList);
+      lists = h('div', { class: 'vs-lists' }, nodeList, relList);
     }
     return h('figure', {
-      class: 'ex-figure ex-mermaid', ...this.canonical(id), [DOM.attr.mermaid]: figure.diagramType,
-      [DOM.attr.question]: question, 'aria-describedby': `ex-q-${id}`, [DOM.attr.views]: figure.parsed ? 'map list' : undefined,
+      class: 'vs-figure vs-mermaid', ...this.canonical(id), [DOM.attr.mermaid]: figure.diagramType,
+      [DOM.attr.question]: question, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: figure.parsed ? 'map list' : undefined,
     },
-      h('figcaption', { id: `ex-t-${id}` }, this.safeText(title, id)),
-      h('p', { id: `ex-q-${id}`, class: 'ex-sr' }, this.safeText(question, id)),
+      h('figcaption', { id: `vs-t-${id}` }, this.safeText(title, id)),
+      h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.safeText(question, id)),
       interpretation,
-      h('div', { class: 'ex-viewport', id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
+      h('div', { class: 'vs-viewport', id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
       source,
-      figure.parsed ? null : h('p', { class: 'ex-mermaid-note', [DOM.attr.generated]: true },
+      figure.parsed ? null : h('p', { class: 'vs-mermaid-note', [DOM.attr.generated]: true },
         'The parts of this diagram are not individually inspectable; its source above holds the full content.'),
       lists,
-      h('p', { class: 'ex-mermaid-notice', role: 'status', hidden: true, [DOM.attr.generated]: true }));
+      h('p', { class: 'vs-mermaid-notice', role: 'status', hidden: true, [DOM.attr.generated]: true }));
   }
 
   /** Canonical detail for a target inside a Mermaid figure (§9.12). */
@@ -846,33 +846,33 @@ class Renderer {
     const specifics: Child[] = [];
     const figureId = figure?.figureId ?? record.parentId;
     if (figureId) {
-      specifics.push(h('p', { class: 'ex-entity', [DOM.attr.generated]: true }, 'In diagram ',
+      specifics.push(h('p', { class: 'vs-entity', [DOM.attr.generated]: true }, 'In diagram ',
         h('a', { href: `#${DOM.canonicalId(figureId)}` }, this.label(figureId))));
     }
     const rels = figure?.relationships.filter((r) => r.from === record.id || r.to === record.id || r.id === record.id) ?? [];
     if (rels.length > 0) {
-      specifics.push(h('ul', { class: 'ex-mermaid-rels' }, rels.map((r) => h('li', {},
+      specifics.push(h('ul', { class: 'vs-mermaid-rels' }, rels.map((r) => h('li', {},
         h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
         h('span', { [DOM.attr.generated]: true }, ' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, record.id),
         h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
         h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))))));
     }
     const element = figure?.elements.find((e) => e.id === record.id);
-    if (element?.initial) specifics.push(h('p', { class: 'ex-mermaid-marker', [DOM.attr.generated]: true }, 'Initial state'));
-    if (element?.terminal) specifics.push(h('p', { class: 'ex-mermaid-marker', [DOM.attr.generated]: true }, 'Terminal state'));
+    if (element?.initial) specifics.push(h('p', { class: 'vs-mermaid-marker', [DOM.attr.generated]: true }, 'Initial state'));
+    if (element?.terminal) specifics.push(h('p', { class: 'vs-mermaid-marker', [DOM.attr.generated]: true }, 'Terminal state'));
     if (element?.members && element.members.length > 0) {
-      specifics.push(h('p', { class: 'ex-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
+      specifics.push(h('p', { class: 'vs-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
         element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
     }
-    return h('details', { class: `ex-detail ex-kind-${record.kind}`, ...this.canonical(record.id) },
-      h('summary', {}, this.label(record.id), h('span', { class: 'ex-kind', [DOM.attr.generated]: true }, ` ${MERMAID_KIND_TEXT[record.kind] ?? record.kind}`)),
-      h('div', { class: 'ex-detail-body' }, specifics));
+    return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id) },
+      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${MERMAID_KIND_TEXT[record.kind] ?? record.kind}`)),
+      h('div', { class: 'vs-detail-body' }, specifics));
   }
 
   evidence(id: string): Child {
     const ids = this.relationship(id)?.evidenceIds ?? [];
     if (ids.length === 0) return null;
-    return h('p', { class: 'ex-evidence' }, h('span', { [DOM.attr.generated]: true }, 'Evidence: '),
+    return h('p', { class: 'vs-evidence' }, h('span', { [DOM.attr.generated]: true }, 'Evidence: '),
       ids.map((s, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(s)}` }, this.label(s))]));
   }
 
@@ -911,8 +911,8 @@ class Renderer {
       else this.error('E_UNSAFE_CONTENT', `source ${id} url rejected (${check.reason})`, id);
     }
     return [
-      h('dl', { class: 'ex-source-meta', [DOM.attr.generated]: true }, meta.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
-      captured ? this.codeLines(id, captured.text, new Map()) : h('p', { class: 'ex-link-only', [DOM.attr.generated]: true }, 'No captured excerpt; this origin link is not self-contained evidence.'),
+      h('dl', { class: 'vs-source-meta', [DOM.attr.generated]: true }, meta.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
+      captured ? this.codeLines(id, captured.text, new Map()) : h('p', { class: 'vs-link-only', [DOM.attr.generated]: true }, 'No captured excerpt; this origin link is not self-contained evidence.'),
     ];
   }
 
@@ -922,7 +922,7 @@ class Renderer {
     const specifics: Child[] = [];
     const r = this.relationship(record.id);
     if (r && r.kind !== 'message') {
-      specifics.push(h('p', { class: 'ex-rel-statement' },
+      specifics.push(h('p', { class: 'vs-rel-statement' },
         h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
         h('span', { [DOM.attr.generated]: true }, ` \u2192 ${r.kind}: `), this.label(record.id), h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
         h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))));
@@ -941,18 +941,18 @@ class Renderer {
           facts.push([key, this.safeText(text, record.id)]);
         }
         if (record.kind === 'task' && node.attributes['status'] === undefined) facts.push(['status', 'proposed']);
-        if (facts.length > 0) specifics.push(h('dl', { class: 'ex-facts', [DOM.attr.generated]: true }, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+        if (facts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
         break;
       }
       case 'actor': {
         const entity = attrString(node, 'entity');
-        if (entity) specifics.push(h('p', { class: 'ex-entity' }, h('span', { [DOM.attr.generated]: true }, 'Represents '), h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity))));
+        if (entity) specifics.push(h('p', { class: 'vs-entity' }, h('span', { [DOM.attr.generated]: true }, 'Represents '), h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity))));
         break;
       }
       case 'event': {
         const actor = attrString(node, 'actor');
         const orders = this.bundle.model.relationships.filter((x) => x.kind === 'order' && x.to === record.id);
-        specifics.push(h('p', { class: 'ex-event-meta', [DOM.attr.generated]: true },
+        specifics.push(h('p', { class: 'vs-event-meta', [DOM.attr.generated]: true },
           `${attrString(node, 'kind') ?? 'event'}`, actor ? [' by ', h('a', { href: `#${DOM.canonicalId(actor)}` }, this.label(actor))] : null,
           orders.length > 0 ? [' after ', orders.map((o, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(o.from)}` }, this.label(o.from))])] : null));
         break;
@@ -960,14 +960,14 @@ class Renderer {
       case 'annotation': {
         const range = node.attributes['lines'];
         const owner = record.parentId ? attrString(this.nodes.get(record.parentId)!, 'source') : undefined;
-        if (Array.isArray(range)) specifics.push(h('p', { class: 'ex-annotation-lines', [DOM.attr.generated]: true }, `Lines ${range.join('\u2013')}`, owner ? [' of ', h('a', { href: `#${DOM.canonicalId(owner)}` }, this.label(owner))] : null));
+        if (Array.isArray(range)) specifics.push(h('p', { class: 'vs-annotation-lines', [DOM.attr.generated]: true }, `Lines ${range.join('\u2013')}`, owner ? [' of ', h('a', { href: `#${DOM.canonicalId(owner)}` }, this.label(owner))] : null));
         break;
       }
     }
     const body = record.kind === 'source' ? this.sourceDetail(record.id, node) : this.blocks(node);
-    return h('details', { class: `ex-detail ex-kind-${record.kind}`, ...this.canonical(record.id) },
-      h('summary', {}, this.label(record.id), h('span', { class: 'ex-kind', [DOM.attr.generated]: true }, ` ${record.kind}`)),
-      h('div', { class: 'ex-detail-body' }, specifics, body, this.evidence(record.id)));
+    return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id) },
+      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${record.kind}`)),
+      h('div', { class: 'vs-detail-body' }, specifics, body, this.evidence(record.id)));
   }
 
   // --- Page -----------------------------------------------------------------
@@ -992,9 +992,9 @@ class Renderer {
       else if (record.kind === 'extension') out.push(this.extension(id, child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
         this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
-        out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.blocks(child)));
+        out.push(h('div', { class: 'vs-block', ...this.canonical(id) }, this.blocks(child)));
       } else {
-        out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.block(child)));
+        out.push(h('div', { class: 'vs-block', ...this.canonical(id) }, this.block(child)));
       }
     }
     return out;
@@ -1076,14 +1076,14 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const title = typeof fm['title'] === 'string' ? fm['title'] : 'Explanation';
     const topLevel = [...r.targets.values()].filter((t) => t.parentId === undefined);
     const firstIsH1 = topLevel[0]?.kind === 'heading' && r.nodes.get(topLevel[0].id)?.attributes['level'] === 1;
-    const assetBase = `../../../../_explain/assets/${toolkit.sha256}`;
+    const assetBase = `../../../../_visser/assets/${toolkit.sha256}`;
     const jsSha = toolkit.assets?.['reader.js'];
     const cssSha = toolkit.assets?.['reader.css'];
     const capturedAt = typeof fm['capturedAt'] === 'string' ? fm['capturedAt'] : 'unknown';
     const visibility = typeof fm['visibility'] === 'string' ? fm['visibility'] : 'private';
     // One compact line after the title (§10.1); full identifiers are in
     // "About this snapshot" and in the root data attributes.
-    const snapshotLine = h('p', { class: 'ex-meta', [DOM.attr.generated]: true },
+    const snapshotLine = h('p', { class: 'vs-meta', [DOM.attr.generated]: true },
       `Snapshot captured ${capturedAt} \u00b7 revision `, h('code', { title: sourceRevision }, abbreviate(sourceRevision)),
       ' \u00b7 build ', h('code', { title: buildId }, abbreviate(buildId)), ` \u00b7 ${visibility}`);
     const [firstBlock, ...restBlocks] = mainContent;
@@ -1114,7 +1114,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
           h('button', { type: 'button', id: DOM.buttons.about }, 'About this snapshot')),
         h('main', { id: DOM.root, [DOM.attr.doc]: docId, [DOM.attr.rev]: sourceRevision, [DOM.attr.build]: buildId },
           titleBlocks,
-          h('header', { class: 'ex-snapshot' },
+          h('header', { class: 'vs-snapshot' },
             firstIsH1 ? null : h('h1', {}, r.safeText(title)),
             snapshotLine),
           bodyBlocks,
@@ -1140,7 +1140,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
   }
 
   const manifest: BuildManifest = {
-    schema: 'explain-build/1',
+    schema: 'visser-build/1',
     docId,
     sourceRevision,
     buildId,

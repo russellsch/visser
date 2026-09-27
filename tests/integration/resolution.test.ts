@@ -32,7 +32,7 @@ describe('resolution order (§12.4)', () => {
   it('prefers --toolkit-dir, then a trusted repository toolchain, then the user toolchain, then the running release', () => {
     const fx = fixture();
     const repo = join(fx.root, 'repo');
-    const repoCopy = join(repo, '.explain', 'toolchains', D);
+    const repoCopy = join(repo, '.visser', 'toolchains', D);
     toolkitCopy(repoCopy);
     const userCopy = join(fx.home, 'toolchains', D);
     toolkitCopy(userCopy);
@@ -44,29 +44,29 @@ describe('resolution order (§12.4)', () => {
     expect(resolveDigest({ ...base, toolkitDir: explicit })).toMatchObject({ source: 'toolkit-dir', release: { dir: explicit } });
     expect(resolveDigest(base)).toMatchObject({ source: 'repository', release: { dir: repoCopy } });
     expect(resolveDigest({ ...base, repoRoot: undefined })).toMatchObject({ source: 'user', release: { dir: userCopy } });
-    expect(resolveDigest({ ...base, repoRoot: undefined, env: { ...fx.env, EXPLAIN_HOME: join(fx.root, 'empty-home') } })).toMatchObject({ source: 'running', release: { dir: release } });
+    expect(resolveDigest({ ...base, repoRoot: undefined, env: { ...fx.env, VISSER_HOME: join(fx.root, 'empty-home') } })).toMatchObject({ source: 'running', release: { dir: release } });
   });
 
   it('an untrusted repository toolchain is E_TOOLKIT_UNTRUSTED (exit 4), even when a user copy exists', () => {
     const fx = fixture();
     const repo = join(fx.root, 'repo');
-    toolkitCopy(join(repo, '.explain', 'toolchains', D));
+    toolkitCopy(join(repo, '.visser', 'toolchains', D));
     installUser(fx, release);
     expect(codeOf(() => resolveDigest({ digest: D, repoRoot: repo, env: fx.env }))).toBe('E_TOOLKIT_UNTRUSTED/4');
   });
 
-  it('a committed .explain/trust.json in the repository has no effect', () => {
+  it('a committed .visser/trust.json in the repository has no effect', () => {
     const fx = fixture();
     const repo = join(fx.root, 'repo');
-    toolkitCopy(join(repo, '.explain', 'toolchains', D));
-    writeFileSync(join(repo, '.explain', 'trust.json'), JSON.stringify({ schema: 'explain-trust-store/1', toolkits: { [D]: { source: 'repo', addedAt: '2026-09-27T00:00:00Z' } } }));
+    toolkitCopy(join(repo, '.visser', 'toolchains', D));
+    writeFileSync(join(repo, '.visser', 'trust.json'), JSON.stringify({ schema: 'visser-trust-store/1', toolkits: { [D]: { source: 'repo', addedAt: '2026-09-27T00:00:00Z' } } }));
     expect(codeOf(() => resolveDigest({ digest: D, repoRoot: repo, env: fx.env }))).toBe('E_TOOLKIT_UNTRUSTED/4');
   });
 
   it('a corrupt higher-priority copy is E_INTEGRITY; the search never falls back to a valid lower copy', () => {
     const fx = fixture();
     const repo = join(fx.root, 'repo');
-    const repoCopy = join(repo, '.explain', 'toolchains', D);
+    const repoCopy = join(repo, '.visser', 'toolchains', D);
     toolkitCopy(repoCopy);
     appendFileSync(join(repoCopy, 'browser', 'reader.css'), '/* tampered */\n');
     installUser(fx, release);
@@ -107,7 +107,7 @@ describe('resolution order (§12.4)', () => {
       expect(error).toBeInstanceOf(CliError);
       expect((error as CliError).code).toBe('E_TOOLKIT_MISSING');
       expect((error as CliError).exitCode).toBe(3);
-      expect((error as CliError).message).toContain('explain install --from-dir');
+      expect((error as CliError).message).toContain('visser install --from-dir');
     }
   });
 
@@ -127,7 +127,7 @@ describe('resolution order (§12.4)', () => {
     for (const { doc, repo } of [a, b]) {
       const r = run(fx, fx.shim, ['build', doc]);
       expect(r.status, r.stderr).toBe(0);
-      expect(readdirSync(join(repo, '.explain', 'output', '_explain', 'assets'))).toEqual([digest]);
+      expect(readdirSync(join(repo, '.visser', 'output', '_visser', 'assets'))).toEqual([digest]);
     }
     expect(readdirSync(join(fx.home, 'toolchains'))).toEqual([digest]);
   });
@@ -135,7 +135,7 @@ describe('resolution order (§12.4)', () => {
   it('@R09 a trusted repository installation is used for that repository only', () => {
     const fx = fixture();
     const a = repoWithDocument(fx, 'repo-a', D);
-    toolkitCopy(join(a.repo, '.explain', 'toolchains', D));
+    toolkitCopy(join(a.repo, '.visser', 'toolchains', D));
     addTrust(D, 'test', fx.env, now);
     expect(resolveForDocument(join(a.doc, '..'), undefined, undefined, { env: fx.env, ownRelease: undefined }).source).toBe('repository');
     const b = repoWithDocument(fx, 'repo-b', D);
@@ -150,7 +150,7 @@ describe('whose code runs (§12.4)', () => {
     const probe = join(fx.root, 'probe');
     const S = sentinelToolkit(probe, sentinel);
     const { repo, doc } = repoWithDocument(fx, 'repo', S);
-    cpSync(probe, join(repo, '.explain', 'toolchains', S), { recursive: true });
+    cpSync(probe, join(repo, '.visser', 'toolchains', S), { recursive: true });
 
     const direct = run(fx, cli, ['build', doc]);
     expect(direct.status, direct.stderr).toBe(4);
@@ -183,7 +183,7 @@ describe('whose code runs (§12.4)', () => {
     const dev = run(fx, cli, ['build', doc, '--dev-toolkit', release]);
     expect(dev.status, dev.stderr).toBe(0);
     expect(dev.stderr).toContain('W_DEV_TOOLKIT');
-    const docs = join(repo, '.explain', 'output', 'd');
+    const docs = join(repo, '.visser', 'output', 'd');
     const builds = () => {
       const [docId] = readdirSync(docs);
       const [rev] = readdirSync(join(docs, docId!));
@@ -197,7 +197,7 @@ describe('whose code runs (§12.4)', () => {
 
     // Pin the lock to the toolkit that built it: same source and toolkit, but
     // the development mark is part of the build ID, so a second folder appears.
-    const lockPath = join(doc, '..', 'explain.lock.json');
+    const lockPath = join(doc, '..', 'visser.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     lock.toolkit.sha256 = D;
     writeFileSync(lockPath, JSON.stringify(lock));
@@ -238,7 +238,7 @@ describe('check --release (§12.4, §17.1)', () => {
     const plain = run(fx, cli, ['check', doc, '--dev-toolkit', release]);
     expect(plain.status, 'plain check ignores the toolkit').toBe(0);
 
-    const lockPath = join(doc, '..', 'explain.lock.json');
+    const lockPath = join(doc, '..', 'visser.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     lock.toolkit.sha256 = 'e'.repeat(64);
     writeFileSync(lockPath, JSON.stringify(lock));

@@ -46,20 +46,20 @@ describe('per-route Content Security Policy (§9.12)', () => {
 });
 
 function fakeRelease(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'explain-release-'));
+  const dir = mkdtempSync(join(tmpdir(), 'visser-release-'));
   mkdirSync(join(dir, 'browser'), { recursive: true });
   const entries = Object.entries(files).map(([name, text]) => {
     writeFileSync(join(dir, 'browser', name), text);
     return { path: `browser/${name}`, sha256: createHash('sha256').update(text).digest('hex') };
   });
-  writeFileSync(join(dir, 'release.json'), JSON.stringify({ schema: 'explain-release/1', version: '0.0.0', files: entries }));
+  writeFileSync(join(dir, 'release.json'), JSON.stringify({ schema: 'visser-release/1', version: '0.0.0', files: entries }));
   return dir;
 }
 
 describe('per-file asset copying (§13.1)', () => {
   it('adds mermaid.js to an asset directory that already exists', () => {
     const release = fakeRelease({ 'reader.js': 'js', 'reader.css': 'css', 'mermaid.js': 'mermaid' });
-    const assets = join(mkdtempSync(join(tmpdir(), 'explain-out-')), 'assets');
+    const assets = join(mkdtempSync(join(tmpdir(), 'visser-out-')), 'assets');
     copyAssets(release, assets, ['reader.js', 'reader.css']);
     expect(existsSync(join(assets, 'mermaid.js'))).toBe(false);
     copyAssets(release, assets, ['reader.js', 'reader.css', 'mermaid.js']);
@@ -69,7 +69,7 @@ describe('per-file asset copying (§13.1)', () => {
   it('refuses an asset that does not match release.json', () => {
     const release = fakeRelease({ 'reader.js': 'js', 'reader.css': 'css', 'mermaid.js': 'mermaid' });
     writeFileSync(join(release, 'browser', 'mermaid.js'), 'tampered');
-    const assets = join(mkdtempSync(join(tmpdir(), 'explain-out-')), 'assets');
+    const assets = join(mkdtempSync(join(tmpdir(), 'visser-out-')), 'assets');
     expect(() => copyAssets(release, assets, ['mermaid.js'])).toThrow(/does not match release.json/);
   });
 });

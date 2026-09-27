@@ -2,7 +2,7 @@
 // dist/release and check the size, count, and limit budgets. These are gates:
 // any failure exits 1. Timing (build time, initial usable page, interaction
 // latency) is reported only, never a gate, and runs only with
-// EXPLAIN_BUDGET_TIMING=1 because it takes a few minutes of Chromium time.
+// VISSER_BUDGET_TIMING=1 because it takes a few minutes of Chromium time.
 //
 // Gates:
 // - Shared browser JavaScript: browser/reader.js at most 100 KiB gzip.
@@ -16,7 +16,7 @@
 //   §2.3 exception. bin/, workers/, schemas/, skills/, and LICENSES.txt are
 //   CLI and authoring files; `build`, `serve`, and `export` never serve them.
 //   The pack that a build writes holds only those browser files.
-// - Core skill size: skills/explain/SKILL.md in the release under 2,500 words.
+// - Core skill size: skills/visual-explain/SKILL.md in the release under 2,500 words.
 // - Graph limits: a 201-node graph and a 401-edge graph fail both `check` and
 //   `build` with E_LAYOUT_LIMIT (exit 2). The 26-node warning is covered by
 //   tests/unit/validate.fixtures.test.ts; the other §2.3 build safety limits
@@ -28,9 +28,9 @@
 //
 // The Mermaid asset size is measured and reported, not gated.
 //
-// Test seam: EXPLAIN_BUDGET_LIMITS='{"readerJsGzip":1000}' lowers a limit, so
+// Test seam: VISSER_BUDGET_LIMITS='{"readerJsGzip":1000}' lowers a limit, so
 // a test can prove that a gate fails. Results go to reports/budgets.json, or
-// to EXPLAIN_BUDGET_REPORT (the tests use a temporary file).
+// to VISSER_BUDGET_REPORT (the tests use a temporary file).
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { cpus, platform, release as osRelease, tmpdir, totalmem } from 'node:os';
@@ -41,9 +41,9 @@ import { EXCERPT_COUNT, generateFixture } from '../tests/fixtures/budget/generat
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const release = join(root, 'dist', 'release');
-const cli = join(release, 'bin', 'explain.cjs');
-const reportPath = process.env.EXPLAIN_BUDGET_REPORT ?? join(root, 'reports', 'budgets.json');
-const timing = process.env.EXPLAIN_BUDGET_TIMING === '1';
+const cli = join(release, 'bin', 'visser.cjs');
+const reportPath = process.env.VISSER_BUDGET_REPORT ?? join(root, 'reports', 'budgets.json');
+const timing = process.env.VISSER_BUDGET_TIMING === '1';
 const RUNS = 5;
 
 const LIMITS = {
@@ -54,7 +54,7 @@ const LIMITS = {
   fixtureMaxEdges: 80,
   fixtureWordsMin: 4500,
   fixtureWordsMax: 5500,
-  ...JSON.parse(process.env.EXPLAIN_BUDGET_LIMITS ?? '{}'),
+  ...JSON.parse(process.env.VISSER_BUDGET_LIMITS ?? '{}'),
 };
 
 if (!existsSync(cli)) {
@@ -68,14 +68,14 @@ function gate(name, ok, measured, limit, note) {
   gates.push({ name, ok, measured, limit, ...(note ? { note } : {}) });
 }
 
-function explain(args, opts = {}) {
+function visser(args, opts = {}) {
   const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', ...opts });
   return r;
 }
 function must(args, opts) {
-  const r = explain(args, opts);
+  const r = visser(args, opts);
   if (r.status !== 0) {
-    console.error(`explain ${args.join(' ')} exited ${r.status}\n${r.stdout}${r.stderr}`);
+    console.error(`visser ${args.join(' ')} exited ${r.status}\n${r.stdout}${r.stderr}`);
     process.exit(1);
   }
   return r;
@@ -91,7 +91,7 @@ function listFiles(dir) {
 }
 
 // 1. The reference fixture.
-const work = mkdtempSync(join(tmpdir(), 'explain-budget-'));
+const work = mkdtempSync(join(tmpdir(), 'visser-budget-'));
 const repo = join(work, 'repo');
 mkdirSync(join(repo, '.git'), { recursive: true });
 const docDir = join(repo, 'docs', 'reference');
@@ -101,14 +101,14 @@ const docId = /^docId: (\S+)$/m.exec(readFileSync(doc, 'utf8'))[1];
 const excerpts = generateFixture(docDir, docId);
 
 const projection = must(['export', doc, '--format', 'markdown']).stdout;
-const readingWords = words(projection.split('\n').filter((l) => !l.startsWith('<!-- ex:target')).join('\n'));
+const readingWords = words(projection.split('\n').filter((l) => !l.startsWith('<!-- vs:target')).join('\n'));
 let excerptBytes = 0;
 excerpts.forEach((file, i) => {
   excerptBytes += statSync(file).size;
   const id = `src_${String(i + 1).padStart(2, '0')}`;
   must(['capture', 'file', '--from', file, '--kind', 'example', '--doc', doc, '--id', id, '--title', `Excerpt ${i + 1}`, '--language', 'python', '--captured-at', '2026-09-27T00:00:00Z']);
 });
-const check = explain(['check', doc, '--json']);
+const check = visser(['check', doc, '--json']);
 const checkJson = JSON.parse(check.stdout);
 
 const source = readFileSync(doc, 'utf8');
@@ -159,20 +159,20 @@ const srcs = scripts.map((m) => /\bsrc="([^"]*)"/.exec(m[1])?.[1]);
 const inline = scripts.filter((m, i) => srcs[i] === undefined || m[2].trim() !== '');
 const handlers = html.match(/<[^>]+\s on[a-z]+\s*=/gi) ?? [];
 const jsUrls = html.match(/(?:href|src)\s*=\s*"\s*javascript:/gi) ?? [];
-const docJsFiles = outFiles.filter((f) => /\.(m?js|cjs)$/.test(f) && !/^_explain\/assets\/[0-9a-f]{64}\/(reader|mermaid)\.js$/.test(f));
-const badSrcs = srcs.filter((s) => s !== undefined && !/^(\.\.\/)+_explain\/assets\/[0-9a-f]{64}\/reader\.js$/.test(s));
+const docJsFiles = outFiles.filter((f) => /\.(m?js|cjs)$/.test(f) && !/^_visser\/assets\/[0-9a-f]{64}\/(reader|mermaid)\.js$/.test(f));
+const badSrcs = srcs.filter((s) => s !== undefined && !/^(\.\.\/)+_visser\/assets\/[0-9a-f]{64}\/reader\.js$/.test(s));
 gate('per-document JS: none', inline.length === 0 && handlers.length === 0 && jsUrls.length === 0 && docJsFiles.length === 0 && badSrcs.length === 0,
   `${inline.length} inline, ${handlers.length} handlers, ${jsUrls.length} javascript: URLs, ${docJsFiles.length} other JS files, ${badSrcs.length} other script sources`, '0');
 
 // First-release browser asset files.
 const manifest = JSON.parse(readFileSync(join(release, 'release.json'), 'utf8'));
 const browserFiles = manifest.files.map((f) => f.path).filter((p) => p.startsWith('browser/')).sort();
-const packFiles = outFiles.filter((f) => f.startsWith('_explain/')).map((f) => f.replace(/^_explain\/assets\/[0-9a-f]{64}\//, '')).sort();
+const packFiles = outFiles.filter((f) => f.startsWith('_visser/')).map((f) => f.replace(/^_visser\/assets\/[0-9a-f]{64}\//, '')).sort();
 gate('release browser assets: reader.js + reader.css (+ mermaid.js exception)', JSON.stringify(browserFiles) === JSON.stringify(['browser/mermaid.js', 'browser/reader.css', 'browser/reader.js']), browserFiles.join(', '), 'browser/{reader.js,reader.css,mermaid.js}');
 gate('built pack: browser assets only', packFiles.every((f) => ['reader.js', 'reader.css', 'mermaid.js'].includes(f)), packFiles.join(', '), 'reader.js, reader.css, mermaid.js');
 
 // Core skill size.
-const skillWords = words(readFileSync(join(release, 'skills', 'explain', 'SKILL.md'), 'utf8'));
+const skillWords = words(readFileSync(join(release, 'skills', 'visual-explain', 'SKILL.md'), 'utf8'));
 gate('core skill words (release SKILL.md)', skillWords < LIMITS.skillWords, skillWords, `< ${LIMITS.skillWords}`);
 
 // Graph limits through the CLI.
@@ -181,9 +181,9 @@ function bigGraph(nodes, edges) {
   mkdirSync(dir);
   const ns = Array.from({ length: nodes }, (_, i) => `{% node id="n${i}" label="N${i}" role="process" /%}`).join('\n');
   const es = Array.from({ length: edges }, (_, i) => `{% edge id="e${i}" from="n0" to="n1" kind="call" label="calls ${i}" /%}`).join('\n');
-  writeFileSync(join(dir, 'index.md'), `---\nformat: explain/1\ndocId: 9c0c5e2a-9999-4a99-8a99-999999999999\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n---\n\n{% graph id="big" mode="architecture" title="T" question="Q?" %}\nI.\n\n${ns}\n${es}\n{% /graph %}\n`);
-  const c = explain(['check', join(dir, 'index.md'), '--json']);
-  const b = explain(['build', join(dir, 'index.md'), '--out', join(dir, 'out'), '--dev-toolkit', release, '--json']);
+  writeFileSync(join(dir, 'index.md'), `---\nformat: visser/1\ndocId: 9c0c5e2a-9999-4a99-8a99-999999999999\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n---\n\n{% graph id="big" mode="architecture" title="T" question="Q?" %}\nI.\n\n${ns}\n${es}\n{% /graph %}\n`);
+  const c = visser(['check', join(dir, 'index.md'), '--json']);
+  const b = visser(['build', join(dir, 'index.md'), '--out', join(dir, 'out'), '--dev-toolkit', release, '--json']);
   // `build --json` reports E_BUILD in its JSON and the underlying codes on stderr.
   const codes = (r) => [...new Set(`${r.stdout}${r.stderr}`.match(/\bE_[A-Z_]+/g) ?? [])];
   return { check: { status: c.status, codes: codes(c) }, build: { status: b.status, codes: codes(b) } };
@@ -205,7 +205,7 @@ if (timing) {
     must(['build', doc, '--out', dest]);
     builds.push(Number(process.hrtime.bigint() - t) / 1e6);
   }
-  reported.buildMs = { runs: builds.map(Math.round), median: Math.round(median(builds)), note: 'wall clock of `explain build` from dist/release, including Node start; no network is used' };
+  reported.buildMs = { runs: builds.map(Math.round), median: Math.round(median(builds)), note: 'wall clock of `visser build` from dist/release, including Node start; no network is used' };
 
   const server = spawn(process.execPath, [cli, 'serve', doc, '--port', '0'], { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
   let serverOut = '';
@@ -224,7 +224,7 @@ if (timing) {
     const resultPath = join(work, 'browser-timing.json');
     const pw = spawnSync(process.execPath, [join(root, 'node_modules', '@playwright', 'test', 'cli.js'), 'test', '--config', join(root, 'playwright.config.ts')], {
       cwd: root, encoding: 'utf8', timeout: 900_000,
-      env: { ...process.env, EXPLAIN_BROWSER_BUDGETS: '1', EXPLAIN_BUDGET_URL: url, EXPLAIN_BUDGET_RESULT: resultPath, EXPLAIN_BUDGET_RUNS: String(RUNS) },
+      env: { ...process.env, VISSER_BROWSER_BUDGETS: '1', VISSER_BUDGET_URL: url, VISSER_BUDGET_RESULT: resultPath, VISSER_BUDGET_RUNS: String(RUNS) },
     });
     if (pw.status !== 0 || !existsSync(resultPath)) {
       reported.browser = { error: `playwright exited ${pw.status}`, output: `${pw.stdout}${pw.stderr}`.slice(-4000) };
@@ -239,7 +239,7 @@ if (timing) {
 const cpuModel = /model name\s*:\s*(.+)/.exec(existsSync('/proc/cpuinfo') ? readFileSync('/proc/cpuinfo', 'utf8') : '')?.[1] ?? cpus()[0]?.model;
 const hardware = { cpu: cpuModel, logicalCpus: cpus().length, memoryGiB: Math.round(totalmem() / 2 ** 30), os: `${platform()} ${osRelease()}`, node: process.version };
 const ok = gates.every((g) => g.ok);
-const result = { schema: 'explain-budgets-report/1', ok, measuredAt: new Date().toISOString(), hardware, limits: LIMITS, gates, reported, timing: timing ? 'run' : 'not run (set EXPLAIN_BUDGET_TIMING=1)' };
+const result = { schema: 'visser-budgets-report/1', ok, measuredAt: new Date().toISOString(), hardware, limits: LIMITS, gates, reported, timing: timing ? 'run' : 'not run (set VISSER_BUDGET_TIMING=1)' };
 mkdirSync(dirname(reportPath), { recursive: true });
 writeFileSync(reportPath, JSON.stringify(result, null, 2) + '\n');
 rmSync(work, { recursive: true, force: true });

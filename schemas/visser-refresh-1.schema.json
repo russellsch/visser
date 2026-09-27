@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-refresh-1.schema.json",
+  "title": "visser refs refresh --json (\u00a711.10): a new packet, or a refusal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "refused"
+  ],
+  "properties": {
+    "schema": {
+      "const": "visser-refresh/1"
+    },
+    "refused": {
+      "type": "boolean"
+    },
+    "packet": {
+      "$ref": "https://visser.invalid/schemas/visser-ref-1.schema.json"
+    },
+    "yaml": {
+      "type": "string"
+    },
+    "targetBodyUnchanged": {
+      "type": "boolean"
+    },
+    "currentRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "currentText": {
+      "type": "string"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "https://visser.invalid/schemas/visser-resolve-1.schema.json#/$defs/diagnostic"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "refused": {
+          "const": false
+        },
+        "packet": true,
+        "yaml": true
+      },
+      "required": [
+        "packet",
+        "yaml"
+      ]
+    },
+    {
+      "properties": {
+        "refused": {
+          "const": true
+        },
+        "diagnostics": true
+      },
+      "required": [
+        "diagnostics"
+      ]
+    }
+  ]
+}

@@ -30,7 +30,7 @@ describe('Mermaid examples load and compile (§9.12) @R01 @R14', () => {
       expect(result.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
       const html = new TextDecoder().decode(result.files.find((f) => f.path.endsWith('index.html'))!.bytes);
       // The no-JS and text fallback: the Mermaid source is in the page.
-      expect(html).toContain('ex-mermaid-source');
+      expect(html).toContain('vs-mermaid-source');
     });
   }
 
@@ -65,7 +65,7 @@ describe('Mermaid examples load and compile (§9.12) @R01 @R14', () => {
     it(`${example}: the projection lists every Mermaid target and relationship tuple`, () => {
       const bundle = load(example);
       const text = projectText(bundle.parsed);
-      const ids = [...text.matchAll(/<!-- ex:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
+      const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
       // Every target once, including each Mermaid element.
       expect(ids.sort()).toEqual([...bundle.model.targets.keys()].sort());
       const label = (id: string) => bundle.model.targets.get(id)?.label ?? id;
@@ -84,7 +84,7 @@ describe('Mermaid examples load and compile (§9.12) @R01 @R14', () => {
 
 describe('Mermaid identity rules (§9.12)', () => {
   const doc = (body: string) => `---
-format: explain/1
+format: visser/1
 docId: 5b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e
 title: Collision
 kind: teaching
@@ -92,13 +92,13 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id collide_overview -->
+<!-- vs:id collide_overview -->
 # Collision
 
 ${body}
 `;
   const write = (text: string) => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-mermaid-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-mermaid-'));
     writeFileSync(join(dir, 'index.md'), text);
     return loadBundle(join(dir, 'index.md'));
   };
@@ -123,7 +123,7 @@ function stableReleaseCopy(): string {
   const wait = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
   for (let attempt = 0; attempt < 90; attempt++) {
     try {
-      const copy = join(mkdtempSync(join(tmpdir(), 'explain-release-')), 'release');
+      const copy = join(mkdtempSync(join(tmpdir(), 'visser-release-')), 'release');
       cpSync(source, copy, { recursive: true });
       const manifest = JSON.parse(readFileSync(join(copy, 'release.json'), 'utf8')) as { files: Array<{ path: string; sha256: string }> };
       const intact = manifest.files.every((f) => existsSync(join(copy, f.path))
@@ -140,11 +140,11 @@ function stableReleaseCopy(): string {
 describe('release-level Mermaid parse (§9.12 shipping the parser)', () => {
   it('the bundled CLI in dist/release parses a Mermaid flowchart', () => {
     const release = stableReleaseCopy();
-    const repo = mkdtempSync(join(tmpdir(), 'explain-mermaid-repo-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-mermaid-repo-'));
     mkdirSync(join(repo, '.git'));
     const docDir = join(repo, 'docs/explanations/cdn');
     cpSync(join(root, 'examples/mermaid-flowchart'), docDir, { recursive: true });
-    const r = spawnSync(process.execPath, [join(release, 'bin/explain.cjs'), 'check', join(docDir, 'index.md'), '--json'], { cwd: repo, encoding: 'utf8', timeout: 120_000 });
+    const r = spawnSync(process.execPath, [join(release, 'bin/visser.cjs'), 'check', join(docDir, 'index.md'), '--json'], { cwd: repo, encoding: 'utf8', timeout: 120_000 });
     expect(r.status, `${r.stdout}\n${r.stderr}`).toBe(0);
     const report = JSON.parse(r.stdout) as { ok: boolean; targetCount: number };
     expect(report.ok).toBe(true);

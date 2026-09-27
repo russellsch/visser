@@ -1,4 +1,4 @@
-// `explain upgrade DOC --to DIGEST [--allow-downgrade] [--dry-run] [--toolkit-dir DIR] [--json]`
+// `visser upgrade DOC --to DIGEST [--allow-downgrade] [--dry-run] [--toolkit-dir DIR] [--json]`
 // (§12.3, §17.1). Moves a document's lock to another installed toolkit.
 //
 // Whose code runs (§12.4): the target toolkit is resolved by the §12.4 order
@@ -27,7 +27,7 @@ import type { Diagnostic } from '../../../core/src/types.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
 import { bundledReleaseDir, findRepositoryRoot, readLock, resolveDigest, type Resolved } from '../toolkit.ts';
 
-const USAGE = 'usage: explain upgrade DOC --to DIGEST [--allow-downgrade] [--dry-run] [--toolkit-dir DIR] [--json]';
+const USAGE = 'usage: visser upgrade DOC --to DIGEST [--allow-downgrade] [--dry-run] [--toolkit-dir DIR] [--json]';
 
 export type UpgradeOptions = {
   env?: NodeJS.ProcessEnv;
@@ -51,7 +51,7 @@ function releaseVersion(dir: string): string {
 
 /** Run a toolkit's own CLI; never a shell. */
 function runToolkit(release: string, argv: string[], env: NodeJS.ProcessEnv) {
-  return spawnSync(process.execPath, [join(release, 'bin', 'explain.cjs'), ...argv], { encoding: 'utf8', env, timeout: 600_000, maxBuffer: 64 * 1024 * 1024 });
+  return spawnSync(process.execPath, [join(release, 'bin', 'visser.cjs'), ...argv], { encoding: 'utf8', env, timeout: 600_000, maxBuffer: 64 * 1024 * 1024 });
 }
 
 export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): Promise<number> {
@@ -74,19 +74,19 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   }
   if (!existsSync(indexPath)) throw new CliError('E_SOURCE_UNAVAILABLE', `cannot read the document ${docArg}`, EXIT.unavailable);
   const bundleRoot = dirname(indexPath);
-  const lockPath = join(bundleRoot, 'explain.lock.json');
+  const lockPath = join(bundleRoot, 'visser.lock.json');
 
   // 1. The current lock, read once; the guarded write rechecks these bytes.
   // Repository-controlled: no symbolic link, a regular file, bounded.
   let original: Uint8Array | undefined;
   try {
-    original = readBoundedBytes(lockPath, 'explain.lock.json');
+    original = readBoundedBytes(lockPath, 'visser.lock.json');
   } catch (error) {
     if (error instanceof HashError) throw new CliError(error.code, error.message, EXIT.security);
     throw error;
   }
   if (original === undefined) {
-    throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; there is no toolkit to upgrade from (run \`explain init\` for a new document)`, EXIT.unavailable);
+    throw new CliError('E_TOOLKIT_MISSING', `no visser.lock.json in ${bundleRoot}; there is no toolkit to upgrade from (run \`visser init\` for a new document)`, EXIT.unavailable);
   }
   const current = readLock(bundleRoot)!;
   const originalText = new TextDecoder().decode(original);
@@ -96,15 +96,15 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   // 2. The target, by the §12.4 order with the trust gate, verified strictly.
   const target: Resolved = resolveDigest({ digest: to, repoRoot, toolkitDir, ownRelease: own, env });
   const toSide: Side & { version: string } = { sha256: to, version: releaseVersion(target.release.dir) };
-  // A lock records only semantic versions (explain-lock/1), so no flag can pin such a target.
+  // A lock records only semantic versions (visser-lock/1), so no flag can pin such a target.
   if (!isSemver(toSide.version)) {
     throw new CliError('E_SYNTAX', `the target toolkit's version ${JSON.stringify(toSide.version)} is not a semantic version, so a lock cannot pin it`, EXIT.invalid);
   }
 
   if (current.sha256 === to) {
-    const report = { schema: 'explain-upgrade/1' as const, doc: indexPath, from: { ...from, version: toSide.version }, to: toSide, changed: false, downgrade: false, dryRun };
+    const report = { schema: 'visser-upgrade/1' as const, doc: indexPath, from: { ...from, version: toSide.version }, to: toSide, changed: false, downgrade: false, dryRun };
     if (json) printJson('upgrade', report);
-    else process.stdout.write(`explain.lock.json already pins toolkit ${to} (${toSide.version}); nothing to do\n`);
+    else process.stdout.write(`visser.lock.json already pins toolkit ${to} (${toSide.version}); nothing to do\n`);
     return EXIT.ok;
   }
 
@@ -169,14 +169,14 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
       diagnostics = [{ code: 'E_BUILD', severity: 'error', message: `the target toolkit's check failed (exit ${check.status ?? check.signal}): ${(check.stderr || check.stdout).trim()}` }];
     }
     printDiagnostics(diagnostics, json);
-    if (!json) process.stderr.write('upgrade stopped: the target toolkit rejects the document; explain.lock.json is unchanged\n');
+    if (!json) process.stderr.write('upgrade stopped: the target toolkit rejects the document; visser.lock.json is unchanged\n');
     return check.status && check.status > 0 ? check.status : EXIT.internal;
   }
 
   if (dryRun) {
-    const report = { schema: 'explain-upgrade/1' as const, doc: indexPath, from, to: toSide, changed: false, downgrade, dryRun: true, diff };
+    const report = { schema: 'visser-upgrade/1' as const, doc: indexPath, from, to: toSide, changed: false, downgrade, dryRun: true, diff };
     if (json) printJson('upgrade', report);
-    else process.stdout.write(`dry run: explain.lock.json would change\n${diff}`);
+    else process.stdout.write(`dry run: visser.lock.json would change\n${diff}`);
     return EXIT.ok;
   }
 
@@ -203,7 +203,7 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   const build = runToolkit(target.release.dir, ['build', indexPath], env);
   const rebuilt = build.status === 0;
   const report = {
-    schema: 'explain-upgrade/1' as const,
+    schema: 'visser-upgrade/1' as const,
     doc: indexPath,
     from,
     to: toSide,

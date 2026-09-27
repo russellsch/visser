@@ -1,6 +1,6 @@
 // `npm run test:clean-machine` (§17.7 exit check): a scripted run on a clean
 // machine. It packs dist/release, installs the archive into an empty
-// EXPLAIN_HOME with an empty HOME and a PATH that holds only the node binary,
+// VISSER_HOME with an empty HOME and a PATH that holds only the node binary,
 // and then uses only the installed user shim to init, check, build, and export
 // a document. Finally it reads the exported page as a static file.
 //
@@ -29,13 +29,13 @@ if (!existsSync(join(release, 'release.json'))) {
 }
 const before = gitStatus();
 
-const machine = mkdtempSync(join(tmpdir(), 'explain-clean-'));
+const machine = mkdtempSync(join(tmpdir(), 'visser-clean-'));
 const home = join(machine, 'home');
-const explainHome = join(machine, 'explain-home');
+const visserHome = join(machine, 'visser-home');
 const repo = join(machine, 'repo');
-for (const dir of [home, explainHome, join(repo, '.explain')]) mkdirSync(dir, { recursive: true });
+for (const dir of [home, visserHome, join(repo, '.visser')]) mkdirSync(dir, { recursive: true });
 // Only the node binary: no npm, no git, nothing from the author's shell.
-const env = { HOME: home, EXPLAIN_HOME: explainHome, PATH: dirname(process.execPath), LANG: 'C.UTF-8' };
+const env = { HOME: home, VISSER_HOME: visserHome, PATH: dirname(process.execPath), LANG: 'C.UTF-8' };
 
 function step(label, entry, args, cwd = repo) {
   const result = spawnSync(process.execPath, [entry, ...args], { cwd, env, encoding: 'utf8' });
@@ -46,17 +46,17 @@ function step(label, entry, args, cwd = repo) {
 
 try {
   // 1. Pack the release archive, as a user would download it.
-  const archive = join(machine, 'explain.tar.gz');
+  const archive = join(machine, 'visser.tar.gz');
   const packed = step('release:pack', join(root, 'scripts/release.mjs'), [release, archive], root);
   const archiveSha256 = /archive sha256: ([0-9a-f]{64})/.exec(packed)?.[1];
   const toolkitSha256 = /toolkit sha256: ([0-9a-f]{64})/.exec(packed)?.[1];
   if (!archiveSha256 || !toolkitSha256) fail(`release:pack printed no digests:\n${packed}`);
 
-  // 2. Install from the archive into the empty EXPLAIN_HOME.
-  const install = JSON.parse(step('install --archive', join(release, 'bin/explain.cjs'),
+  // 2. Install from the archive into the empty VISSER_HOME.
+  const install = JSON.parse(step('install --archive', join(release, 'bin/visser.cjs'),
     ['install', '--archive', archive, '--sha256', archiveSha256, '--scope', 'user', '--default', '--json'], machine));
   if (install.toolkitSha256 !== toolkitSha256) fail(`installed ${install.toolkitSha256}, packed ${toolkitSha256}`);
-  const shim = join(explainHome, 'bin/explain.cjs');
+  const shim = join(visserHome, 'bin/visser.cjs');
   if (!existsSync(shim)) fail('install did not write the user shim');
 
   // 3. From here on, only the installed shim runs.

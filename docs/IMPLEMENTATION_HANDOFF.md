@@ -1,4 +1,4 @@
-# Implementation handoff: Explain
+# Implementation handoff: Visser
 
 Implement the system specified in `ARCHITECTURE.md`. Treat that file as the
 current authority rather than provisional design discussion. Build a usable
@@ -59,7 +59,7 @@ companion files. This repository does not contain them. Materialize them as foll
 - Copy the fenced body of Appendix A to `examples/bounded-queue/index.md`: complete
   illustrative authoring fixture; its source code is explicitly an example, not
   attributed to a real repository. Confirm its captured-code digest matches.
-- Copy the fenced body of Appendix B to `skills/explain/SKILL.md` (the §5.3 path):
+- Copy the fenced body of Appendix B to `skills/visual-explain/SKILL.md` (the §5.3 path):
   canonical initial instruction text; host wrappers should load the version
   selected by the document/workspace lock.
 - `verification/` (Python reference model, `test-vectors.json`, and

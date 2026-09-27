@@ -1,6 +1,6 @@
 // `install --from-dir|--archive --scope user|repo` and `trust toolkit`
-// (§12.1, §12.2, §12.4, §12.6). Every test uses a temporary EXPLAIN_HOME and
-// a release tree built in-test; nothing touches the real ~/.explain.
+// (§12.1, §12.2, §12.4, §12.6). Every test uses a temporary VISSER_HOME and
+// a release tree built in-test; nothing touches the real ~/.visser.
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,14 +26,14 @@ let digest: string;
 beforeEach(() => {
   box = tempDir();
   home = join(box, 'home');
-  env = { ...process.env, EXPLAIN_HOME: home };
+  env = { ...process.env, VISSER_HOME: home };
   release = join(box, 'release');
   digest = makeRelease(release);
 });
 
 function archiveOf(dir: string): { path: string; sha256: string } {
   const packed = packRelease(dir);
-  const path = join(box, `explain-${packed.version}.tar.gz`);
+  const path = join(box, `visser-${packed.version}.tar.gz`);
   writeFileSync(path, packed.bytes);
   return { path, sha256: packed.archiveSha256 };
 }
@@ -56,8 +56,8 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
     expect(validateAgainst('install', result)).toEqual({ ok: true });
     expect(result).toMatchObject({ scope: 'user', toolkitSha256: digest, origin: { kind: 'local-dir' }, alreadyInstalled: false, trusted: true });
     expect(result.path).toBe(join(home, 'toolchains', digest));
-    expect(readFileSync(join(result.path, 'bin/explain.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/explain.cjs']);
-    expect(result.shim).toBe(join(home, 'bin', 'explain.cjs'));
+    expect(readFileSync(join(result.path, 'bin/visser.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/visser.cjs']);
+    expect(result.shim).toBe(join(home, 'bin', 'visser.cjs'));
     expect(readFileSync(result.shim!, 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
     expect(readTrust(env).toolkits[digest]?.source).toContain('install --from-dir');
     expect(readdirSync(join(home, 'toolchains'))).toEqual([digest]); // no staging left behind
@@ -83,7 +83,7 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
     const hostile = join(box, 'hostile.tar.gz');
     writeFileSync(hostile, gzipFixed(tarBytes([
       { name: 'release.json', data: readFileSync(join(release, 'release.json')) },
-      { name: 'bin/explain.cjs', type: '2', linkname: '/bin/sh' },
+      { name: 'bin/visser.cjs', type: '2', linkname: '/bin/sh' },
     ])));
     await expect(installRelease({ archive: hostile, scope: 'user', env })).rejects.toMatchObject({ code: 'E_INTEGRITY' });
     nothingInstalled();
@@ -109,9 +109,9 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
     const linked = join(box, 'linked');
     makeRelease(linked);
     const real = join(box, 'real-cli.cjs');
-    writeFileSync(real, RELEASE_FILES['bin/explain.cjs']!);
-    execFileSync('rm', [join(linked, 'bin/explain.cjs')]);
-    symlinkSync(real, join(linked, 'bin/explain.cjs'));
+    writeFileSync(real, RELEASE_FILES['bin/visser.cjs']!);
+    execFileSync('rm', [join(linked, 'bin/visser.cjs')]);
+    symlinkSync(real, join(linked, 'bin/visser.cjs'));
     await expect(installRelease({ fromDir: linked, scope: 'user', env })).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/symbolic link/) });
     nothingInstalled();
   });
@@ -119,9 +119,9 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
   it('refuses to replace a corrupt existing installation', async () => {
     const target = join(home, 'toolchains', digest);
     cpSync(release, target, { recursive: true });
-    writeFileSync(join(target, 'bin/explain.cjs'), 'tampered');
+    writeFileSync(join(target, 'bin/visser.cjs'), 'tampered');
     await expect(installRelease({ fromDir: release, scope: 'user', env })).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/does not verify/) });
-    expect(readFileSync(join(target, 'bin/explain.cjs'), 'utf8')).toBe('tampered');
+    expect(readFileSync(join(target, 'bin/visser.cjs'), 'utf8')).toBe('tampered');
     expect(readdirSync(join(home, 'toolchains'))).toEqual([digest]);
   });
 
@@ -137,7 +137,7 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
   it('installs into repository scope without a user shim, and records trust', async () => {
     const repoDir = repo('repo-c');
     const result = await installRelease({ archive: archiveOf(release).path, scope: 'repo', repoRoot: repoDir, env });
-    expect(result.path).toBe(join(repoDir, '.explain', 'toolchains', digest));
+    expect(result.path).toBe(join(repoDir, '.visser', 'toolchains', digest));
     expect(result.shim).toBeUndefined();
     expect(existsSync(join(home, 'bin'))).toBe(false);
     expect(Object.keys(readTrust(env).toolkits)).toEqual([digest]);
@@ -167,9 +167,9 @@ describe('install --from-dir and --archive (§12.1, §12.2) @R09', () => {
 describe('the install and trust commands', () => {
   let out: string[];
   let err: string[];
-  const saved = process.env['EXPLAIN_HOME'];
+  const saved = process.env['VISSER_HOME'];
   beforeEach(() => {
-    process.env['EXPLAIN_HOME'] = home;
+    process.env['VISSER_HOME'] = home;
     out = [];
     err = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => { out.push(String(chunk)); return true; });
@@ -177,15 +177,15 @@ describe('the install and trust commands', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    if (saved === undefined) delete process.env['EXPLAIN_HOME'];
-    else process.env['EXPLAIN_HOME'] = saved;
+    if (saved === undefined) delete process.env['VISSER_HOME'];
+    else process.env['VISSER_HOME'] = saved;
   });
 
-  it('install --json prints a valid explain-install/1 result and the invocation', async () => {
+  it('install --json prints a valid visser-install/1 result and the invocation', async () => {
     expect(await runInstall(parseArgs(['--from-dir', release, '--scope', 'user', '--json']))).toBe(0);
     const result = JSON.parse(out.join(''));
     expect(validateAgainst('install', result)).toEqual({ ok: true });
-    expect(result.invocation).toBe(`node ${join(home, 'bin', 'explain.cjs')}`);
+    expect(result.invocation).toBe(`node ${join(home, 'bin', 'visser.cjs')}`);
     out.length = 0;
     expect(await runInstall(parseArgs(['--from-dir', release, '--scope', 'user']))).toBe(0);
     expect(out.join('')).toMatch(/already installed[\s\S]*PATH and shell startup files were not changed/);
@@ -204,7 +204,7 @@ describe('the install and trust commands', () => {
 
   it('trust toolkit adds and revokes a digest, and gates a repository toolchain', async () => {
     const repoDir = repo('repo-t');
-    cpSync(release, join(repoDir, '.explain', 'toolchains', digest), { recursive: true });
+    cpSync(release, join(repoDir, '.visser', 'toolchains', digest), { recursive: true });
     expect(() => resolveDigest({ digest, repoRoot: repoDir, env })).toThrow(expect.objectContaining({ code: 'E_TOOLKIT_UNTRUSTED' }));
 
     expect(await runTrust(parseArgs(['toolkit', digest, '--json']))).toBe(0);
@@ -266,7 +266,7 @@ describe('install and trust: review fixes (§12.4, §12.7)', () => {
     // The race is timing-dependent on the unlocked code, so run it three times.
     for (let round = 0; round < 3; round++) {
       const roundHome = join(box, `race-${round}`);
-      const roundEnv = { ...env, EXPLAIN_HOME: roundHome };
+      const roundEnv = { ...env, VISSER_HOME: roundHome };
       addTrust(X, 'test', roundEnv);
       const codes = await Promise.all([spawnWorker('add', roundHome, '150'), spawnWorker('revoke', roundHome, '1'), spawnWorker('add', roundHome, '150')]);
       expect(codes).toEqual([0, 0, 0]);
@@ -303,7 +303,7 @@ describe('install and trust: review fixes (§12.4, §12.7)', () => {
     expect(result.toolkitSha256).toBe(old);
     expect(result.shimReplaced).toBe(false);
     expect(result.shim).toBeUndefined();
-    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
+    expect(readFileSync(join(home, 'bin', 'visser.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
     expect(validateAgainst('install', result)).toEqual({ ok: true });
   });
 
@@ -314,9 +314,9 @@ describe('install and trust: review fixes (§12.4, §12.7)', () => {
     makeRelease(older, { ...RELEASE_FILES, 'bin/shim.cjs': '// shim 0.0.0\n' }, '0.0.0');
     const kept = await installRelease({ fromDir: older, scope: 'user', env });
     expect(kept.shimReplaced).toBe(false);
-    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
+    expect(readFileSync(join(home, 'bin', 'visser.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
     const chosen = await installRelease({ fromDir: older, scope: 'user', env, setDefault: true });
     expect(chosen.shimReplaced).toBe(true);
-    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe('// shim 0.0.0\n');
+    expect(readFileSync(join(home, 'bin', 'visser.cjs'), 'utf8')).toBe('// shim 0.0.0\n');
   });
 });

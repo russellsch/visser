@@ -29,9 +29,9 @@ export type OriginResult = {
 
 export type RepositoryMap = ReadonlyMap<string, string>;
 
-/** The user-local repository map (§8.2): `${EXPLAIN_HOME:-~/.explain}/config.json` `repositories`. */
+/** The user-local repository map (§8.2): `${VISSER_HOME:-~/.visser}/config.json` `repositories`. */
 export function userRepositoryMap(env: NodeJS.ProcessEnv = process.env): Map<string, string> {
-  const home = env['EXPLAIN_HOME'] ?? join(env['HOME'] ?? homedir(), '.explain');
+  const home = env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
   const path = join(home, 'config.json');
   const map = new Map<string, string>();
   if (!existsSync(path)) return map;
@@ -107,7 +107,7 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
     const push = (state: OriginState, reason?: string, checkedAt?: string) => {
       origins.push({ id, kind, state, ...(reason ? { reason } : {}), ...(checkedAt ? { checkedAt } : {}) });
       if (state === 'origin-mismatch') {
-        diagnostics.push({ code: 'E_ORIGIN_MISMATCH', severity: 'error', message: `source ${id}: ${reason ?? 'the origin differs from the captured excerpt'}`, path, startLine: target.startLine, targetId: id, suggestedAction: 'recapture with `explain capture … --recapture`, or correct the recorded origin' });
+        diagnostics.push({ code: 'E_ORIGIN_MISMATCH', severity: 'error', message: `source ${id}: ${reason ?? 'the origin differs from the captured excerpt'}`, path, startLine: target.startLine, targetId: id, suggestedAction: 'recapture with `visser capture … --recapture`, or correct the recorded origin' });
       } else if (state === 'origin-unavailable') {
         diagnostics.push({ code: 'W_ORIGIN_UNAVAILABLE', severity: 'warning', message: `source ${id}: origin verification could not run: ${reason ?? ''}`, path, startLine: target.startLine, targetId: id });
       }
@@ -115,7 +115,7 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
 
     if ((a['availability'] ?? 'captured') === 'link-only') { push('link-only'); continue; }
     if (kind === 'example') { push('capture-consistent', 'illustrative example; there is no origin to verify'); continue; }
-    if (kind !== 'git' && kind !== 'working-tree') { push('origin-unavailable', `a ${kind} source has no local origin that Explain can read`); continue; }
+    if (kind !== 'git' && kind !== 'working-tree') { push('origin-unavailable', `a ${kind} source has no local origin that Visser can read`); continue; }
 
     const stored = fenceText(bundle, id);
     if (stored === undefined) { push('origin-unavailable', 'the source has no captured text to compare'); continue; }

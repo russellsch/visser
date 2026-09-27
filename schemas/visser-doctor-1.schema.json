@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-doctor-1.schema.json",
+  "title": "visser doctor --json (§12.7, §17.1): read-only report; doctor never executes repository code",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "ok", "node", "visserHome", "userShim", "defaultToolkit", "toolchains", "trust", "wrappers", "conflicts", "port", "diagnostics"],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["resolved", "none", "no-lock", "error"] },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "version": { "type": "string" },
+        "source": { "enum": ["toolkit-dir", "repository", "user", "running"] },
+        "dir": { "type": "string" },
+        "code": { "type": "string", "pattern": "^[EW]_[A-Z_]+$" },
+        "message": { "type": "string" }
+      }
+    }
+  },
+  "properties": {
+    "schema": { "const": "visser-doctor/1" },
+    "ok": { "type": "boolean" },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "supported"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+" },
+        "supported": { "type": "boolean" }
+      }
+    },
+    "visserHome": { "type": "string", "minLength": 1 },
+    "userShim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "present"],
+      "properties": {
+        "path": { "type": "string" },
+        "present": { "type": "boolean" },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "matchesToolkit": { "type": "boolean" }
+      }
+    },
+    "defaultToolkit": { "$ref": "#/$defs/resolution" },
+    "toolchains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scope", "path", "name", "state", "trusted"],
+        "properties": {
+          "scope": { "enum": ["user", "repository"] },
+          "path": { "type": "string" },
+          "name": { "type": "string" },
+          "state": { "enum": ["verified", "corrupt", "untrusted"] },
+          "trusted": { "type": "boolean" },
+          "version": { "type": "string" },
+          "code": { "type": "string", "pattern": "^[EW]_[A-Z_]+$" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "trust": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha256", "source", "addedAt"],
+        "properties": {
+          "sha256": { "$ref": "#/$defs/digest" },
+          "source": { "type": "string" },
+          "addedAt": { "type": "string" }
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "resolution"],
+      "properties": {
+        "path": { "type": "string" },
+        "lockSha256": { "$ref": "#/$defs/digest" },
+        "resolution": { "$ref": "#/$defs/resolution" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "resolution"],
+      "properties": {
+        "root": { "type": "string" },
+        "defaultSha256": { "$ref": "#/$defs/digest" },
+        "resolution": { "$ref": "#/$defs/resolution" }
+      }
+    },
+    "wrappers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["host", "scope", "path", "sha256", "state"],
+        "properties": {
+          "host": { "enum": ["claude-code", "codex"] },
+          "scope": { "enum": ["repository", "user"] },
+          "path": { "type": "string" },
+          "sha256": { "$ref": "#/$defs/digest" },
+          "state": { "enum": ["matches", "differs", "no-canonical"] }
+        }
+      }
+    },
+    "conflicts": { "type": "array", "items": { "type": "string" } },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port", "available"],
+      "properties": {
+        "host": { "const": "127.0.0.1" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "available": { "type": "boolean" }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "https://visser.invalid/schemas/visser-resolve-1.schema.json#/$defs/diagnostic" }
+    }
+  }
+}

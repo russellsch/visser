@@ -13,10 +13,10 @@ import { validateAgainst } from '../model/schemas.ts';
 export const MANIFEST_NAME = 'extension.json';
 
 export type ExtensionManifest = {
-  schema: 'explain-extension/1';
+  schema: 'visser-extension/1';
   name: string;
   version: string;
-  api: 'explain-component/1';
+  api: 'visser-component/1';
   buildEntry: string;
   browserEntry: null;
   schemaFile: string;
@@ -62,7 +62,7 @@ export function verifyExtensionDir(dir: string): VerifiedExtension {
     fail('E_INTEGRITY', `${MANIFEST_NAME} is not valid JSON`);
   }
   const schema = validateAgainst('extension', manifest);
-  if (!schema.ok) fail('E_INTEGRITY', `${MANIFEST_NAME} violates explain-extension/1: ${schema.errors.join('; ')}`);
+  if (!schema.ok) fail('E_INTEGRITY', `${MANIFEST_NAME} violates visser-extension/1: ${schema.errors.join('; ')}`);
 
   const listed = new Set<string>();
   for (const file of manifest.files) {

@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 3b0c5e2a-3333-4a33-8a33-333333333333
 title: Why the cache missed
 kind: root-cause
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Why the cache missed
 
 {% graph id="miss_cause" mode="cause" title="Two conditions together caused the miss" question="What mechanism links the deploy to the cache miss?" %}

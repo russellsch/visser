@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: b474f2af-e16b-4b15-b1ea-ce972a59c5ad
 title: Why an expired hot key stalled the order API
 kind: root-cause
@@ -12,17 +12,17 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Why an expired hot key stalled the order API
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The stall needed two conditions at once: a heavily read cache key expired, and
 many requests missed it concurrently. Together they sent a burst of identical
 queries to the database, which exhausted its connection pool. The timeline and
 the pool metrics are observed; the stampede is inferred from them; the role of
 client retries is only a hypothesis.
 
-<!-- ex:id p_scope -->
+<!-- vs:id p_scope -->
 This is an illustrative incident written for teaching. The log excerpt below is
 an example, not output from a real system.
 
@@ -98,6 +98,6 @@ This is not a chronological step.
 ```
 {% /source %}
 
-<!-- ex:id p_fix -->
+<!-- vs:id p_fix -->
 The fix follows from the mechanism, not from the timeline: coalesce concurrent
 misses for one key so that only one query reaches the database.

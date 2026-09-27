@@ -72,35 +72,35 @@ describe('Mermaid element mapping (§9.12)', () => {
   it('copies target and relationship attributes from list instances onto the drawing', () => {
     const doc = dom(`<figure id="x-flow">
       ${FLOW_SVG}
-      <a data-ex-target="producer" data-ex-mermaid-key="node:Producer">Producer</a>
-      <a data-ex-target="flow" data-ex-rel="flow~producer~queue~0" data-ex-mermaid-key="edge:L_Producer_Queue_0">Producer to Queue</a>
-      <a data-ex-target="gone" data-ex-mermaid-key="node:Gone">Gone</a>
+      <a data-vs-target="producer" data-vs-mermaid-key="node:Producer">Producer</a>
+      <a data-vs-target="flow" data-vs-rel="flow~producer~queue~0" data-vs-mermaid-key="edge:L_Producer_Queue_0">Producer to Queue</a>
+      <a data-vs-target="gone" data-vs-mermaid-key="node:Gone">Gone</a>
     </figure>`);
     const figure = doc.querySelector('figure')!;
     const svg = figure.querySelector('svg')!;
     const missing = attachTargets(figure, svg, FLOW);
     expect(missing).toBe(1);
     const node = svg.querySelector(`#${FLOW}-flowchart-Producer-0`)!;
-    expect(node.getAttribute('data-ex-target')).toBe('producer');
-    expect(node.hasAttribute('data-ex-interactive')).toBe(true);
+    expect(node.getAttribute('data-vs-target')).toBe('producer');
+    expect(node.hasAttribute('data-vs-interactive')).toBe(true);
     // Drawn elements have no role, so an aria-label on them is prohibited (axe aria-prohibited-attr).
     expect(node.hasAttribute('aria-label')).toBe(false);
     for (const edge of Array.from(svg.querySelectorAll('[data-id="L_Producer_Queue_0"]'))) {
-      expect(edge.getAttribute('data-ex-target')).toBe('flow');
-      expect(edge.getAttribute('data-ex-rel')).toBe('flow~producer~queue~0');
+      expect(edge.getAttribute('data-vs-target')).toBe('flow');
+      expect(edge.getAttribute('data-vs-rel')).toBe('flow~producer~queue~0');
       // A derived relationship has no ID of its own: it is not interactive.
-      expect(edge.hasAttribute('data-ex-interactive')).toBe(false);
-      expect(edge.hasAttribute('data-ex-mermaid-derived')).toBe(true);
+      expect(edge.hasAttribute('data-vs-interactive')).toBe(false);
+      expect(edge.hasAttribute('data-vs-mermaid-derived')).toBe(true);
     }
   });
 
   it('keeps an explicit edge ID interactive', () => {
-    const doc = dom(`<figure id="x-flow">${FLOW_SVG}<a data-ex-target="e1" data-ex-rel="e1" data-ex-mermaid-key="edge:e1">e1</a></figure>`);
+    const doc = dom(`<figure id="x-flow">${FLOW_SVG}<a data-vs-target="e1" data-vs-rel="e1" data-vs-mermaid-key="edge:e1">e1</a></figure>`);
     const figure = doc.querySelector('figure')!;
     attachTargets(figure, figure.querySelector('svg')!, FLOW);
     const edge = figure.querySelector('[data-id="e1"]')!;
-    expect(edge.hasAttribute('data-ex-interactive')).toBe(true);
-    expect(edge.hasAttribute('data-ex-mermaid-derived')).toBe(false);
+    expect(edge.hasAttribute('data-vs-interactive')).toBe(true);
+    expect(edge.hasAttribute('data-vs-mermaid-derived')).toBe(false);
   });
 });
 
@@ -111,7 +111,7 @@ describe('Mermaid loading and failure notices (§9.12)', () => {
   });
 
   it('describes the fallback that the figure actually has', () => {
-    const doc = dom('<figure data-ex-mermaid="flowchart"></figure><figure data-ex-mermaid="other"></figure>');
+    const doc = dom('<figure data-vs-mermaid="flowchart"></figure><figure data-vs-mermaid="other"></figure>');
     const [parsed, figureLevel] = Array.from(doc.querySelectorAll('figure'));
     expect(noticeText(parsed!)).toBe('This diagram could not be drawn. Its source and lists are shown instead.');
     expect(noticeText(figureLevel!)).toBe('This diagram could not be drawn. Its source is shown instead.');

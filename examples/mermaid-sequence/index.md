@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 64c930f4-6228-4ef3-887c-869c7f9484b4
 title: An expired access token costs one extra round trip, not a new login
 kind: teaching
@@ -12,16 +12,16 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id tok_overview -->
+<!-- vs:id tok_overview -->
 # An expired access token costs one extra round trip, not a new login
 
-<!-- ex:id tok_claim -->
+<!-- vs:id tok_claim -->
 When the reports API rejects an expired access token, the client asks the
 token service for a new one with its refresh token and repeats the original
 request. The user sees a slower response, not a login page, unless the refresh
 token itself was revoked.
 
-<!-- ex:id tok_limits -->
+<!-- vs:id tok_limits -->
 This is an illustrative client. It does not show token storage, clock skew, or
 several tabs refreshing at the same time.
 
@@ -50,6 +50,6 @@ sequenceDiagram
 ```
 {% /mermaid %}
 
-<!-- ex:id tok_revoked -->
+<!-- vs:id tok_revoked -->
 After `invalid_grant`, retrying cannot help: the client must start a new login.
 Retrying on that answer only adds load to the token service.

@@ -32,9 +32,9 @@ describe('doctor', () => {
     const probe = join(fx.root, 'probe');
     const S = sentinelToolkit(probe, sentinel);
     const { repo, doc } = repoWithDocument(fx, 'repo', S);
-    cpSync(probe, join(repo, '.explain', 'toolchains', S), { recursive: true });
-    mkdirSync(join(repo, '.explain', 'bin'), { recursive: true });
-    writeFileSync(join(repo, '.explain', 'bin', 'explain.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'shim')\n`);
+    cpSync(probe, join(repo, '.visser', 'toolchains', S), { recursive: true });
+    mkdirSync(join(repo, '.visser', 'bin'), { recursive: true });
+    writeFileSync(join(repo, '.visser', 'bin', 'visser.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'shim')\n`);
 
     const out = captureStdout();
     const code = await runDoctor(parseArgs(['--doc', doc, '--json']), { env: fx.env, cwd: repo, ownRelease: release });
@@ -72,12 +72,12 @@ describe('doctor', () => {
     const fx = fixture();
     const D = installUser(fx, release);
     const { repo, doc } = repoWithDocument(fx, 'repo', D);
-    mkdirSync(join(repo, '.claude', 'skills', 'explain'), { recursive: true });
-    writeFileSync(join(repo, '.claude', 'skills', 'explain', 'SKILL.md'), 'repository wrapper\n');
-    mkdirSync(join(fx.userHome, '.claude', 'skills', 'explain'), { recursive: true });
-    writeFileSync(join(fx.userHome, '.claude', 'skills', 'explain', 'SKILL.md'), 'user wrapper\n');
+    mkdirSync(join(repo, '.claude', 'skills', 'visual-explain'), { recursive: true });
+    writeFileSync(join(repo, '.claude', 'skills', 'visual-explain', 'SKILL.md'), 'repository wrapper\n');
+    mkdirSync(join(fx.userHome, '.claude', 'skills', 'visual-explain'), { recursive: true });
+    writeFileSync(join(fx.userHome, '.claude', 'skills', 'visual-explain', 'SKILL.md'), 'user wrapper\n');
     const report = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
-    // The pack carries the canonical wrapper (skills/explain/wrapper/SKILL.md).
+    // The pack carries the canonical wrapper (skills/visual-explain/wrapper/SKILL.md).
     expect(existsSync(join(release, CANONICAL_WRAPPER))).toBe(true);
     expect(report.wrappers.map((w) => [w.scope, w.state])).toEqual([
       ['repository', 'differs'],
@@ -86,7 +86,7 @@ describe('doctor', () => {
     expect(report.conflicts.some((c) => c.startsWith('claude-code:'))).toBe(true);
 
     // A repository wrapper that is a copy of the canonical text matches.
-    cpSync(join(release, CANONICAL_WRAPPER), join(repo, '.claude', 'skills', 'explain', 'SKILL.md'));
+    cpSync(join(release, CANONICAL_WRAPPER), join(repo, '.claude', 'skills', 'visual-explain', 'SKILL.md'));
     const again = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
     expect(again.wrappers.find((w) => w.scope === 'repository')?.state).toBe('matches');
   });
@@ -103,16 +103,16 @@ describe('skill show', () => {
     const shown = JSON.parse(out.text());
     expect(validateAgainst('skill', shown)).toEqual({ ok: true });
     expect(shown.toolkit).toMatchObject({ sha256: D, source: 'user', dir: join(fx.home, 'toolchains', D) });
-    expect(shown.skill.path).toBe(join(fx.home, 'toolchains', D, 'skills', 'explain', 'SKILL.md'));
+    expect(shown.skill.path).toBe(join(fx.home, 'toolchains', D, 'skills', 'visual-explain', 'SKILL.md'));
     expect(shown.skill.text.length).toBeGreaterThan(0);
-    for (const guide of shown.guides) expect(guide.startsWith(join(fx.home, 'toolchains', D, 'skills', 'explain', 'references'))).toBe(true);
+    for (const guide of shown.guides) expect(guide.startsWith(join(fx.home, 'toolchains', D, 'skills', 'visual-explain', 'references'))).toBe(true);
   });
 
   it('refuses a document whose lock pins an untrusted repository toolchain', async () => {
     const fx = fixture();
     const D = digestOf(release);
     const { repo, doc } = repoWithDocument(fx, 'repo', D);
-    cpSync(release, join(repo, '.explain', 'toolchains', D), { recursive: true });
+    cpSync(release, join(repo, '.visser', 'toolchains', D), { recursive: true });
     await expect(runSkill(parseArgs(['show', '--doc', doc]), { env: fx.env, cwd: repo, ownRelease: release })).rejects.toMatchObject({ code: 'E_TOOLKIT_UNTRUSTED', exitCode: 4 });
   });
 });

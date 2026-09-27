@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 375ab61d-c6b6-4921-b9e0-93168889093f
 title: The cache serves fresh prices after 30 seconds
 kind: teaching
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # The cache serves fresh prices after 30 seconds
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 Readers see the current price from 30 seconds after an update. During those 30
 seconds, the cache can still return the old price.
 

@@ -106,7 +106,7 @@ if (mismatches.length > 0) failed = true;
 
 const traceability = JSON.parse(readFileSync(at('tests/traceability.json'), 'utf8'));
 const shapeErrors = [];
-if (traceability.schema !== 'explain-traceability/1') shapeErrors.push('schema must be explain-traceability/1');
+if (traceability.schema !== 'visser-traceability/1') shapeErrors.push('schema must be visser-traceability/1');
 if (!Array.isArray(traceability.entries)) shapeErrors.push('entries must be an array');
 const ids = new Set();
 for (const [i, e] of (traceability.entries ?? []).entries()) {

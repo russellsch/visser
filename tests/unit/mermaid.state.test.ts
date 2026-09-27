@@ -6,7 +6,7 @@ import { buildTargetRecords } from '../../packages/core/src/model/targets.ts';
 import { projectText } from '../../packages/core/src/model/project.ts';
 
 const doc = (body: string) => `---
-format: explain/1
+format: visser/1
 docId: 0f0c2a52-8a3b-4c61-9f7e-2b6d1c0e9a11
 title: State fixture
 kind: teaching
@@ -14,7 +14,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # State fixture
 
 {% mermaid id="fig" title="Worker states" question="When does the worker rest?" %}

@@ -1,4 +1,4 @@
-// `explain extension install|inspect|trust|pin` (§14.2, §14.3, §17.1).
+// `visser extension install|inspect|trust|pin` (§14.2, §14.3, §17.1).
 // - install copies a verified extension into user or repository storage and
 //   never trusts it;
 // - inspect shows the manifest, the component schema, and the guide, and never
@@ -18,10 +18,10 @@ import { componentSchema, installExtension, locateExtension, pinExtension, verif
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
 
 const USAGE = [
-  'usage: explain extension install --from-dir DIR --scope user|repo [--root DIR] [--json]',
-  '       explain extension inspect DIR|DIGEST [--json]',
-  '       explain extension trust DIGEST [--revoke] [--json]',
-  '       explain extension pin DOC DIGEST [--dry-run] [--json]',
+  'usage: visser extension install --from-dir DIR --scope user|repo [--root DIR] [--json]',
+  '       visser extension inspect DIR|DIGEST [--json]',
+  '       visser extension trust DIGEST [--revoke] [--json]',
+  '       visser extension pin DOC DIGEST [--dry-run] [--json]',
 ].join('\n');
 
 const DIGEST = /^[0-9a-f]{64}$/;
@@ -51,7 +51,7 @@ function inspect(args: ParsedArgs, json: boolean): number {
   const guideText = readFileSync(join(ext.dir, ...ext.manifest.guide.split('/')), 'utf8');
   const guide = guideText.length > GUIDE_LIMIT ? `${guideText.slice(0, GUIDE_LIMIT - 20)}\n[guide truncated]\n` : guideText;
   const result = {
-    schema: 'explain-extension-inspect/1' as const,
+    schema: 'visser-extension-inspect/1' as const,
     name: ext.manifest.name, version: ext.manifest.version, sha256: ext.sha256, path: ext.dir, location,
     trusted: isExtensionTrusted(ext.sha256), executable: true as const, buildEntry: ext.manifest.buildEntry,
     files: ext.manifest.files, componentSchema: componentSchema(ext), guide,
@@ -88,14 +88,14 @@ function trust(args: ParsedArgs, json: boolean): number {
   if (!DIGEST.test(digest)) throw new CliError('E_USAGE', `an extension digest is 64 lowercase hex characters, not ${JSON.stringify(digest)}`, EXIT.invalid);
   const revoke = booleanFlag(args, 'revoke');
   const before = isExtensionTrusted(digest);
-  let result: { schema: 'explain-extension-trust/1'; digest: string; trusted: boolean; changed: boolean; source?: string; addedAt?: string };
+  let result: { schema: 'visser-extension-trust/1'; digest: string; trusted: boolean; changed: boolean; source?: string; addedAt?: string };
   if (revoke) {
     if (before) revokeTrust(digest, process.env, 'extensions');
-    result = { schema: 'explain-extension-trust/1', digest, trusted: false, changed: before };
+    result = { schema: 'visser-extension-trust/1', digest, trusted: false, changed: before };
   } else {
     const store = before ? readTrust() : addTrust(digest, 'extension trust', process.env, undefined, 'extensions');
     const entry = store.extensions![digest]!;
-    result = { schema: 'explain-extension-trust/1', digest, trusted: true, changed: !before, source: entry.source, addedAt: entry.addedAt };
+    result = { schema: 'visser-extension-trust/1', digest, trusted: true, changed: !before, source: entry.source, addedAt: entry.addedAt };
   }
   if (json) printJson('extensionTrust', result);
   else if (result.trusted) {
@@ -120,7 +120,7 @@ function install(args: ParsedArgs, json: boolean): number {
       `${result.alreadyInstalled ? 'already installed' : 'installed'} extension ${result.name} ${result.version} (${scope} scope)`,
       `  digest: ${result.sha256}`,
       `  path: ${result.path}`,
-      result.trusted ? '  trusted: yes' : `  trusted: no (installing never trusts; review with \`explain extension inspect ${result.sha256}\`, then \`explain extension trust ${result.sha256}\`)`,
+      result.trusted ? '  trusted: yes' : `  trusted: no (installing never trusts; review with \`visser extension inspect ${result.sha256}\`, then \`visser extension trust ${result.sha256}\`)`,
     ].join('\n') + '\n');
   }
   return EXIT.ok;

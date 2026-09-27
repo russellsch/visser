@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 2e8f5e0e-1cc9-43b1-8bc4-51c1685e5f49
 title: How the queue applies back pressure
 kind: teaching
@@ -12,15 +12,15 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # How the queue applies back pressure
 
-<!-- ex:id p_one -->
+<!-- vs:id p_one -->
 The bounded queue window (BQW) limit stops producers when the queue holds 64
 items.
 
-<!-- ex:id p_two -->
+<!-- vs:id p_two -->
 A worker that removes an item lowers the BQW count by one.
 
-<!-- ex:id p_three -->
+<!-- vs:id p_three -->
 When the BQW count falls below the limit, one waiting producer continues.

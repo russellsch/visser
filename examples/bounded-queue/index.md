@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 title: A full queue blocks producers, not consumers
 kind: teaching
@@ -12,20 +12,20 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # A full queue blocks producers, not consumers
 
-<!-- ex:id p_takeaway -->
+<!-- vs:id p_takeaway -->
 The queue bounds the number of stored items by making producers wait when it is
 full. A consumer taking an item creates space; it does not mean that processing
 of that item has finished. {% cite ref="src_queue" /%}
 
-<!-- ex:id p_limits -->
+<!-- vs:id p_limits -->
 This is a teaching implementation, not a production design. It has no timeout,
 cancellation, shutdown protocol, or fairness guarantee. The example does not
 establish how a particular production codebase behaves.
 
-<!-- ex:id p_vocabulary -->
+<!-- vs:id p_vocabulary -->
 This is {% term ref="def_backpressure" %}backpressure{% /term %}: the queue
 makes the producer wait rather than accept unlimited pending work.
 
@@ -57,7 +57,7 @@ wait for the consumer to finish processing. {% cite ref="src_queue" /%}
 {% /edge %}
 {% /graph %}
 
-<!-- ex:id p_trace -->
+<!-- vs:id p_trace -->
 One possible execution begins with a full queue. Follow
 {% focus targets=["enqueue", "event_wait", "event_remove"] %}the wait and release{% /focus %}.
 This is one possible ordering, not every legal thread interleaving.

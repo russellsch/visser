@@ -14,5 +14,5 @@ What supports the claim that identical queries filled the connection pool? Show 
 **B-T4. Identify a limitation or uncertainty.**
 Which part of the explanation is least certain, and why?
 
-**B-T5 (Explain condition only). Request a precise change.**
+**B-T5 (Visser condition only). Request a precise change.**
 Copy a reference to the part of the document about client retries. Write a one-line request for an agent to add the retry metrics once they are available.

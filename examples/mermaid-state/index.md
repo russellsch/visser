@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: fc51c531-4784-4722-893c-9368c8965549
 title: A card payment is captured only after an explicit amount check
 kind: teaching
@@ -12,16 +12,16 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id pay_overview -->
+<!-- vs:id pay_overview -->
 # A card payment is captured only after an explicit amount check
 
-<!-- ex:id pay_claim -->
+<!-- vs:id pay_claim -->
 Authorization reserves an amount; capture moves money. Between the two, the
 service checks the requested capture amount against the authorized amount. A
 capture above the authorized amount is refused, and the payment stays
 authorized rather than failing.
 
-<!-- ex:id pay_limits -->
+<!-- vs:id pay_limits -->
 This is an illustrative lifecycle. Real card networks add partial captures,
 authorization expiry, and refunds, which are not shown.
 
@@ -45,6 +45,6 @@ stateDiagram-v2
 ```
 {% /mermaid %}
 
-<!-- ex:id pay_void -->
+<!-- vs:id pay_void -->
 A void is possible only from Authorized. Once a payment is captured, returning
 money is a refund, which is a separate payment in this design.

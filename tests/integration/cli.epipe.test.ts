@@ -1,4 +1,4 @@
-// A reader that closes the pipe early (`explain skill show | head -1`) must
+// A reader that closes the pipe early (`visser skill show | head -1`) must
 // not crash the CLI with an unhandled EPIPE; the command finishes and exits
 // with its own code.
 import { spawn } from 'node:child_process';
@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
-const cli = join(release, 'bin/explain.cjs');
+const cli = join(release, 'bin/visser.cjs');
 
 function closedPipe(args: string[]): Promise<{ status: number | null; stderr: string }> {
   return new Promise((resolve) => {

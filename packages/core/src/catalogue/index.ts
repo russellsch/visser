@@ -1,6 +1,6 @@
 // The component catalogue (§9.1, §17.1 `catalogue list|show`). Each pattern
-// has a guide in the toolkit at skills/explain/references/catalogue/NAME.md.
-// The guide holds the prose and one `markdown explain-template` fence; the
+// has a guide in the toolkit at skills/visual-explain/references/catalogue/NAME.md.
+// The guide holds the prose and one `markdown visser-template` fence; the
 // attribute rules come from the validator's TAG_SPECS, so they cannot drift.
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,7 +40,7 @@ export type TagSchema = {
 };
 
 export function catalogueDir(toolkitDir: string): string {
-  return join(toolkitDir, 'skills', 'explain', 'references', 'catalogue');
+  return join(toolkitDir, 'skills', 'visual-explain', 'references', 'catalogue');
 }
 
 export function findPattern(name: string): CataloguePattern | undefined {
@@ -61,7 +61,7 @@ export function guideHeader(text: string): { title: string; question: string } {
   return { title, question };
 }
 
-/** The single `markdown explain-template` fence of a guide, without its fence lines. */
+/** The single `markdown visser-template` fence of a guide, without its fence lines. */
 export function guideTemplate(text: string): string {
   const lines = text.split('\n');
   const found: string[] = [];
@@ -72,10 +72,10 @@ export function guideTemplate(text: string): string {
     const close = lines.findIndex((l, j) => j > i && l.startsWith(fence) && l.slice(fence.length).trim() === '');
     if (close === -1) throw new Error(`unclosed fence at line ${i + 1}`);
     const info = open[2]!.trim().split(/\s+/);
-    if (info[0] === 'markdown' && info[1] === 'explain-template') found.push(lines.slice(i + 1, close).join('\n') + '\n');
+    if (info[0] === 'markdown' && info[1] === 'visser-template') found.push(lines.slice(i + 1, close).join('\n') + '\n');
     i = close;
   }
-  if (found.length !== 1) throw new Error(`a catalogue guide needs exactly one explain-template fence, not ${found.length}`);
+  if (found.length !== 1) throw new Error(`a catalogue guide needs exactly one visser-template fence, not ${found.length}`);
   return found[0]!;
 }
 

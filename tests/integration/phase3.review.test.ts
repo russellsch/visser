@@ -15,7 +15,7 @@ import { forkDocument, parsePacket, replaceTarget, resolveReference, retireTarge
 const EXAMPLE = new URL('../../examples/bounded-queue/index.md', import.meta.url).pathname;
 
 function tempRepo(): { repo: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-p3review-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-p3review-'));
   mkdirSync(join(repo, '.git'));
   mkdirSync(join(repo, 'docs/explanations/queue'), { recursive: true });
   const doc = join(repo, 'docs/explanations/queue/index.md');
@@ -48,7 +48,7 @@ describe('replace keeps its own ID checks under the guarded write (review B1) @T
   });
 
   it('a replacement that adds a sibling with an existing ID is E_ID_RETENTION', () => {
-    const r = replace('p_limits', (span) => span + '\n<!-- ex:id p_trace -->\nDuplicate.\n');
+    const r = replace('p_limits', (span) => span + '\n<!-- vs:id p_trace -->\nDuplicate.\n');
     expect(r.code).toBe('E_ID_RETENTION');
   });
 
@@ -62,7 +62,7 @@ describe('replace keeps its own ID checks under the guarded write (review B1) @T
 describe('retire quotes YAML-reserved IDs in retiredTargets (review B3)', () => {
   it('retires true and null with replacement false; each resolves deleted with its advisory replacement', () => {
     const { repo, doc } = tempRepo();
-    writeFileSync(doc, `---\nformat: explain/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: Reserved IDs\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n\n<!-- ex:id false -->\nKeep.\n\n<!-- ex:id true -->\nFirst.\n\n<!-- ex:id null -->\nSecond.\n`);
+    writeFileSync(doc, `---\nformat: visser/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: Reserved IDs\nkind: teaching\ncapturedAt: 2026-09-26T00:00:00Z\nvisibility: private\n---\n\n<!-- vs:id false -->\nKeep.\n\n<!-- vs:id true -->\nFirst.\n\n<!-- vs:id null -->\nSecond.\n`);
     expect(loadBundle(doc).diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
     for (const [id, replacement] of [['true', 'false'], ['null', 'false']] as const) {
       const packet = parsePacket(showReference(doc, id, { repoRoot: repo }).yaml);
@@ -78,7 +78,7 @@ describe('retire quotes YAML-reserved IDs in retiredTargets (review B3)', () => 
 });
 
 function forkRepo(): { repo: string; dir: string; doc: string } {
-  const repo = mkdtempSync(join(tmpdir(), 'explain-p3fork-'));
+  const repo = mkdtempSync(join(tmpdir(), 'visser-p3fork-'));
   mkdirSync(join(repo, '.git'));
   const dir = join(repo, 'docs/explanations/source');
   mkdirSync(dir, { recursive: true });
@@ -150,7 +150,7 @@ describe('repeated single-valued guard flags are refused (review B7)', () => {
     const packetFile = join(repo, 'p.yaml');
     writeFileSync(packetFile, showReference(doc, 'p_limits', { repoRoot: repo }).yaml);
     const replacement = join(repo, 'r.md');
-    writeFileSync(replacement, '<!-- ex:id p_limits -->\nChanged.\n');
+    writeFileSync(replacement, '<!-- vs:id p_limits -->\nChanged.\n');
     const rev = loadBundle(doc).sourceRevision!;
     const codeOf = async (run: () => Promise<number>) => {
       try { return `exit ${await run()}`; } catch (e) { if (e instanceof CliError) return e.code; throw e; }

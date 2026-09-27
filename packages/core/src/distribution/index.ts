@@ -1,5 +1,5 @@
 export { verifyReleaseDir, type VerifiedRelease } from './release.ts';
-export { addTrust, explainHome, isTrusted, readTrust, revokeTrust, trustPath, type TrustEntry, type TrustStore } from './trust.ts';
+export { addTrust, visserHome, isTrusted, readTrust, revokeTrust, trustPath, type TrustEntry, type TrustStore } from './trust.ts';
 export { installFromRelease, installRelease, type InstallOptions, type InstallOrigin, type InstallResult, type InstallScope, type ReleaseInstallOptions } from './install.ts';
 export { assetName, displayUrl, downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, MAX_HOPS, REPOSITORY_PATTERN, resolveReleaseAsset, VERSION_PATTERN } from './fetch.ts';
 export { packRelease, type PackedRelease } from './pack.ts';

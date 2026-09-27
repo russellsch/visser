@@ -1,5 +1,5 @@
 {
- "schema": "explain-hash-vectors/spike-1",
+ "schema": "visser-hash-vectors/spike-1",
  "cases": [
   {
    "id": "t_ascii",
@@ -181,7 +181,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/example.txt",
@@ -204,7 +204,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tDQpmb3JtYXQ6IGV4cGxhaW4vMQ0KLS0tDQoNCjwhLS0gZXg6aWQgaW50cm8gLS0+DQojIFRpdGxlDQo="
+     "contentB64": "LS0tDQpmb3JtYXQ6IHZpc3Nlci8xDQotLS0NCg0KPCEtLSB2czppZCBpbnRybyAtLT4NCiMgVGl0bGUNCg=="
     },
     {
      "path": "evidence/example.txt",
@@ -232,7 +232,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "77u/LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "77u/LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/example.txt",
@@ -250,7 +250,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/example.txt",
@@ -272,7 +272,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/\ud83d\ude00.txt",
@@ -309,7 +309,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/cafe\u0301.txt",
@@ -326,7 +326,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "../secret.txt",
@@ -343,7 +343,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/../../x.txt",
@@ -360,7 +360,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "/etc/passwd",
@@ -377,7 +377,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "./notes.txt",
@@ -394,7 +394,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence\\x.txt",
@@ -411,7 +411,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence//x.txt",
@@ -428,7 +428,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/",
@@ -445,7 +445,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "evidence/x\u0000.txt",
@@ -462,7 +462,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     },
     {
      "path": "index.md",
@@ -491,7 +491,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     }
    ]
   },
@@ -503,7 +503,7 @@
     {
      "path": "index.md",
      "kind": "text",
-     "contentB64": "LS0tCmZvcm1hdDogZXhwbGFpbi8xCi0tLQoKPCEtLSBleDppZCBpbnRybyAtLT4KIyBUaXRsZQo="
+     "contentB64": "LS0tCmZvcm1hdDogdmlzc2VyLzEKLS0tCgo8IS0tIHZzOmlkIGludHJvIC0tPgojIFRpdGxlCg=="
     }
    ]
   },
@@ -665,127 +665,127 @@
   {
    "id": "u_ok",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_ok_hyphen_underscore",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/b_7tmj7g2h-x?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/b_7tmj7g2h-x?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_body_first",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   {
    "id": "u_duplicate_rev",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_unknown_key",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&x=1"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&x=1"
   },
   {
    "id": "u_missing_body",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   {
    "id": "u_trailing_amp",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&"
   },
   {
    "id": "u_uppercase_hex",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_short_hex",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_port",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239:80/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239:80/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_credentials",
    "op": "uri_parse",
-   "uri": "explain://user@4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://user@4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_fragment",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb#x"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb#x"
   },
   {
    "id": "u_empty_fragment",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb#"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb#"
   },
   {
    "id": "u_encoded_slash",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/a%2Fb?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/a%2Fb?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_encoded_letter",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/%65nqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/%65nqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_bad_percent",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/a%zz?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/a%zz?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_extra_segment",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue/more?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue/more?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_trailing_slash",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue/?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue/?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_no_target",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_upper_uuid",
    "op": "uri_parse",
-   "uri": "explain://4F8AC70C-7E14-4F06-9865-E194F57C7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4F8AC70C-7E14-4F06-9865-E194F57C7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_uuid_v1",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_target_upper",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/Enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/Enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_target_digit_first",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/1abc?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/1abc?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_target_65",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_target_64",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_wrong_scheme",
@@ -795,27 +795,27 @@
   {
    "id": "u_scheme_upper",
    "op": "uri_parse",
-   "uri": "EXPLAIN://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "VISSER://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_single_slash",
    "op": "uri_parse",
-   "uri": "explain:/4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser:/4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_non_ascii",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqu\u00e9ue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqu\u00e9ue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_whitespace",
    "op": "uri_parse",
-   "uri": " explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": " visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   {
    "id": "u_plus_in_query",
    "op": "uri_parse",
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   }
  ]
 }

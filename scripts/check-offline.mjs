@@ -22,13 +22,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const cli = join(root, 'dist', 'release', 'bin', 'explain.cjs');
+const cli = join(root, 'dist', 'release', 'bin', 'visser.cjs');
 const reportPath = join(root, 'reports', 'offline.json');
 const INNER = '--inside-namespace';
 
 function report(result) {
   mkdirSync(dirname(reportPath), { recursive: true });
-  writeFileSync(reportPath, JSON.stringify({ schema: 'explain-offline-report/1', ...result }, null, 2) + '\n');
+  writeFileSync(reportPath, JSON.stringify({ schema: 'visser-offline-report/1', ...result }, null, 2) + '\n');
 }
 
 function notRun(reason) {
@@ -77,7 +77,7 @@ const isolation = {
 };
 // Test seam: one more HOST:PORT that must also fail. The test points it at a
 // listening local server to prove that a reachable address gives "not run".
-const extra = process.env['EXPLAIN_OFFLINE_EXTRA_PROBE'];
+const extra = process.env['VISSER_OFFLINE_EXTRA_PROBE'];
 if (extra) {
   const [host, port] = [extra.slice(0, extra.lastIndexOf(':')), Number(extra.slice(extra.lastIndexOf(':') + 1))];
   isolation[`tcp ${extra}`] = await tcpFails(host, port);
@@ -99,11 +99,11 @@ function pass(step, detail = '') {
   console.log(`ok   ${step}${detail ? `: ${detail}` : ''}`);
 }
 
-const home = mkdtempSync(join(tmpdir(), 'explain-offline-home-'));
-const repo = mkdtempSync(join(tmpdir(), 'explain-offline-repo-'));
+const home = mkdtempSync(join(tmpdir(), 'visser-offline-home-'));
+const repo = mkdtempSync(join(tmpdir(), 'visser-offline-repo-'));
 mkdirSync(join(repo, '.git'));
-const env = { ...process.env, EXPLAIN_HOME: home };
-function explain(step, ...args) {
+const env = { ...process.env, VISSER_HOME: home };
+function visser(step, ...args) {
   const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env, cwd: repo });
   if (r.status !== 0) fail(step, `exit ${r.status}\n${r.stdout}${r.stderr}`);
   pass(step);
@@ -112,7 +112,7 @@ function explain(step, ...args) {
 
 const bundle = join(repo, 'docs', 'offline');
 const doc = join(bundle, 'index.md');
-explain('init', 'init', bundle, '--kind', 'teaching', '--title', 'Offline check');
+visser('init', 'init', bundle, '--kind', 'teaching', '--title', 'Offline check');
 // A Mermaid figure makes the page need mermaid.js too.
 appendFileSync(doc, [
   '',
@@ -126,11 +126,11 @@ appendFileSync(doc, [
   '{% /mermaid %}',
   '',
 ].join('\n'));
-explain('ids assign', 'ids', 'assign', doc);
-explain('check', 'check', doc);
-explain('build', 'build', doc);
+visser('ids assign', 'ids', 'assign', doc);
+visser('check', 'check', doc);
+visser('build', 'build', doc);
 const markdown = join(repo, 'offline.md');
-explain('export markdown', 'export', doc, '--format', 'markdown', '--out', markdown);
+visser('export markdown', 'export', doc, '--format', 'markdown', '--out', markdown);
 if (!readFileSync(markdown, 'utf8').includes('Where the producer waits')) fail('export markdown', 'the projection lacks the figure');
 
 // The site export is Phase 4b work in progress; run it only when it exists.
@@ -184,9 +184,9 @@ try {
     urls[name] = new URL(rel, pageUrl).href;
   }
   // The runtime loads mermaid.js from the directory of reader.js, with the SRI
-  // digest from <meta name="ex-mermaid"> (§9.12). Check the same bytes.
-  const integrity = /<meta name="ex-mermaid" content="(sha384-[^"]+)"/.exec(html)?.[1];
-  if (!integrity) fail('read mermaid.js', 'the page has no ex-mermaid integrity meta element');
+  // digest from <meta name="vs-mermaid"> (§9.12). Check the same bytes.
+  const integrity = /<meta name="vs-mermaid" content="(sha384-[^"]+)"/.exec(html)?.[1];
+  if (!integrity) fail('read mermaid.js', 'the page has no vs-mermaid integrity meta element');
   urls['mermaid.js'] = new URL('mermaid.js', urls['reader.js']).href;
   for (const [name, url] of Object.entries(urls)) {
     const asset = await fetch(url);

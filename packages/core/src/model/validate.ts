@@ -517,7 +517,7 @@ function validateSource(
   }
   const expected = a['excerptSha256'];
   if (typeof expected !== 'string') {
-    report('E_EVIDENCE_HASH', `captured source ${t.id} has no excerptSha256; capture it with \`explain capture\``, t);
+    report('E_EVIDENCE_HASH', `captured source ${t.id} has no excerptSha256; capture it with \`visser capture\``, t);
     return;
   }
   let actual: string | undefined;

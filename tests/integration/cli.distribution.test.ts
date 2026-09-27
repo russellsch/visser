@@ -1,6 +1,6 @@
 // Phase 4a end to end (§12, §17.1): install the built release, then run every
 // new command through the built CLI and through the installed user shim. Each
-// test uses its own EXPLAIN_HOME; nothing touches the real ~/.explain.
+// test uses its own VISSER_HOME; nothing touches the real ~/.visser.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,10 +11,10 @@ import { toolkitCopy } from './resolution.fixtures.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
-const cli = join(release, 'bin/explain.cjs');
+const cli = join(release, 'bin/visser.cjs');
 
 function home(): NodeJS.ProcessEnv {
-  return { ...process.env, EXPLAIN_HOME: mkdtempSync(join(tmpdir(), 'explain-home-')) };
+  return { ...process.env, VISSER_HOME: mkdtempSync(join(tmpdir(), 'visser-home-')) };
 }
 const run = (env: NodeJS.ProcessEnv, entry: string, ...args: string[]) =>
   spawnSync(process.execPath, [entry, ...args], { encoding: 'utf8', env });
@@ -28,20 +28,20 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
     const result = JSON.parse(installed.stdout);
     expect(validateAgainst('install', result)).toEqual({ ok: true });
     expect(result.default).toBe(true);
-    const shim = join(env.EXPLAIN_HOME!, 'bin/explain.cjs');
+    const shim = join(env.VISSER_HOME!, 'bin/visser.cjs');
     expect(result.shim).toBe(shim);
-    expect(readFileSync(join(env.EXPLAIN_HOME!, 'default'), 'utf8').trim()).toBe(result.toolkitSha256);
-    const trust = JSON.parse(readFileSync(join(env.EXPLAIN_HOME!, 'trust.json'), 'utf8'));
+    expect(readFileSync(join(env.VISSER_HOME!, 'default'), 'utf8').trim()).toBe(result.toolkitSha256);
+    const trust = JSON.parse(readFileSync(join(env.VISSER_HOME!, 'trust.json'), 'utf8'));
     expect(Object.keys(trust.toolkits)).toEqual([result.toolkitSha256]);
 
     // Two repositories share the one user installation.
     for (const name of ['repo-a', 'repo-b']) {
-      const repo = mkdtempSync(join(tmpdir(), `explain-${name}-`));
+      const repo = mkdtempSync(join(tmpdir(), `visser-${name}-`));
       mkdirSync(join(repo, '.git'));
       const doc = join(repo, 'docs', 'notes');
       const init = run(env, shim, 'init', doc, '--kind', 'teaching', '--title', 'Notes');
       expect(init.status, init.stderr).toBe(0);
-      const lock = JSON.parse(readFileSync(join(doc, 'explain.lock.json'), 'utf8'));
+      const lock = JSON.parse(readFileSync(join(doc, 'visser.lock.json'), 'utf8'));
       expect(lock.toolkit.sha256).toBe(result.toolkitSha256);
       const check = run(env, shim, 'check', join(doc, 'index.md'), '--release');
       expect(check.status, check.stderr).toBe(0);
@@ -66,15 +66,15 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
   it('@R09 upgrade through the shim moves a document to a second installed toolkit and rebuilds', () => {
     const env = home();
     expect(run(env, cli, 'install', '--from-dir', release, '--scope', 'user', '--default').status).toBe(0);
-    const shim = join(env.EXPLAIN_HOME!, 'bin/explain.cjs');
-    const repo = mkdtempSync(join(tmpdir(), 'explain-repo-'));
+    const shim = join(env.VISSER_HOME!, 'bin/visser.cjs');
+    const repo = mkdtempSync(join(tmpdir(), 'visser-repo-'));
     mkdirSync(join(repo, '.git'));
     const doc = join(repo, 'docs', 'notes');
     expect(run(env, shim, 'init', doc, '--kind', 'teaching', '--title', 'Notes').status).toBe(0);
-    const lockPath = join(doc, 'explain.lock.json');
+    const lockPath = join(doc, 'visser.lock.json');
     const before = JSON.parse(readFileSync(lockPath, 'utf8')).toolkit.sha256 as string;
 
-    const second = join(mkdtempSync(join(tmpdir(), 'explain-b-')), 'release');
+    const second = join(mkdtempSync(join(tmpdir(), 'visser-b-')), 'release');
     const B = toolkitCopy(second, (dir) => appendFileSync(join(dir, 'browser', 'reader.css'), '\n/* b */\n'));
     expect(B).not.toBe(before);
     expect(run(env, cli, 'install', '--from-dir', second, '--scope', 'user').status).toBe(0);
@@ -96,7 +96,7 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
   it('the shim without a default or a document stops with E_TOOLKIT_MISSING and guidance', () => {
     const env = home();
     expect(run(env, cli, 'install', '--from-dir', release, '--scope', 'user').status).toBe(0);
-    const result = run(env, join(env.EXPLAIN_HOME!, 'bin/explain.cjs'), 'doctor');
+    const result = run(env, join(env.VISSER_HOME!, 'bin/visser.cjs'), 'doctor');
     expect(result.status).toBe(3);
     expect(result.stderr).toContain('E_TOOLKIT_MISSING');
     expect(result.stderr).toContain('--default');
@@ -104,20 +104,20 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
 
   it('--default needs the user scope', () => {
     const env = home();
-    const repo = mkdtempSync(join(tmpdir(), 'explain-repo-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-repo-'));
     const result = run(env, cli, 'install', '--from-dir', release, '--scope', 'repo', '--root', repo, '--default');
     expect(result.status).toBe(2);
-    expect(existsSync(join(env.EXPLAIN_HOME!, 'default'))).toBe(false);
+    expect(existsSync(join(env.VISSER_HOME!, 'default'))).toBe(false);
   });
 
   it('@R09 a repository installation is trusted by install; trust toolkit --revoke marks it untrusted', () => {
     const env = home();
-    const repo = mkdtempSync(join(tmpdir(), 'explain-repo-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-repo-'));
     mkdirSync(join(repo, '.git'));
     const installed = run(env, cli, 'install', '--from-dir', release, '--scope', 'repo', '--root', repo, '--json');
     expect(installed.status, installed.stderr).toBe(0);
     const digest = JSON.parse(installed.stdout).toolkitSha256 as string;
-    expect(existsSync(join(repo, '.explain/toolchains', digest, 'release.json'))).toBe(true);
+    expect(existsSync(join(repo, '.visser/toolchains', digest, 'release.json'))).toBe(true);
 
     const revoked = run(env, cli, 'trust', 'toolkit', digest, '--revoke', '--json');
     expect(revoked.status, revoked.stderr).toBe(0);
@@ -138,7 +138,7 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
   });
 
   it('release:pack gives the same archive twice, and install --archive accepts it', () => {
-    const out = mkdtempSync(join(tmpdir(), 'explain-pack-'));
+    const out = mkdtempSync(join(tmpdir(), 'visser-pack-'));
     const pack = (name: string) => {
       execFileSync(process.execPath, [join(root, 'scripts/release.mjs'), release, join(out, name)], { cwd: root, encoding: 'utf8' });
       return join(out, name);

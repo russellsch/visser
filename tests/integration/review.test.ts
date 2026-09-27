@@ -1,4 +1,4 @@
-// `explain check DOC --review` through the built CLI (§15.6, §17.1): review
+// `visser check DOC --review` through the built CLI (§15.6, §17.1): review
 // prompts are warnings, never change the exit code, and appear only when the
 // document has no errors. `check` also reports the semantic errors that build
 // reports (validate.ts), with or without --review.
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
 const fixture = (name: string, variant: 'good' | 'bad') => join(root, 'tests/fixtures/editorial', name, variant, 'index.md');
 const REVIEW = /^W_(JARGON|VISUAL_DENSITY|EVIDENCE_GAP)$/;
@@ -43,7 +43,7 @@ describe('@R16 check --review', () => {
   });
 
   it('a document with an error gets no review prompts, and the exit code is the error\'s', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-review-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-review-'));
     cpSync(join(root, 'tests/fixtures/editorial/architecture-as-order/bad'), join(dir, 'doc'), { recursive: true });
     const doc = join(dir, 'doc', 'index.md');
     writeFileSync(doc, readFileSync(doc, 'utf8').replace('id="e_api_store" from="api" to="store" kind="data"', 'id="e_api_store" from="api" to="store" kind="bogus"'));
@@ -55,7 +55,7 @@ describe('@R16 check --review', () => {
   });
 
   it('check reports a semantic error that build reports (an invalid edge kind), with no --review', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-review-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-review-'));
     cpSync(join(root, 'examples/bounded-queue'), join(dir, 'doc'), { recursive: true });
     const doc = join(dir, 'doc', 'index.md');
     writeFileSync(doc, readFileSync(doc, 'utf8').replace('kind="blocking-call" label="put waits while full"', 'kind="bogus" label="put waits while full"'));

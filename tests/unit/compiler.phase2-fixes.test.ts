@@ -30,12 +30,12 @@ describe('phase 2 layout and narrow-view fixes @R06', () => {
 
   it('groups narrow-screen trace cards by actor with order, after, and message data', async () => {
     const markup = await html('order-intake');
-    const byActor = markup.slice(markup.indexOf('<div class="ex-trace-by-actor"'));
-    const groups = [...byActor.matchAll(/<section class="ex-actor-group" aria-label="([^"]*)"/g)].map((m) => m[1]);
+    const byActor = markup.slice(markup.indexOf('<div class="vs-trace-by-actor"'));
+    const groups = [...byActor.matchAll(/<section class="vs-actor-group" aria-label="([^"]*)"/g)].map((m) => m[1]);
     expect(groups.length).toBeGreaterThan(1);
     expect(byActor).toContain('Order layer');
-    expect(byActor).toMatch(/data-ex-rel="[a-z0-9_-]+~after~[a-z0-9_-]+"/);
-    expect(byActor).toContain('ex-message-to');
+    expect(byActor).toMatch(/data-vs-rel="[a-z0-9_-]+~after~[a-z0-9_-]+"/);
+    expect(byActor).toContain('vs-message-to');
     // Instance IDs in the card view never repeat the flat list's IDs.
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
     expect(new Set(ids).size).toBe(ids.length);

@@ -1,4 +1,4 @@
-# Example GitHub Pages publication for an Explain export (ARCHITECTURE.md §13.5).
+# Example GitHub Pages publication for a Visser export (ARCHITECTURE.md §13.5).
 #
 # Disabled by default, in two ways:
 #   1. The file name ends in `.example`, so GitHub does not run it. To enable
@@ -8,14 +8,14 @@
 #
 # It publishes a folder that you exported, reviewed, and committed yourself:
 #
-#   explain export --collection docs/explanations/collection.json \
+#   visser export --collection docs/explanations/collection.json \
 #     --format site --audience public --out site
 #
 # It does not build documents, install the toolkit, or read any secret.
 #
 # Every action is pinned to a full commit SHA. On 27 September 2026 each SHA
 # was checked with `git ls-remote` against the release tag in its comment.
-name: Publish Explain site
+name: Publish Visser site
 
 on:
   workflow_dispatch:

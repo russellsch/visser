@@ -1,5 +1,5 @@
-// `explain upgrade` core (§12.3, §17.1): semver precedence for release
-// versions, and the guarded write of explain.lock.json (§11.9). Toolkit
+// `visser upgrade` core (§12.3, §17.1): semver precedence for release
+// versions, and the guarded write of visser.lock.json (§11.9). Toolkit
 // resolution and the target toolkit's check and rebuild live in the CLI.
 import { constants, closeSync, fsyncSync, lstatSync, openSync, renameSync, rmSync, statSync, chmodSync, writeSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -58,12 +58,12 @@ export function upgradedLockText(originalText: string, target: LockTarget): stri
   try {
     lock = JSON.parse(originalText) as Record<string, unknown>;
   } catch {
-    fail('E_SYNTAX', 'explain.lock.json is not valid JSON');
+    fail('E_SYNTAX', 'visser.lock.json is not valid JSON');
   }
   lock['toolkit'] = { version: target.version, sha256: target.sha256, origin: { kind: 'local-dir' } };
   const next = { ...lock };
   const check = validateAgainst('lock', next);
-  if (!check.ok) fail('E_SYNTAX', `the new lock would violate explain-lock/1: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_SYNTAX', `the new lock would violate visser-lock/1: ${check.errors.join('; ')}`);
   return JSON.stringify(next, null, 2) + '\n';
 }
 
@@ -78,23 +78,23 @@ export type LockWriteOptions = {
 };
 
 /**
- * Guarded write of explain.lock.json (§11.9): the document's edit lock, a
+ * Guarded write of visser.lock.json (§11.9): the document's edit lock, a
  * raw-hash recheck under the lock, schema validation, and an atomic rename.
  * A change by anyone else between the first read and the rename is
  * E_WRITE_CONFLICT, and the other writer's bytes stay.
  */
 export function writeLockGuarded(opts: LockWriteOptions): void {
   const { lockPath } = opts;
-  if (lstatSync(lockPath).isSymbolicLink()) fail('E_PATH_ESCAPE', 'explain.lock.json is a symbolic link');
+  if (lstatSync(lockPath).isSymbolicLink()) fail('E_PATH_ESCAPE', 'visser.lock.json is a symbolic link');
   const parsed = JSON.parse(opts.candidate) as unknown;
   const check = validateAgainst('lock', parsed);
-  if (!check.ok) fail('E_SYNTAX', `the new lock would violate explain-lock/1: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_SYNTAX', `the new lock would violate visser-lock/1: ${check.errors.join('; ')}`);
   const rawHash = sha256Hex(opts.original);
   // Bounded, no-follow reread: a symlink or a swapped file is a conflict.
   const unchanged = (): boolean => {
     let bytes: Uint8Array | undefined;
     try {
-      bytes = readBoundedBytes(lockPath, 'explain.lock.json');
+      bytes = readBoundedBytes(lockPath, 'visser.lock.json');
     } catch (error) {
       if (error instanceof HashError) return false;
       throw error;
@@ -106,7 +106,7 @@ export function writeLockGuarded(opts: LockWriteOptions): void {
   try {
     // A writer that finished before we took the lock is also a conflict.
     if (!unchanged()) {
-      fail('E_WRITE_CONFLICT', 'explain.lock.json changed since upgrade read it; nothing was written');
+      fail('E_WRITE_CONFLICT', 'visser.lock.json changed since upgrade read it; nothing was written');
     }
     tempPath = join(dirname(lockPath), `.${basename(lockPath)}.${lockToken(opts.fsContext)}.tmp`);
     const fd = openSync(tempPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
@@ -119,7 +119,7 @@ export function writeLockGuarded(opts: LockWriteOptions): void {
     chmodSync(tempPath, statSync(lockPath).mode & 0o7777);
     opts.fsContext?.beforeRename?.(lockPath);
     if (!unchanged()) {
-      fail('E_WRITE_CONFLICT', 'explain.lock.json changed during the upgrade; nothing was written');
+      fail('E_WRITE_CONFLICT', 'visser.lock.json changed during the upgrade; nothing was written');
     }
     renameSync(tempPath, lockPath);
     tempPath = undefined;
@@ -130,5 +130,5 @@ export function writeLockGuarded(opts: LockWriteOptions): void {
 }
 
 export function lockDiff(oldText: string, newText: string): string {
-  return unifiedDiff(oldText, newText, 'explain.lock.json');
+  return unifiedDiff(oldText, newText, 'visser.lock.json');
 }

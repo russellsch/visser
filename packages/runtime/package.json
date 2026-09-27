@@ -1,5 +1,5 @@
 {
-  "name": "@explain/runtime",
+  "name": "@visser/runtime",
   "version": "0.0.0",
   "private": true,
   "type": "module",

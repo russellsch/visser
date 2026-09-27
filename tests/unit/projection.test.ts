@@ -9,8 +9,8 @@ const model = buildTargetRecords(parsed);
 const text = projectText(parsed);
 
 describe('semantic Markdown projection (§7.6) @R01 @R14', () => {
-  it('lists every target exactly once with an explain-text/1 ID line', () => {
-    const ids = [...text.matchAll(/<!-- ex:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
+  it('lists every target exactly once with an visser-text/1 ID line', () => {
+    const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
     expect(ids.sort()).toEqual([...model.targets.keys()].sort());
   });
 
@@ -25,7 +25,7 @@ describe('semantic Markdown projection (§7.6) @R01 @R14', () => {
   it('states trace partial order explicitly, not as observed sequence', () => {
     expect(text).toContain('Ordering, not duration.');
     for (const r of model.relationships.filter((r) => r.kind === 'order')) {
-      const block = text.slice(text.indexOf(`<!-- ex:target ${r.to} -->`));
+      const block = text.slice(text.indexOf(`<!-- vs:target ${r.to} -->`));
       // Label and ID, as the page shows the label (P9).
       expect(block.split('\n').find((l) => l.startsWith('after:'))).toContain(`${model.targets.get(r.from)!.label} (${r.from})`);
     }

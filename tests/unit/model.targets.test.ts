@@ -67,8 +67,8 @@ describe('derived target fields (§7.1) @R02 @R03', () => {
 
   it('keeps identity when a block moves, and changes only positions @T02 @T03', () => {
     const text = new TextDecoder().decode(bytes);
-    const para = text.slice(text.indexOf('<!-- ex:id p_limits -->'), text.indexOf('<!-- ex:id p_vocabulary -->'));
-    const moved = text.replace(para, '').replace('<!-- ex:id p_trace -->', para + '<!-- ex:id p_trace -->');
+    const para = text.slice(text.indexOf('<!-- vs:id p_limits -->'), text.indexOf('<!-- vs:id p_vocabulary -->'));
+    const moved = text.replace(para, '').replace('<!-- vs:id p_trace -->', para + '<!-- vs:id p_trace -->');
     const after = buildTargetRecords(parseSource(new TextEncoder().encode(moved), 'index.md'));
     expect(after.diagnostics).toEqual([]);
     expect(after.targets.get('p_limits')!.bodySha256).toBe(t('p_limits').bodySha256);

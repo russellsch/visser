@@ -1,8 +1,8 @@
 ---
-format: explain/1
+format: visser/1
 base: &b x
 title: *b
 ---
 
-<!-- ex:id p -->
+<!-- vs:id p -->
 Para.

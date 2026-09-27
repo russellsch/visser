@@ -19,7 +19,7 @@ const SHORT_FIELD_MAX = 200;
 
 /** Canonical reference URI; query order is rev, then body (§11.2). */
 export function referenceUri(f: Pick<PacketFields, 'docId' | 'targetId' | 'sourceRevision' | 'bodySha256'>): string {
-  return `explain://${f.docId}/${f.targetId}?rev=${f.sourceRevision}&body=${f.bodySha256}`;
+  return `visser://${f.docId}/${f.targetId}?rev=${f.sourceRevision}&body=${f.bodySha256}`;
 }
 
 /** Collapse whitespace runs to one space (§11.3 quote normalization). */
@@ -49,7 +49,7 @@ function shortField(s: string): string {
 export function buildPacketYaml(f: PacketFields): string {
   const q = (s: string) => JSON.stringify(s);
   const lines = [
-    `schema: ${q('explain-ref/1')}`,
+    `schema: ${q('visser-ref/1')}`,
     `uri: ${q(referenceUri(f))}`,
     `docId: ${q(f.docId)}`,
     `targetId: ${q(f.targetId)}`,
@@ -73,7 +73,7 @@ export function buildPacketYaml(f: PacketFields): string {
       lines.push(`  exact: ${q(exact)}`);
       lines.push(`  prefix: ${q(lastCodePoints(normalizeWhitespace(f.quote.prefix, false), QUOTE_CONTEXT_MAX))}`);
       lines.push(`  suffix: ${q(codePoints(normalizeWhitespace(f.quote.suffix, false), QUOTE_CONTEXT_MAX))}`);
-      lines.push(`  projection: ${q('explain-text/1')}`);
+      lines.push(`  projection: ${q('visser-text/1')}`);
     }
   }
   return lines.join('\n') + '\n';

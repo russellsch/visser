@@ -8,7 +8,7 @@ import { HashError } from '../../packages/core/src/model/hash.ts';
 import { parseSource } from '../../packages/core/src/syntax/index.ts';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 
-const fm = (extra: string) => `---\nformat: explain/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n${extra}---\n\n<!-- ex:id p1 -->\nIntro.\n`;
+const fm = (extra: string) => `---\nformat: visser/1\ndocId: 4f8ac70c-7e14-4f06-9865-e194f57c7239\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n${extra}---\n\n<!-- vs:id p1 -->\nIntro.\n`;
 const frontmatter = (text: string) => parseSource(new TextEncoder().encode(text), 'index.md').frontmatter;
 
 function codeOf(fn: () => unknown): string | undefined {
@@ -108,7 +108,7 @@ describe('docId rewrite for fork (§11.5)', () => {
 describe('retirement and repository fixtures (fixtures/negative/<CODE>/retire/) @T07', () => {
   const root = new URL('../../fixtures/', import.meta.url).pathname;
   const load = (text: string) => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-retire-fixture-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-retire-fixture-'));
     writeFileSync(join(dir, 'index.md'), text);
     return loadBundle(join(dir, 'index.md'));
   };

@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 4b0c5e2a-4444-4a44-8a44-444444444444
 title: Queue options
 kind: decision
@@ -7,7 +7,7 @@ capturedAt: 2026-09-27T00:00:00Z
 visibility: private
 ---
 
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Queue options
 
 {% compare id="queue_choice" title="Blocking and dropping queues fail differently" question="Which failure behavior does each queue have?" %}

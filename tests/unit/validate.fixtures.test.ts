@@ -45,7 +45,7 @@ describe('positive family fixtures @R01 @R14', () => {
     });
     it(`${name} projects every target once and every relationship as a tuple`, () => {
       const text = projectText(parsed);
-      const ids = [...text.matchAll(/<!-- ex:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
+      const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
       expect(ids.sort()).toEqual([...model.targets.keys()].sort());
       for (const r of model.relationships.filter((r) => r.kind !== 'order')) {
         const from = model.targets.get(r.from)!.label;
@@ -53,7 +53,7 @@ describe('positive family fixtures @R01 @R14', () => {
         expect(text).toContain(`${from} --[${r.kind}; ${r.label}]--> ${to}`);
       }
       for (const r of model.relationships.filter((r) => r.kind === 'order')) {
-        const block = text.slice(text.indexOf(`<!-- ex:target ${r.to} -->`));
+        const block = text.slice(text.indexOf(`<!-- vs:target ${r.to} -->`));
         expect(block.split('\n').find((l) => l.startsWith('after:'))).toContain(r.from);
       }
     });
@@ -69,7 +69,7 @@ describe('graph size caps (§2.3)', () => {
   const doc = (n: number, edges = 0) => {
     const nodes = Array.from({ length: n }, (_, i) => `{% node id="n${i}" label="N${i}" role="process" /%}`).join('\n');
     const links = Array.from({ length: edges }, (_, i) => `{% edge id="e${i}" from="n0" to="n1" kind="call" label="calls ${i}" /%}`).join('\n');
-    return `---\nformat: explain/1\ndocId: 9c0c5e2a-9999-4a99-8a99-999999999999\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n---\n\n{% graph id="big" mode="architecture" title="T" question="Q?" %}\nI.\n\n${nodes}\n${links}\n{% /graph %}\n`;
+    return `---\nformat: visser/1\ndocId: 9c0c5e2a-9999-4a99-8a99-999999999999\ntitle: T\nkind: teaching\ncapturedAt: 2026-09-27T00:00:00Z\nvisibility: private\n---\n\n{% graph id="big" mode="architecture" title="T" question="Q?" %}\nI.\n\n${nodes}\n${links}\n{% /graph %}\n`;
   };
   it('warns above 25 nodes', () => {
     const codes = analyze(doc(26)).diagnostics.map((d) => `${d.severity}:${d.code}`);

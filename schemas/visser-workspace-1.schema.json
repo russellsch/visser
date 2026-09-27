@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://visser.invalid/schemas/visser-workspace-1.schema.json",
+  "title": "Visser workspace or user config (visser-workspace/1, §12.3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": { "const": "visser-workspace/1" },
+    "documentRoots": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "pattern": "^[^/\\\\\\u0000]" }
+    },
+    "defaultToolkit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sha256"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "basePath": { "type": "string", "pattern": "^/" },
+        "publicOrigin": { "type": "string", "pattern": "^https?://" }
+      }
+    }
+  }
+}

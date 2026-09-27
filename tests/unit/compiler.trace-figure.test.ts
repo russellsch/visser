@@ -18,16 +18,16 @@ describe('trace figure @R04 @R06', () => {
   const orders = bundle.model.relationships.filter((r) => r.kind === 'order');
 
   it('draws an SVG in a map/list figure, with one instance for every event, actor, and order', () => {
-    expect(figure).toContain('data-ex-views="map list"');
-    expect(figure).toContain('<div class="ex-viewport" data-ex-viewport="">');
+    expect(figure).toContain('data-vs-views="map list"');
+    expect(figure).toContain('<div class="vs-viewport" data-vs-viewport="">');
     expect(events.length).toBeGreaterThan(0);
     for (const t of [...events, ...actors]) expect(figure, t.id).toContain(`id="v-full_queue_trace.${t.id}"`);
     for (const r of orders) expect(figure, r.id).toContain(`id="v-full_queue_trace.${r.id}"`);
   });
 
   it('keeps the lists: the flat event list and the actor cards are still present', () => {
-    expect(figure).toContain('class="ex-trace-events"');
-    expect(figure).toContain('class="ex-trace-by-actor"');
+    expect(figure).toContain('class="vs-trace-events"');
+    expect(figure).toContain('class="vs-trace-by-actor"');
     for (const e of events) expect(figure, e.id).toContain(`id="l-full_queue_trace.${e.id}"`);
   });
 
@@ -56,7 +56,7 @@ describe('trace figure @R04 @R06', () => {
     }));
     const pathOf = (id: string) => {
       const start = svg.indexOf(`id="v-f.${id}"`);
-      return /class="ex-line" d="([^"]+)"/.exec(svg.slice(start))![1]!;
+      return /class="vs-line" d="([^"]+)"/.exec(svg.slice(start))![1]!;
     };
     expect(pathOf('a~b').split('L').length).toBe(2); // straight down to the box directly below
     expect(pathOf('a~c').split('L').length).toBeGreaterThan(3); // around through the gutter

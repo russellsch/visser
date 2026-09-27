@@ -1,0 +1,85 @@
+# State and lifecycle — `graph mode="state"`
+
+**Question:** What states are possible, and which events and guards permit transitions?
+
+## Use it when
+
+- An object has a lifecycle, and the reader must know which moves are allowed.
+- A guard or an action on a transition is the point, for example "close waits
+  until in-flight is zero".
+- Failure and timeout paths matter as much as the normal path.
+
+## Do not use it when
+
+- The point is one concrete run with waits. Use `trace`.
+- There are two independent machines. Use two figures; v1 has no regions.
+- The states are really steps of a plan. Use `plan`.
+
+## Misleading example
+
+**Reject:** a state diagram presented as proof that the code never reaches
+another state.
+
+**Prefer:** say that the figure shows the transitions the design permits, and
+cite the code that enforces each guard. A state diagram is not formal
+verification.
+
+## Tags and attributes
+
+| Tag | Required | Optional |
+|---|---|---|
+| `graph` | `id`, `title`, `question`, `mode` | — |
+| `state` | `id`, `label` | `initial`, `terminal` |
+| `transition` | `id`, `from`, `to`, `event`, `label` | `guard`, `action`, `basis` |
+
+- `initial` and `terminal` are booleans: `initial=true`.
+- `basis`: `observed`, `inferred`, `hypothesis`, `stipulated`.
+
+## Rules
+
+- `state` and `transition` go directly inside the `graph`.
+- `from` and `to` name states in the same figure.
+- At most one state is `initial`.
+- A `terminal` state has no outgoing transition.
+- Cycles and self-transitions are allowed.
+- Do not invent a guard that the source does not state.
+
+## Narrow screens and text
+
+The text view lists each state with its outgoing transitions, their event,
+guard, and action. Arrow labels show the event and guard.
+
+## Template
+
+```markdown visser-template
+{% graph id="lifecycle" mode="state" title="Close waits for in-flight requests" question="Which events move a connection toward closed, and which guard delays it?" %}
+Draining sits between open and closed.
+
+{% state id="st_open" label="Open" initial=true %}
+Accepts new requests.
+{% /state %}
+
+{% state id="st_draining" label="Draining" %}
+Accepts no new requests while at least one request is in flight.
+{% /state %}
+
+{% state id="st_closed" label="Closed" terminal=true %}
+The socket is released and never reused.
+{% /state %}
+
+{% transition id="tr_close" from="st_open" to="st_draining" event="close requested" label="close requested" action="stop accepting requests" /%}
+
+{% transition id="tr_drained" from="st_draining" to="st_closed" event="last response" label="last response" guard="in-flight = 0" action="release socket" %}
+The guard makes close graceful.
+{% /transition %}
+
+{% transition id="tr_fail" from="st_open" to="st_closed" event="transport error" label="transport error" action="fail in-flight requests" /%}
+{% /graph %}
+```
+
+## Diagnostics
+
+- `E_SEMANTIC`: two initial states, or a transition leaves a terminal state.
+  Split the figure or remove the transition.
+- `E_SYNTAX`: `initial="true"` in quotes. Write `initial=true`.
+- `E_REF_BROKEN`: `from` or `to` is not a state in this figure.

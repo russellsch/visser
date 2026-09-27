@@ -13,29 +13,29 @@
 
 | Task | Format | n | Mean score | Correct (score 2) | Median time to correct | Median effort | Median confidence |
 |---|---|---|---|---|---|---|---|
-| A-T1 | Explain | | | | | | |
+| A-T1 | Visser | | | | | | |
 | A-T1 | Baseline | | | | | | |
-| A-T2 | Explain | | | | | | |
+| A-T2 | Visser | | | | | | |
 | A-T2 | Baseline | | | | | | |
-| A-T3 | Explain | | | | | | |
+| A-T3 | Visser | | | | | | |
 | A-T3 | Baseline | | | | | | |
-| A-T4 | Explain | | | | | | |
+| A-T4 | Visser | | | | | | |
 | A-T4 | Baseline | | | | | | |
-| B-T1 | Explain | | | | | | |
+| B-T1 | Visser | | | | | | |
 | B-T1 | Baseline | | | | | | |
-| B-T2 | Explain | | | | | | |
+| B-T2 | Visser | | | | | | |
 | B-T2 | Baseline | | | | | | |
-| B-T3 | Explain | | | | | | |
+| B-T3 | Visser | | | | | | |
 | B-T3 | Baseline | | | | | | |
-| B-T4 | Explain | | | | | | |
+| B-T4 | Visser | | | | | | |
 | B-T4 | Baseline | | | | | | |
 
-## Paired differences (Explain minus baseline), per participant
+## Paired differences (Visser minus baseline), per participant
 
 | Participant | Order | Correctness difference | Time difference |
 |---|---|---|---|
 
-## Reference task (Explain only)
+## Reference task (Visser only)
 
 | Task | Successes / attempts |
 |---|---|

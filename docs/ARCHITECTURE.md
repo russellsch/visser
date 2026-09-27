@@ -1,9 +1,9 @@
-# Explain: architecture and implementation design
+# Visser: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.22, 27 September 2026 (fixes from the first real authoring run; review fixes for Phases 4 and 5 in 1.21; Phase 5 implemented in 1.20; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.23, 27 September 2026 (the tool is renamed from Explain to Visser; fixes from the first real authoring run in 1.22; review fixes for Phases 4 and 5 in 1.21; Phase 5 implemented in 1.20; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
-> **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
+> **Working name:** `Visser`; executable: `visser`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
 
 ## Reading and implementation guide
@@ -48,7 +48,7 @@ For the architecture, read §§1–5. For authoring and rendering, read §§6–
 
 A good explanation enables a reader to reconstruct a system, follow an execution, predict the consequences of a relevant change, and find the evidence behind important claims. Terseness is useful only insofar as it reduces cognitive work without hiding the mechanism or qualifications.
 
-Explain consists of three cooperating pieces:
+Visser consists of three cooperating pieces:
 
 - **Editorial skill:** chooses the explanation, order, evidence, vocabulary, and visual pattern.
 - **Component catalogue:** offers well-specified explanatory representations and guidance on their appropriate use.
@@ -162,7 +162,7 @@ The agent resolves the reference locally, reads its current source and dependenc
 
 ### 3.4 Reuse across repositories
 
-A user installs a pinned toolkit release once in their user folder. Repositories contain small config/lock files and document sources. A repository can instead install the same release under `.explain/`; its code runs only after the user trusts that digest (§12.4). Exact document locks prevent a user-level update from silently changing an older document.
+A user installs a pinned toolkit release once in their user folder. Repositories contain small config/lock files and document sources. A repository can instead install the same release under `.visser/`; its code runs only after the user trusts that digest (§12.4). Exact document locks prevent a user-level update from silently changing an older document.
 
 ### 3.5 Share a snapshot
 
@@ -193,7 +193,7 @@ Essential vocabulary is introduced where first needed. A glossary is for recall 
                   |
              writes / captures
                   v
-   [ Document source bundle ] <---- IDs/edits ---- [ Explain CLI ]
+   [ Document source bundle ] <---- IDs/edits ---- [ Visser CLI ]
                   |                                  |
                   | parse + validate                 | resolves pinned release
                   v                                  v
@@ -251,7 +251,7 @@ A browser URL is a location. A Git file location is provenance. Neither is the d
 
 Use **TypeScript, Node.js 24 LTS, npm workspaces, Markdoc, JSON Schema/Ajv, ELK at build time, and vanilla browser TypeScript**. Node's release documentation identifies the 24 series as LTS at the research date.[S01] Do not introduce React, Next.js, a database, an API service, or a browser layout engine for v1.
 
-Markdoc provides Markdown-based syntax, custom tags, validation hooks, and a parse/transform/render pipeline with source location information.[S02][S03][S04] Explain uses those facilities but defines its own restricted authoring profile and semantic IR. Never expose all Markdoc evaluation capabilities to document content.
+Markdoc provides Markdown-based syntax, custom tags, validation hooks, and a parse/transform/render pipeline with source location information.[S02][S03][S04] Visser uses those facilities but defines its own restricted authoring profile and semantic IR. Never expose all Markdoc evaluation capabilities to document content.
 
 ELK is used only inside a bounded build worker for graph layout. Its documented JavaScript interface supports nodes, ports, edges, and layout options.[S05] Sequences and tables use our simpler deterministic layouts rather than forcing every visual through ELK.
 
@@ -274,7 +274,7 @@ Resolve released versions at implementation bootstrap and commit exact `package-
 ### 5.3 Repository layout
 
 ```text
-explain/
+visser/
   package.json                    # npm workspace; scripts named in §17
   package-lock.json
   tsconfig.base.json
@@ -307,8 +307,8 @@ explain/
       server.ts
       installation.ts
   schemas/                        # normative runtime schemas
-  skills/explain/SKILL.md
-  skills/explain/references/       # short authoring/review/reference guides
+  skills/visual-explain/SKILL.md
+  skills/visual-explain/references/       # short authoring/review/reference guides
   catalogue/                      # human/agent guide per component family
   templates/                      # optional topic starters, not mandatory headings
   examples/                       # compilable source bundles
@@ -337,10 +337,10 @@ The v1 document is one UTF-8 Markdown file with restricted Markdoc tags, plus op
 
 ```text
 my-repo/
-  .explain/config.json
+  .visser/config.json
   docs/explanations/queue/
     index.md                      # authoritative narrative + component data
-    explain.lock.json             # exact toolkit and optional content imports
+    visser.lock.json             # exact toolkit and optional content imports
     evidence/                     # optional captured text, never whole .git
     assets/                       # document-specific PNG/JPEG/WebP
 ```
@@ -351,7 +351,7 @@ Multi-file narrative includes are deferred. This avoids ambiguous source spans a
 
 ```yaml
 ---
-format: explain/1
+format: visser/1
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 title: Why the ingestion queue blocks
 kind: architecture
@@ -374,24 +374,24 @@ Required: `format`, `docId`, `title`, `kind`, `capturedAt`, `visibility`. `kind`
 Use a reserved comment immediately before an ordinary addressable block:
 
 ```markdown
-<!-- ex:id intro -->
+<!-- vs:id intro -->
 # Why the queue blocks
 
-<!-- ex:id p_capacity -->
+<!-- vs:id p_capacity -->
 A full queue makes the producer wait. It does not imply that workers stopped.
 
-<!-- ex:id limits -->
+<!-- vs:id limits -->
 - The queue bounds stored items.
 - It does not bound how long a producer can wait.
 ```
 
-This is an **Explain convention**, not a built-in Markdoc identity feature. Markdoc documents comment tokenization with `allowComments: true`; the parser adapter must characterize the exact pinned version.[S03] Only comments matching this reserved marker grammar are metadata. Ordinary comments are retained in source and excluded from the reader.
+This is an **Visser convention**, not a built-in Markdoc identity feature. Markdoc documents comment tokenization with `allowComments: true`; the parser adapter must characterize the exact pinned version.[S03] Only comments matching this reserved marker grammar are metadata. Ordinary comments are retained in source and excluded from the reader.
 
 Marker rules:
 
-- A marker is a whole line matching `^[ ]{0,3}<!-- ex:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$`.
+- A marker is a whole line matching `^[ ]{0,3}<!-- vs:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$`.
 - The next nonblank token must be an addressable sibling block; another intervening comment or marker is an error.
-- The adapter rejects with `E_SYNTAX` any comment line with trailing text after `-->` (Markdoc silently drops that text) and any comment whose content starts with `ex:id` but is not a whole-line marker (a multi-line marker passes a raw-line check).
+- The adapter rejects with `E_SYNTAX` any comment line with trailing text after `-->` (Markdoc silently drops that text) and any comment whose content starts with `vs:id` but is not a whole-line marker (a multi-line marker passes a raw-line check).
 - An ordinary comment must stand alone as a block, with blank lines around it; a comment line inside a paragraph splits it and is `E_SYNTAX`.
 - A marker must follow a blank line (or the frontmatter): without one, Markdoc makes the marker interrupt the paragraph above it. `ids assign` inserts that blank line when needed.
 - IDs are document-wide, case-sensitive, ASCII, and never generated from line numbers or current text hashes.
@@ -433,7 +433,7 @@ Allowed content: CommonMark prose, ordinary tables through the pinned tokenizer 
 
 **Rejected content** (`E_UNSAFE_CONTENT` for dynamic features and raw HTML, `E_SYNTAX` for malformed or unknown syntax). Raw HTML other than recognized comments (with `html: true`, an inline `<!-- -->` arrives as an `html_inline` token and is treated as a comment), JSX, script tags, styles, event-handler attributes, Markdoc `if`/`partial`, variables, functions, and unknown tags. HTML inside a fenced code block is ordinary displayed code.
 
-**Raw-HTML detection is the adapter's job, not a Markdoc guarantee.** With HTML disabled, markdown-it under Markdoc turns raw HTML into escaped literal text, so no HTML node reaches the AST and the build would succeed with wrong output. The adapter tokenizes with `html: true`, which yields `html_block`/`html_inline` tokens for prose HTML only (none from fences or inline code, while `ex:id` markers remain comment tokens), and rejects those tokens. Fixtures: a `<div>` block, inline `<span>`, an `<img onerror>` in prose (all rejected), and the same text in a fence and in inline code (all accepted).
+**Raw-HTML detection is the adapter's job, not a Markdoc guarantee.** With HTML disabled, markdown-it under Markdoc turns raw HTML into escaped literal text, so no HTML node reaches the AST and the build would succeed with wrong output. The adapter tokenizes with `html: true`, which yields `html_block`/`html_inline` tokens for prose HTML only (none from fences or inline code, while `vs:id` markers remain comment tokens), and rejects those tokens. Fixtures: a `<div>` block, inline `<span>`, an `<img onerror>` in prose (all rejected), and the same text in a fence and in inline code (all accepted).
 
 ### 6.6 Primitive tags
 
@@ -509,7 +509,7 @@ type TargetRecord = {
 };
 
 type DocumentIR = {
-  schema: 'explain-ir/1';
+  schema: 'visser-ir/1';
   docId: DocId;
   metadata: DocumentMetadata;
   blocks: BlockIR[];
@@ -520,7 +520,7 @@ type DocumentIR = {
 };
 
 type BuildManifest = {
-  schema: 'explain-build/1';
+  schema: 'visser-build/1';
   docId: DocId;
   sourceRevision: Sha256;
   buildId: Sha256;
@@ -590,7 +590,7 @@ Use SHA-256 from Node's `crypto`. This is identity/integrity machinery, not proo
 
 ```json
 {
-  "schema": "explain-source-manifest/1",
+  "schema": "visser-source-manifest/1",
   "docId": "<uuid>",
   "files": [
     {"path": "index.md", "sha256": "<normalized-text-digest>"},
@@ -606,7 +606,7 @@ Sort file entries by normalized relative path, using the same code-point order a
 
 `bodySha256 = sha256(normalized original target span)`.
 
-`buildId = sha256(canonicalJSON({schema:'explain-build-input/1', sourceRevision, toolkitSha256, extensionDigests, effectiveRenderOptions}))`. `effectiveRenderOptions` is exactly `{"audience": "private"|"public", "includeSource": bool, "layoutFallback": bool}` with every key always present, so an omitted key and a default value cannot hash differently. Serving options (host, port, public origin, base path, cache policy) are never members. Extension digests are unique lowercase 64-hex strings sorted ascending. Layout defaults and security/render behavior come from the exact toolkit digest. No wall clock, random layout seed, or current working-directory path enters a build.
+`buildId = sha256(canonicalJSON({schema:'visser-build-input/1', sourceRevision, toolkitSha256, extensionDigests, effectiveRenderOptions}))`. `effectiveRenderOptions` is exactly `{"audience": "private"|"public", "includeSource": bool, "layoutFallback": bool}` with every key always present, so an omitted key and a default value cannot hash differently. Serving options (host, port, public origin, base path, cache policy) are never members. Extension digests are unique lowercase 64-hex strings sorted ascending. Layout defaults and security/render behavior come from the exact toolkit digest. No wall clock, random layout seed, or current working-directory path enters a build.
 
 Moving a block changes the source revision but not its target identity. Moving a source file within its bundle changes the revision because its declared path changes. Moving the whole document folder does not change relative bundle paths. Reformatting a block changes its body digest but not its identity.
 
@@ -622,7 +622,7 @@ Screenshot pixels may differ across operating-system fonts and browsers. Byte-id
 
 ### 7.6 Text projection
 
-`explain export --format markdown` outputs a readable, complete linear projection from IR: main narrative, component summaries, explicit relationship labels, inspection bodies, definitions, source excerpts/metadata, and target identifiers. It does not simply strip tags from the original source or scrape rendered HTML. Each object in the projection is preceded by an `explain-text/1` ID line, `<!-- ex:target ID -->`, so tests can extract target IDs. Quote normalization (§11.3) applies to target `plainText`, not to `document.md`.
+`visser export --format markdown` outputs a readable, complete linear projection from IR: main narrative, component summaries, explicit relationship labels, inspection bodies, definitions, source excerpts/metadata, and target identifiers. It does not simply strip tags from the original source or scrape rendered HTML. Each object in the projection is preceded by an `visser-text/1` ID line, `<!-- vs:target ID -->`, so tests can extract target IDs. Quote normalization (§11.3) applies to target `plainText`, not to `document.md`.
 
 For each component, the projection must enumerate meaningful objects and relationships. A graph edge becomes, for example, `Producer --[blocking call; waits when full]--> Bounded queue`, followed by its detail and evidence. A concurrent trace describes partial order rather than fabricating a single execution order: events appear in authored order, each with an explicit `after:` line, its branch, and any excluded branches, so the text order does not read as an observed order.
 
@@ -648,8 +648,8 @@ A source block has either one fenced captured text/code body or an `asset` path,
 ### 8.2 Git capture command
 
 ```sh
-# Proposed Explain CLI. REPO, revision, path, and line range are explicit inputs.
-explain capture git \
+# Proposed Visser CLI. REPO, revision, path, and line range are explicit inputs.
+visser capture git \
   --repo /path/to/repository \
   --rev HEAD \
   --file src/queue.cpp \
@@ -704,7 +704,7 @@ Generated verification state is one of:
 - `origin-unavailable`: content is captured, but origin verification could not run.
 - `link-only`: there is no captured evidence.
 
-Use these exact ideas in UI language. Do not shorten them to “true” or “verified claim.” Ordinary offline build checks capture consistency only. `explain check --verify-origins` is explicit, reads local Git objects with the §8.2 procedure, and never fetches (`protocol.allow=never`).
+Use these exact ideas in UI language. Do not shorten them to “true” or “verified claim.” Ordinary offline build checks capture consistency only. `visser check --verify-origins` is explicit, reads local Git objects with the §8.2 procedure, and never fetches (`protocol.allow=never`).
 
 **Where the states appear (v1):** rendered pages show only `capture-consistent` or `link-only`, recomputed at every build, so no stale verification result reaches a reader. `check --verify-origins` reports one state per source in its output and in `origins` in its JSON: `origin-matched`, `origin-mismatch` (`E_ORIGIN_MISMATCH`), `origin-unavailable` (`W_ORIGIN_UNAVAILABLE`), `working-tree-matched` (with `checkedAt`), `capture-consistent` for `example` sources, or `link-only`. `--repo-map` may repeat. Showing origin states on pages would need an explicit `build --verify-origins` option in `effectiveRenderOptions`; that is deferred.
 
@@ -754,11 +754,11 @@ interface SourceRecord {
 
 The catalogue is organized by the reader's question, not by visual fashion. Implement five rendering kernels—graph, trace, transform, comparison, and annotated artifact—with mode-specific semantic validation. Share definitions, details, evidence, references, navigation, and responsive behavior across all families.
 
-Every top-level visual requires `id`, `title`, and `question`; its leading Markdown body supplies a concise interpretation. Do not print the `question` as a repeated ornamental heading when the title already answers it. It remains available in the catalogue/semantic export and in figure metadata: the figure carries `data-ex-question` and a visually hidden description referenced by `aria-describedby`.
+Every top-level visual requires `id`, `title`, and `question`; its leading Markdown body supplies a concise interpretation. Do not print the `question` as a repeated ornamental heading when the title already answers it. It remains available in the catalogue/semantic export and in figure metadata: the figure carries `data-vs-question` and a visually hidden description referenced by `aria-describedby`.
 
 Each component guide must include: question answered; when to use; when not to use; required source material; minimal example; misleading example; narrow-screen behavior; text fallback; accessibility behavior; inspection targets; an attribute table generated from the JSON Schema (required/optional, enums); allowed child tags; family-specific validation rules; the likely diagnostics with fixes; and one example of its text projection. Contract tests compile every guide example.
 
-**Required format guide:** `skills/explain/references/format.md` covers §6.2–6.6 and the §8.6 source tag rules (frontmatter, marker grammar and placement, one-line tag openings, primitive tags, source attributes), with one valid and one invalid snippet per rule. The skill loads it before any source write or edit. Contract tests compile its valid snippets and confirm that each invalid snippet fails with the stated diagnostic.
+**Required format guide:** `skills/visual-explain/references/format.md` covers §6.2–6.6 and the §8.6 source tag rules (frontmatter, marker grammar and placement, one-line tag openings, primitive tags, source attributes), with one valid and one invalid snippet per rule. The skill loads it before any source write or edit. Contract tests compile its valid snippets and confirm that each invalid snippet fails with the stated diagnostic.
 
 ### 9.2 Common component contract
 
@@ -953,8 +953,8 @@ Theme and configuration come only from the toolkit, so a document cannot change 
 
 **Rendering.**
 
-- The static HTML contains the figure title, interpretation, the Mermaid source in a `<pre>` (the no-JavaScript and text fallback, so R01 holds), and, for parsed types, a node/relationship list with `data-ex-target` and `data-ex-rel` instances like the graph kernels.
-- The runtime loads `_explain/assets/TOOLKIT_DIGEST/mermaid.js` only when the page contains a Mermaid figure, and fails closed: the compiler stops with `E_INTEGRITY` if a Mermaid page has no `sha384` digest, and the runtime refuses any other value and shows the notice. It loads the script with an `integrity` attribute whose digest the compiler takes from `release.json` (SRI works for a script created at run time under `script-src 'self'`). It renders on `DOMContentLoaded`, not on visibility, with `securityLevel: 'strict'`, `startOnLoad: false`, `useMaxWidth: false` for every diagram type (with the default `true`, a wide flowchart at 320 px had an effective label size of 2.5 px), and the toolkit's fixed configuration. It then attaches `data-ex-target` to the rendered elements of parsed types so inspection and reference mode work on the drawing. List instances work before rendering finishes; drawn instances attach after it.
+- The static HTML contains the figure title, interpretation, the Mermaid source in a `<pre>` (the no-JavaScript and text fallback, so R01 holds), and, for parsed types, a node/relationship list with `data-vs-target` and `data-vs-rel` instances like the graph kernels.
+- The runtime loads `_visser/assets/TOOLKIT_DIGEST/mermaid.js` only when the page contains a Mermaid figure, and fails closed: the compiler stops with `E_INTEGRITY` if a Mermaid page has no `sha384` digest, and the runtime refuses any other value and shows the notice. It loads the script with an `integrity` attribute whose digest the compiler takes from `release.json` (SRI works for a script created at run time under `script-src 'self'`). It renders on `DOMContentLoaded`, not on visibility, with `securityLevel: 'strict'`, `startOnLoad: false`, `useMaxWidth: false` for every diagram type (with the default `true`, a wide flowchart at 320 px had an effective label size of 2.5 px), and the toolkit's fixed configuration. It then attaches `data-vs-target` to the rendered elements of parsed types so inspection and reference mode work on the drawing. List instances work before rendering finishes; drawn instances attach after it.
 - The rendered SVG gets `aria-labelledby` pointing to the figure title and `aria-describedby` pointing to the hidden `question` element, unless the author gave `accTitle`. Drawn elements get no `aria-label` (they have no role); the lists are the keyboard path. The render viewport takes keyboard focus (`tabindex="0"`, `role="region"`) so a wide drawing can scroll without a pointer. Autonumber badges and class-diagram cardinality labels keep the 14 px minimum. A halo behind message text keeps a lifeline from crossing it. Mermaid can place cardinality labels under a node box, so authors should avoid them where a node sits at the end of the relation.
 - Narrow screens show the list first for parsed types, with the rendered drawing as the alternate view (§10.5); other types show the drawing in a scrollable viewport with the source text available.
 - Rendered SVG is browser output: byte determinism (§7.5) covers the HTML and the source, not the drawing. A render failure leaves the source and lists in place, removes any element Mermaid inserted outside the figure (its error graphic `#dRENDERID`), and shows a visible notice inside the figure.
@@ -988,9 +988,9 @@ Nested inspection replaces the visible detail and pushes its ID on a bounded his
 
 ### 10.3 Canonical DOM identity
 
-`id="x-TARGET"` identifies the canonical detail/prose anchor. Repeated graphical representations use `data-ex-target="TARGET"` but unique instance IDs such as `v-FIGURE.TARGET` (`.` is outside the ID grammar, so instance IDs cannot collide). `data-ex-target` may repeat; HTML `id` may not. Every interactive representation carries a human label and resolves to the same canonical target.
+`id="x-TARGET"` identifies the canonical detail/prose anchor. Repeated graphical representations use `data-vs-target="TARGET"` but unique instance IDs such as `v-FIGURE.TARGET` (`.` is outside the ID grammar, so instance IDs cannot collide). `data-vs-target` may repeat; HTML `id` may not. Every interactive representation carries a human label and resolves to the same canonical target.
 
-Every canonical `x-TARGET` element, including component entities such as edges and events, exposes the target ID, `data-ex-body` (its `bodySha256`), `data-ex-kind`, and `data-ex-label` as escaped data attributes, so the runtime can build an exact packet for any target; instances resolve through `data-ex-target` to that element. Document root exposes doc ID and source revision. Do not expose absolute source paths or source-map byte offsets to the browser. Reference packets may carry an explicitly supplied repository-relative path hint, never a local home path.
+Every canonical `x-TARGET` element, including component entities such as edges and events, exposes the target ID, `data-vs-body` (its `bodySha256`), `data-vs-kind`, and `data-vs-label` as escaped data attributes, so the runtime can build an exact packet for any target; instances resolve through `data-vs-target` to that element. Document root exposes doc ID and source revision. Do not expose absolute source paths or source-map byte offsets to the browser. Reference packets may carry an explicitly supplied repository-relative path hint, never a local home path.
 
 ### 10.4 Definitions
 
@@ -1012,7 +1012,7 @@ In normal reading, links, selection, scroll, and inspection behave normally. An 
 
 In **Reference mode**, a click/tap selects the nearest registered target, highlights its actual extent, and offers **Copy reference**, **Copy reference with selected text**, and **Open detail** when applicable. A parent selector lets the reader choose the paragraph, figure, or heading with its enclosing section context. The UI labels heading-only replacement distinctly from a request about a whole section. Picking a child edge must not accidentally return the entire figure.
 
-Quote text comes only from author content. Every generated DOM text node (citation markers, line-number gutters, tooltip text, button labels) carries `data-ex-generated`, and the runtime excludes those nodes before it normalizes whitespace (§11.3). The resolver reports `quoteFound` against the current target `plainText`; the quote remains a hint, never identity.
+Quote text comes only from author content. Every generated DOM text node (citation markers, line-number gutters, tooltip text, button labels) carries `data-vs-generated`, and the runtime excludes those nodes before it normalizes whitespace (§11.3). The resolver reports `quoteFound` against the current target `plainText`; the quote remains a hint, never identity.
 
 Do not bind a document-wide click listener that prevents ordinary links outside reference mode. Do not require right-click, long-press, a browser extension, an agent-specific URL scheme handler, or an LLM account.
 
@@ -1039,7 +1039,7 @@ A reference is not an instruction, authorization grant, or path to execute. A ho
 ### 11.2 Canonical reference URI
 
 ```text
-explain://DOC_UUID/TARGET_ID?rev=SOURCE_REVISION_SHA256&body=TARGET_BODY_SHA256
+visser://DOC_UUID/TARGET_ID?rev=SOURCE_REVISION_SHA256&body=TARGET_BODY_SHA256
 ```
 
 `DOC_UUID` and `TARGET_ID` are validated as in §6. Both hashes contain 64 lowercase hex characters. Query order in canonical output is `rev`, then `body`. Parsing rejects duplicate/unknown query keys, credentials, ports, fragments, percent-encoded path separators, extra path segments, and invalid encodings. Use a real URL parser plus these constraints, not string splitting alone. Parsing accepts only the exact canonical bytes: a well-formed but noncanonical URI (for example `body` before `rev`, or an uppercase scheme or hex) is `E_REF_INVALID`.
@@ -1051,8 +1051,8 @@ The normal **Copy reference for LLM** action emits a readable packet as well as 
 ### 11.3 Packet schema
 
 ```yaml
-schema: explain-ref/1
-uri: explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=<64hex>&body=<64hex>
+schema: visser-ref/1
+uri: visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=<64hex>&body=<64hex>
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 targetId: enqueue
 sourceRevision: <64hex>
@@ -1065,7 +1065,7 @@ quote:
   exact: The caller resumes when space becomes available.
   prefix: ""
   suffix: ""
-  projection: explain-text/1
+  projection: visser-text/1
 ```
 
 Angle-bracket hashes above are schema illustrations, never accepted actual values. The generated packet includes real digests. `sourceHint` and `quote` are optional. `uri` fields, when present alongside expanded fields, must agree exactly or validation fails. `label`, `kind`, and hint are advisory, not authoritative identity.
@@ -1090,19 +1090,19 @@ All generated targets receive anchors, including visually represented relationsh
 
 ### 11.5 Registry and lookup
 
-The resolver searches only explicitly configured document roots under the selected repository/workspace. Each root must be relative, NFC, and contained in the repository root after realpath; `../`, absolute, or symlink-escaping roots fail with `E_PATH_ESCAPE`. Default root: `docs/explanations`. It may build an ignored `.explain/registry.json` mapping doc IDs to primary files as an optimization. The registry is not authority: validate the doc ID in the actual file and rebuild when needed.
+The resolver searches only explicitly configured document roots under the selected repository/workspace. Each root must be relative, NFC, and contained in the repository root after realpath; `../`, absolute, or symlink-escaping roots fail with `E_PATH_ESCAPE`. Default root: `docs/explanations`. It may build an ignored `.visser/registry.json` mapping doc IDs to primary files as an optimization. The registry is not authority: validate the doc ID in the actual file and rebuild when needed.
 
 An explicit `--doc PATH` limits resolution to that document. It must contain the packet doc ID. Never trust `sourceHint` to bypass allowed roots. Do not scan the entire home folder or fetch a remote document just because the packet mentions it.
 
-Two current primary files with the same doc ID are an error, even if labels match. Archived rendered snapshots are not scanned as current source. Copying a document to start an independent explanation requires `explain fork`, which generates a new doc ID and preserves internal target IDs because they are scoped by that new document. It does not rewrite source provenance.
+Two current primary files with the same doc ID are an error, even if labels match. Archived rendered snapshots are not scanned as current source. Copying a document to start an independent explanation requires `visser fork`, which generates a new doc ID and preserves internal target IDs because they are scoped by that new document. It does not rewrite source provenance.
 
 ### 11.6 Resolver results
 
-`explain refs resolve --packet request.yaml --json` produces:
+`visser refs resolve --packet request.yaml --json` produces:
 
 ```typescript
 type ResolveResult = {
-  schema: 'explain-resolve/1';
+  schema: 'visser-resolve/1';
   status: 'exact' | 'stale' | 'deleted' | 'ambiguous' | 'missing' | 'invalid';
   docId?: string;
   targetId?: string;
@@ -1169,7 +1169,7 @@ After editing: check syntax/IDs, compare changed target IDs, check evidence cons
 
 ```sh
 # Proposed CLI: replace one complete source-owned target from a UTF-8 file.
-explain refs replace \
+visser refs replace \
   --packet request.yaml \
   --replacement replacement.md \
   --expected-revision FULL_CURRENT_SOURCE_REVISION
@@ -1179,16 +1179,16 @@ The replacement is the whole target span, including its existing marker or openi
 
 Algorithm:
 
-1. Acquire an advisory lock for the document using exclusive file creation. Store PID, start time, and a random lock token. The lock file is `REPO/.explain/edit-locks/DOC_UUID.lock`, which is gitignored with other generated state (§12.2) and never inside the source bundle. Create lock and temporary files with `O_CREAT|O_EXCL|O_NOFOLLOW` and random temporary names; refuse a symlinked or non-contained `edit-locks` directory and a primary file that is itself a symlink. Never silently break an apparently live lock. PID liveness is a hint only, because PIDs are reused. When a lock exists, fail with `E_WRITE_CONFLICT` and print the lock path, PID, start time, and token. Recovery after a crash is a manual user action: remove that lock file after confirming that no writer is active.
+1. Acquire an advisory lock for the document using exclusive file creation. Store PID, start time, and a random lock token. The lock file is `REPO/.visser/edit-locks/DOC_UUID.lock`, which is gitignored with other generated state (§12.2) and never inside the source bundle. Create lock and temporary files with `O_CREAT|O_EXCL|O_NOFOLLOW` and random temporary names; refuse a symlinked or non-contained `edit-locks` directory and a primary file that is itself a symlink. Never silently break an apparently live lock. PID liveness is a hint only, because PIDs are reused. When a lock exists, fail with `E_WRITE_CONFLICT` and print the lock path, PID, start time, and token. Recovery after a crash is a manual user action: remove that lock file after confirming that no writer is active.
 2. Reparse current source, check current full source revision and target span, and require `exact` packet resolution.
 3. Validate replacement syntax, ID retention, and the entire resulting document in memory. Reject changes that break global references or source capture hashes.
 4. Record raw file hash; write candidate bytes to a temporary file in the same directory; preserve permissions; flush as appropriate.
 5. Immediately re-read and compare original raw file hash before rename. Abort on change.
 6. Rename the temporary file over the original; release lock; output old/new revision, changed and added targets, containing targets (ancestors whose body hash changed as a consequence), the dependent targets of each changed target (through `TargetRecord.dependencies`), and a unified diff.
 
-**Concurrency boundary:** replace, retire, and every other guarded write coordinate Explain writers and detect external edits observed at the final pre-write check. Portable filesystem rename is not compare-and-swap against a noncooperating editor. For guaranteed exclusion, use an exclusively owned worktree or require all writers to honor the lock. Do not claim CRDT, transactional multi-file edits, or protection against every uncooperative writer race.
+**Concurrency boundary:** replace, retire, and every other guarded write coordinate Visser writers and detect external edits observed at the final pre-write check. Portable filesystem rename is not compare-and-swap against a noncooperating editor. For guaranteed exclusion, use an exclusively owned worktree or require all writers to honor the lock. Do not claim CRDT, transactional multi-file edits, or protection against every uncooperative writer race.
 
-The coding agent may use its own editing tools, but must follow the same reference/revision/validation contract. Direct edits are not falsely advertised as having gone through Explain's guard.
+The coding agent may use its own editing tools, but must follow the same reference/revision/validation contract. Direct edits are not falsely advertised as having gone through Visser's guard.
 
 ### 11.10 Packet refresh
 
@@ -1219,14 +1219,14 @@ Raw selection offsets are not source offsets. HTML entities, syntax-highlighting
 Publish a **versioned toolkit release**, not a fresh web project per document. A release contains prebuilt Node CLI code, the layout worker, browser assets, schemas, skill text, catalogue guides, templates, license notices, and a manifest of file hashes.
 
 ```text
-explain-release/
+visser-release/
   release.json
-  bin/explain.cjs
+  bin/visser.cjs
   workers/layout.cjs
   browser/reader.js
   browser/reader.css
   schemas/
-  skills/explain/
+  skills/visual-explain/
   catalogue/
   templates/
   LICENSES.txt
@@ -1236,21 +1236,21 @@ Consumer installs do not run `npm install` and do not receive `node_modules`. Re
 
 A release is identified by its **toolkit digest**: SHA-256 of canonical `release.json`, whose sorted entries hash every shipped file except the manifest itself. Transport archives have a separate archive digest. Do not confuse a ZIP/tar digest with the installed file-tree digest.
 
-For v1, distribute `tar.gz`. The installer uses a small ustar reader written for Explain, not a general tar library: the Phase 4 review showed `node-tar` sanitizing hostile entries silently (stripping an absolute path and extracting the file, skipping `..`, hard-link, and symlink entries, keeping one of two duplicates, extracting both case-colliding names) and reporting success. The reader rejects the whole archive (`E_INTEGRITY`) on any entry type other than regular file or directory; an absolute path, an empty, `.`, or `..` segment, or a non-NFC name after PAX and GNU long-name resolution; duplicate names or names whose case-folded NFC forms are equal; a declared size sum over 256 MiB or decompressed bytes over 256 MiB (counted while streaming, not trusted from headers); and an archive over 64 MiB. It extracts into a staging directory, then walks it with `lstat` and requires the file set to equal the manifest set exactly, before verifying digests and activating by rename. `release:pack` writes entries in sorted order with fixed metadata, so the archive digest can be reproduced. Do not depend on `curl | sh`.
+For v1, distribute `tar.gz`. The installer uses a small ustar reader written for Visser, not a general tar library: the Phase 4 review showed `node-tar` sanitizing hostile entries silently (stripping an absolute path and extracting the file, skipping `..`, hard-link, and symlink entries, keeping one of two duplicates, extracting both case-colliding names) and reporting success. The reader rejects the whole archive (`E_INTEGRITY`) on any entry type other than regular file or directory; an absolute path, an empty, `.`, or `..` segment, or a non-NFC name after PAX and GNU long-name resolution; duplicate names or names whose case-folded NFC forms are equal; a declared size sum over 256 MiB or decompressed bytes over 256 MiB (counted while streaming, not trusted from headers); and an archive over 64 MiB. It extracts into a staging directory, then walks it with `lstat` and requires the file set to equal the manifest set exactly, before verifying digests and activating by rename. `release:pack` writes entries in sorted order with fixed metadata, so the archive digest can be reproduced. Do not depend on `curl | sh`.
 
-**Release verification** (at install and at every resolution): `release.json` validates against its schema with the §7.4 bundle-path grammar; every listed file is a regular file (`lstat`, no symlinks) inside the release; the on-disk file set equals the manifest set (an unlisted file is `E_INTEGRITY`: the review showed an extra `workers/evil.cjs` and a symlinked `bin/explain.cjs` passing the Phase 3 check with an unchanged digest); and every digest matches.
+**Release verification** (at install and at every resolution): `release.json` validates against its schema with the §7.4 bundle-path grammar; every listed file is a regular file (`lstat`, no symlinks) inside the release; the on-disk file set equals the manifest set (an unlisted file is `E_INTEGRITY`: the review showed an extra `workers/evil.cjs` and a symlinked `bin/visser.cjs` passing the Phase 3 check with an unchanged digest); and every digest matches.
 
-**Release contents:** besides the CLI, workers, browser assets, and schemas, a release ships `skills/explain/SKILL.md`, `skills/explain/references/format.md` (the §9.1 format guide, whose snippets the contract tests compile), and `LICENSES.txt`, generated from the bundled dependencies' license metadata. Catalogue guides and templates arrive in Phase 5.
+**Release contents:** besides the CLI, workers, browser assets, and schemas, a release ships `skills/visual-explain/SKILL.md`, `skills/visual-explain/references/format.md` (the §9.1 format guide, whose snippets the contract tests compile), and `LICENSES.txt`, generated from the bundled dependencies' license metadata. Catalogue guides and templates arrive in Phase 5.
 
 ### 12.2 Scope layouts
 
 | Scope | Toolkit and shared content | Small invocation shim |
 |---|---|---|
-| User | `${EXPLAIN_HOME:-$HOME/.explain}/toolchains/DIGEST/` | `${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs` |
-| Repository | `REPO/.explain/toolchains/DIGEST/` | None: wrappers never execute a repository shim (§12.7). |
+| User | `${VISSER_HOME:-$HOME/.visser}/toolchains/DIGEST/` | `${VISSER_HOME:-$HOME/.visser}/bin/visser.cjs` |
+| Repository | `REPO/.visser/toolchains/DIGEST/` | None: wrappers never execute a repository shim (§12.7). |
 | Development | Explicit trusted toolkit checkout | Direct built CLI path. |
 
-`EXPLAIN_HOME` changes the user installation root only. Do not automatically edit shell startup files or PATH. Print the installed invocation and optionally create a user-approved symlink into an existing user bin directory.
+`VISSER_HOME` changes the user installation root only. Do not automatically edit shell startup files or PATH. Print the installed invocation and optionally create a user-approved symlink into an existing user bin directory.
 
 Repository-generated toolchains, output, caches, registry, and `edit-locks/` are gitignored. Small config, locks, document sources, and repository skill wrappers can be committed. `vendor` is deferred beyond v1 (revision 1.17): a vendored toolchain is repository-controlled code, it would sit in an ignored directory, and no requirement depends on it.
 
@@ -1258,7 +1258,7 @@ Repository-generated toolchains, output, caches, registry, and `edit-locks/` are
 
 ```json
 {
-  "schema": "explain-workspace/1",
+  "schema": "visser-workspace/1",
   "documentRoots": ["docs/explanations"],
   "defaultToolkit": {
     "version": "0.1.0",
@@ -1272,11 +1272,11 @@ Repository-generated toolchains, output, caches, registry, and `edit-locks/` are
 }
 ```
 
-Each source bundle has an `explain.lock.json`:
+Each source bundle has an `visser.lock.json`:
 
 ```json
 {
-  "schema": "explain-lock/1",
+  "schema": "visser-lock/1",
   "toolkit": {
     "version": "0.1.0",
     "sha256": "<toolkit-manifest-digest>",
@@ -1285,7 +1285,7 @@ Each source bundle has an `explain.lock.json`:
       "kind": "github-release",
       "repository": "OWNER/REPOSITORY",
       "tag": "v0.1.0",
-      "asset": "explain-0.1.0.tar.gz"
+      "asset": "visser-0.1.0.tar.gz"
     }
   },
   "extensions": [],
@@ -1305,17 +1305,17 @@ Config precedence for operational preferences: explicit CLI option > nearest wor
 2. Look for that exact toolkit digest in explicit `--toolkit-dir`, then repository installation, then user installation. A toolkit found in a repository installation is eligible only if its digest is in the user trust store (§14.2); otherwise `E_TOOLKIT_UNTRUSTED`. The user installation is trusted because the user installed it, and `install` records its digest in the trust store. `--toolkit-dir` and `--dev-toolkit` are explicit user choices for one invocation.
 3. Validate the chosen release with the §12.1 release verification. A corrupt higher-priority installation is `E_INTEGRITY`, not a silent fallback.
 
-**Whose code runs:** the user shim dispatches every command to the resolved toolkit's own `bin/explain.cjs`, so the compiler, workers, and runtime all come from one verified, trusted release. A command never runs a worker or script from a different toolkit than the CLI that is running. (The Phase 4 review showed a repository toolchain whose worker ran during `build`.)
+**Whose code runs:** the user shim dispatches every command to the resolved toolkit's own `bin/visser.cjs`, so the compiler, workers, and runtime all come from one verified, trusted release. A command never runs a worker or script from a different toolkit than the CLI that is running. (The Phase 4 review showed a repository toolchain whose worker ran during `build`.)
 4. If the digest is absent, fail with `E_TOOLKIT_MISSING` and an explicit install command. For a `local-dir` or `archive` origin, there is no command to print; the diagnostic states that only a copy of the release tree with the same digest can satisfy the lock.
 5. Never select “latest,” satisfy a lock with a merely compatible version, or use mutable GitHub `main` content during build.
 
 **Development override:** during toolkit development each rebuild changes the digest. `--dev-toolkit PATH` accepts a toolkit whose digest differs from the lock, emits a warning diagnostic, records the actual digest in `build.json`, and marks the output as a development build with `development: true` in `build.json`. A development build also adds `development: true` to `effectiveRenderOptions` in the build ID input; a normal build has no such key, so normal build IDs do not change. A development build and a normal build therefore get different snapshot folders, and an existing snapshot folder is never replaced (revision 1.22). `check --release` and `export --audience public` reject development builds with `E_USAGE` (exit 2).
 
-**Review fixes (revision 1.21):** every repository-controlled JSON file on the resolution path (a lock, `.explain/config.json`, a collection) is read without following symlinks, must be a regular file, is capped at 1 MiB, and gives `E_INTEGRITY` otherwise; a parse error never echoes the file's content. Changes to `trust.json` run under an exclusive `trust.json.lock`, which is never taken over (after 5 s, `E_WRITE_CONFLICT` names the holder). A user-scope install replaces the user shim only with `--default` or when none exists, and decides this before activation and trust. The shim refuses `--doc` that names a different bundle from the positional document (`E_USAGE`). For `export --collection`, the shim runs the toolkit that all documents pin, and refuses a collection whose documents pin different toolkits (`E_USAGE`). `upgrade --allow-downgrade` does not need the current toolkit to be installed or trusted, because it only reads its version; a target version that is not semver is `E_SYNTAX`.
+**Review fixes (revision 1.21):** every repository-controlled JSON file on the resolution path (a lock, `.visser/config.json`, a collection) is read without following symlinks, must be a regular file, is capped at 1 MiB, and gives `E_INTEGRITY` otherwise; a parse error never echoes the file's content. Changes to `trust.json` run under an exclusive `trust.json.lock`, which is never taken over (after 5 s, `E_WRITE_CONFLICT` names the holder). A user-scope install replaces the user shim only with `--default` or when none exists, and decides this before activation and trust. The shim refuses `--doc` that names a different bundle from the positional document (`E_USAGE`). For `export --collection`, the shim runs the toolkit that all documents pin, and refuses a collection whose documents pin different toolkits (`E_USAGE`). `upgrade --allow-downgrade` does not need the current toolkit to be installed or trusted, because it only reads its version; a target version that is not semver is `E_SYNTAX`.
 
 **Known limit (revision 1.18):** the user shim verifies the resolved release and then executes it. A local process that can write the user's toolchain directory between these two steps can change what runs. Such a process already runs as the user, so v1 accepts this limit.
 
-Installation updates a default pointer only when requested: `install --scope user --default` writes `${EXPLAIN_HOME}/default`, one digest line. The user shim reads it for commands without a document; it never picks an installed toolkit by itself. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
+Installation updates a default pointer only when requested: `install --scope user --default` writes `${VISSER_HOME}/default`, one digest line. The user shim reads it for commands without a document; it never picks an installed toolkit by itself. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
 
 ### 12.5 GitHub acquisition
 
@@ -1325,7 +1325,7 @@ Acquisition rules: `OWNER/REPO` matches `^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,10
 
 Revision 1.21: `.` and `..` are refused as the owner or repository name, and each request has a total deadline (60 s for the API, 10 minutes for the asset) as well as the socket idle timeout.
 
-As implemented (revision 1.19): requests use `node:https`, because `fetch` cannot add a CA. The default hosts are `api.github.com`, `objects.githubusercontent.com`, and `release-assets.githubusercontent.com`; `github.com` is not needed, because the installer downloads through the asset API URL. The token goes only to the API host. Messages show a URL without its query string. A release whose `release.json` version differs from `--version` is refused. Policy refusals (scheme, host, hop count, size, certificate, digest, version) are `E_INTEGRITY` (exit 4); network and HTTP errors are `E_SOURCE_UNAVAILABLE` (exit 3); a missing release or asset is `E_TOOLKIT_MISSING` (exit 3). The test seams are `EXPLAIN_TEST_API_BASE` and `EXPLAIN_TEST_CA_FILE`; each prints a warning when set, and the CA seam adds a root, never disables verification.
+As implemented (revision 1.19): requests use `node:https`, because `fetch` cannot add a CA. The default hosts are `api.github.com`, `objects.githubusercontent.com`, and `release-assets.githubusercontent.com`; `github.com` is not needed, because the installer downloads through the asset API URL. The token goes only to the API host. Messages show a URL without its query string. A release whose `release.json` version differs from `--version` is refused. Policy refusals (scheme, host, hop count, size, certificate, digest, version) are `E_INTEGRITY` (exit 4); network and HTTP errors are `E_SOURCE_UNAVAILABLE` (exit 3); a missing release or asset is `E_TOOLKIT_MISSING` (exit 3). The test seams are `VISSER_TEST_API_BASE` and `VISSER_TEST_CA_FILE`; each prints a warning when set, and the CA seam adds a root, never disables verification.
 
 An archive and checksum fetched from the same compromised origin do not establish independent authenticity. V1 relies on an explicitly trusted release origin and pinned digest; signature/attestation verification can be added later. Display the origin and digest during install. No tokens go into committed locks or generated documents.
 
@@ -1336,16 +1336,16 @@ Private toolkit releases can be downloaded using credentials supplied to the ins
 The first implementation must support a straightforward source-build path before any public release exists:
 
 ```sh
-# Run inside the newly implemented Explain toolkit repository with Node 24.
+# Run inside the newly implemented Visser toolkit repository with Node 24.
 npm ci
 npm run build
 npm test
-node dist/release/bin/explain.cjs install --from-dir dist/release --scope user
+node dist/release/bin/visser.cjs install --from-dir dist/release --scope user
 ```
 
 The installer and bootstrap script are themselves executable software. Users must trust/review them before execution. The future published bootstrap downloads a pinned release and verifies it; it does not create a circular claim that an unverified installer verifies itself.
 
-All `explain` commands in this specification are interfaces to implement, not commands that already exist in the user's environment.
+All `visser` commands in this specification are interfaces to implement, not commands that already exist in the user's environment.
 
 ### 12.7 Skill adapters
 
@@ -1353,14 +1353,14 @@ Install small adapter `SKILL.md` files in these supported locations:
 
 | Host | Repository | User |
 |---|---|---|
-| Claude Code | `.claude/skills/explain/SKILL.md` | `~/.claude/skills/explain/SKILL.md` |
-| Codex | `.agents/skills/explain/SKILL.md` | `~/.agents/skills/explain/SKILL.md` |
+| Claude Code | `.claude/skills/visual-explain/SKILL.md` | `~/.claude/skills/visual-explain/SKILL.md` |
+| Codex | `.agents/skills/visual-explain/SKILL.md` | `~/.agents/skills/visual-explain/SKILL.md` |
 
 These locations are documented by the respective products at the research date.[S13][S14] Host discovery and duplicate-name rules can differ; do not assume that a repository wrapper always overrides a user wrapper.
 
-Both wrappers use the same location-independent dispatcher contract: always call the **user** shim (`${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs`), which the user installed. A repository shim is never executed by a wrapper or by `doctor`: it is code chosen by whoever controls the repository, and a trust check inside it would run too late. The user shim resolves the document's locked toolkit by §12.4 (repository toolchains only when trusted) or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the resolved toolkit for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
+Both wrappers use the same location-independent dispatcher contract: always call the **user** shim (`${VISSER_HOME:-$HOME/.visser}/bin/visser.cjs`), which the user installed. A repository shim is never executed by a wrapper or by `doctor`: it is code chosen by whoever controls the repository, and a trust check inside it would run too late. The user shim resolves the document's locked toolkit by §12.4 (repository toolchains only when trusted) or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the resolved toolkit for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
 
-`explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository (an untrusted toolchain that no lock uses is reported, not an error); it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
+`visser skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository (an untrusted toolchain that no lock uses is reported, not an error); it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
 
 User-folder installation on one host is not implied to exist in a separate remote/cloud machine. Commit repository wrappers and locks, and perform an explicit install in that environment. Local remote-control use may share the host filesystem; independent environments do not.
 
@@ -1370,7 +1370,7 @@ Catalogue guides, templates, and examples are read directly from the installed p
 
 **Deferred beyond v1** (revision 1.17; first deferred to Phase 4 in revision 1.14): no requirement depends on it, and the Phase 3 and Phase 4 reviews found it under-specified (input kinds, network behaviour, fragment grammar, ID prefixing, provenance kind). It stays `E_UNSUPPORTED` until Phase 4 specifies it. The v1 narrowing: import reads only a local file inside the repository or a file in the installed toolkit pack, never a URL; the fragment must parse as top-level restricted-profile blocks with no frontmatter and pass the full validator; every ID becomes `PREFIX_ID`, and a collision is `E_ID_DUPLICATE`; import writes one `source` block (`kind="file"`) and an `imports` entry `{idPrefix, origin, sha256}` through the guarded write.
 
-Reusable definitions or explanation fragments can be imported through `explain content import`. The command materializes a selected text fragment into the document, records acquisition origin/hash in `imports`, and also puts any reader-visible provenance in a canonical `source` block within the document. The lock is not an alternative source of explanatory facts. The command requires an explicit ID prefix or resolves no collisions at all. Subsequent builds use that local captured text. Updates are deliberate; no shared glossary edit silently changes old snapshots.
+Reusable definitions or explanation fragments can be imported through `visser content import`. The command materializes a selected text fragment into the document, records acquisition origin/hash in `imports`, and also puts any reader-visible provenance in a canonical `source` block within the document. The lock is not an alternative source of explanatory facts. The command requires an explicit ID prefix or resolves no collisions at all. Subsequent builds use that local captured text. Updates are deliberate; no shared glossary edit silently changes old snapshots.
 
 Do not build a distributed content registry, package solver, or runtime remote-include language in v1.
 
@@ -1381,11 +1381,11 @@ Do not build a distributed content registry, package solver, or runtime remote-i
 ```text
 site/
   index.html                             # optional collection index
-  _explain/assets/TOOLKIT_DIGEST/
+  _visser/assets/TOOLKIT_DIGEST/
     reader.js
     reader.css
     mermaid.js                           # only when a built page contains a Mermaid figure
-  _explain/extensions/EXTENSION_DIGEST/   # only when explicitly trusted/used
+  _visser/extensions/EXTENSION_DIGEST/   # only when explicitly trusted/used
   d/DOC_UUID/SOURCE_REVISION/BUILD_ID/
     index.html
     document.md                          # generated semantic Markdown projection
@@ -1406,7 +1406,7 @@ No per-document script is generated. A runtime failure leaves meaningful HTML an
 ### 13.3 Local command
 
 ```sh
-explain serve docs/explanations/queue/index.md --port 4310
+visser serve docs/explanations/queue/index.md --port 4310
 ```
 
 The command builds a snapshot, serves it at the immutable route, and prints the full URL and source/build IDs. It fails on a busy requested port instead of silently choosing a different one. Port `0` is an explicit request for an automatically assigned port. Bind loopback by default. `serve` sends text routes (HTML, Markdown, JSON, JavaScript, CSS, SVG) gzip-encoded when the request's `Accept-Encoding` allows gzip, with `Vary: Accept-Encoding` (revision 1.20). Every route is fixed bytes with no request data in it, so compression cannot leak a secret. SRI checks the decoded bytes, so it is not affected.
@@ -1420,24 +1420,24 @@ The first release is snapshot serving, not an implicit watcher. After edits, `bu
 Run the local server and proxy it with Tailscale Serve:
 
 ```sh
-# Terminal/session 1: Explain remains a local read-only service.
-explain serve docs/explanations/queue/index.md --port 4310
+# Terminal/session 1: Visser remains a local read-only service.
+visser serve docs/explanations/queue/index.md --port 4310
 
 # Terminal/session 2: expose that port within the tailnet, not publicly.
 tailscale serve 4310
 ```
 
-Tailscale documents proxying a local port through Serve and printing a tailnet HTTPS URL.[S15] The user may need to enable Serve/HTTPS in their tailnet. Explain does not install Tailscale, change access-control policy, or enable public Funnel. Tailscale membership is not permission to publish a private document to the internet.
+Tailscale documents proxying a local port through Serve and printing a tailnet HTTPS URL.[S15] The user may need to enable Serve/HTTPS in their tailnet. Visser does not install Tailscale, change access-control policy, or enable public Funnel. Tailscale membership is not permission to publish a private document to the internet.
 
-Serve makes the port reachable by every tailnet device that the tailnet access policy allows, and Explain adds no authentication. When a `visibility: private` document is served on a nonloopback bind or with `--public-origin`, `serve` prints a warning that names this reach. The user controls who can read it through tailnet access policy.
+Serve makes the port reachable by every tailnet device that the tailnet access policy allows, and Visser adds no authentication. When a `visibility: private` document is served on a nonloopback bind or with `--public-origin`, `serve` prints a warning that names this reach. The user controls who can read it through tailnet access policy.
 
-For proxies preserving the external `Host` header, pass `--public-origin https://HOST.TAILNET.ts.net` to Explain so its exact host allowlist accepts that origin. Do not trust arbitrary forwarded host headers. Raw `http://TAILSCALE_IP:PORT` requires an explicitly selected nonloopback bind and appropriate access restrictions; clipboard fallback still works when browser secure-context requirements are not met.
+For proxies preserving the external `Host` header, pass `--public-origin https://HOST.TAILNET.ts.net` to Visser so its exact host allowlist accepts that origin. Do not trust arbitrary forwarded host headers. Raw `http://TAILSCALE_IP:PORT` requires an explicitly selected nonloopback bind and appropriate access restrictions; clipboard fallback still works when browser secure-context requirements are not met.
 
 ### 13.5 GitHub Pages and other static hosts
 
 GitHub Pages publishes static HTML, CSS, and JavaScript from a repository.[S16] It is a supported optional destination for an exported site, not a live computation service.
 
-Emit relative URLs for internal assets and document links. Test under a project prefix such as `/explain-demo/`, not just localhost `/`. Do not hardcode leading-slash asset URLs, depend on SPA rewrite rules, or fetch scripts from raw GitHub URLs.
+Emit relative URLs for internal assets and document links. Test under a project prefix such as `/visser-demo/`, not just localhost `/`. Do not hardcode leading-slash asset URLs, depend on SPA rewrite rules, or fetch scripts from raw GitHub URLs.
 
 Publishing is not part of `build` or `serve`. `export --audience public` creates a previewable staging folder and a visibility report. The user decides whether to commit/upload/deploy it. The first release supplies an example GitHub Actions publication workflow, disabled by default, with minimal permissions and pinned action revisions chosen at implementation time.
 
@@ -1445,8 +1445,8 @@ Private origin repositories do not make exported excerpts private. An ordinary p
 
 **Export contract (revision 1.17):**
 
-- `export --format site` writes the §13.1 layout, one asset pack per toolkit digest (including `mermaid.js` only when a page needs it, with the per-page integrity check), and a collection index page with its own CSP meta and relative links. Collection input is `explain-collection/1`.
-- The export report is JSON (`explain-export/1`): the documents, their visibility, every non-`example` source with its repository, the Mermaid pages, and the warnings below.
+- `export --format site` writes the §13.1 layout, one asset pack per toolkit digest (including `mermaid.js` only when a page needs it, with the per-page integrity check), and a collection index page with its own CSP meta and relative links. Collection input is `visser-collection/1`.
+- The export report is JSON (`visser-export/1`): the documents, their visibility, every non-`example` source with its repository, the Mermaid pages, and the warnings below.
 - Mermaid `%%` comment lines are removed from the source text that pages and `document.md` show (they do not affect rendering); the Phase 4 review found an internal hostname in a Mermaid comment in both `index.html` and `document.md`.
 - Public exports refuse development builds, and `build.json` records only the Node major version in them.
 - `--include-source` copies only declared bundle files, with the same rules as `fork`.
@@ -1480,10 +1480,10 @@ The authoritative local source remains on disk. Exported HTML is an archive of a
 
 ```json
 {
-  "schema": "explain-extension/1",
+  "schema": "visser-extension/1",
   "name": "memory-lanes",
   "version": "0.1.0",
-  "api": "explain-component/1",
+  "api": "visser-component/1",
   "buildEntry": "dist/build.cjs",
   "browserEntry": null,
   "schemaFile": "schema.json",
@@ -1494,9 +1494,9 @@ The authoritative local source remains on disk. Exported HTML is an archive of a
 
 The actual manifest lists every file. An extension digest covers its canonical manifest and thereby its implementation and dependencies. Browser code is optional and should be avoided when existing inspection/navigation suffices. Any browser code is packaged once per extension digest, never embedded separately in each document.
 
-The document lock lists required extensions but cannot mark them trusted. Trust is a local user decision keyed by exact digest and stored only in `${EXPLAIN_HOME:-~/.explain}/trust.json`. Tools never read trust data from a repository or workspace config. `explain extension trust DIGEST` is explicit. A generated or downloaded extension is executable code; a document-writing skill may propose it but must not silently trust it.
+The document lock lists required extensions but cannot mark them trusted. Trust is a local user decision keyed by exact digest and stored only in `${VISSER_HOME:-~/.visser}/trust.json`. Tools never read trust data from a repository or workspace config. `visser extension trust DIGEST` is explicit. A generated or downloaded extension is executable code; a document-writing skill may propose it but must not silently trust it.
 
-**As implemented (revision 1.20):** the manifest file is `extension.json`. In v1, `browserEntry` must be `null`: extensions are build-only, so `_explain/extensions/` is reserved and unused. Commands: `extension install --from-dir DIR --scope user|repo` (verifies and activates, never trusts), `extension inspect DIR|DIGEST` (static, never executes), `extension trust DIGEST [--revoke]` (user store only), and `extension pin DOC DIGEST` (guarded lock write). A document uses an extension through a block tag with `part` children:
+**As implemented (revision 1.20):** the manifest file is `extension.json`. In v1, `browserEntry` must be `null`: extensions are build-only, so `_visser/extensions/` is reserved and unused. Commands: `extension install --from-dir DIR --scope user|repo` (verifies and activates, never trusts), `extension inspect DIR|DIGEST` (static, never executes), `extension trust DIGEST [--revoke]` (user store only), and `extension pin DOC DIGEST` (guarded lock write). A document uses an extension through a block tag with `part` children:
 
 ```markdown
 {% extension id="startup_lanes" use="timeline-lanes" title="Startup" question="What overlaps?" unit="ms" %}
@@ -1512,7 +1512,7 @@ Each `part` is a target. Targets, IDs, and `document.md` come only from the sour
 
 Do not dynamically `import()` a path supplied in Markdown. Resolve only installed, pinned, explicitly trusted extensions through the extension registry. Static schema inspection is possible before trust; running its build entry is not.
 
-V1 extensions run as trusted local build code and may have the same OS privileges as the CLI. A worker process limits time/resources but is not a security sandbox. Explain must state this plainly. A future sandboxed extension model is separate work.
+V1 extensions run as trusted local build code and may have the same OS privileges as the CLI. A worker process limits time/resources but is not a security sandbox. Visser must state this plainly. A future sandboxed extension model is separate work.
 
 ### 14.4 Promotion criteria
 
@@ -1708,20 +1708,20 @@ The command names below are normative v1 interfaces. They may share implementati
 | `refs refresh` | Acknowledge/reissue stale packet; `--expected-current`, `--acknowledge-stale`; `--acknowledge-body-change` when the body changed. |
 | `refs replace` | Guarded complete-target replacement; `--packet`, `--replacement`, `--expected-revision`, repeatable `--retire ID --reason TEXT` for dropped nested IDs (§11.11). |
 | `refs retire` | Guarded deletion that records `retiredTargets`; `--packet`, `--reason`, optional `--replacement`, `--expected-revision`. |
-| `fork DOC DEST` | New document identity, retained internal IDs/provenance. Copies only declared bundle files and `explain.lock.json` (regular files, no symlinks), rewrites only the frontmatter `docId` with the §11.11 text-edit rules, keeps `retiredTargets`, and writes through a temporary directory renamed into place. `DEST` must not exist, must not be inside the source bundle, and must be inside a document root. |
+| `fork DOC DEST` | New document identity, retained internal IDs/provenance. Copies only declared bundle files and `visser.lock.json` (regular files, no symlinks), rewrites only the frontmatter `docId` with the §11.11 text-edit rules, keeps `retiredTargets`, and writes through a temporary directory renamed into place. `DEST` must not exist, must not be inside the source bundle, and must be inside a document root. |
 | `catalogue list|show NAME` | Print available patterns or a selected guide/schema/example. Phase 5; `E_UNSUPPORTED` until the guides exist. |
 | `skill show` | Print pinned core skill and local guide locations for `--doc` or current workspace. |
 | `install` | Explicit exact release installation; `--scope user|repo`, `--from-dir`, `--archive`, or `--from-release`; integrity options; records the digest in the user trust store. |
 | `trust toolkit DIGEST` | Trust an exact toolkit digest in user scope (for a repository toolchain); `--revoke`. |
-| `upgrade DOC --to DIGEST` | Resolve and verify the target toolkit, run its `check` on the document, write `explain.lock.json` with a guarded write (edit lock, raw-hash recheck, schema validation, atomic rename), print the lock diff, and rebuild. The version comes from the pack's `release.json`, never from the lock; a lower version needs `--allow-downgrade` (else `E_DOWNGRADE`). The user shim runs the target toolkit's CLI for `upgrade`, through the trust gate. The new lock records `origin: local-dir`, because the installed copy is found by digest. A rebuild failure keeps the new lock and exits with the build's code. `--dry-run` writes nothing. Old snapshots stay. |
+| `upgrade DOC --to DIGEST` | Resolve and verify the target toolkit, run its `check` on the document, write `visser.lock.json` with a guarded write (edit lock, raw-hash recheck, schema validation, atomic rename), print the lock diff, and rebuild. The version comes from the pack's `release.json`, never from the lock; a lower version needs `--allow-downgrade` (else `E_DOWNGRADE`). The user shim runs the target toolkit's CLI for `upgrade`, through the trust gate. The new lock records `origin: local-dir`, because the installed copy is found by digest. A rebuild failure keeps the new lock and exits with the build's code. `--dry-run` writes nothing. Old snapshots stay. |
 | `vendor` | Deferred beyond v1 (§12.2); `E_UNSUPPORTED`. |
 | `content import` | Deferred beyond v1 (§12.8); `E_UNSUPPORTED`. |
 | `extension inspect|trust` | Show metadata without execution, or explicitly trust an exact extension digest. |
 | `doctor` | Report Node, release resolution, adapter paths, missing locks, port availability, and trust state. |
 
-Every `--json` output has a schema in `schemas/` named `explain-<command>/1` (for example `explain-resolve/1`, `explain-edit/1`, `explain-install/1`), validated by the contract tests. A command deferred from v1 exits `3` with `E_UNSUPPORTED`; it never reports success.
+Every `--json` output has a schema in `schemas/` named `visser-<command>/1` (for example `visser-resolve/1`, `visser-edit/1`, `visser-install/1`), validated by the contract tests. A command deferred from v1 exits `3` with `E_UNSUPPORTED`; it never reports success.
 
-Collection input is an explicit JSON file `{schema:'explain-collection/1', documents:[relativePrimaryPaths...]}`. No broad filesystem auto-publication. Parser setup, limits, and schemas are shared across CLI paths.
+Collection input is an explicit JSON file `{schema:'visser-collection/1', documents:[relativePrimaryPaths...]}`. No broad filesystem auto-publication. Parser setup, limits, and schemas are shared across CLI paths.
 
 ### 17.2 Build scripts
 
@@ -1818,9 +1818,9 @@ Work order:
 - **4c — network and lifecycle.** `install --from-release` with the §12.5 rules and a local HTTPS test server (match, mismatch, disallowed redirect host, size cap, HTTP URL, token not logged), then `upgrade` with downgrade refusal and a concurrent-writer test.
 - Deferred beyond v1: `vendor`, `content import`. Moved to Phase 5: catalogue guides, templates, and `catalogue list|show`.
 
-New JSON outputs each get a schema (the gate enforces it): `explain-install/1`, `explain-trust/1`, `explain-doctor/1`, `explain-skill/1`, `explain-upgrade/1`, `explain-export/1`, `explain-collection/1`.
+New JSON outputs each get a schema (the gate enforces it): `visser-install/1`, `visser-trust/1`, `visser-doctor/1`, `visser-skill/1`, `visser-upgrade/1`, `visser-export/1`, `visser-collection/1`.
 
-Deliver and exit check: build, typecheck, `npm test`, the full Chromium tier, and the contract gate exit 0 with traceability entries for R08, R09, R10, and R20 covered; `test:offline` passes under `unshare -rn`; the subpath export passes the browser journeys from a generic static server; a scripted clean-machine run installs from the archive into an empty `EXPLAIN_HOME`, then builds, exports, and reads; `npm audit` reports 0 vulnerabilities.
+Deliver and exit check: build, typecheck, `npm test`, the full Chromium tier, and the contract gate exit 0 with traceability entries for R08, R09, R10, and R20 covered; `test:offline` passes under `unshare -rn`; the subpath export passes the browser journeys from a generic static server; a scripted clean-machine run installs from the archive into an empty `VISSER_HOME`, then builds, exports, and reads; `npm audit` reports 0 vulnerabilities.
 
 ### 17.8 Phase 5 — extensions, skill quality, and release hardening
 
@@ -1894,7 +1894,7 @@ Test source spans on LF/CRLF, Unicode/emoji, code containing Markdoc/HTML exampl
 
 Check all edge endpoints, trace prerequisites, state invariants, comparison dimensions, plan acyclicity, annotation ranges, definition references, and source hashes. Unknown fields/tags fail. No missing comparison cell becomes zero. No ordinary ordinal trace claims elapsed time.
 
-For every family, compare the IR's target IDs, relationship tuples (including trace `order` relationships, branch membership, and `exclusiveWith`), and evidence IDs with the text projection and with the desktop, narrow-screen, and no-JavaScript HTML. Each view marks targets with `data-ex-target` and relationships with `data-ex-rel` so tests can extract them. Layout coordinates cannot invent or remove a relationship. All detail remains reachable with JavaScript disabled.
+For every family, compare the IR's target IDs, relationship tuples (including trace `order` relationships, branch membership, and `exclusiveWith`), and evidence IDs with the text projection and with the desktop, narrow-screen, and no-JavaScript HTML. Each view marks targets with `data-vs-target` and relationships with `data-vs-rel` so tests can extract them. Layout coordinates cannot invent or remove a relationship. All detail remains reachable with JavaScript disabled.
 
 ### 18.3 Evidence tests
 
@@ -1914,7 +1914,7 @@ Playwright projects form an **applicable** matrix, not a full cross product (Fir
 
 **Tiers:** every commit runs Chromium at 1440 and 320 with the Phase 1 journeys; nightly and release runs execute the full applicable matrix. The release gate requires a green full-matrix report, so tiering does not weaken it.
 
-**Clipboard:** Playwright clipboard permissions are reliable in Chromium only, so both paths use `page.addInitScript` stubs. Denial: `navigator.clipboard.writeText` rejects (and a variant deletes `navigator.clipboard`); oracle: the fallback textarea is visible and focused, its whole packet text is selected, and no "Copied" text appears. Success: a spy records the argument; oracle: it parses as an `explain-ref/1` packet that resolves `exact`. Real-permission checks run in Chromium only and do not gate.
+**Clipboard:** Playwright clipboard permissions are reliable in Chromium only, so both paths use `page.addInitScript` stubs. Denial: `navigator.clipboard.writeText` rejects (and a variant deletes `navigator.clipboard`); oracle: the fallback textarea is visible and focused, its whole packet text is selected, and no "Copied" text appears. Success: a spy records the argument; oracle: it parses as an `visser-ref/1` packet that resolves `exact`. Real-permission checks run in Chromium only and do not gate.
 
 Critical journeys: follow guided path; inspect edge; open evidence; return with focus/scroll preserved; open definition; select a reference for each target kind in R03 (heading, paragraph, list, table, blockquote, code block, figure, graph node and edge, trace event, compare cell, annotation, definition, source), resolve it `exact`, and confirm the nearest-target rule does not return the parent; use fallback copy text; resolve copied packet; follow a deep link to an initially collapsed detail; expand all details; print. `emulateMedia({media: 'print'})` does not fire `beforeprint`, so print is two tests: (a) with a detail in the inspector, dispatch a `beforeprint` event and assert every moved detail is back at its placeholder and the `x-` ID set matches the build manifest; (b) under print media emulation, assert that the inspector and toolbar compute to `display: none` and that details and source blocks are open.
 
@@ -1931,7 +1931,7 @@ Export under a project subpath and read on a static server with no application r
 Adversarial fixtures:
 
 - A repository shim that creates a sentinel file is refused by the user wrapper (`E_TOOLKIT_UNTRUSTED`, no sentinel).
-- A committed `.explain/trust.json` has no effect.
+- A committed `.visser/trust.json` has no effect.
 - A repository config with host `0.0.0.0` still binds loopback.
 - `../` and absolute `documentRoots` fail.
 - A fixture repository with an fsmonitor hook and a textconv driver runs neither during capture and `--rev=--output=x` is rejected.
@@ -1977,10 +1977,10 @@ The skill should not optimize for fewer words or more diagrams when those measur
 
 | Criterion | Automated oracle |
 |---|---|
-| Reflow at 320 px (§10.5) | `document.documentElement.scrollWidth <= innerWidth`; only elements with `data-ex-viewport` and `overflow: auto` may scroll horizontally. |
+| Reflow at 320 px (§10.5) | `document.documentElement.scrollWidth <= innerWidth`; only elements with `data-vs-viewport` and `overflow: auto` may scroll horizontally. |
 | "Readable" / "legible" | Computed `font-size >= 14px` for prose and SVG `<text>` labels. |
 | Focus and scroll return (§10.2) | After Escape or Back, `document.activeElement` is the originating element, and `scrollY` is within ±2 px of its earlier value. |
-| 44 px targets | `boundingBox()` of each `[data-ex-interactive]` element is at least 44×44 at mobile viewports, except a listed fixture allowlist ("where feasible"). |
+| 44 px targets | `boundingBox()` of each `[data-vs-interactive]` element is at least 44×44 at mobile viewports, except a listed fixture allowlist ("where feasible"). |
 | Inspector form | At 390 px the inspector is `dialog[open]` matching `:modal`; at 1440 px it is an `aside`. |
 | Deep links (§10.2) | With JS, `#x-T` gives `details#x-T[open]`. Without JS, the summary of `#x-T` is in the viewport; open state is not asserted. |
 | `beforematch` | Only the fallback is tested; the spec forbids depending on the event. |
@@ -2009,7 +2009,7 @@ All ADRs below are accepted for v1. Revisit triggers indicate when a deliberate 
 
 ### ADR-02 — Browser output; canonical restricted Markdown/Markdoc source
 
-**Decision:** Markdoc is the parsing foundation; Explain defines an inert, validated profile and its own IR. **Alternatives:** arbitrary MDX/JSX, standalone HTML as source, JSON-only documents, plain Markdown without rich components. **Rationale:** readable prose plus structured semantics, with no arbitrary document execution. **Cost:** ordinary Markdown viewers show tags and cannot reproduce the rich experience. **Revisit:** parser characterization fails irreparably or authoring overhead outweighs value.
+**Decision:** Markdoc is the parsing foundation; Visser defines an inert, validated profile and its own IR. **Alternatives:** arbitrary MDX/JSX, standalone HTML as source, JSON-only documents, plain Markdown without rich components. **Rationale:** readable prose plus structured semantics, with no arbitrary document execution. **Cost:** ordinary Markdown viewers show tags and cannot reproduce the rich experience. **Revisit:** parser characterization fails irreparably or authoring overhead outweighs value.
 
 ### ADR-03 — Persistent IDs separate from hashes and locations
 
@@ -2142,11 +2142,11 @@ Catalogue growth should mostly come from demonstrated explanation needs and prom
 
 ## Appendix A: complete illustrative source
 
-The implementation materializes this fixture as `examples/bounded-queue/index.md`; this repository does not yet contain that file. The fixture deliberately covers several syntax families in one short document; it is not a model for how many visuals a real explanation needs. In a real document, `capture file --kind example` generates the `src_queue` block and its `excerptSha256`; authors never type a digest. It is a teaching example, not real production evidence. Its captured Python text digest is computed from the exact fenced body, including its final newline. The teaching example relies on Python's documented condition-variable behavior; that additional origin is explicitly link-only, not a fabricated captured excerpt.[S19] The coding agent must generate a real `explain.lock.json` from its built toolkit before compiling it; there is no fictitious release lock in this bundle.
+The implementation materializes this fixture as `examples/bounded-queue/index.md`; this repository does not yet contain that file. The fixture deliberately covers several syntax families in one short document; it is not a model for how many visuals a real explanation needs. In a real document, `capture file --kind example` generates the `src_queue` block and its `excerptSha256`; authors never type a digest. It is a teaching example, not real production evidence. Its captured Python text digest is computed from the exact fenced body, including its final newline. The teaching example relies on Python's documented condition-variable behavior; that additional origin is explicitly link-only, not a fabricated captured excerpt.[S19] The coding agent must generate a real `visser.lock.json` from its built toolkit before compiling it; there is no fictitious release lock in this bundle.
 
 ````markdown
 ---
-format: explain/1
+format: visser/1
 docId: 4f8ac70c-7e14-4f06-9865-e194f57c7239
 title: A full queue blocks producers, not consumers
 kind: teaching
@@ -2159,20 +2159,20 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # A full queue blocks producers, not consumers
 
-<!-- ex:id p_takeaway -->
+<!-- vs:id p_takeaway -->
 The queue bounds the number of stored items by making producers wait when it is
 full. A consumer taking an item creates space; it does not mean that processing
 of that item has finished. {% cite ref="src_queue" /%}
 
-<!-- ex:id p_limits -->
+<!-- vs:id p_limits -->
 This is a teaching implementation, not a production design. It has no timeout,
 cancellation, shutdown protocol, or fairness guarantee. The example does not
 establish how a particular production codebase behaves.
 
-<!-- ex:id p_vocabulary -->
+<!-- vs:id p_vocabulary -->
 This is {% term ref="def_backpressure" %}backpressure{% /term %}: the queue
 makes the producer wait rather than accept unlimited pending work.
 
@@ -2204,7 +2204,7 @@ wait for the consumer to finish processing. {% cite ref="src_queue" /%}
 {% /edge %}
 {% /graph %}
 
-<!-- ex:id p_trace -->
+<!-- vs:id p_trace -->
 One possible execution begins with a full queue. Follow
 {% focus targets=["enqueue", "event_wait", "event_remove"] %}the wait and release{% /focus %}.
 This is one possible ordering, not every legal thread interleaving.
@@ -2285,15 +2285,15 @@ class BoundedQueue:
 
 ## Appendix B: initial skill instructions
 
-This is the canonical skill text; the implementation materializes it as `skills/explain/SKILL.md`. Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
+This is the canonical skill text; the implementation materializes it as `skills/visual-explain/SKILL.md`. Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
 
 ````markdown
 ---
-name: explain
-description: Create or revise source-grounded visual explanations, architecture documents, plans, root-cause explanations, and teaching documents with the Explain toolkit. Use when a user requests this document workflow or provides an Explain reference packet. Do not turn every ordinary technical answer into a generated website.
+name: visual-explain
+description: Create or revise source-grounded visual explanations, architecture documents, plans, root-cause explanations, and teaching documents with the Visser toolkit. Use when a user requests this document workflow or provides a Visser reference packet. Do not turn every ordinary technical answer into a generated website.
 ---
 
-# Explain
+# Visser
 
 Create an explanation that helps a reader reconstruct the mechanism, reason about
 its consequences, and locate the supporting material. Optimize understanding,
@@ -2315,8 +2315,8 @@ extension merely to finish an explanation. Those are separate authorizations.
 
 ## Load the correct toolkit
 
-Use the current document's exact Explain lock. Run only the user shim
-(`node ${EXPLAIN_HOME:-~/.explain}/bin/explain.cjs`); never run a repository
+Use the current document's exact Visser lock. Run only the user shim
+(`node ${VISSER_HOME:-~/.visser}/bin/visser.cjs`); never run a repository
 shim. Run `skill show --doc PATH` or `doctor`. Host-level
 skill precedence does not override the document lock. Missing dependencies need
 an explicit permitted installation; do not silently download during build.
@@ -2347,7 +2347,7 @@ read only the catalogue guides and schemas relevant to the explanation.
    Do not invent SHAs, citations, measurements, or source verification. For
    illustrative code, write it to a file and run `capture file --kind example`;
    never type an `excerptSha256`.
-6. Create a new bundle with `explain init PATH --kind K --title T`; never write
+6. Create a new bundle with `visser init PATH --kind K --title T`; never write
    `docId` or the lock by hand or copy a docId from an example. Write the
    canonical source, not generated HTML. If you use a diagram, label
    relationships and make both nodes and edges inspectable. Introduce essential unfamiliar terms inline;
@@ -2425,7 +2425,7 @@ silent side effect of authoring one document.
 The following is also provided as `IMPLEMENTATION_HANDOFF.md`.
 
 ````markdown
-# Implementation handoff: Explain
+# Implementation handoff: Visser
 
 Implement the system specified in `ARCHITECTURE.md`. Treat that file as the
 current authority rather than provisional design discussion. Build a usable
@@ -2486,7 +2486,7 @@ companion files. This repository does not contain them. Materialize them as foll
 - Copy the fenced body of Appendix A to `examples/bounded-queue/index.md`: complete
   illustrative authoring fixture; its source code is explicitly an example, not
   attributed to a real repository. Confirm its captured-code digest matches.
-- Copy the fenced body of Appendix B to `skills/explain/SKILL.md` (the §5.3 path):
+- Copy the fenced body of Appendix B to `skills/visual-explain/SKILL.md` (the §5.3 path):
   canonical initial instruction text; host wrappers should load the version
   selected by the document/workspace lock.
 - `verification/` (Python reference model, `test-vectors.json`, and

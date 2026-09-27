@@ -1,5 +1,5 @@
 // R10 project-subpath export (§13.5, §17.7 4b): the exported site served by a
-// generic static server under /explain-demo/, with no CSP header and no
+// generic static server under /visser-demo/, with no CSP header and no
 // rewrite rules. The `offOrigin` fixture fails a test if any request leaves the
 // prefix or if the console reports a CSP violation.
 import { spawnSync } from 'node:child_process';
@@ -12,7 +12,7 @@ import { EXAMPLES } from './examples.ts';
 import { byId, copiedTexts, EXPORT_ORIGIN, EXPORT_PREFIX, exportedUrl, installClipboardSpy, isNarrow, showMap, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const cli = join(root, 'dist/release/bin/explain.cjs');
+const cli = join(root, 'dist/release/bin/visser.cjs');
 const siteIndex = `${EXPORT_ORIGIN}${EXPORT_PREFIX}`;
 
 test.describe('@R10 exported site under a project prefix', () => {
@@ -24,7 +24,7 @@ test.describe('@R10 exported site under a project prefix', () => {
     for (const href of hrefs) expect(href, 'relative link').not.toMatch(/^(\/|[a-z]+:)/i);
     // Follow the first link by a click, and fetch every target through the static server.
     await links.first().click();
-    await expect(page.locator('#ex-doc')).toBeVisible();
+    await expect(page.locator('#vs-doc')).toBeVisible();
     expect(new URL(page.url()).pathname.startsWith(EXPORT_PREFIX)).toBe(true);
     for (const href of hrefs) {
       const response = await page.request.get(new URL(href, siteIndex).href);
@@ -46,8 +46,8 @@ test.describe('@R10 exported site under a project prefix', () => {
     await page.goto(exportedUrl('mermaid-flowchart'));
     await showMap(page, 'cdn_path');
     await expect(page.locator('[id="m-cdn_path"] svg').first()).toBeAttached({ timeout: 20_000 });
-    await expect(byId(page, 'x-cdn_path').locator('.ex-mermaid-notice')).toBeHidden();
-    const pack = new RegExp(`^200 ${EXPORT_PREFIX}_explain/assets/[0-9a-f]{64}/(reader|mermaid)\\.js$`);
+    await expect(byId(page, 'x-cdn_path').locator('.vs-mermaid-notice')).toBeHidden();
+    const pack = new RegExp(`^200 ${EXPORT_PREFIX}_visser/assets/[0-9a-f]{64}/(reader|mermaid)\\.js$`);
     expect(scripts.length).toBeGreaterThanOrEqual(2);
     for (const s of scripts) expect(s).toMatch(pack);
     expect(scripts.some((s) => s.endsWith('/mermaid.js'))).toBe(true);
@@ -58,15 +58,15 @@ test.describe('@R10 exported site under a project prefix', () => {
     await installClipboardSpy(page);
     await page.goto(exportedUrl('mermaid-flowchart'));
     await expect(page.locator('[id="m-cdn_path"] svg').first()).toBeAttached({ timeout: 20_000 });
-    await page.locator('#ex-btn-refmode').click();
-    await page.locator('[id="m-cdn_path"] [data-ex-target="edgecache"]').first().click();
-    const panel = page.locator('#ex-refpanel');
+    await page.locator('#vs-btn-refmode').click();
+    await page.locator('[id="m-cdn_path"] [data-vs-target="edgecache"]').first().click();
+    const panel = page.locator('#vs-refpanel');
     await expect(panel).toBeVisible();
     await panel.getByRole('button', { name: 'Copy reference', exact: true }).click();
     const [yaml] = await copiedTexts(page);
     expect(parsePacket(yaml!)).toMatchObject({ targetId: 'edgecache', kind: 'mermaid-node' });
 
-    const repo = mkdtempSync(join(tmpdir(), 'explain-export-ref-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-export-ref-'));
     mkdirSync(join(repo, '.git'));
     cpSync(join(root, 'examples/mermaid-flowchart'), join(repo, 'docs/explanations/mermaid-flowchart'), { recursive: true });
     writeFileSync(join(repo, 'request.yaml'), yaml!);
@@ -77,9 +77,9 @@ test.describe('@R10 exported site under a project prefix', () => {
 
   test('@R10 @R20 the public export reads under the prefix from its own asset pack', async ({ page, offOrigin: _ }) => {
     await page.goto(exportedUrl('public'));
-    await expect(page.locator('#ex-doc')).toContainText('A public page that the static host serves under a project prefix.');
+    await expect(page.locator('#vs-doc')).toContainText('A public page that the static host serves under a project prefix.');
     const reader = await page.locator('script[src$="reader.js"]').getAttribute('src');
-    expect(new URL(reader!, page.url()).pathname).toMatch(new RegExp(`^${EXPORT_PREFIX}public/_explain/assets/[0-9a-f]{64}/reader\\.js$`));
+    expect(new URL(reader!, page.url()).pathname).toMatch(new RegExp(`^${EXPORT_PREFIX}public/_visser/assets/[0-9a-f]{64}/reader\\.js$`));
   });
 });
 
@@ -88,9 +88,9 @@ test.describe('@R10 exported site without JavaScript', () => {
     await page.goto(siteIndex);
     await expect(page.locator('main a')).toHaveCount(EXAMPLES.length);
     await page.goto(exportedUrl('mermaid-flowchart'));
-    await expect(byId(page, 'x-cdn_path').locator('pre.ex-mermaid-source')).toBeVisible();
+    await expect(byId(page, 'x-cdn_path').locator('pre.vs-mermaid-source')).toBeVisible();
     await expect(page.locator('[id="m-cdn_path"] svg')).toHaveCount(0);
     await page.goto(exportedUrl('bounded-queue'));
-    await expect(page.locator('#ex-doc h1').first()).toBeVisible();
+    await expect(page.locator('#vs-doc h1').first()).toBeVisible();
   });
 });

@@ -1,5 +1,5 @@
 {
-  "schema": "explain-traceability/1",
+  "schema": "visser-traceability/1",
   "note": "Maps requirements (\u00a72.2) and acceptance tests (\u00a718) to test tags and the phase that must cover them. status 'covered' means every tag must appear in a passing test in reports/vitest-junit.xml; 'partial' is the same check plus a note on what remains; 'planned' has no tests yet.",
   "entries": [
     {
@@ -99,7 +99,7 @@
       "tags": [
         "@R10"
       ],
-      "note": "Reproducible release archive, strict ustar reader, install --from-release against local HTTPS servers with a test CA, site export with relative URLs, and the browser journeys against a /explain-demo/ subpath export on a static server. Real GitHub hosts are not tested (no network)."
+      "note": "Reproducible release archive, strict ustar reader, install --from-release against local HTTPS servers with a test CA, site export with relative URLs, and the browser journeys against a /visser-demo/ subpath export on a static server. Real GitHub hosts are not tested (no network)."
     },
     {
       "id": "R11",
@@ -306,7 +306,7 @@
       "tags": [
         "@T12"
       ],
-      "note": "One canonical element per target; instances carry data-ex-target without duplicate HTML IDs."
+      "note": "One canonical element per target; instances carry data-vs-target without duplicate HTML IDs."
     },
     {
       "id": "T13",

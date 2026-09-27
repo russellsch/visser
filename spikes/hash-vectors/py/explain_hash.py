@@ -140,7 +140,7 @@ def source_manifest(doc_id, files):
     if "index.md" not in seen:
         raise HashError("E_MANIFEST", "index.md is required")
     entries.sort(key=lambda e: e["path"])
-    return {"schema": "explain-source-manifest/1", "docId": doc_id, "files": entries}
+    return {"schema": "visser-source-manifest/1", "docId": doc_id, "files": entries}
 
 
 def source_revision(doc_id, files):
@@ -161,7 +161,7 @@ def build_id(source_rev, toolkit_sha256, extension_digests, effective_render_opt
     if len(set(ext)) != len(ext):
         raise HashError("E_DUPLICATE_DIGEST")
     canonical = canonical_json({
-        "schema": "explain-build-input/1",
+        "schema": "visser-build-input/1",
         "sourceRevision": source_rev,
         "toolkitSha256": toolkit_sha256,
         "extensionDigests": sorted(ext),
@@ -183,7 +183,7 @@ def _check_ref(doc_id, target_id, rev, body):
 
 def build_reference_uri(doc_id, target_id, rev, body):
     _check_ref(doc_id, target_id, rev, body)
-    return "explain://%s/%s?rev=%s&body=%s" % (doc_id, target_id, rev, body)
+    return "visser://%s/%s?rev=%s&body=%s" % (doc_id, target_id, rev, body)
 
 
 def parse_reference_uri(raw):
@@ -197,7 +197,7 @@ def parse_reference_uri(raw):
         port = parts.port
     except ValueError:
         bad("unparseable")
-    if parts.scheme != "explain":  # urlsplit lowercases the scheme
+    if parts.scheme != "visser":  # urlsplit lowercases the scheme
         bad("scheme")
     if "#" in raw:
         bad("fragment")

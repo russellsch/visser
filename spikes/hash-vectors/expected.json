@@ -1,6 +1,6 @@
 {
  "implementation": "ts",
- "node": "v25.9.0",
+ "node": "v24.21.0",
  "results": {
   "t_ascii": {
    "ok": true,
@@ -163,28 +163,28 @@
   },
   "s_basic": {
    "ok": true,
-   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"d7be30ce798bcb938a17f23e11b1505a3f13b4c8bb6448d39f915244eb98e7c2\"}],\"schema\":\"explain-source-manifest/1\"}",
-   "sourceRevision": "1b10a63fe9a86d3295e7cfe15d1390ea132674e4dea86b34a76330e794df3029"
+   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"eb508e4c6d2ca740e61b70e48e65d9c0f605a8003e924da8da1f1849e33e2f28\"}],\"schema\":\"visser-source-manifest/1\"}",
+   "sourceRevision": "02c9d6f0e7e1b43d0b3a6ccbbac87ae940fe744f69f1cb7bd2844eeacb1857bc"
   },
   "s_basic_crlf_index": {
    "ok": true,
-   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"d7be30ce798bcb938a17f23e11b1505a3f13b4c8bb6448d39f915244eb98e7c2\"}],\"schema\":\"explain-source-manifest/1\"}",
-   "sourceRevision": "1b10a63fe9a86d3295e7cfe15d1390ea132674e4dea86b34a76330e794df3029"
+   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"eb508e4c6d2ca740e61b70e48e65d9c0f605a8003e924da8da1f1849e33e2f28\"}],\"schema\":\"visser-source-manifest/1\"}",
+   "sourceRevision": "02c9d6f0e7e1b43d0b3a6ccbbac87ae940fe744f69f1cb7bd2844eeacb1857bc"
   },
   "s_basic_bom_index": {
    "ok": true,
-   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"d7be30ce798bcb938a17f23e11b1505a3f13b4c8bb6448d39f915244eb98e7c2\"}],\"schema\":\"explain-source-manifest/1\"}",
-   "sourceRevision": "1b10a63fe9a86d3295e7cfe15d1390ea132674e4dea86b34a76330e794df3029"
+   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"999402d2584a6b8a0cff33ad1355d8969c8748f33f2fe0f21514705a0e025cac\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"eb508e4c6d2ca740e61b70e48e65d9c0f605a8003e924da8da1f1849e33e2f28\"}],\"schema\":\"visser-source-manifest/1\"}",
+   "sourceRevision": "02c9d6f0e7e1b43d0b3a6ccbbac87ae940fe744f69f1cb7bd2844eeacb1857bc"
   },
   "s_binary_not_normalized": {
    "ok": true,
-   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"48ad1efeffab465e28e0af914dfad4187180e062521501af78adfefc39284aad\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"d7be30ce798bcb938a17f23e11b1505a3f13b4c8bb6448d39f915244eb98e7c2\"}],\"schema\":\"explain-source-manifest/1\"}",
-   "sourceRevision": "076cd4209512da54b343df065f9892a2f726565aaefca1e42937d0952f7fe946"
+   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"assets/diagram.png\",\"sha256\":\"48ad1efeffab465e28e0af914dfad4187180e062521501af78adfefc39284aad\"},{\"path\":\"evidence/example.txt\",\"sha256\":\"e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13\"},{\"path\":\"index.md\",\"sha256\":\"eb508e4c6d2ca740e61b70e48e65d9c0f605a8003e924da8da1f1849e33e2f28\"}],\"schema\":\"visser-source-manifest/1\"}",
+   "sourceRevision": "f0b1101a0436c1b891752c41afee91e7f214e25f106de6e9db5451ca7a220c97"
   },
   "s_sort_order": {
    "ok": true,
-   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"B.md\",\"sha256\":\"c865f6c5ab8d1b0bcd383a5e1e3879d22681c96bf462c269b7581d523fbe70ab\"},{\"path\":\"a.md\",\"sha256\":\"3bb2abb69ebb27fbfe63c7639624c6ec5e331b841a5bc8c3ebc10b9285e90877\"},{\"path\":\"a/b.md\",\"sha256\":\"73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac\"},{\"path\":\"evidence/｡.txt\",\"sha256\":\"f9801afbfd93301b67bde3255324b680c81cd831ecee9ff84f3d68a54eb76353\"},{\"path\":\"evidence/😀.txt\",\"sha256\":\"5312b0b582d805303c95d7e2b1bc6fad70e04b3dde5413aae758b68767b06ada\"},{\"path\":\"index.md\",\"sha256\":\"d7be30ce798bcb938a17f23e11b1505a3f13b4c8bb6448d39f915244eb98e7c2\"}],\"schema\":\"explain-source-manifest/1\"}",
-   "sourceRevision": "2bb9a496518c370829c0ab7f97d1758ded8ba44a61d9ff089d21ed30fc9f9cd6"
+   "canonical": "{\"docId\":\"4f8ac70c-7e14-4f06-9865-e194f57c7239\",\"files\":[{\"path\":\"B.md\",\"sha256\":\"c865f6c5ab8d1b0bcd383a5e1e3879d22681c96bf462c269b7581d523fbe70ab\"},{\"path\":\"a.md\",\"sha256\":\"3bb2abb69ebb27fbfe63c7639624c6ec5e331b841a5bc8c3ebc10b9285e90877\"},{\"path\":\"a/b.md\",\"sha256\":\"73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac\"},{\"path\":\"evidence/｡.txt\",\"sha256\":\"f9801afbfd93301b67bde3255324b680c81cd831ecee9ff84f3d68a54eb76353\"},{\"path\":\"evidence/😀.txt\",\"sha256\":\"5312b0b582d805303c95d7e2b1bc6fad70e04b3dde5413aae758b68767b06ada\"},{\"path\":\"index.md\",\"sha256\":\"eb508e4c6d2ca740e61b70e48e65d9c0f605a8003e924da8da1f1849e33e2f28\"}],\"schema\":\"visser-source-manifest/1\"}",
+   "sourceRevision": "4b344779d5e8f1d96682e0976958af7ac69e79bab361f1f65f4429ecdd7b9733"
   },
   "s_nfd_path": {
    "ok": false,
@@ -244,23 +244,23 @@
   },
   "b_basic": {
    "ok": true,
-   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"explain-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
-   "buildId": "4b10c038ca5a18fedcc78d079b91075a62cc4441690317571dee8902da22bab6"
+   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"visser-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+   "buildId": "8ceddf2ebcec684fb851e8bc13a1fda6fb8f864da03fe25a367566787e316be6"
   },
   "b_sorted_same": {
    "ok": true,
-   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"explain-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
-   "buildId": "4b10c038ca5a18fedcc78d079b91075a62cc4441690317571dee8902da22bab6"
+   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"visser-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+   "buildId": "8ceddf2ebcec684fb851e8bc13a1fda6fb8f864da03fe25a367566787e316be6"
   },
   "b_no_extensions": {
    "ok": true,
-   "canonical": "{\"effectiveRenderOptions\":{},\"extensionDigests\":[],\"schema\":\"explain-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
-   "buildId": "c1c43c0accabd490a5f203b4323daf288734722063fa0f57ffaa2d1bd9400138"
+   "canonical": "{\"effectiveRenderOptions\":{},\"extensionDigests\":[],\"schema\":\"visser-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+   "buildId": "168760d3bed9e9496456229d6712dfd533485ab920859813c8a7d0f1dee49465"
   },
   "b_toolkit_changes_id": {
    "ok": true,
-   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"explain-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"}",
-   "buildId": "71ffbbfce34389c0dce4646d795f887d8878946d6ba1c75b2443203322f8f37d"
+   "canonical": "{\"effectiveRenderOptions\":{\"audience\":\"private\",\"includeSource\":false,\"layoutFallback\":false},\"extensionDigests\":[\"1111111111111111111111111111111111111111111111111111111111111111\",\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"],\"schema\":\"visser-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"}",
+   "buildId": "579e994c331ba80d406926b037b973dd6599ac8a47de9f32682c4173b8d7de37"
   },
   "b_upper_hex": {
    "ok": false,
@@ -280,12 +280,12 @@
   },
   "b_fixed_decimal_option": {
    "ok": true,
-   "canonical": "{\"effectiveRenderOptions\":{\"scale\":\"1.500\"},\"extensionDigests\":[],\"schema\":\"explain-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
-   "buildId": "3e9bd833151cfd2d23754b467cfef0ade8ba5508fb5b541b2dbcc2d95d698fa8"
+   "canonical": "{\"effectiveRenderOptions\":{\"scale\":\"1.500\"},\"extensionDigests\":[],\"schema\":\"visser-build-input/1\",\"sourceRevision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"toolkitSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+   "buildId": "d58030a314ea87d31cbcc9f469b04e3cd3b1c28a3142a59cc6cba8dd09451602"
   },
   "u_build": {
    "ok": true,
-   "uri": "explain://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   "uri": "visser://4f8ac70c-7e14-4f06-9865-e194f57c7239/enqueue?rev=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&body=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "u_build_bad_target": {
    "ok": false,

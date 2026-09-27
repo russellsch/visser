@@ -1,12 +1,12 @@
-// `explain install --from-dir DIR | --archive FILE [--sha256 DIGEST] |
+// `visser install --from-dir DIR | --archive FILE [--sha256 DIGEST] |
 // --from-release OWNER/REPO --version V --sha256 DIGEST --scope user|repo
 // [--default] [--root DIR] [--json]` (§12.1, §12.2, §12.5, §12.6, §17.1).
 // Verifies and activates an exact release, and records its digest in the user
 // trust store. Exit: integrity and download-policy failures are 4, a missing
 // source, release, or network is 3, a race is 5.
 //
-// Test seams (§12.5): EXPLAIN_TEST_API_BASE replaces https://api.github.com
-// (it then receives the token), and EXPLAIN_TEST_CA_FILE adds a CA to the
+// Test seams (§12.5): VISSER_TEST_API_BASE replaces https://api.github.com
+// (it then receives the token), and VISSER_TEST_CA_FILE adds a CA to the
 // trusted roots. Both print a warning to stderr when they are set.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -16,24 +16,24 @@ import { findRepoRoot } from '../../../core/src/references/registry.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
 
 const USAGE = [
-  'usage: explain install --from-dir DIR | --archive FILE [--sha256 ARCHIVE_DIGEST] --scope user|repo [--default] [--root DIR] [--json]',
-  '       explain install --from-release OWNER/REPO --version VERSION --sha256 ARCHIVE_DIGEST --scope user|repo [--default] [--root DIR] [--json]',
+  'usage: visser install --from-dir DIR | --archive FILE [--sha256 ARCHIVE_DIGEST] --scope user|repo [--default] [--root DIR] [--json]',
+  '       visser install --from-release OWNER/REPO --version VERSION --sha256 ARCHIVE_DIGEST --scope user|repo [--default] [--root DIR] [--json]',
 ].join('\n');
 
 function testSeams(): { apiBase?: string; extraCa?: string[] } {
   const out: { apiBase?: string; extraCa?: string[] } = {};
-  const apiBase = process.env['EXPLAIN_TEST_API_BASE'];
-  const caFile = process.env['EXPLAIN_TEST_CA_FILE'];
+  const apiBase = process.env['VISSER_TEST_API_BASE'];
+  const caFile = process.env['VISSER_TEST_CA_FILE'];
   if (apiBase) {
-    process.stderr.write('warning: EXPLAIN_TEST_API_BASE is set; the release API is not api.github.com (test use only)\n');
+    process.stderr.write('warning: VISSER_TEST_API_BASE is set; the release API is not api.github.com (test use only)\n');
     out.apiBase = apiBase;
   }
   if (caFile) {
-    process.stderr.write('warning: EXPLAIN_TEST_CA_FILE is set; an extra CA is trusted for this download (test use only)\n');
+    process.stderr.write('warning: VISSER_TEST_CA_FILE is set; an extra CA is trusted for this download (test use only)\n');
     try {
       out.extraCa = [readFileSync(caFile, 'utf8')];
     } catch {
-      throw new CliError('E_USAGE', 'cannot read EXPLAIN_TEST_CA_FILE', EXIT.invalid);
+      throw new CliError('E_USAGE', 'cannot read VISSER_TEST_CA_FILE', EXIT.invalid);
     }
   }
   return out;
@@ -61,7 +61,7 @@ export async function runInstall(args: ParsedArgs): Promise<number> {
   if (fromRelease === undefined && version !== undefined) throw new CliError('E_USAGE', `--version applies to --from-release only\n${USAGE}`, EXIT.invalid);
   const root = scope === 'repo' ? (stringFlag(args, 'root') ?? findRepoRoot(process.cwd())) : undefined;
   if (scope === 'repo' && !root) {
-    throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .explain) found; pass --root DIR', EXIT.unavailable);
+    throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .visser) found; pass --root DIR', EXIT.unavailable);
   }
   try {
     const common = {

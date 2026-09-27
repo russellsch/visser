@@ -67,24 +67,24 @@ function targetIdFromHref(link: Element): string | undefined {
 function ensureInspector(modal: boolean): Inspector {
   if (state.inspector && state.inspector.modal === modal) return state.inspector;
   if (state.inspector) state.inspector.host.remove();
-  const host: HTMLElement = modal ? el('dialog', 'ex-inspector ex-inspector--dialog') : el('aside', 'ex-inspector ex-inspector--aside');
+  const host: HTMLElement = modal ? el('dialog', 'vs-inspector vs-inspector--dialog') : el('aside', 'vs-inspector vs-inspector--aside');
   host.id = modal ? DOM.inspectorDialog : DOM.inspector;
-  host.setAttribute('aria-labelledby', 'ex-inspector-title');
+  host.setAttribute('aria-labelledby', 'vs-inspector-title');
   host.setAttribute(A.generated, '');
   if (!modal) host.hidden = true;
-  const bar = el('div', 'ex-inspector__bar');
-  const title = el('h2', 'ex-inspector__title');
-  title.id = 'ex-inspector-title';
+  const bar = el('div', 'vs-inspector__bar');
+  const title = el('h2', 'vs-inspector__title');
+  title.id = 'vs-inspector-title';
   title.tabIndex = -1;
-  const back = button('Back', 'ex-btn ex-inspector__back', () => goBack());
-  const copy = button('Copy reference', 'ex-btn', () => {
+  const back = button('Back', 'vs-btn vs-inspector__back', () => goBack());
+  const copy = button('Copy reference', 'vs-btn', () => {
     const id = state.current?.el.getAttribute(A.target);
     if (id) void copyReference(id, false);
   });
-  const close = button('Close', 'ex-btn ex-inspector__close', () => closeInspector());
+  const close = button('Close', 'vs-btn vs-inspector__close', () => closeInspector());
   bar.append(back, title, copy, close);
-  const body = el('div', 'ex-inspector__body');
-  const status = el('p', 'ex-status');
+  const body = el('div', 'vs-inspector__body');
+  const status = el('p', 'vs-status');
   status.setAttribute('role', 'status');
   host.append(bar, body, status);
   if (modal) {
@@ -132,7 +132,7 @@ function showDetail(targetId: string, push: boolean): boolean {
     if (!dialog.open) dialog.showModal();
   } else {
     inspector.host.hidden = false;
-    document.body.classList.add('ex-has-inspector');
+    document.body.classList.add('vs-has-inspector');
   }
   inspector.title.focus();
   return true;
@@ -164,7 +164,7 @@ function closeInspector(restoreFocus = true): void {
     }
     inspector.body.replaceChildren();
   }
-  document.body.classList.remove('ex-has-inspector');
+  document.body.classList.remove('vs-has-inspector');
   state.history = [];
   const origin = state.origin;
   state.origin = undefined;
@@ -241,8 +241,8 @@ function showTooltip(term: HTMLElement): void {
   const text = definitionText(defId);
   if (!text) return;
   hideTooltip();
-  const tip = el('span', 'ex-tooltip', text);
-  tip.id = 'ex-tooltip';
+  const tip = el('span', 'vs-tooltip', text);
+  tip.id = 'vs-tooltip';
   tip.setAttribute('role', 'tooltip');
   tip.setAttribute(A.generated, '');
   tip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
@@ -362,18 +362,18 @@ function packetFor(targetId: string, withQuote: boolean): string | undefined {
 }
 
 function statusElement(): HTMLElement | undefined {
-  if (panel && !panel.hidden) return panel.querySelector<HTMLElement>('.ex-status') ?? undefined;
-  return state.inspector?.host.querySelector<HTMLElement>('.ex-status') ?? undefined;
+  if (panel && !panel.hidden) return panel.querySelector<HTMLElement>('.vs-status') ?? undefined;
+  return state.inspector?.host.querySelector<HTMLElement>('.vs-status') ?? undefined;
 }
 
 function showFallback(text: string): void {
   const container = (panel && !panel.hidden ? panel : state.inspector?.host) ?? ensurePanel();
   if (container === panel) panel.hidden = false;
   byId(DOM.copyFallback)?.parentElement?.remove();
-  const wrap = el('div', 'ex-copy-fallback');
-  const label = el('label', 'ex-copy-fallback__label', 'Copying was not allowed. Copy this reference with Ctrl+C or Cmd+C:');
+  const wrap = el('div', 'vs-copy-fallback');
+  const label = el('label', 'vs-copy-fallback__label', 'Copying was not allowed. Copy this reference with Ctrl+C or Cmd+C:');
   label.htmlFor = DOM.copyFallback;
-  const area = el('textarea', 'ex-copy-fallback__text');
+  const area = el('textarea', 'vs-copy-fallback__text');
   area.id = DOM.copyFallback;
   area.readOnly = true;
   area.rows = 8;
@@ -404,8 +404,8 @@ async function copyReference(targetId: string, withQuote: boolean): Promise<void
 
 function ensurePanel(): HTMLElement {
   if (panel) return panel;
-  panel = el('div', 'ex-refpanel');
-  panel.id = 'ex-refpanel';
+  panel = el('div', 'vs-refpanel');
+  panel.id = 'vs-refpanel';
   panel.setAttribute('role', 'region');
   panel.setAttribute('aria-label', 'Reference');
   panel.setAttribute(A.generated, '');
@@ -425,33 +425,33 @@ function ancestorsWithTargets(start: Element): string[] {
 
 function selectTarget(targetId: string, from: Element, focusPanel: boolean): void {
   state.selected = targetId;
-  highlight([targetId], 'ex-selected');
+  highlight([targetId], 'vs-selected');
   const node = canonical(targetId);
   const kind = node?.getAttribute(A.kind) ?? '';
   const label = node?.getAttribute(A.label) ?? targetId;
   const p = ensurePanel();
   p.replaceChildren();
-  const heading = el('p', 'ex-refpanel__title');
+  const heading = el('p', 'vs-refpanel__title');
   heading.append(el('strong', undefined, kind === 'heading' ? 'Heading only (not its section): ' : `${kind || 'Target'}: `), document.createTextNode(label));
-  const actions = el('div', 'ex-refpanel__actions');
-  const copy = button('Copy reference', 'ex-btn ex-btn--primary', () => void copyReference(targetId, false));
-  const withText = button('Copy reference with selected text', 'ex-btn', () => void copyReference(targetId, true));
+  const actions = el('div', 'vs-refpanel__actions');
+  const copy = button('Copy reference', 'vs-btn vs-btn--primary', () => void copyReference(targetId, false));
+  const withText = button('Copy reference with selected text', 'vs-btn', () => void copyReference(targetId, true));
   withText.disabled = state.lastSelection?.targetId !== targetId;
   actions.append(copy, withText);
-  const note = from.closest('[data-ex-mermaid-derived]')
-    ? el('p', 'ex-refpanel__note', 'This arrow has no ID of its own; the reference is to the diagram. Give it an edge ID (e1@-->) to reference it.')
+  const note = from.closest('[data-vs-mermaid-derived]')
+    ? el('p', 'vs-refpanel__note', 'This arrow has no ID of its own; the reference is to the diagram. Give it an edge ID (e1@-->) to reference it.')
     : state.crossBlock && withText.disabled
-      ? el('p', 'ex-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
+      ? el('p', 'vs-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
       : undefined;
   if (node instanceof HTMLDetailsElement) {
-    actions.append(button('Open detail', 'ex-btn', () => openInspector(targetId, copy)));
+    actions.append(button('Open detail', 'vs-btn', () => openInspector(targetId, copy)));
   }
   const chain = ancestorsWithTargets(from.closest(`[${A.target}]`) ?? from);
   const ancestors = [...chain];
   const nodeParent = node?.parentElement?.closest(`[${A.target}]`)?.getAttribute(A.target);
   if (nodeParent && !ancestors.includes(nodeParent)) ancestors.push(nodeParent);
   if (ancestors.length > 1) {
-    const selectLabel = el('label', 'ex-refpanel__parent', 'Select: ');
+    const selectLabel = el('label', 'vs-refpanel__parent', 'Select: ');
     const select = el('select');
     for (const id of ancestors) {
       const option = el('option', undefined, `${canonical(id)?.getAttribute(A.kind) ?? ''} — ${canonical(id)?.getAttribute(A.label) ?? id}`);
@@ -463,8 +463,8 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
     selectLabel.append(select);
     actions.append(selectLabel);
   }
-  actions.append(button('Close', 'ex-btn', () => closePanel()));
-  const status = el('p', 'ex-status');
+  actions.append(button('Close', 'vs-btn', () => closePanel()));
+  const status = el('p', 'vs-status');
   status.setAttribute('role', 'status');
   p.append(heading, actions, ...(note ? [note] : []), status);
   p.hidden = false;
@@ -474,18 +474,18 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
 function closePanel(): void {
   if (panel) panel.hidden = true;
   state.selected = undefined;
-  clearHighlight('ex-selected');
+  clearHighlight('vs-selected');
 }
 
 function setRefmode(on: boolean): void {
   state.refmode = on;
-  document.body.classList.toggle('ex-refmode', on);
+  document.body.classList.toggle('vs-refmode', on);
   byId(DOM.buttons.refmode)?.setAttribute('aria-pressed', String(on));
   if (!on) closePanel();
 }
 
 function isChrome(node: Element): boolean {
-  return Boolean(node.closest(`.${DOM.toolbar}, #ex-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .ex-tooltip, .ex-refbtn, .ex-view-bar`));
+  return Boolean(node.closest(`.${DOM.toolbar}, #vs-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .vs-tooltip, .vs-refbtn, .vs-view-bar`));
 }
 
 // ---------------------------------------------------------------- figure views
@@ -499,16 +499,16 @@ function applyViews(): void {
     for (const cls of Object.values(VIEW_CLASS)) if (cls) figure.classList.remove(cls);
     const cls = VIEW_CLASS[view];
     if (cls) figure.classList.add(cls);
-    const toggle = figure.querySelector<HTMLButtonElement>('.ex-view-toggle');
+    const toggle = figure.querySelector<HTMLButtonElement>('.vs-view-toggle');
     if (toggle) toggle.setAttribute('aria-pressed', String(view === 'map'));
   }
 }
 
 function addViewToggles(): void {
   for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
-    const bar = el('div', 'ex-view-bar');
+    const bar = el('div', 'vs-view-bar');
     bar.setAttribute(A.generated, '');
-    const toggle = button('Show map', 'ex-btn ex-view-toggle', () => {
+    const toggle = button('Show map', 'vs-btn vs-view-toggle', () => {
       if (mapChosen.has(figure)) mapChosen.delete(figure);
       else mapChosen.add(figure);
       applyViews();
@@ -526,11 +526,11 @@ function addViewToggles(): void {
 }
 
 function addReferenceButtons(): void {
-  const blocks = document.querySelectorAll<HTMLElement>(`#${DOM.root} > .ex-block[${A.target}], #${DOM.root} > .ex-figure[${A.target}]`);
+  const blocks = document.querySelectorAll<HTMLElement>(`#${DOM.root} > .vs-block[${A.target}], #${DOM.root} > .vs-figure[${A.target}]`);
   for (const block of Array.from(blocks)) {
     const id = block.getAttribute(A.target)!;
     const label = block.getAttribute(A.label) ?? id;
-    const b = el('button', 'ex-refbtn', '#');
+    const b = el('button', 'vs-refbtn', '#');
     b.type = 'button';
     b.setAttribute('aria-label', `Reference options for ${label}`);
     b.setAttribute(A.generated, '');
@@ -544,14 +544,14 @@ function addReferenceButtons(): void {
 // ---------------------------------------------------------------- toolbar extras
 
 function toggleContents(): void {
-  let nav = byId('ex-contents');
+  let nav = byId('vs-contents');
   if (nav) {
     nav.hidden = !nav.hidden;
     byId(DOM.buttons.contents)?.setAttribute('aria-expanded', String(!nav.hidden));
     return;
   }
-  nav = el('nav', 'ex-contents');
-  nav.id = 'ex-contents';
+  nav = el('nav', 'vs-contents');
+  nav.id = 'vs-contents';
   nav.setAttribute('aria-label', 'Contents');
   nav.setAttribute(A.generated, '');
   const list = el('ol');
@@ -570,14 +570,14 @@ function toggleContents(): void {
 }
 
 function toggleAbout(): void {
-  let about = byId('ex-about');
+  let about = byId('vs-about');
   if (about) {
     about.hidden = !about.hidden;
     return;
   }
   const root = byId(DOM.root);
-  about = el('section', 'ex-about');
-  about.id = 'ex-about';
+  about = el('section', 'vs-about');
+  about.id = 'vs-about';
   about.setAttribute('aria-label', 'About this snapshot');
   about.setAttribute(A.generated, '');
   const list = el('dl');
@@ -586,7 +586,7 @@ function toggleAbout(): void {
     ['Source revision', root?.getAttribute(A.rev)],
     ['Build', root?.getAttribute(A.build)],
   ] as const) {
-    list.append(el('dt', undefined, term), el('dd', 'ex-mono', value ?? 'unknown'));
+    list.append(el('dt', undefined, term), el('dd', 'vs-mono', value ?? 'unknown'));
   }
   about.append(el('p', undefined, 'This page is an immutable snapshot. Editing the source produces a new revision.'), list);
   root?.prepend(about);
@@ -608,19 +608,19 @@ function onClick(e: MouseEvent): void {
     return;
   }
 
-  const focusLink = target.closest<HTMLElement>('a.ex-focus');
+  const focusLink = target.closest<HTMLElement>('a.vs-focus');
   if (focusLink) {
     e.preventDefault();
     const ids = (focusLink.getAttribute(A.focus) ?? '').split(/\s+/u).filter(Boolean);
-    highlight(ids, 'ex-focused');
+    highlight(ids, 'vs-focused');
     const first = ids[0] ? document.querySelector(`[${A.target}="${CSS.escape(ids[0])}"]`) : null;
     if (first) scrollIntoView(first);
     return;
   }
 
   // Drawn Mermaid elements are not links; they carry the target of their list instance (§9.12).
-  const link = target.closest<HTMLElement>(`a.ex-term, a.ex-cite, a[${A.target}], a[${A.interactive}], [data-ex-mermaid-drawn]:not([data-ex-mermaid-derived])`);
-  if (link && !link.closest(`.${DOM.toolbar}, #ex-refpanel`)) {
+  const link = target.closest<HTMLElement>(`a.vs-term, a.vs-cite, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn]:not([data-vs-mermaid-derived])`);
+  if (link && !link.closest(`.${DOM.toolbar}, #vs-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {
       e.preventDefault();
@@ -645,13 +645,13 @@ function onKeydown(e: KeyboardEvent): void {
     return;
   }
   if (state.refmode) setRefmode(false);
-  clearHighlight('ex-focused');
+  clearHighlight('vs-focused');
 }
 
 function init(): void {
   const toolbar = document.querySelector<HTMLElement>(`.${DOM.toolbar}`);
   if (toolbar) toolbar.hidden = false;
-  document.documentElement.classList.add('ex-js');
+  document.documentElement.classList.add('vs-js');
 
   byId(DOM.buttons.refmode)?.addEventListener('click', () => setRefmode(!state.refmode));
   const expand = byId(DOM.buttons.expand);
@@ -669,7 +669,7 @@ function init(): void {
   document.addEventListener('keydown', onKeydown);
   document.addEventListener('selectionchange', recordSelection);
 
-  for (const term of Array.from(document.querySelectorAll<HTMLElement>('a.ex-term'))) {
+  for (const term of Array.from(document.querySelectorAll<HTMLElement>('a.vs-term'))) {
     term.addEventListener('mouseenter', () => showTooltip(term));
     term.addEventListener('mouseleave', () => scheduleHide());
     term.addEventListener('focus', () => showTooltip(term));

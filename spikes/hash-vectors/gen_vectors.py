@@ -78,7 +78,7 @@ for cid, special in [("c_nan", "nan"), ("c_infinity", "infinity"), ("c_undefined
     add({"id": cid, "op": "cjson", "special": special})
 
 # ---- source revision -------------------------------------------------------
-INDEX_LF = "---\nformat: explain/1\n---\n\n<!-- ex:id intro -->\n# Title\n"
+INDEX_LF = "---\nformat: visser/1\n---\n\n<!-- vs:id intro -->\n# Title\n"
 
 
 def f(path, content, kind="text"):
@@ -159,42 +159,42 @@ add({"id": "b_fixed_decimal_option", "op": "buildid", "input": {
 REV, BODY = H("a"), H("b")
 add({"id": "u_build", "op": "uri_build", "input": {"docId": DOC, "targetId": "enqueue", "rev": REV, "body": BODY}})
 add({"id": "u_build_bad_target", "op": "uri_build", "input": {"docId": DOC, "targetId": "Enqueue", "rev": REV, "body": BODY}})
-good = f"explain://{DOC}/enqueue?rev={REV}&body={BODY}"
+good = f"visser://{DOC}/enqueue?rev={REV}&body={BODY}"
 for cid, uri in [
     ("u_ok", good),
-    ("u_ok_hyphen_underscore", f"explain://{DOC}/b_7tmj7g2h-x?rev={REV}&body={BODY}"),
-    ("u_body_first", f"explain://{DOC}/enqueue?body={BODY}&rev={REV}"),
-    ("u_duplicate_rev", f"explain://{DOC}/enqueue?rev={REV}&rev={REV}&body={BODY}"),
+    ("u_ok_hyphen_underscore", f"visser://{DOC}/b_7tmj7g2h-x?rev={REV}&body={BODY}"),
+    ("u_body_first", f"visser://{DOC}/enqueue?body={BODY}&rev={REV}"),
+    ("u_duplicate_rev", f"visser://{DOC}/enqueue?rev={REV}&rev={REV}&body={BODY}"),
     ("u_unknown_key", f"{good}&x=1"),
-    ("u_missing_body", f"explain://{DOC}/enqueue?rev={REV}"),
+    ("u_missing_body", f"visser://{DOC}/enqueue?rev={REV}"),
     ("u_trailing_amp", f"{good}&"),
-    ("u_uppercase_hex", f"explain://{DOC}/enqueue?rev={H('A')}&body={BODY}"),
-    ("u_short_hex", f"explain://{DOC}/enqueue?rev={'a' * 63}&body={BODY}"),
-    ("u_port", f"explain://{DOC}:80/enqueue?rev={REV}&body={BODY}"),
-    ("u_credentials", f"explain://user@{DOC}/enqueue?rev={REV}&body={BODY}"),
+    ("u_uppercase_hex", f"visser://{DOC}/enqueue?rev={H('A')}&body={BODY}"),
+    ("u_short_hex", f"visser://{DOC}/enqueue?rev={'a' * 63}&body={BODY}"),
+    ("u_port", f"visser://{DOC}:80/enqueue?rev={REV}&body={BODY}"),
+    ("u_credentials", f"visser://user@{DOC}/enqueue?rev={REV}&body={BODY}"),
     ("u_fragment", f"{good}#x"),
     ("u_empty_fragment", f"{good}#"),
-    ("u_encoded_slash", f"explain://{DOC}/a%2Fb?rev={REV}&body={BODY}"),
-    ("u_encoded_letter", f"explain://{DOC}/%65nqueue?rev={REV}&body={BODY}"),
-    ("u_bad_percent", f"explain://{DOC}/a%zz?rev={REV}&body={BODY}"),
-    ("u_extra_segment", f"explain://{DOC}/enqueue/more?rev={REV}&body={BODY}"),
-    ("u_trailing_slash", f"explain://{DOC}/enqueue/?rev={REV}&body={BODY}"),
-    ("u_no_target", f"explain://{DOC}/?rev={REV}&body={BODY}"),
-    ("u_upper_uuid", f"explain://{DOC.upper()}/enqueue?rev={REV}&body={BODY}"),
-    ("u_uuid_v1", f"explain://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev={REV}&body={BODY}"),
-    ("u_target_upper", f"explain://{DOC}/Enqueue?rev={REV}&body={BODY}"),
-    ("u_target_digit_first", f"explain://{DOC}/1abc?rev={REV}&body={BODY}"),
-    ("u_target_65", f"explain://{DOC}/{'a' * 65}?rev={REV}&body={BODY}"),
-    ("u_target_64", f"explain://{DOC}/{'a' * 64}?rev={REV}&body={BODY}"),
+    ("u_encoded_slash", f"visser://{DOC}/a%2Fb?rev={REV}&body={BODY}"),
+    ("u_encoded_letter", f"visser://{DOC}/%65nqueue?rev={REV}&body={BODY}"),
+    ("u_bad_percent", f"visser://{DOC}/a%zz?rev={REV}&body={BODY}"),
+    ("u_extra_segment", f"visser://{DOC}/enqueue/more?rev={REV}&body={BODY}"),
+    ("u_trailing_slash", f"visser://{DOC}/enqueue/?rev={REV}&body={BODY}"),
+    ("u_no_target", f"visser://{DOC}/?rev={REV}&body={BODY}"),
+    ("u_upper_uuid", f"visser://{DOC.upper()}/enqueue?rev={REV}&body={BODY}"),
+    ("u_uuid_v1", f"visser://4f8ac70c-7e14-1f06-9865-e194f57c7239/enqueue?rev={REV}&body={BODY}"),
+    ("u_target_upper", f"visser://{DOC}/Enqueue?rev={REV}&body={BODY}"),
+    ("u_target_digit_first", f"visser://{DOC}/1abc?rev={REV}&body={BODY}"),
+    ("u_target_65", f"visser://{DOC}/{'a' * 65}?rev={REV}&body={BODY}"),
+    ("u_target_64", f"visser://{DOC}/{'a' * 64}?rev={REV}&body={BODY}"),
     ("u_wrong_scheme", f"https://{DOC}/enqueue?rev={REV}&body={BODY}"),
-    ("u_scheme_upper", f"EXPLAIN://{DOC}/enqueue?rev={REV}&body={BODY}"),
-    ("u_single_slash", f"explain:/{DOC}/enqueue?rev={REV}&body={BODY}"),
-    ("u_non_ascii", f"explain://{DOC}/enquéue?rev={REV}&body={BODY}"),
+    ("u_scheme_upper", f"VISSER://{DOC}/enqueue?rev={REV}&body={BODY}"),
+    ("u_single_slash", f"visser:/{DOC}/enqueue?rev={REV}&body={BODY}"),
+    ("u_non_ascii", f"visser://{DOC}/enquéue?rev={REV}&body={BODY}"),
     ("u_whitespace", f" {good}"),
-    ("u_plus_in_query", f"explain://{DOC}/enqueue?rev=+{REV[1:]}&body={BODY}"),
+    ("u_plus_in_query", f"visser://{DOC}/enqueue?rev=+{REV[1:]}&body={BODY}"),
 ]:
     add({"id": cid, "op": "uri_parse", "uri": uri})
 
-out = {"schema": "explain-hash-vectors/spike-1", "cases": cases}
+out = {"schema": "visser-hash-vectors/spike-1", "cases": cases}
 (HERE / "vectors.json").write_text(json.dumps(out, indent=1, ensure_ascii=True) + "\n")
 print(f"wrote {len(cases)} cases")

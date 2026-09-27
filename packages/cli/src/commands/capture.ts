@@ -1,5 +1,5 @@
 import { lstatSync } from 'node:fs';
-// `explain capture git|file` (§8.2, §8.4, §17.1). Both are guarded writes to
+// `visser capture git|file` (§8.2, §8.4, §17.1). Both are guarded writes to
 // the document (§11.9). Exit codes follow §15.6 through exitCodeFor.
 import { resolve } from 'node:path';
 import { HashError } from '../../../core/src/model/hash.ts';
@@ -7,10 +7,10 @@ import { captureFile, captureGit, type CaptureResult } from '../../../core/src/p
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag, printJson } from '../cli-util.ts';
 
 const USAGE = [
-  'usage: explain capture git --repo DIR --file PATH --lines START:END --doc DOC --id ID --title TITLE',
+  'usage: visser capture git --repo DIR --file PATH --lines START:END --doc DOC --id ID --title TITLE',
   '         [--rev REV | --working-tree] [--repository-label NAME] [--language LANG] [--symbol NAME]',
   '         [--captured-at TIMESTAMP] [--recapture] [--allow-alternates] [--allow-external-gitdir] [--json]',
-  '       explain capture file --from PATH --kind file|web|supplied|example --doc DOC --id ID --title TITLE',
+  '       visser capture file --from PATH --kind file|web|supplied|example --doc DOC --id ID --title TITLE',
   '         [--lines START:END] [--label NAME] [--url URL] [--language LANG] [--captured-at TIMESTAMP] [--recapture] [--json]',
 ].join('\n');
 
@@ -34,7 +34,7 @@ function optional(args: ParsedArgs, name: string): Record<string, string> {
 
 function report(result: CaptureResult, json: boolean): void {
   if (json) {
-    printJson('capture', { schema: 'explain-capture/1', ...result });
+    printJson('capture', { schema: 'visser-capture/1', ...result });
     return;
   }
   const a = result.attributes;

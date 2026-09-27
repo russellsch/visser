@@ -14,11 +14,11 @@ export type PacketQuote = {
   exact: string;
   prefix?: string;
   suffix?: string;
-  projection: 'explain-text/1';
+  projection: 'visser-text/1';
 };
 
 export type ReferencePacket = {
-  schema: 'explain-ref/1';
+  schema: 'visser-ref/1';
   uri?: string;
   docId: string;
   targetId: string;
@@ -133,7 +133,7 @@ export type CreatePacketInput = {
  */
 export function createPacket(input: CreatePacketInput): { packet: ReferencePacket; yaml: string } {
   const packet: ReferencePacket = {
-    schema: 'explain-ref/1',
+    schema: 'visser-ref/1',
     uri: formatReferenceUri({
       docId: input.docId,
       targetId: input.targetId,
@@ -154,7 +154,7 @@ export function createPacket(input: CreatePacketInput): { packet: ReferencePacke
     const ordered = { exact: normalizeQuoteText(input.quote.exact, true) } as PacketQuote;
     if (input.quote.prefix !== undefined) ordered.prefix = normalizeQuoteText(input.quote.prefix, false);
     if (input.quote.suffix !== undefined) ordered.suffix = normalizeQuoteText(input.quote.suffix, false);
-    ordered.projection = 'explain-text/1';
+    ordered.projection = 'visser-text/1';
     packet.quote = ordered;
   }
   const yaml = stringify(packet, { lineWidth: 0, minContentWidth: 0 });

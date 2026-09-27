@@ -1,16 +1,16 @@
-// The user shim (§12.2, §12.7): `${EXPLAIN_HOME:-~/.explain}/bin/explain.cjs`.
+// The user shim (§12.2, §12.7): `${VISSER_HOME:-~/.visser}/bin/visser.cjs`.
 // Skill wrappers call only this file. It resolves the toolkit that the
 // document's lock pins by the §12.4 order (a repository toolchain only when
 // its digest is in the user trust store), verifies the release (§12.1), and
-// then runs that toolkit's own bin/explain.cjs with the same arguments. It
-// never reads or runs REPO/.explain/bin, and it never picks the newest
+// then runs that toolkit's own bin/visser.cjs with the same arguments. It
+// never reads or runs REPO/.visser/bin, and it never picks the newest
 // installed toolkit on its own.
 //
 // Which toolkit:
 // - a command with a document (DOC positional or --doc): the document's lock;
 // - `init PATH`: the workspace default of the repository that will hold PATH,
 //   else the user default;
-// - `install`, `trust`, `doctor`: the user default (`${EXPLAIN_HOME}/default`);
+// - `install`, `trust`, `doctor`: the user default (`${VISSER_HOME}/default`);
 // - any other command without a document: the workspace default, else the
 //   user default.
 // `--toolkit-dir DIR` and `--dev-toolkit DIR` are explicit user choices.
@@ -76,20 +76,20 @@ function collectionDigest(file: string): { digest: string; repoRoot: string | un
   for (const index of documents) {
     const bundleRoot = dirname(index);
     const lock = readLock(bundleRoot);
-    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --dev-toolkit DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
+    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no visser.lock.json in ${bundleRoot}; restore visser.lock.json from version control, or pass --dev-toolkit DIR (\`visser init\` is only for a new document)`, EXIT.unavailable);
     digests.set(lock.sha256, [...(digests.get(lock.sha256) ?? []), bundleRoot]);
   }
   if (digests.size === 0) throw new CliError('E_USAGE', `the collection ${file} names no documents`, EXIT.invalid);
   if (digests.size > 1) {
     const list = [...digests].map(([digest, roots]) => `${digest} (${roots.join(', ')})`).join('; ');
-    throw new CliError('E_USAGE', `the collection's documents pin different toolkits: ${list}. Upgrade them to one toolkit (explain upgrade DOC --to DIGEST), or export them separately`, EXIT.invalid);
+    throw new CliError('E_USAGE', `the collection's documents pin different toolkits: ${list}. Upgrade them to one toolkit (visser upgrade DOC --to DIGEST), or export them separately`, EXIT.invalid);
   }
   const [digest, roots] = [...digests][0]!;
   return { digest, repoRoot, bundleRoot: roots[0]! };
 }
 
 function noDefault(): never {
-  throw new CliError('E_TOOLKIT_MISSING', 'no toolkit selected: this command names no document, and there is no workspace or user default toolkit. Pass --toolkit-dir PATH, or install a toolkit as the user default (explain install ... --scope user --default)', EXIT.unavailable);
+  throw new CliError('E_TOOLKIT_MISSING', 'no toolkit selected: this command names no document, and there is no workspace or user default toolkit. Pass --toolkit-dir PATH, or install a toolkit as the user default (visser install ... --scope user --default)', EXIT.unavailable);
 }
 
 /** Select and verify the toolkit whose CLI runs this command. */
@@ -115,7 +115,7 @@ export function selectToolkit(argv: string[], env: NodeJS.ProcessEnv = process.e
   if (bundleRoot) {
     const lock = readLock(bundleRoot);
     if (!lock) {
-      throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --dev-toolkit DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
+      throw new CliError('E_TOOLKIT_MISSING', `no visser.lock.json in ${bundleRoot}; restore visser.lock.json from version control, or pass --dev-toolkit DIR (\`visser init\` is only for a new document)`, EXIT.unavailable);
     }
     return resolveDigest({ digest: lock.sha256, repoRoot: findRepositoryRoot(bundleRoot), toolkitDir, env, origin: lock.origin, version: lock.version }).release;
   }
@@ -144,16 +144,16 @@ export function shimMain(argv: string[], env: NodeJS.ProcessEnv = process.env): 
     printDiagnostics([{ code: error.code, severity: 'error', message: error.message }], argv.includes('--json'));
     return error.exitCode;
   }
-  const result = spawnSync(process.execPath, [join(release.dir, 'bin', 'explain.cjs'), ...argv], { stdio: 'inherit', env });
+  const result = spawnSync(process.execPath, [join(release.dir, 'bin', 'visser.cjs'), ...argv], { stdio: 'inherit', env });
   if (result.error) {
-    process.stderr.write(`error E_TOOLKIT_MISSING: cannot run ${release.dir}/bin/explain.cjs: ${result.error.message}\n`);
+    process.stderr.write(`error E_TOOLKIT_MISSING: cannot run ${release.dir}/bin/visser.cjs: ${result.error.message}\n`);
     return EXIT.unavailable;
   }
   if (result.signal) return 128 + (constants.signals[result.signal] ?? 0);
   return result.status ?? EXIT.internal;
 }
 
-// Run only as the bundled entry (bin/explain.cjs in EXPLAIN_HOME), not on import.
+// Run only as the bundled entry (bin/visser.cjs in VISSER_HOME), not on import.
 if (typeof module !== 'undefined' && typeof require !== 'undefined' && require.main === module) {
   ignoreClosedPipes();
   process.exitCode = shimMain(process.argv.slice(2));

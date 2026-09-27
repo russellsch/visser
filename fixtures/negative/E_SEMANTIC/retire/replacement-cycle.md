@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: 11111111-2222-4333-8444-555555555555
 title: Retirement fixture
 kind: reference
@@ -14,8 +14,8 @@ retiredTargets:
     replacement: old_a
 ---
 
-<!-- ex:id p_keep -->
+<!-- vs:id p_keep -->
 Kept paragraph.
 
-<!-- ex:id p_other -->
+<!-- vs:id p_other -->
 Another paragraph.

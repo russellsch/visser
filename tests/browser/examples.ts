@@ -1,4 +1,4 @@
-// Example bundles served for browser tests: one `explain serve` process each.
+// Example bundles served for browser tests: one `visser serve` process each.
 export const EXAMPLE_PORTS = {
   'bounded-queue': 4311,
   'connection-lifecycle': 4321,

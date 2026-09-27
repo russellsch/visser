@@ -114,7 +114,7 @@ describe('Mermaid positive fixtures @R03 @R06 @R14', () => {
     });
     it(`${name} projects every target once, the source, and every relationship`, () => {
       const text = projectText(parsed);
-      const ids = [...text.matchAll(/<!-- ex:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
+      const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
       expect(ids.sort()).toEqual([...model.targets.keys()].sort());
       expect(text).toContain('```mermaid\n');
       for (const r of model.relationships) {
@@ -207,7 +207,7 @@ describe('no regression for documents without Mermaid', () => {
 
 describe('editing targets inside a Mermaid figure (§9.12, §11.9)', () => {
   function repoWith(name: string) {
-    const repo = mkdtempSync(join(tmpdir(), 'explain-mermaid-'));
+    const repo = mkdtempSync(join(tmpdir(), 'visser-mermaid-'));
     mkdirSync(join(repo, '.git'));
     const docDir = join(repo, 'docs/explanations/fig');
     mkdirSync(docDir, { recursive: true });
@@ -251,7 +251,7 @@ describe('parse limits (§9.12)', () => {
   });
 
   it('a worker that exceeds the wall clock gives E_LIMIT', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-sleep-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-sleep-'));
     const sleeper = join(dir, 'sleep.mjs');
     writeFileSync(sleeper, 'setTimeout(() => {}, 60_000);\n');
     chmodSync(sleeper, 0o644);
@@ -262,7 +262,7 @@ describe('parse limits (§9.12)', () => {
   });
 
   it('a crashing worker gives E_SEMANTIC, not a pass', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'explain-crash-'));
+    const dir = mkdtempSync(join(tmpdir(), 'visser-crash-'));
     const crasher = join(dir, 'crash.mjs');
     writeFileSync(crasher, 'process.exit(7);\n');
     setMermaidWorkerPath(crasher);

@@ -1,13 +1,13 @@
 # Comprehension trial protocol (§18.7)
 
-**Status: not run.** This protocol and its materials are ready. No participant has done the trial. Until a person runs it and records the results in [`trial/results.md`](trial/results.md), nobody can claim that Explain improves comprehension (§17.8, §21.1). This is a human validation gate. An agent never marks it passed.
+**Status: not run.** This protocol and its materials are ready. No participant has done the trial. Until a person runs it and records the results in [`trial/results.md`](trial/results.md), nobody can claim that Visser improves comprehension (§17.8, §21.1). This is a human validation gate. An agent never marks it passed.
 
 ## 1. Purpose and hypothesis
 
 The trial is a small formative study for release learning. It does not measure a population-level effect.
 
-- **Hypothesis H1:** with an Explain page, experienced engineers answer mechanism, prediction, and evidence questions correctly more often than with a conventional prose document that contains the same facts.
-- **Hypothesis H2:** with an Explain page, the time to a correct answer is not longer than with the baseline.
+- **Hypothesis H1:** with a Visser page, experienced engineers answer mechanism, prediction, and evidence questions correctly more often than with a conventional prose document that contains the same facts.
+- **Hypothesis H2:** with a Visser page, the time to a correct answer is not longer than with the baseline.
 - **Question Q1 (no hypothesis):** where do readers fail to find a fact, and is that fact hidden in inspection? §18.7 says: if readers miss an essential fact because it is hidden in inspection, move it into the main path.
 
 ## 2. Design
@@ -15,7 +15,7 @@ The trial is a small formative study for release learning. It does not measure a
 The design is **within-subject** with **counterbalanced topic and format**.
 
 - Each participant reads two topics: topic A in one format and topic B in the other format.
-- The four orders are: (A-Explain, B-baseline), (B-baseline, A-Explain), (A-baseline, B-Explain), (B-Explain, A-baseline). Assign them in rotation, so each order has the same number of participants.
+- The four orders are: (A-Visser, B-baseline), (B-baseline, A-Visser), (A-baseline, B-Visser), (B-Visser, A-baseline). Assign them in rotation, so each order has the same number of participants.
 
 **Why within-subject:** differences between engineers are large, and a small sample cannot absorb them in a between-subject design. Each participant is their own control. The two topics are different, so a participant never reads the same facts twice. Counterbalancing spreads the practice effect and the topic difficulty across both formats.
 
@@ -24,22 +24,22 @@ The design is **within-subject** with **counterbalanced topic and format**.
 - Experienced software engineers (at least 3 years of professional work). They must know threads, locks, caches, and database connection pools at a general level.
 - They must not know the two example topics in detail. Screen with one question per topic: "Have you studied the code or incident write-up for this example before?" Exclude a participant who says yes.
 - Target: 8 to 12 participants (2 or 3 per order). Report the actual number. A sample of this size can show large problems and trends only.
-- Exclude people who worked on Explain.
+- Exclude people who worked on Visser.
 
 ## 4. Materials
 
-| Topic | Explain page | Baseline |
+| Topic | Visser page | Baseline |
 |---|---|---|
 | A: bounded queue (`examples/bounded-queue`) | The built page of the example | A conventional prose document with the same facts |
 | B: cache stampede (`examples/cache-stampede`) | The built page of the example | A conventional prose document with the same facts |
 
 **Baseline rules:**
 
-1. A person who did not write the Explain page writes each baseline as good conventional prose. Headings, code blocks, and one static diagram are allowed. The inspection panel, stable references, and inline definitions are not.
+1. A person who did not write the Visser page writes each baseline as good conventional prose. Headings, code blocks, and one static diagram are allowed. The inspection panel, stable references, and inline definitions are not.
 2. The baseline must contain every fact in the fact-parity checklist ([`trial/fact-parity.md`](trial/fact-parity.md)), and no extra fact. A second person checks each checklist item in both formats and signs the checklist before the trial starts.
-3. Do not use `explain export --format markdown` output as the baseline. It keeps the Explain structure, so it is not a conventional document.
+3. Do not use `visser export --format markdown` output as the baseline. It keeps the Visser structure, so it is not a conventional document.
 
-**Setup:** the same laptop, browser, and screen size for every session. Serve the Explain pages with `explain serve` or from an export. Open the baseline in the same browser as rendered Markdown.
+**Setup:** the same laptop, browser, and screen size for every session. Serve the Visser pages with `visser serve` or from an export. Open the baseline in the same browser as rendered Markdown.
 
 ## 5. Tasks
 
@@ -50,7 +50,7 @@ Each topic has four tasks that follow the four §18.7 task types. The task sheet
 3. Explain an important relationship and locate its evidence.
 4. Identify a limitation or uncertainty.
 
-A fifth task applies only to the Explain condition and is reported separately. The participant copies a reference to one target and writes a one-line change request with it. This task checks that the reference workflow is usable. It is not part of the comparison.
+A fifth task applies only to the Visser condition and is reported separately. The participant copies a reference to one target and writes a one-line change request with it. This task checks that the reference workflow is usable. It is not part of the comparison.
 
 ## 6. Measures
 
@@ -63,11 +63,11 @@ A fifth task applies only to the Explain condition and is reported separately. T
 ## 7. Procedure
 
 1. Consent ([`trial/consent.md`](trial/consent.md)) and the screening questions.
-2. A 3-minute introduction to the Explain page controls on a third example (`examples/deadline-retry`), which is not part of the tasks. Show the baseline format too.
+2. A 3-minute introduction to the Visser page controls on a third example (`examples/deadline-retry`), which is not part of the tasks. Show the baseline format too.
 3. Topic 1: 5 minutes of free reading, then the four tasks with the document open. There is a limit of 6 minutes for each task.
 4. A 2-minute break.
 5. Topic 2: the same steps in the other format.
-6. The reference task (Explain condition only).
+6. The reference task (Visser condition only).
 7. A short interview: "Where did you look first? What was hard to find?"
 
 The observer does not help, except to repeat the task text.
@@ -75,7 +75,7 @@ The observer does not help, except to repeat the task text.
 ## 8. Analysis plan
 
 - For each format: the mean correctness score per task type, the proportion of correct answers (score 2), the median time to a correct answer, the median effort, and the median confidence.
-- The paired difference per participant (Explain minus baseline) for correctness and time, with each value shown. With 8 to 12 participants, report a Wilcoxon signed-rank test as descriptive only, and do not use it to support a general claim.
+- The paired difference per participant (Visser minus baseline) for correctness and time, with each value shown. With 8 to 12 participants, report a Wilcoxon signed-rank test as descriptive only, and do not use it to support a general claim.
 - The list of navigation failures, grouped by the place of the fact. Each fact that a reader missed because it was in inspection is a finding to act on (§18.7).
 - The limitations: sample size, one laboratory setup, two topics only, and illustrative (not real) source material.
 

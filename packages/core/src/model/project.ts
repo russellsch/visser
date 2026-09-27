@@ -1,12 +1,12 @@
 // Semantic Markdown projection (§7.6). Generated from the model, not by
 // stripping tags from source or scraping HTML. Every object is preceded by an
-// `explain-text/1` ID line so tests can extract target IDs.
+// `visser-text/1` ID line so tests can extract target IDs.
 import type { ParsedSource, TargetId, TargetRecord } from '../types.ts';
 import { buildTargetRecords, inlineText, type MNode, type SemanticRelationship } from './targets.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
 
-const idLine = (id: TargetId) => `<!-- ex:target ${id} -->`;
+const idLine = (id: TargetId) => `<!-- vs:target ${id} -->`;
 
 function attr(node: MNode, name: string): string | undefined {
   const value = node.attributes[name];
@@ -341,7 +341,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
   };
   const title = typeof parsed.frontmatter['title'] === 'string' ? parsed.frontmatter['title'] : undefined;
   const docId = typeof parsed.frontmatter['docId'] === 'string' ? parsed.frontmatter['docId'] : undefined;
-  const blocks: string[] = [`<!-- explain-text/1 docId=${docId ?? '?'} -->`];
+  const blocks: string[] = [`<!-- visser-text/1 docId=${docId ?? '?'} -->`];
   const topLevel = [...ctx.targets.values()].filter((t) => t.parentId === undefined);
   if (title && !(topLevel[0]?.kind === 'heading' && ctx.nodes.get(topLevel[0].id)?.attributes['level'] === 1)) {
     blocks.push(`# ${title}`);

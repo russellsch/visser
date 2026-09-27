@@ -18,7 +18,7 @@ function writeArchive(dir: string, entries: TarEntry[]): string {
 }
 
 async function rejects(entries: TarEntry[] | ((dir: string) => string), pattern: RegExp): Promise<void> {
-  const box = tempDir('explain-ustar-');
+  const box = tempDir('visser-ustar-');
   const archive = typeof entries === 'function' ? entries(box) : writeArchive(box, entries);
   const dest = join(box, 'dest');
   mkdirSync(dest);
@@ -31,8 +31,8 @@ describe('ustar reader: hostile archives are rejected as a whole (§12.1) @R10',
   const ok: TarEntry = { name: 'ok.txt', data: enc('fine') };
 
   it('rejects an absolute path', async () => {
-    await rejects([ok, { name: '/tmp/explain-ustar-absolute.txt', data: enc('x') }], /absolute path/);
-    expect(existsSync('/tmp/explain-ustar-absolute.txt')).toBe(false);
+    await rejects([ok, { name: '/tmp/visser-ustar-absolute.txt', data: enc('x') }], /absolute path/);
+    expect(existsSync('/tmp/visser-ustar-absolute.txt')).toBe(false);
   });
   it('rejects a .. segment', async () => {
     await rejects([ok, { name: '../escape.txt', data: enc('x') }], /traversal/);
@@ -75,7 +75,7 @@ describe('ustar reader: hostile archives are rejected as a whole (§12.1) @R10',
   });
 
   it('rejects a duplicate name instead of keeping one copy', async () => {
-    await rejects([{ name: 'bin/explain.cjs', data: enc('a') }, { name: 'bin/explain.cjs', data: enc('b') }], /duplicate/);
+    await rejects([{ name: 'bin/visser.cjs', data: enc('a') }, { name: 'bin/visser.cjs', data: enc('b') }], /duplicate/);
   });
   it('rejects names whose case-folded NFC forms collide', async () => {
     await rejects([{ name: 'README.md', data: enc('a') }, { name: 'readme.md', data: enc('b') }], /collide/);
@@ -186,7 +186,7 @@ describe('ustar reader: hostile archives are rejected as a whole (§12.1) @R10',
 
 describe('ustar reader: accepted archives', () => {
   it('extracts files, directories, PAX long paths, GNU long names, and ustar prefixes', async () => {
-    const box = tempDir('explain-ustar-');
+    const box = tempDir('visser-ustar-');
     const long = `${'d'.repeat(60)}/${'e'.repeat(60)}/file.txt`;
     const gnuLong = `${'g'.repeat(110)}.txt`;
     const archive = writeArchive(box, [
@@ -215,7 +215,7 @@ describe('ustar writer: reproducible archives (§12.1)', () => {
   it('writes the same bytes for the same files in any input order, with fixed metadata', async () => {
     const files = [
       { path: 'z.txt', data: enc('z') },
-      { path: 'bin/explain.cjs', data: enc('cli') },
+      { path: 'bin/visser.cjs', data: enc('cli') },
       { path: `${'n'.repeat(90)}/${'m'.repeat(40)}.txt`, data: enc('long') },
       { path: 'a.txt', data: enc('a') },
     ];
@@ -225,11 +225,11 @@ describe('ustar writer: reproducible archives (§12.1)', () => {
     // gzip header: magic, deflate, no flags (no name), mtime 0, OS 3.
     expect([...one.subarray(0, 10)]).toEqual([0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 2, 3]);
     // The strict reader reads what the writer writes.
-    const box = tempDir('explain-ustar-');
+    const box = tempDir('visser-ustar-');
     writeFileSync(join(box, 'a.tar.gz'), one);
     mkdirSync(join(box, 'dest'));
     const result = await extractArchive(join(box, 'a.tar.gz'), join(box, 'dest'));
-    expect(result.files).toEqual(['a.txt', 'bin/explain.cjs', `${'n'.repeat(90)}/${'m'.repeat(40)}.txt`, 'z.txt']);
+    expect(result.files).toEqual(['a.txt', 'bin/visser.cjs', `${'n'.repeat(90)}/${'m'.repeat(40)}.txt`, 'z.txt']);
   });
 
   it('writes uid/gid 0, empty owner names, mtime 0, and mode 0755 only under bin/', () => {

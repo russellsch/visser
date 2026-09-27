@@ -1,4 +1,4 @@
-// The user trust store (§12.4, §14.2): `${EXPLAIN_HOME:-~/.explain}/trust.json`.
+// The user trust store (§12.4, §14.2): `${VISSER_HOME:-~/.visser}/trust.json`.
 // Its location comes only from the process environment, never from repository
 // or workspace config, so a repository cannot trust its own code.
 import { randomBytes } from 'node:crypto';
@@ -10,24 +10,24 @@ import { validateAgainst } from '../model/schemas.ts';
 
 export type TrustEntry = { source: string; addedAt: string };
 // `extensions` is optional, so a store written before extensions existed stays valid.
-export type TrustStore = { schema: 'explain-trust-store/1'; toolkits: Record<string, TrustEntry>; extensions?: Record<string, TrustEntry> };
+export type TrustStore = { schema: 'visser-trust-store/1'; toolkits: Record<string, TrustEntry>; extensions?: Record<string, TrustEntry> };
 export type TrustKind = 'toolkits' | 'extensions';
 
 function fail(code: string, message: string): never {
   throw new HashError(code, code, message);
 }
 
-export function explainHome(env: NodeJS.ProcessEnv = process.env): string {
-  return env['EXPLAIN_HOME'] ?? join(env['HOME'] ?? homedir(), '.explain');
+export function visserHome(env: NodeJS.ProcessEnv = process.env): string {
+  return env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
 }
 
 export function trustPath(env: NodeJS.ProcessEnv = process.env): string {
-  return join(explainHome(env), 'trust.json');
+  return join(visserHome(env), 'trust.json');
 }
 
 export function readTrust(env: NodeJS.ProcessEnv = process.env): TrustStore {
   const path = trustPath(env);
-  if (!existsSync(path)) return { schema: 'explain-trust-store/1', toolkits: {} };
+  if (!existsSync(path)) return { schema: 'visser-trust-store/1', toolkits: {} };
   if (lstatSync(path).isSymbolicLink()) fail('E_INTEGRITY', `${path} is a symbolic link`);
   let store: TrustStore;
   try {
@@ -36,7 +36,7 @@ export function readTrust(env: NodeJS.ProcessEnv = process.env): TrustStore {
     fail('E_INTEGRITY', `${path} is not valid JSON`);
   }
   const check = validateAgainst('trustStore', store);
-  if (!check.ok) fail('E_INTEGRITY', `${path} violates explain-trust-store/1: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_INTEGRITY', `${path} violates visser-trust-store/1: ${check.errors.join('; ')}`);
   return store;
 }
 
@@ -45,7 +45,7 @@ export function isTrusted(digest: string, env: NodeJS.ProcessEnv = process.env):
 }
 
 function ensureHome(env: NodeJS.ProcessEnv): string {
-  const home = explainHome(env);
+  const home = visserHome(env);
   if (existsSync(home) && lstatSync(home).isSymbolicLink()) fail('E_INTEGRITY', `${home} is a symbolic link`);
   mkdirSync(home, { recursive: true, mode: 0o700 });
   return home;
@@ -112,7 +112,7 @@ function withTrustLock<T>(env: NodeJS.ProcessEnv, change: () => T, waitMs = TRUS
 
 function writeStore(store: TrustStore, env: NodeJS.ProcessEnv): void {
   const check = validateAgainst('trustStore', store);
-  if (!check.ok) fail('E_INTEGRITY', `trust store would violate explain-trust-store/1: ${check.errors.join('; ')}`);
+  if (!check.ok) fail('E_INTEGRITY', `trust store would violate visser-trust-store/1: ${check.errors.join('; ')}`);
   const home = ensureHome(env);
   const path = trustPath(env);
   if (existsSync(path) && lstatSync(path).isSymbolicLink()) fail('E_INTEGRITY', `${path} is a symbolic link`);

@@ -35,7 +35,7 @@ describe('frontmatter schema @R02', () => {
     ['a retired ID outside the grammar', { retiredTargets: { Bad: { reason: 'x' } } }],
     ['a retirement without a reason', { retiredTargets: { old_id: {} } }],
     ['a capturedAt without a time', { capturedAt: '2026-09-26' }],
-    ['a wrong format', { format: 'explain/2' }],
+    ['a wrong format', { format: 'visser/2' }],
   ];
   for (const [name, change] of bad) {
     it(`rejects ${name}`, () => {
@@ -48,7 +48,7 @@ describe('frontmatter schema @R02', () => {
 
 describe('lock schema', () => {
   const lock = (toolkit: Record<string, unknown>) => ({
-    schema: 'explain-lock/1',
+    schema: 'visser-lock/1',
     toolkit: { version: '0.1.0', sha256: H('a'), ...toolkit },
     extensions: [],
     imports: [],
@@ -63,7 +63,7 @@ describe('lock schema', () => {
   it('requires archiveSha256 for archive and github-release', () => {
     expect(ok('lock', lock({ origin: { kind: 'archive' } }))).toBe(false);
     expect(ok('lock', lock({ origin: { kind: 'archive' }, archiveSha256: H('b') }))).toBe(true);
-    const gh = { kind: 'github-release', repository: 'OWNER/REPO', tag: 'v0.1.0', asset: 'explain-0.1.0.tar.gz' };
+    const gh = { kind: 'github-release', repository: 'OWNER/REPO', tag: 'v0.1.0', asset: 'visser-0.1.0.tar.gz' };
     expect(ok('lock', lock({ origin: gh }))).toBe(false);
     expect(ok('lock', lock({ origin: gh, archiveSha256: H('b') }))).toBe(true);
   });
@@ -76,7 +76,7 @@ describe('lock schema', () => {
 describe('workspace schema', () => {
   it('accepts the §12.3 example shape', () => {
     const value = {
-      schema: 'explain-workspace/1',
+      schema: 'visser-workspace/1',
       documentRoots: ['docs/explanations'],
       defaultToolkit: { version: '0.1.0', sha256: H('a') },
       server: { host: '127.0.0.1', port: 4310, basePath: '/' },
@@ -84,8 +84,8 @@ describe('workspace schema', () => {
     expect(ok('workspace', value)).toBe(true);
   });
   it('rejects absolute document roots and unknown keys', () => {
-    expect(ok('workspace', { schema: 'explain-workspace/1', documentRoots: ['/etc'] })).toBe(false);
-    expect(ok('workspace', { schema: 'explain-workspace/1', extra: 1 })).toBe(false);
+    expect(ok('workspace', { schema: 'visser-workspace/1', documentRoots: ['/etc'] })).toBe(false);
+    expect(ok('workspace', { schema: 'visser-workspace/1', extra: 1 })).toBe(false);
   });
 });
 
@@ -101,8 +101,8 @@ describe('source manifest schema @R18', () => {
 describe('resolve result schema', () => {
   it('accepts a minimal invalid result and rejects unknown fields', () => {
     const diag = { code: 'E_REF_INVALID', severity: 'error', message: 'bad packet' };
-    expect(ok('resolve', { schema: 'explain-resolve/1', status: 'invalid', diagnostics: [diag] })).toBe(true);
-    expect(ok('resolve', { schema: 'explain-resolve/1', status: 'guess', diagnostics: [] })).toBe(false);
-    expect(ok('resolve', { schema: 'explain-resolve/1', status: 'exact', diagnostics: [], extra: 1 })).toBe(false);
+    expect(ok('resolve', { schema: 'visser-resolve/1', status: 'invalid', diagnostics: [diag] })).toBe(true);
+    expect(ok('resolve', { schema: 'visser-resolve/1', status: 'guess', diagnostics: [] })).toBe(false);
+    expect(ok('resolve', { schema: 'visser-resolve/1', status: 'exact', diagnostics: [], extra: 1 })).toBe(false);
   });
 });

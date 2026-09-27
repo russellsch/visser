@@ -1,5 +1,5 @@
 ---
-format: explain/1
+format: visser/1
 docId: ef0cfd2a-991f-4b16-805f-2ad095d292cb
 title: Why the deploy broke checkout
 kind: root-cause
@@ -12,10 +12,10 @@ reader:
 visibility: private
 ---
 
-<!-- ex:id overview -->
+<!-- vs:id overview -->
 # Why the deploy broke checkout
 
-<!-- ex:id p_claim -->
+<!-- vs:id p_claim -->
 The deploy removed a column that checkout still read, so each checkout query
 failed.
 

@@ -1,12 +1,12 @@
 // Markdoc 0.5.10 characterization (spikes/markdoc-spans/) as assertions.
 // "Markdoc:" tests pin current library behavior, so an upgrade that changes it fails loudly.
-// "Adapter:" tests pin the Explain rules built on top (ARCHITECTURE.md §6.3–6.5, §2.3).
+// "Adapter:" tests pin the Visser rules built on top (ARCHITECTURE.md §6.3–6.5, §2.3).
 import Markdoc from '@markdoc/markdoc';
 import { describe, expect, it } from 'vitest';
 import { parseSource } from '../../packages/core/src/syntax/index.ts';
 
 const enc = new TextEncoder();
-const FM = '---\nformat: explain/1\ntitle: T\n---\n\n';
+const FM = '---\nformat: visser/1\ntitle: T\n---\n\n';
 const parse = (body: string) => parseSource(enc.encode(FM + body), 'index.md');
 const codes = (body: string) => parse(body).diagnostics.map((d) => d.code);
 const ids = (body: string) => parse(body).targets.map((t) => t.id);
@@ -60,7 +60,7 @@ describe('Markdoc 0.5.10 behavior the adapter depends on', () => {
   });
 
   it('Markdoc: keeps markers as comment tokens with html:true', () => {
-    const { ast } = md('<!-- ex:id x -->\nPara.\n', { html: true });
+    const { ast } = md('<!-- vs:id x -->\nPara.\n', { html: true });
     expect(ast.children[0]!.type).toBe('comment');
   });
 
@@ -79,32 +79,32 @@ describe('Markdoc 0.5.10 behavior the adapter depends on', () => {
 
 describe('Adapter rules on top of Markdoc @R11', () => {
   it('Adapter: treats fences as raw leaves', () => {
-    const body = '<!-- ex:id ex -->\n```markdown\n<!-- ex:id inside -->\n{% graph id="g" %}\n{% /graph %}\n```\n';
+    const body = '<!-- vs:id ex -->\n```markdown\n<!-- vs:id inside -->\n{% graph id="g" %}\n{% /graph %}\n```\n';
     const p = parse(body);
     expect(p.diagnostics).toEqual([]);
     expect(p.targets.map((t) => t.id)).toEqual(['ex']);
   });
 
   it('Adapter: accepts an unclosed tag inside a fence', () => {
-    expect(codes('<!-- ex:id ex -->\n```markdown\n{% graph id="g" %}\nno close\n```\n')).toEqual([]);
+    expect(codes('<!-- vs:id ex -->\n```markdown\n{% graph id="g" %}\nno close\n```\n')).toEqual([]);
   });
 
   it('Adapter: keeps a fenced variable literal and does not reject it', () => {
-    const p = parse('<!-- ex:id ex -->\n```text\nprice {% $x %}\n```\n');
+    const p = parse('<!-- vs:id ex -->\n```text\nprice {% $x %}\n```\n');
     expect(p.diagnostics).toEqual([]);
     const fence = (p.ast as N).children.find((c) => c.type === 'fence')!;
     expect(fence.attributes['content']).toBe('price {% $x %}\n');
   });
 
   it('Adapter: rejects setext underlines', () => {
-    expect(codes('<!-- ex:id h -->\nTitle\n=====\n')).toContain('E_SYNTAX');
-    expect(codes('<!-- ex:id h -->\nTitle\n---\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id h -->\nTitle\n=====\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id h -->\nTitle\n---\n')).toContain('E_SYNTAX');
   });
 
   it('Adapter: rejects trailing text after a marker and multi-line markers', () => {
-    expect(codes('<!-- ex:id p --> trailing\nPara.\n')).toContain('E_SYNTAX');
-    expect(codes('<!--\nex:id p\n-->\nPara.\n')).toContain('E_SYNTAX');
-    expect(codes('<!-- ex:id p\nPara.\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id p --> trailing\nPara.\n')).toContain('E_SYNTAX');
+    expect(codes('<!--\nvs:id p\n-->\nPara.\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id p\nPara.\n')).toContain('E_SYNTAX');
   });
 
   it('Adapter: rejects a multi-line tag opening', () => {
@@ -113,18 +113,18 @@ describe('Adapter rules on top of Markdoc @R11', () => {
 
   it('Adapter: rejects prose HTML and accepts it in fences and inline code', () => {
     expect(codes('<div>b</div>\n')).toEqual(['E_UNSAFE_CONTENT']);
-    expect(codes('<!-- ex:id p -->\nText <img src=x onerror=alert(1)> here.\n')).toEqual(['E_UNSAFE_CONTENT']);
-    expect(codes('<!-- ex:id p -->\nInline `<span>x</span>` code.\n')).toEqual([]);
-    expect(codes('<!-- ex:id c -->\n```html\n<div>x</div>\n```\n')).toEqual([]);
+    expect(codes('<!-- vs:id p -->\nText <img src=x onerror=alert(1)> here.\n')).toEqual(['E_UNSAFE_CONTENT']);
+    expect(codes('<!-- vs:id p -->\nInline `<span>x</span>` code.\n')).toEqual([]);
+    expect(codes('<!-- vs:id c -->\n```html\n<div>x</div>\n```\n')).toEqual([]);
   });
 
   it('Adapter: allows an inline ordinary comment and rejects an inline marker', () => {
-    expect(codes('<!-- ex:id p -->\nSome <!-- note --> text.\n')).toEqual([]);
-    expect(codes('<!-- ex:id p -->\nSome <!-- ex:id q --> text.\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id p -->\nSome <!-- note --> text.\n')).toEqual([]);
+    expect(codes('<!-- vs:id p -->\nSome <!-- vs:id q --> text.\n')).toContain('E_SYNTAX');
   });
 
   it('Adapter: rejects variables, functions, if, and partial', () => {
-    expect(codes('<!-- ex:id p -->\nPrice {% $x %}.\n')).toContain('E_UNSAFE_CONTENT');
+    expect(codes('<!-- vs:id p -->\nPrice {% $x %}.\n')).toContain('E_UNSAFE_CONTENT');
     expect(codes('{% detail id="d" label=upper("a") %}\nB.\n{% /detail %}\n')).toContain('E_UNSAFE_CONTENT');
     expect(codes('{% if $x %}\nA\n{% /if %}\n')).toContain('E_UNSAFE_CONTENT');
     expect(codes('{% partial file="x.md" /%}\n')).toContain('E_UNSAFE_CONTENT');
@@ -143,7 +143,7 @@ describe('Adapter rules on top of Markdoc @R11', () => {
   it('Adapter: enforces source-size and line-length limits', () => {
     const huge = new Uint8Array(10 * 1024 * 1024 + 1).fill(0x61);
     expect(parseSource(huge, 'index.md').diagnostics.map((d) => d.code)).toEqual(['E_LIMIT']);
-    expect(codes(`<!-- ex:id p -->\n${'a'.repeat(64 * 1024 + 1)}\n`)).toEqual(['E_LIMIT']);
+    expect(codes(`<!-- vs:id p -->\n${'a'.repeat(64 * 1024 + 1)}\n`)).toEqual(['E_LIMIT']);
   });
 
   it('Adapter: rejects invalid UTF-8', () => {
@@ -152,25 +152,25 @@ describe('Adapter rules on top of Markdoc @R11', () => {
   });
 
   it('Adapter: binds a marker across a blank line and to each addressable block kind', () => {
-    expect(ids('<!-- ex:id gap -->\n\nPara.\n')).toEqual(['gap']);
-    const kinds = parse('<!-- ex:id l -->\n- a\n\n<!-- ex:id t -->\n| a |\n|---|\n| 1 |\n\n<!-- ex:id q -->\n> x\n\n<!-- ex:id h -->\n# H\n\n<!-- ex:id c -->\n```\nx\n```\n\n<!-- ex:id f -->\n![a](a.png)\n').targets.map((t) => t.kind);
+    expect(ids('<!-- vs:id gap -->\n\nPara.\n')).toEqual(['gap']);
+    const kinds = parse('<!-- vs:id l -->\n- a\n\n<!-- vs:id t -->\n| a |\n|---|\n| 1 |\n\n<!-- vs:id q -->\n> x\n\n<!-- vs:id h -->\n# H\n\n<!-- vs:id c -->\n```\nx\n```\n\n<!-- vs:id f -->\n![a](a.png)\n').targets.map((t) => t.kind);
     expect(kinds).toEqual(['list', 'table', 'blockquote', 'heading', 'code', 'figure']);
   });
 
   it('Adapter: treats hr as not addressable', () => {
-    expect(codes('<!-- ex:id p -->\nPara.\n\n---\n')).toEqual([]);
-    expect(codes('<!-- ex:id r -->\n---\n')).toContain('E_SYNTAX');
+    expect(codes('<!-- vs:id p -->\nPara.\n\n---\n')).toEqual([]);
+    expect(codes('<!-- vs:id r -->\n---\n')).toContain('E_SYNTAX');
   });
 
   it('Adapter: gives two identical paragraphs independent IDs @T04', () => {
-    const p = parse('<!-- ex:id a -->\nSame text.\n\n<!-- ex:id b -->\nSame text.\n');
+    const p = parse('<!-- vs:id a -->\nSame text.\n\n<!-- vs:id b -->\nSame text.\n');
     expect(p.diagnostics).toEqual([]);
     expect(p.targets.map((t) => t.id)).toEqual(['a', 'b']);
     expect(p.targets[0]!.startByte).not.toBe(p.targets[1]!.startByte);
   });
 
   it('Adapter: rejects duplicate IDs without renaming @T05', () => {
-    const p = parse('<!-- ex:id same -->\nOne.\n\n<!-- ex:id same -->\nTwo.\n');
+    const p = parse('<!-- vs:id same -->\nOne.\n\n<!-- vs:id same -->\nTwo.\n');
     expect(p.diagnostics.map((d) => d.code)).toEqual(['E_ID_DUPLICATE']);
     expect(p.targets.filter((t) => t.id === 'same')).toHaveLength(2);
   });
