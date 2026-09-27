@@ -2,7 +2,8 @@
 // verified, user-trusted digest runs; untrusted or missing extensions never
 // execute; the text form never depends on the extension. Build and export run
 // through the built CLI; install, trust, and pin call the core directly.
-import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +11,7 @@ import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 import { addTrust, readTrust } from '../../packages/core/src/distribution/trust.ts';
 import { installExtension, pinExtension } from '../../packages/core/src/extensions/index.ts';
-import { context, copyExample, docWithComponent, fixedOutputSource, makeExtension, root, sentinelSource, type Ctx } from './extension.fixtures.ts';
+import { cli, COMPONENT, context, copyExample, docWithComponent, fixedOutputSource, makeExtension, root, sentinelSource, signExtension, type Ctx } from './extension.fixtures.ts';
 
 
 const now = () => new Date('2026-09-27T00:00:00Z');
@@ -240,5 +241,72 @@ describe('extensions (§14)', () => {
     const index = docWithComponent(ctx);
     expect(() => pin(ctx, index, 'f'.repeat(64))).toThrow(/not installed/);
     expect(mkdtempSync(join(tmpdir(), 'x-'))).toBeTruthy();
+  });
+});
+
+describe('extensions: review fixes (§14.3)', () => {
+  const REDOS_SCHEMA = JSON.stringify({ type: 'object', properties: { component: { type: 'object', properties: { attributes: { type: 'object', properties: { unit: { type: 'string', pattern: '^(a|a)*$' } } } } } } });
+  const REDOS_COMPONENT = COMPONENT.replace('unit="ms"', `unit="${'a'.repeat(30)}!"`);
+
+  it('@R11 install refuses a component schema with `pattern` (ReDoS before trust)', () => {
+    const ctx = context();
+    makeExtension(join(ctx.base, 'evil'), sentinelSource(join(ctx.base, 'SENTINEL')), { schema: REDOS_SCHEMA });
+    expect(() => install(ctx, join(ctx.base, 'evil'), 'repo')).toThrow(expect.objectContaining({ code: 'E_UNSAFE_CONTENT', message: expect.stringMatching(/uses `pattern`/) }));
+  });
+
+  it('@R11 a ReDoS schema placed in the repository without install fails fast at build, before trust, and never runs', () => {
+    const ctx = context();
+    const sentinel = join(ctx.base, 'SENTINEL');
+    const source = join(ctx.base, 'evil');
+    const digest = makeExtension(source, sentinelSource(sentinel), { schema: REDOS_SCHEMA });
+    cpSync(source, join(ctx.repo, '.explain', 'extensions', digest), { recursive: true });
+    const index = docWithComponent(ctx, 'doc', REDOS_COMPONENT);
+    const lockPath = join(dirname(index), 'explain.lock.json');
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+    writeFileSync(lockPath, JSON.stringify({ ...lock, extensions: [{ name: 'timeline-lanes', version: '0.1.0', sha256: digest }] }, null, 2) + '\n');
+    for (const args of [['build', index], ['build', index, '--allow-extension-fallback']]) {
+      const started = Date.now();
+      const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: ctx.env, cwd: ctx.repo, timeout: 20_000 });
+      expect(r.signal, args.join(' ')).toBeNull();
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(r.status).not.toBe(0);
+      expect(r.stdout + r.stderr).toContain('E_UNSAFE_CONTENT');
+    }
+    expect(existsSync(sentinel)).toBe(false);
+  }, 60_000);
+
+  it('the schema shape check refuses non-local $ref, format, deep nesting, and oversize schemas; allows the example', () => {
+    const ctx = context();
+    const cases: Array<[string, RegExp]> = [
+      [JSON.stringify({ type: 'object', properties: { a: { $ref: 'https://example.com/s.json' } } }), /\$ref that is not local/],
+      [JSON.stringify({ type: 'object', properties: { a: { type: 'string', format: 'email' } } }), /uses `format`/],
+      [JSON.stringify({ type: 'object', patternProperties: { '^x': {} } }), /uses `patternProperties`/],
+      [JSON.stringify(Array.from({ length: 20 }).reduce<Record<string, unknown>>((inner) => ({ type: 'object', properties: { x: inner } }), { type: 'string' })), /nests deeper than 16/],
+      [JSON.stringify({ type: 'object', description: 'x'.repeat(70_000) }), /larger than 65536 bytes/],
+    ];
+    cases.forEach(([schema, message], i) => {
+      makeExtension(join(ctx.base, `case${i}`), fixedOutputSource({}), { schema });
+      expect(() => install(ctx, join(ctx.base, `case${i}`)), `case ${i}`).toThrow(expect.objectContaining({ code: 'E_UNSAFE_CONTENT', message: expect.stringMatching(message) }));
+    });
+    // A property that is merely named `pattern` is data, not the keyword.
+    makeExtension(join(ctx.base, 'named'), fixedOutputSource({}), { schema: JSON.stringify({ type: 'object', properties: { pattern: { type: 'string' } } }) });
+    expect(() => install(ctx, join(ctx.base, 'named'))).not.toThrow();
+    copyExample(join(ctx.base, 'example'));
+    expect(() => install(ctx, join(ctx.base, 'example'))).not.toThrow();
+  });
+
+  it('extension inspect shows control characters in an untrusted guide as escapes, never raw', () => {
+    const ctx = context();
+    const dir = join(ctx.base, 'ansi');
+    mkdirSync(dir, { recursive: true });
+    makeExtension(dir, fixedOutputSource({}));
+    writeFileSync(join(dir, 'GUIDE.md'), '# Guide\n\u001b]0;PWNED\u0007\u001b[2J\u001b[1;31mtrusted: yes\u001b[0m\r\u009b31m\ttab ok\n');
+    signExtension(dir, { name: 'timeline-lanes', version: '0.1.0' });
+    const r = ctx.run('extension', 'inspect', dir);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+    expect(r.stdout).toContain('\\x1b[2J');
+    expect(r.stdout).toContain('\\x9b31m');
+    expect(r.stdout).toContain('\ttab ok\n');
   });
 });

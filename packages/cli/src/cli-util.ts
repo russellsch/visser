@@ -105,3 +105,18 @@ export function printJson(name: SchemaName, value: unknown): void {
   if (!result.ok) throw new Error(`--json output violates schema ${name}: ${result.errors.join('; ')}`);
   process.stdout.write(JSON.stringify(value, null, 2) + '\n');
 }
+
+/**
+ * A reader that closes the pipe early (`explain skill show | head -1`) makes
+ * later writes fail with EPIPE. Ignore the rest of the output on that stream,
+ * and let the command finish: a write command must not stop half-way, and the
+ * exit code stays the command's own.
+ */
+export function ignoreClosedPipes(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code !== 'EPIPE') throw error;
+      stream.write = (() => true) as typeof stream.write;
+    });
+  }
+}

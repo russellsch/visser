@@ -1,6 +1,7 @@
 // Document registry and lookup (§11.5). The resolver searches only configured
 // document roots under the repository; a packet's sourceHint never chooses a file.
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { readBoundedJson } from '../model/bounded-read.ts';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
@@ -49,13 +50,9 @@ function assertRelativeRoot(root: string): void {
 export function documentRoots(repoRoot: string): string[] {
   const configPath = join(repoRoot, '.explain', 'config.json');
   let roots = DEFAULT_DOCUMENT_ROOTS;
-  if (existsSync(configPath)) {
-    let config: unknown;
-    try {
-      config = JSON.parse(readFileSync(configPath, 'utf8'));
-    } catch (e) {
-      throw new HashError('E_SYNTAX', 'E_JSON', `.explain/config.json: ${(e as Error).message}`);
-    }
+  // Repository-controlled: no symbolic link, a regular file, bounded, no content in errors.
+  const config = readBoundedJson(configPath, '.explain/config.json');
+  if (config !== undefined) {
     // An escaping root is a confinement failure (E_PATH_ESCAPE), not only a schema error.
     const configured = (config as { documentRoots?: unknown }).documentRoots;
     if (Array.isArray(configured)) {

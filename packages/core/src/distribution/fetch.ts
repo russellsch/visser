@@ -14,7 +14,7 @@
 // E_SOURCE_UNAVAILABLE, exit 3. A missing release or asset is
 // E_TOOLKIT_MISSING, exit 3.
 import { createHash } from 'node:crypto';
-import { closeSync, constants, openSync, writeSync } from 'node:fs';
+import { closeSync, constants, openSync, rmSync, writeSync } from 'node:fs';
 import { request, type RequestOptions } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { rootCertificates } from 'node:tls';
@@ -34,6 +34,14 @@ export const MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_API_BYTES = 1024 * 1024;
 
 export const REPOSITORY_PATTERN = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
+/** OWNER/REPO that matches REPOSITORY_PATTERN and has no `.` or `..` part (URL normalization would change the API path). */
+export function validRepository(repository: string): boolean {
+  if (!REPOSITORY_PATTERN.test(repository)) return false;
+  return repository.split('/').every((part) => part !== '.' && part !== '..');
+}
+/** Total time allowed for the release API request and for the asset download (§12.5). */
+export const API_DEADLINE_MS = 60_000;
+export const DOWNLOAD_DEADLINE_MS = 10 * 60_000;
 export const VERSION_PATTERN = /^v?[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/;
 
 export type FetchPolicy = {
@@ -45,8 +53,37 @@ export type FetchPolicy = {
   /** Extra CA certificates (PEM), added to Node's roots; verification stays on. */
   extraCa?: string[] | undefined;
   maxBytes: number;
+  /** Socket idle timeout for each request. */
   timeoutMs?: number;
+  /** Total time for the API request (all hops and the body); default API_DEADLINE_MS. */
+  apiDeadlineMs?: number;
+  /** Total time for the asset download (all hops and the body); default DOWNLOAD_DEADLINE_MS. */
+  downloadDeadlineMs?: number;
 };
+
+/** The request or response in flight, so a deadline can stop it. */
+type Operation = { expired: boolean; active?: { destroy(error?: Error): unknown } };
+
+/**
+ * Run a whole request (every hop and the body) under a total deadline. An idle
+ * timeout alone does not stop a server that sends one byte just before each
+ * timeout, so the byte cap would be the only limit on time.
+ */
+async function withDeadline<T>(ms: number, what: string, run: (op: Operation) => Promise<T>): Promise<T> {
+  const op: Operation = { expired: false };
+  const timer = setTimeout(() => {
+    op.expired = true;
+    op.active?.destroy(new Error('deadline'));
+  }, ms);
+  try {
+    return await run(op);
+  } catch (error) {
+    if (op.expired) fail('E_SOURCE_UNAVAILABLE', `${what} took longer than ${ms} ms; stopped`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function fail(code: string, message: string): never {
   throw new HashError(code, code, message);
@@ -63,14 +100,22 @@ function checkHop(url: URL, policy: FetchPolicy): void {
   if (!policy.allowedHosts.has(url.host)) fail('E_INTEGRITY', `refused a request to ${url.host}: the host is not an allowed distribution host`);
 }
 
-function send(url: URL, headers: Record<string, string>, policy: FetchPolicy): Promise<IncomingMessage> {
+function send(url: URL, headers: Record<string, string>, policy: FetchPolicy, op: Operation): Promise<IncomingMessage> {
   const sendHeaders: Record<string, string> = { 'User-Agent': 'explain-installer', ...headers };
   // The token goes only to the API host, never to a redirect target elsewhere.
   if (policy.token !== undefined && url.host === policy.tokenHost) sendHeaders['Authorization'] = `Bearer ${policy.token}`;
   const options: RequestOptions = { method: 'GET', headers: sendHeaders, timeout: policy.timeoutMs ?? 30_000 };
   if (policy.extraCa && policy.extraCa.length > 0) options.ca = [...rootCertificates, ...policy.extraCa];
   return new Promise((resolvePromise, reject) => {
-    const req = request(url, options, resolvePromise);
+    if (op.expired) {
+      reject(new Error('deadline'));
+      return;
+    }
+    const req = request(url, options, (res) => {
+      op.active = res;
+      resolvePromise(res);
+    });
+    op.active = req;
     req.on('timeout', () => req.destroy(new Error('the request timed out')));
     req.on('error', (error: NodeJS.ErrnoException) => {
       const code = error.code ?? '';
@@ -86,7 +131,7 @@ function send(url: URL, headers: Record<string, string>, policy: FetchPolicy): P
 }
 
 /** GET with manual redirects under the policy. Returns the final 2xx response. */
-async function getFollowing(start: string, headers: Record<string, string>, policy: FetchPolicy): Promise<{ res: IncomingMessage; url: URL }> {
+async function getFollowing(start: string, headers: Record<string, string>, policy: FetchPolicy, op: Operation): Promise<{ res: IncomingMessage; url: URL }> {
   let url: URL;
   try {
     url = new URL(start);
@@ -95,7 +140,7 @@ async function getFollowing(start: string, headers: Record<string, string>, poli
   }
   for (let redirects = 0; ; redirects++) {
     checkHop(url, policy);
-    const res = await send(url, headers, policy);
+    const res = await send(url, headers, policy, op);
     const status = res.statusCode ?? 0;
     if (status >= 300 && status < 400 && status !== 304) {
       res.resume();
@@ -159,15 +204,18 @@ export function assetName(version: string): string {
 }
 
 export async function resolveReleaseAsset(apiBase: string, repository: string, version: string, policy: FetchPolicy): Promise<ReleaseAsset> {
+  if (!validRepository(repository)) fail('E_USAGE', '--from-release must be OWNER/REPO (letters, digits, and - . _; not . or ..)');
   const [owner, repo] = repository.split('/') as [string, string];
   const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/tags/${encodeURIComponent(version)}`;
-  const { res, url } = await getFollowing(new URL(path, apiBase).href, { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, policy)
-    .catch((error: unknown) => {
-      if (error instanceof HashError && error.code === 'E_TOOLKIT_MISSING') fail('E_TOOLKIT_MISSING', `the release ${repository}@${version} was not found`);
-      throw error;
-    });
   const chunks: Buffer[] = [];
-  await readCapped(res, url, MAX_API_BYTES, (chunk) => chunks.push(chunk));
+  await withDeadline(policy.apiDeadlineMs ?? API_DEADLINE_MS, `the release API request for ${repository}@${version}`, async (op) => {
+    const { res, url } = await getFollowing(new URL(path, apiBase).href, { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, policy, op)
+      .catch((error: unknown) => {
+        if (error instanceof HashError && error.code === 'E_TOOLKIT_MISSING') fail('E_TOOLKIT_MISSING', `the release ${repository}@${version} was not found`);
+        throw error;
+      });
+    await readCapped(res, url, MAX_API_BYTES, (chunk) => chunks.push(chunk));
+  });
   let release: unknown;
   try {
     release = JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -189,18 +237,23 @@ export async function resolveReleaseAsset(apiBase: string, repository: string, v
  * and return the sha256 of the bytes written.
  */
 export async function downloadAsset(assetUrl: string, dest: string, policy: FetchPolicy): Promise<{ sha256: string; bytes: number }> {
-  const { res, url } = await getFollowing(assetUrl, { Accept: 'application/octet-stream' }, policy);
   const hash = createHash('sha256');
   const fd = openSync(dest, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
   let bytes: number;
   try {
-    bytes = await readCapped(res, url, policy.maxBytes, (chunk) => {
-      hash.update(chunk);
-      writeSync(fd, chunk);
+    bytes = await withDeadline(policy.downloadDeadlineMs ?? DOWNLOAD_DEADLINE_MS, 'the asset download', async (op) => {
+      const { res, url } = await getFollowing(assetUrl, { Accept: 'application/octet-stream' }, policy, op);
+      return readCapped(res, url, policy.maxBytes, (chunk) => {
+        hash.update(chunk);
+        writeSync(fd, chunk);
+      });
     });
-  } finally {
+  } catch (error) {
     closeSync(fd);
+    rmSync(dest, { force: true });
+    throw error;
   }
+  closeSync(fd);
   return { sha256: hash.digest('hex'), bytes };
 }
 

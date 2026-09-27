@@ -44,6 +44,16 @@ below is a known gap. None of them is hidden behind a passing test.
 - `vendor` and `content import` are deferred beyond v1 and exit with
   `E_UNSUPPORTED`.
 
+- The public-export allowlist trusts the recorded `repository` name of a
+  source. The author controls that name, and Git remotes are also set by the
+  repository, so Explain cannot prove that a repository is public. The export
+  report warns with `W_PUBLIC_BY_NAME` for each such source.
+- A trusted extension's build entry resolves modules like any Node program.
+  A bare `require` that the extension does not contain can load code from
+  parent folders outside its digest. Use only extensions whose code has no
+  outside dependencies.
+- A collection export needs every document to pin the same toolkit.
+
 ## Authoring and checks
 
 - No author input is known to produce `E_SPAN_UNPROVEN`. The code keeps it as

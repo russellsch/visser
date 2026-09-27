@@ -1,11 +1,12 @@
 // `install --from-dir|--archive --scope user|repo` and `trust toolkit`
 // (§12.1, §12.2, §12.4, §12.6). Every test uses a temporary EXPLAIN_HOME and
 // a release tree built in-test; nothing touches the real ~/.explain.
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installRelease, packRelease, readTrust } from '../../packages/core/src/distribution/index.ts';
+import { addTrust, installRelease, packRelease, readTrust, revokeTrust } from '../../packages/core/src/distribution/index.ts';
+import { TRUST_LOCK_WAIT_MS } from '../../packages/core/src/distribution/trust.ts';
 import { gzipFixed, tarBytes } from '../../packages/core/src/distribution/ustar.ts';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 import { parseArgs } from '../../packages/cli/src/cli-util.ts';
@@ -243,5 +244,79 @@ describe('release:pack (§12.1)', () => {
   it('refuses to pack a release tree with an unlisted file', () => {
     writeFileSync(join(release, 'workers/evil.cjs'), 'evil');
     expect(() => packRelease(release)).toThrow(expect.objectContaining({ code: 'E_INTEGRITY' }));
+  });
+});
+
+describe('install and trust: review fixes (§12.4, §12.7)', () => {
+  const worker = join(root, 'tests/integration/trust-race.worker.mjs');
+  const spawnWorker = (...args: string[]) => new Promise<number | null>((resolve) => {
+    const child = spawn(process.execPath, [worker, ...args], { stdio: 'inherit' });
+    child.on('exit', resolve);
+  });
+
+  it('@R09 parallel writers keep every trust entry (no lost update)', async () => {
+    const codes = await Promise.all([spawnWorker('add', home, '60'), spawnWorker('add', home, '60'), spawnWorker('add', home, '60')]);
+    expect(codes).toEqual([0, 0, 0]);
+    expect(Object.keys(readTrust(env).toolkits)).toHaveLength(180);
+    expect(existsSync(join(home, 'trust.json.lock'))).toBe(false);
+  }, 60_000);
+
+  it('@R09 a revocation is never undone by a concurrent install (adds never re-add a revoked digest)', async () => {
+    const X = 'f'.repeat(64);
+    // The race is timing-dependent on the unlocked code, so run it three times.
+    for (let round = 0; round < 3; round++) {
+      const roundHome = join(box, `race-${round}`);
+      const roundEnv = { ...env, EXPLAIN_HOME: roundHome };
+      addTrust(X, 'test', roundEnv);
+      const codes = await Promise.all([spawnWorker('add', roundHome, '150'), spawnWorker('revoke', roundHome, '1'), spawnWorker('add', roundHome, '150')]);
+      expect(codes).toEqual([0, 0, 0]);
+      expect(Object.hasOwn(readTrust(roundEnv).toolkits, X), `round ${round}`).toBe(false);
+      expect(Object.keys(readTrust(roundEnv).toolkits)).toHaveLength(300);
+    }
+  }, 120_000);
+
+  it('a held trust-store lock is never taken over: the writer stops with E_WRITE_CONFLICT and names the holder', () => {
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, 'trust.json.lock'), JSON.stringify({ pid: 999999, token: 'held' }) + '\n');
+    const started = Date.now();
+    expect(() => addTrust('a'.repeat(64), 'test', env)).toThrow(/trust store is locked by another writer.*999999/);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(TRUST_LOCK_WAIT_MS - 100);
+    expect(readFileSync(join(home, 'trust.json.lock'), 'utf8')).toContain('held');
+  }, 20_000);
+
+  it('@R09 a user-scope release without bin/shim.cjs, and no user shim, fails before activation or trust', async () => {
+    const noShim = join(box, 'noshim');
+    const files = { ...RELEASE_FILES };
+    delete files['bin/shim.cjs'];
+    makeRelease(noShim, files, '0.0.2');
+    await expect(installRelease({ fromDir: noShim, scope: 'user', env })).rejects.toMatchObject({ code: 'E_INTEGRITY', message: expect.stringMatching(/no bin\/shim\.cjs.*Nothing was installed/) });
+    nothingInstalled();
+  });
+
+  it('@R09 a release without bin/shim.cjs installs next to an existing user shim and keeps it', async () => {
+    await installRelease({ fromDir: release, scope: 'user', env });
+    const noShim = join(box, 'noshim');
+    const files = { ...RELEASE_FILES };
+    delete files['bin/shim.cjs'];
+    const old = makeRelease(noShim, files, '0.0.2');
+    const result = await installRelease({ fromDir: noShim, scope: 'user', env });
+    expect(result.toolkitSha256).toBe(old);
+    expect(result.shimReplaced).toBe(false);
+    expect(result.shim).toBeUndefined();
+    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
+    expect(validateAgainst('install', result)).toEqual({ ok: true });
+  });
+
+  it('@R09 installing another release keeps the user shim unless --default is given', async () => {
+    const first = await installRelease({ fromDir: release, scope: 'user', env });
+    expect(first.shimReplaced).toBe(true);
+    const older = join(box, 'older');
+    makeRelease(older, { ...RELEASE_FILES, 'bin/shim.cjs': '// shim 0.0.0\n' }, '0.0.0');
+    const kept = await installRelease({ fromDir: older, scope: 'user', env });
+    expect(kept.shimReplaced).toBe(false);
+    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe(RELEASE_FILES['bin/shim.cjs']);
+    const chosen = await installRelease({ fromDir: older, scope: 'user', env, setDefault: true });
+    expect(chosen.shimReplaced).toBe(true);
+    expect(readFileSync(join(home, 'bin', 'explain.cjs'), 'utf8')).toBe('// shim 0.0.0\n');
   });
 });

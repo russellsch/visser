@@ -1,6 +1,7 @@
 // Collection input `explain-collection/1` (§13.5). Each document path is
 // relative to the collection file and must resolve inside the repository.
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
+import { readBoundedJson } from '../model/bounded-read.ts';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
@@ -21,18 +22,9 @@ function isInside(child: string, parent: string): boolean {
 }
 
 export function readCollection(file: string, repoRoot: string): Collection {
-  let text: string;
-  try {
-    text = readFileSync(file, 'utf8');
-  } catch {
-    fail('E_SOURCE_UNAVAILABLE', `cannot read the collection ${file}`);
-  }
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch (error) {
-    fail('E_SYNTAX', `${file}: ${(error as Error).message}`);
-  }
+  // Repository-controlled: no symbolic link, a regular file, bounded, no content in errors.
+  const value = readBoundedJson(file, file);
+  if (value === undefined) fail('E_SOURCE_UNAVAILABLE', `cannot read the collection ${file}`);
   const check = validateAgainst('collection', value);
   if (!check.ok) fail('E_SYNTAX', `${file} is not a valid explain-collection/1 file: ${check.errors.join('; ')}`);
   const collection = value as { title: string; documents: Array<{ path: string }> };

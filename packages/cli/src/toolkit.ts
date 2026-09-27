@@ -8,6 +8,7 @@ import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { HashError } from '../../core/src/model/hash.ts';
 import { validateAgainst } from '../../core/src/model/schemas.ts';
+import { readBoundedJson } from '../../core/src/model/bounded-read.ts';
 import { explainHome, isTrusted, verifyReleaseDir, type VerifiedRelease } from '../../core/src/distribution/index.ts';
 import { CliError, EXIT } from './cli-util.ts';
 
@@ -63,16 +64,25 @@ export function findRepositoryRoot(start: string): string | undefined {
 export type LockOrigin = { kind: string; repository?: string; tag?: string; asset?: string };
 export type ToolkitLock = { version?: string; sha256: string; archiveSha256?: string; origin?: LockOrigin };
 
+/**
+ * A repository-controlled JSON file (lock, workspace config, collection):
+ * no symbolic link, a regular file, at most 1 MiB, and no file content in
+ * errors. Undefined when there is no file.
+ */
+export function readRepositoryJson(path: string): unknown {
+  try {
+    return readBoundedJson(path);
+  } catch (error) {
+    if (!(error instanceof HashError)) throw error;
+    throw new CliError(error.code, error.message, error.code === 'E_INTEGRITY' ? EXIT.security : EXIT.invalid);
+  }
+}
+
 /** The `toolkit` member of a bundle's explain.lock.json, or undefined when there is no lock. */
 export function readLock(bundleRoot: string): ToolkitLock | undefined {
   const lockPath = join(bundleRoot, 'explain.lock.json');
-  if (!existsSync(lockPath)) return undefined;
-  let lock: unknown;
-  try {
-    lock = JSON.parse(readFileSync(lockPath, 'utf8'));
-  } catch (error) {
-    throw new CliError('E_SYNTAX', `${lockPath} is not valid JSON: ${(error as Error).message}`, EXIT.invalid);
-  }
+  const lock = readRepositoryJson(lockPath);
+  if (lock === undefined) return undefined;
   const check = validateAgainst('lock', lock);
   if (!check.ok) throw new CliError('E_SYNTAX', `${lockPath} violates explain-lock/1: ${check.errors.join('; ')}`, EXIT.invalid);
   return (lock as { toolkit: ToolkitLock }).toolkit;
@@ -82,13 +92,8 @@ export function readLock(bundleRoot: string): ToolkitLock | undefined {
 export function workspaceDefault(repoRoot: string | undefined): string | undefined {
   if (!repoRoot) return undefined;
   const path = join(repoRoot, '.explain', 'config.json');
-  if (!existsSync(path)) return undefined;
-  let config: unknown;
-  try {
-    config = JSON.parse(readFileSync(path, 'utf8'));
-  } catch (error) {
-    throw new CliError('E_SYNTAX', `${path} is not valid JSON: ${(error as Error).message}`, EXIT.invalid);
-  }
+  const config = readRepositoryJson(path);
+  if (config === undefined) return undefined;
   const check = validateAgainst('workspace', config);
   if (!check.ok) throw new CliError('E_SYNTAX', `${path} violates explain-workspace/1: ${check.errors.join('; ')}`, EXIT.invalid);
   const digest = (config as { defaultToolkit?: { sha256?: string } }).defaultToolkit?.sha256;

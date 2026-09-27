@@ -8,7 +8,7 @@ import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, mkdt
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { distributionHosts } from '../export/user-config.ts';
-import { downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, REPOSITORY_PATTERN, resolveReleaseAsset, VERSION_PATTERN } from './fetch.ts';
+import { downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, resolveReleaseAsset, validRepository, VERSION_PATTERN } from './fetch.ts';
 import { HashError } from '../model/hash.ts';
 import { verifyReleaseDir, type VerifiedRelease } from './release.ts';
 import { addTrust, explainHome } from './trust.ts';
@@ -51,6 +51,8 @@ export type InstallResult = {
   alreadyInstalled: boolean;
   trusted: true;
   shim?: string;
+  /** User scope: true if this install replaced (or created) the user shim. */
+  shimReplaced?: boolean;
   default?: true;
   invocation: string;
 };
@@ -143,6 +145,15 @@ function writeDefaultPointer(home: string, digest: string): void {
   }
 }
 
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function trustSource(opts: InstallOptions): string {
   // A release install records the repository and version, never a URL or a token.
   const what = opts.release !== undefined ? `install --from-release ${opts.release.repository}@${opts.release.version}` : opts.fromDir !== undefined ? `install --from-dir ${resolve(opts.fromDir)}` : `install --archive ${resolve(opts.archive!)}`;
@@ -197,6 +208,7 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
   let staged: VerifiedRelease;
   let target: string;
   let alreadyInstalled = false;
+  let replaceShim = false;
   try {
     if (opts.archive !== undefined) {
       const extracted = await extractArchive(resolve(opts.archive), staging, opts.limits ?? DEFAULT_LIMITS);
@@ -213,6 +225,19 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     staged = verifyReleaseDir(staging);
     if (opts.release !== undefined && staged.version !== opts.release.version.replace(/^v/, '')) {
       fail('E_INTEGRITY', `the release ${opts.release.repository}@${opts.release.version} contains toolkit version ${staged.version}; nothing was installed`);
+    }
+    // The user shim (§12.7) is decided before anything is activated or trusted.
+    // It is replaced only on --default or when there is none, so installing an
+    // older release for an old document never swaps the dispatcher for every
+    // repository. A release without bin/shim.cjs installs only next to an
+    // existing user shim.
+    if (opts.scope === 'user') {
+      const userShimExists = pathExists(join(home, 'bin', 'explain.cjs'));
+      const releaseHasShim = existsSync(join(staging, 'bin', 'shim.cjs'));
+      if (!releaseHasShim && !userShimExists) {
+        fail('E_INTEGRITY', `the release has no bin/shim.cjs and there is no user shim at ${join(home, 'bin', 'explain.cjs')}; install a release that has one first. Nothing was installed.`);
+      }
+      replaceShim = releaseHasShim && (opts.setDefault === true || !userShimExists);
     }
     target = join(base, staged.sha256);
     let exists = false;
@@ -256,7 +281,7 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
   }
 
   addTrust(staged.sha256, trustSource(opts), env, opts.now);
-  const shim = opts.scope === 'user' ? installShim(target, home) : undefined;
+  const shim = replaceShim ? installShim(target, home) : undefined;
   if (opts.setDefault) writeDefaultPointer(home, staged.sha256);
   const userShim = join(home, 'bin', 'explain.cjs');
   const invocation = shim ?? (existsSync(userShim) ? userShim : join(target, 'bin', 'explain.cjs'));
@@ -273,6 +298,7 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     alreadyInstalled,
     trusted: true,
     ...(shim !== undefined ? { shim } : {}),
+    ...(opts.scope === 'user' ? { shimReplaced: replaceShim } : {}),
     ...(opts.setDefault ? { default: true as const } : {}),
     invocation: `node ${invocation}`,
   };
@@ -292,6 +318,9 @@ export type ReleaseInstallOptions = Omit<InstallOptions, 'fromDir' | 'archive' |
   apiBase?: string;
   extraCa?: string[];
   maxDownloadBytes?: number;
+  /** Test seams: total deadlines for the API request and the download. */
+  apiDeadlineMs?: number;
+  downloadDeadlineMs?: number;
 };
 
 /**
@@ -301,7 +330,7 @@ export type ReleaseInstallOptions = Omit<InstallOptions, 'fromDir' | 'archive' |
  */
 export async function installFromRelease(opts: ReleaseInstallOptions): Promise<InstallResult> {
   const env = opts.env ?? process.env;
-  if (!REPOSITORY_PATTERN.test(opts.repository)) fail('E_USAGE', '--from-release must be OWNER/REPO (letters, digits, and - . _)');
+  if (!validRepository(opts.repository)) fail('E_USAGE', '--from-release must be OWNER/REPO (letters, digits, and - . _; not . or ..)');
   if (!VERSION_PATTERN.test(opts.version)) fail('E_USAGE', '--version must be a version such as 1.2.3 or v1.2.3-rc.1');
   if (!/^[0-9a-f]{64}$/.test(opts.archiveSha256)) fail('E_USAGE', '--sha256 must be 64 lowercase hex characters');
   const apiBase = opts.apiBase ?? GITHUB_API_BASE;
@@ -321,6 +350,8 @@ export async function installFromRelease(opts: ReleaseInstallOptions): Promise<I
     token: githubToken(env),
     extraCa: opts.extraCa,
     maxBytes,
+    ...(opts.apiDeadlineMs !== undefined ? { apiDeadlineMs: opts.apiDeadlineMs } : {}),
+    ...(opts.downloadDeadlineMs !== undefined ? { downloadDeadlineMs: opts.downloadDeadlineMs } : {}),
   };
   const asset = await resolveReleaseAsset(apiBase, opts.repository, opts.version, policy);
   if (asset.size !== undefined && asset.size > maxBytes) fail('E_INTEGRITY', `refused: the asset ${asset.name} is larger than ${maxBytes} bytes`);

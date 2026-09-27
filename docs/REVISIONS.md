@@ -195,3 +195,7 @@ Phase 5 added extensions, catalogue guides with templates and `catalogue list|sh
 - The review prompt rules and the rule that they never change the exit code.
 - Appendix B now runs only the user shim, as §12.7 has required since revision 1.17.
 - `check` now runs the same semantic validation as `build`; before, `check` passed a document that `build` rejected.
+
+## Revision 1.21 — review of Phases 4 and 5
+
+Four Claude Opus 5.5 reviews read the Phase 4 and 5 code and proved each finding with a probe. The author reran every probe before and after the fixes. Fixed: unbounded symlinked lock and config reads (memory exhaustion, content echo); lost trust-store updates that could undo a revocation; an install that failed but still activated and trusted a release; an older install that replaced the user shim; collection export through the shim; `--doc` that selected a different toolkit and wrote to the positional document; `upgrade` crashes and dead ends; `.` and `..` in release names; no total download deadline; ReDoS in an untrusted extension schema before trust; control characters in `extension inspect`; EPIPE on a closed stdout. Documented instead of fixed: the public-export allowlist trusts recorded repository names (`W_PUBLIC_BY_NAME`).

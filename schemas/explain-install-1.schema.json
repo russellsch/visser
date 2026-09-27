@@ -45,6 +45,7 @@
     "alreadyInstalled": { "type": "boolean" },
     "trusted": { "const": true },
     "shim": { "type": "string", "minLength": 1 },
+    "shimReplaced": { "type": "boolean" },
     "default": { "const": true },
     "invocation": { "type": "string", "minLength": 1 }
   }

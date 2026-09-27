@@ -87,7 +87,7 @@ export async function runInstall(args: ParsedArgs): Promise<number> {
         ...(result.archiveSha256 ? [`  archive digest: ${result.archiveSha256}`] : []),
         `  path: ${result.path}`,
         '  trusted in the user trust store',
-        ...(result.shim ? [`  user shim: ${result.shim}`] : []),
+        ...(result.shim ? [`  user shim: ${result.shim}`] : result.shimReplaced === false ? ['  user shim: kept (replaced only with --default or when there is none)'] : []),
         ...(result.default ? ['  set as the user default toolkit'] : []),
         `run: ${result.invocation}`,
         'PATH and shell startup files were not changed.',

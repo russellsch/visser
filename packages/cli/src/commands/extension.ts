@@ -59,18 +59,27 @@ function inspect(args: ParsedArgs, json: boolean): number {
   if (json) {
     printJson('extensionInspect', result);
   } else {
+    // Every printed field comes from an untrusted extension: show control
+    // characters as escapes, so a guide cannot move the cursor, clear the
+    // screen, or print a fake "trusted: yes".
+    const v = visibleText;
     process.stdout.write([
-      `extension ${result.name} ${result.version}`,
+      `extension ${v(result.name)} ${v(result.version)}`,
       `  digest: ${result.sha256}`,
-      `  path: ${result.path} (${location})`,
+      `  path: ${v(result.path)} (${location})`,
       `  trusted: ${result.trusted ? 'yes' : 'no'}`,
-      `  build entry: ${result.buildEntry} (executable code; inspect did not run it)`,
-      `  files: ${result.files.map((f) => f.path).join(', ')}`,
+      `  build entry: ${v(result.buildEntry)} (executable code; inspect did not run it)`,
+      `  files: ${result.files.map((f) => v(f.path)).join(', ')}`,
       '',
-      guide,
+      v(guide),
     ].join('\n') + '\n');
   }
   return EXIT.ok;
+}
+
+/** Replace C0 and C1 control characters (except newline and tab) and DEL with visible \\xNN escapes. */
+export function visibleText(text: string): string {
+  return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
 }
 
 function trust(args: ParsedArgs, json: boolean): number {

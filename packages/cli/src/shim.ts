@@ -18,7 +18,9 @@ import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
 import { constants } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { CliError, EXIT, parseArgs, type ParsedArgs, printDiagnostics, stringFlag } from './cli-util.ts';
+import { HashError } from '../../core/src/model/hash.ts';
+import { readCollection } from '../../core/src/export/collection.ts';
+import { CliError, EXIT, exitCodeFor, ignoreClosedPipes, parseArgs, type ParsedArgs, printDiagnostics, stringFlag } from './cli-util.ts';
 import { findRepositoryRoot, readDefaultPointer, readLock, resolveDigest, verifyRelease, workspaceDefault, type VerifiedRelease } from './toolkit.ts';
 
 // Commands whose first positional argument is the document.
@@ -26,14 +28,7 @@ const DOC_POSITIONAL = new Set(['check', 'build', 'serve', 'export', 'fork', 'up
 // User-level commands: they never use a repository's workspace default.
 const USER_COMMANDS = new Set(['install', 'trust', 'doctor']);
 
-/** The bundle root of the document that `argv` names, if any. */
-export function documentOf(command: string | undefined, args: ParsedArgs): string | undefined {
-  const flagDoc = args.flags.get('doc');
-  let doc: string | undefined = typeof flagDoc === 'string' ? flagDoc : undefined;
-  if (!doc && command && DOC_POSITIONAL.has(command)) doc = args.positional[0];
-  if (!doc && command === 'ids' && args.positional[0] === 'assign') doc = args.positional[1];
-  if (!doc && command === 'refs' && args.positional[0] === 'show') doc = args.positional[1];
-  if (!doc) return undefined;
+function bundleRootOf(doc: string): string {
   const path = resolve(doc);
   try {
     if (lstatSync(path).isDirectory()) return path;
@@ -41,6 +36,56 @@ export function documentOf(command: string | undefined, args: ParsedArgs): strin
     // A missing document: the toolkit's CLI reports it with the right code.
   }
   return dirname(path);
+}
+
+/**
+ * The bundle root of the document that `argv` names, if any. A command with a
+ * positional document uses that document; the CLI does too. A `--doc` that
+ * names a different bundle is refused, so the shim can never pick one
+ * document's toolkit to act on another document.
+ */
+export function documentOf(command: string | undefined, args: ParsedArgs): string | undefined {
+  const flagDoc = args.flags.get('doc');
+  const byFlag = typeof flagDoc === 'string' ? bundleRootOf(flagDoc) : undefined;
+  let positional: string | undefined;
+  if (command && DOC_POSITIONAL.has(command)) positional = args.positional[0];
+  if (command === 'ids' && args.positional[0] === 'assign') positional = args.positional[1];
+  if (command === 'refs' && args.positional[0] === 'show') positional = args.positional[1];
+  const byPosition = positional !== undefined ? bundleRootOf(positional) : undefined;
+  if (byPosition !== undefined && byFlag !== undefined && byPosition !== byFlag) {
+    throw new CliError('E_USAGE', `the document ${positional} and --doc ${String(flagDoc)} are different documents; name one document`, EXIT.invalid);
+  }
+  return byPosition ?? byFlag;
+}
+
+/**
+ * `export --collection FILE`: every document's lock must pin one toolkit,
+ * which then runs the whole export. Different toolkits cannot share one run.
+ */
+function collectionDigest(file: string): { digest: string; repoRoot: string | undefined; bundleRoot: string } {
+  const path = resolve(file);
+  const repoRoot = findRepositoryRoot(dirname(path));
+  let documents: string[];
+  try {
+    documents = readCollection(path, repoRoot ?? dirname(path)).documents;
+  } catch (error) {
+    if (!(error instanceof HashError)) throw error;
+    throw new CliError(error.code, error.message, exitCodeFor([{ code: error.code, severity: 'error', message: error.message }]));
+  }
+  const digests = new Map<string, string[]>();
+  for (const index of documents) {
+    const bundleRoot = dirname(index);
+    const lock = readLock(bundleRoot);
+    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; run \`explain init\` or pass --dev-toolkit`, EXIT.unavailable);
+    digests.set(lock.sha256, [...(digests.get(lock.sha256) ?? []), bundleRoot]);
+  }
+  if (digests.size === 0) throw new CliError('E_USAGE', `the collection ${file} names no documents`, EXIT.invalid);
+  if (digests.size > 1) {
+    const list = [...digests].map(([digest, roots]) => `${digest} (${roots.join(', ')})`).join('; ');
+    throw new CliError('E_USAGE', `the collection's documents pin different toolkits: ${list}. Upgrade them to one toolkit (explain upgrade DOC --to DIGEST), or export them separately`, EXIT.invalid);
+  }
+  const [digest, roots] = [...digests][0]!;
+  return { digest, repoRoot, bundleRoot: roots[0]! };
 }
 
 function noDefault(): never {
@@ -55,6 +100,11 @@ export function selectToolkit(argv: string[], env: NodeJS.ProcessEnv = process.e
   const toolkitDir = stringFlag(args, 'toolkit-dir');
   if (devToolkit) return verifyRelease(resolve(devToolkit));
 
+  const collection = command === 'export' ? stringFlag(args, 'collection') : undefined;
+  if (collection !== undefined) {
+    const { digest, bundleRoot: first } = collectionDigest(collection);
+    return resolveDigest({ digest, repoRoot: findRepositoryRoot(first), toolkitDir, env }).release;
+  }
   const bundleRoot = command === 'init' ? undefined : documentOf(command, args);
   // `upgrade DOC --to DIGEST` runs the TARGET toolkit's CLI, through the same
   // trust gate: an older pinned toolkit may not have `upgrade` at all.
@@ -105,5 +155,6 @@ export function shimMain(argv: string[], env: NodeJS.ProcessEnv = process.env): 
 
 // Run only as the bundled entry (bin/explain.cjs in EXPLAIN_HOME), not on import.
 if (typeof module !== 'undefined' && typeof require !== 'undefined' && require.main === module) {
+  ignoreClosedPipes();
   process.exitCode = shimMain(process.argv.slice(2));
 }

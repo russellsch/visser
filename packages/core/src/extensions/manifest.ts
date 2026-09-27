@@ -87,18 +87,62 @@ export function verifyExtensionDir(dir: string): VerifiedExtension {
     const actual = createHash('sha256').update(readFileSync(join(dir, ...file.path.split('/')))).digest('hex');
     if (actual !== file.sha256) fail('E_INTEGRITY', `extension file ${file.path} does not match ${MANIFEST_NAME}`);
   }
-  return { dir, manifest, sha256: extensionDigest(manifest) };
+  const verified = { dir, manifest, sha256: extensionDigest(manifest) };
+  // Every verification (install, bind, inspect) checks the schema's shape, so a
+  // repository that places an extension without `install` cannot skip it.
+  componentSchema(verified);
+  return verified;
+}
+
+/** Limits on an extension's component schema, which runs before trust (§14.3). */
+export const SCHEMA_MAX_BYTES = 64 * 1024;
+export const SCHEMA_MAX_DEPTH = 16;
+// Keywords whose value is a map from names to subschemas.
+const SCHEMA_MAPS = new Set(['properties', '$defs', 'definitions', 'dependentSchemas']);
+// Keywords whose value is one subschema.
+const SCHEMA_ONE = new Set(['items', 'additionalProperties', 'not', 'if', 'then', 'else', 'contains', 'propertyNames', 'unevaluatedItems', 'unevaluatedProperties']);
+// Keywords whose value is an array of subschemas.
+const SCHEMA_MANY = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems']);
+// Keywords refused before trust: regular expressions run on document text
+// (ReDoS), `format` loads validators, and dynamic or non-local references.
+const SCHEMA_REFUSED = new Set(['pattern', 'patternProperties', 'format', '$dynamicRef', '$dynamicAnchor', '$recursiveRef', '$recursiveAnchor']);
+
+function unsafeSchema(name: string, detail: string): never {
+  fail('E_UNSAFE_CONTENT', `extension ${name}: its component schema ${detail}; extension schemas run before trust and may not use it`);
+}
+
+/** Check a component schema's keywords and nesting (§14.3, revision 1.20). */
+function checkSchemaShape(name: string, node: unknown, depth: number, where: string): void {
+  if (typeof node === 'boolean') return;
+  if (typeof node !== 'object' || node === null || Array.isArray(node)) unsafeSchema(name, `has a subschema at ${where} that is not an object`);
+  if (depth > SCHEMA_MAX_DEPTH) unsafeSchema(name, `nests deeper than ${SCHEMA_MAX_DEPTH} levels at ${where}`);
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (SCHEMA_REFUSED.has(key)) unsafeSchema(name, `uses \`${key}\` at ${where}`);
+    if (key === '$ref' && (typeof value !== 'string' || !(value === '#' || value.startsWith('#/')))) unsafeSchema(name, `has a $ref that is not local (#/…) at ${where}`);
+    if (SCHEMA_MAPS.has(key)) {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) unsafeSchema(name, `has a ${key} that is not an object at ${where}`);
+      for (const [prop, sub] of Object.entries(value as Record<string, unknown>)) checkSchemaShape(name, sub, depth + 1, `${where}/${key}/${prop}`);
+    } else if (SCHEMA_ONE.has(key)) {
+      checkSchemaShape(name, value, depth + 1, `${where}/${key}`);
+    } else if (SCHEMA_MANY.has(key)) {
+      if (!Array.isArray(value)) unsafeSchema(name, `has a ${key} that is not an array at ${where}`);
+      value.forEach((sub, i) => checkSchemaShape(name, sub, depth + 1, `${where}/${key}/${i}`));
+    }
+  }
 }
 
 /** The extension's component schema (static inspection, allowed before trust; §14.3). */
 export function componentSchema(ext: VerifiedExtension): Record<string, unknown> {
+  const bytes = readFileSync(join(ext.dir, ...ext.manifest.schemaFile.split('/')));
+  if (bytes.length > SCHEMA_MAX_BYTES) unsafeSchema(ext.manifest.name, `is larger than ${SCHEMA_MAX_BYTES} bytes`);
   let value: unknown;
   try {
-    value = JSON.parse(readFileSync(join(ext.dir, ...ext.manifest.schemaFile.split('/')), 'utf8'));
+    value = JSON.parse(bytes.toString('utf8'));
   } catch {
     fail('E_INTEGRITY', `extension ${ext.manifest.name}: ${ext.manifest.schemaFile} is not valid JSON`);
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) fail('E_INTEGRITY', `extension ${ext.manifest.name}: ${ext.manifest.schemaFile} is not a JSON Schema object`);
+  checkSchemaShape(ext.manifest.name, value, 0, '#');
   return value as Record<string, unknown>;
 }
 

@@ -1,9 +1,10 @@
 // `explain upgrade` core (§12.3, §17.1): semver precedence for release
 // versions, and the guarded write of explain.lock.json (§11.9). Toolkit
 // resolution and the target toolkit's check and rebuild live in the CLI.
-import { constants, closeSync, fsyncSync, lstatSync, openSync, readFileSync, renameSync, rmSync, statSync, chmodSync, writeSync } from 'node:fs';
+import { constants, closeSync, fsyncSync, lstatSync, openSync, renameSync, rmSync, statSync, chmodSync, writeSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { sha256Hex } from '../model/hash.ts';
+import { readBoundedBytes } from '../model/bounded-read.ts';
+import { HashError, sha256Hex } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
 import { type FsContext, lockToken } from '../references/fs-context.ts';
 import { acquireLock, fail, releaseLock, unifiedDiff } from '../references/guarded-write.ts';
@@ -14,6 +15,11 @@ function parse(version: string): { core: [bigint, bigint, bigint]; pre: string[]
   const m = SEMVER.exec(version);
   if (!m) fail('E_SYNTAX', `${JSON.stringify(version)} is not a semantic version`);
   return { core: [BigInt(m[1]!), BigInt(m[2]!), BigInt(m[3]!)], pre: m[4] ? m[4].split('.') : [] };
+}
+
+/** True if `version` is a Semantic Versioning 2.0.0 version (the lock schema accepts only these). */
+export function isSemver(version: string): boolean {
+  return SEMVER.test(version);
 }
 
 /** Semantic Versioning 2.0.0 precedence: negative if a < b, 0 if equal, positive if a > b. Build metadata is ignored. */
@@ -51,8 +57,8 @@ export function upgradedLockText(originalText: string, target: LockTarget): stri
   let lock: Record<string, unknown>;
   try {
     lock = JSON.parse(originalText) as Record<string, unknown>;
-  } catch (error) {
-    fail('E_SYNTAX', `explain.lock.json is not valid JSON: ${(error as Error).message}`);
+  } catch {
+    fail('E_SYNTAX', 'explain.lock.json is not valid JSON');
   }
   lock['toolkit'] = { version: target.version, sha256: target.sha256, origin: { kind: 'local-dir' } };
   const next = { ...lock };
@@ -84,11 +90,22 @@ export function writeLockGuarded(opts: LockWriteOptions): void {
   const check = validateAgainst('lock', parsed);
   if (!check.ok) fail('E_SYNTAX', `the new lock would violate explain-lock/1: ${check.errors.join('; ')}`);
   const rawHash = sha256Hex(opts.original);
+  // Bounded, no-follow reread: a symlink or a swapped file is a conflict.
+  const unchanged = (): boolean => {
+    let bytes: Uint8Array | undefined;
+    try {
+      bytes = readBoundedBytes(lockPath, 'explain.lock.json');
+    } catch (error) {
+      if (error instanceof HashError) return false;
+      throw error;
+    }
+    return bytes !== undefined && sha256Hex(bytes) === rawHash;
+  };
   const lock = acquireLock(opts.repoRoot, opts.docId, opts.fsContext);
   let tempPath: string | undefined;
   try {
     // A writer that finished before we took the lock is also a conflict.
-    if (sha256Hex(new Uint8Array(readFileSync(lockPath))) !== rawHash) {
+    if (!unchanged()) {
       fail('E_WRITE_CONFLICT', 'explain.lock.json changed since upgrade read it; nothing was written');
     }
     tempPath = join(dirname(lockPath), `.${basename(lockPath)}.${lockToken(opts.fsContext)}.tmp`);
@@ -101,7 +118,7 @@ export function writeLockGuarded(opts: LockWriteOptions): void {
     }
     chmodSync(tempPath, statSync(lockPath).mode & 0o7777);
     opts.fsContext?.beforeRename?.(lockPath);
-    if (lstatSync(lockPath).isSymbolicLink() || sha256Hex(new Uint8Array(readFileSync(lockPath))) !== rawHash) {
+    if (!unchanged()) {
       fail('E_WRITE_CONFLICT', 'explain.lock.json changed during the upgrade; nothing was written');
     }
     renameSync(tempPath, lockPath);

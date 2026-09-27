@@ -18,7 +18,7 @@ import { HashError } from '../../../core/src/model/hash.ts';
 import { projectText } from '../../../core/src/model/project.ts';
 import type { CompileResult } from '../../../core/src/compiler/index.ts';
 import {
-  collectionIndexHtml, exportSources, privateOriginWarning, publicExportProblems, publicRepositories, readCollection,
+  collectionIndexHtml, exportSources, privateOriginWarning, publicByNameWarning, publicExportProblems, publicRepositories, readCollection,
   STATIC_HOST_WARNINGS, type ExportedDocument, type ExportSource, type ExportWarning,
 } from '../../../core/src/export/index.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
@@ -198,6 +198,8 @@ async function exportSite(args: ParsedArgs): Promise<number> {
   const warnings: ExportWarning[] = [];
   const unlisted = sources.filter((s) => !s.publicRepository).length;
   if (unlisted > 0) warnings.push(privateOriginWarning(unlisted));
+  const byName = sources.filter((s) => s.publicRepository);
+  if (audience === 'public' && byName.length > 0) warnings.push(publicByNameWarning(byName));
   warnings.push(...STATIC_HOST_WARNINGS);
   const report = {
     schema: 'explain-export/1' as const,

@@ -16,10 +16,11 @@
 // build's code; the new lock stays written and the report says so.
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { readBoundedBytes } from '../../../core/src/model/bounded-read.ts';
 import { dirname, join, resolve } from 'node:path';
 import { loadBundle } from '../../../core/src/model/bundle.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
-import { compareVersions, lockDiff, upgradedLockText, writeLockGuarded } from '../../../core/src/distribution/upgrade.ts';
+import { compareVersions, isSemver, lockDiff, upgradedLockText, writeLockGuarded } from '../../../core/src/distribution/upgrade.ts';
 import { findRepoRoot } from '../../../core/src/references/registry.ts';
 import type { FsContext } from '../../../core/src/references/fs-context.ts';
 import type { Diagnostic } from '../../../core/src/types.ts';
@@ -76,10 +77,15 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   const lockPath = join(bundleRoot, 'explain.lock.json');
 
   // 1. The current lock, read once; the guarded write rechecks these bytes.
-  let original: Uint8Array;
+  // Repository-controlled: no symbolic link, a regular file, bounded.
+  let original: Uint8Array | undefined;
   try {
-    original = new Uint8Array(readFileSync(lockPath));
-  } catch {
+    original = readBoundedBytes(lockPath, 'explain.lock.json');
+  } catch (error) {
+    if (error instanceof HashError) throw new CliError(error.code, error.message, EXIT.security);
+    throw error;
+  }
+  if (original === undefined) {
     throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; there is no toolkit to upgrade from (run \`explain init\` for a new document)`, EXIT.unavailable);
   }
   const current = readLock(bundleRoot)!;
@@ -90,6 +96,10 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   // 2. The target, by the §12.4 order with the trust gate, verified strictly.
   const target: Resolved = resolveDigest({ digest: to, repoRoot, toolkitDir, ownRelease: own, env });
   const toSide: Side & { version: string } = { sha256: to, version: releaseVersion(target.release.dir) };
+  // A lock records only semantic versions (explain-lock/1), so no flag can pin such a target.
+  if (!isSemver(toSide.version)) {
+    throw new CliError('E_SYNTAX', `the target toolkit's version ${JSON.stringify(toSide.version)} is not a semantic version, so a lock cannot pin it`, EXIT.invalid);
+  }
 
   if (current.sha256 === to) {
     const report = { schema: 'explain-upgrade/1' as const, doc: indexPath, from: { ...from, version: toSide.version }, to: toSide, changed: false, downgrade: false, dryRun };
@@ -99,17 +109,44 @@ export async function runUpgrade(args: ParsedArgs, opts: UpgradeOptions = {}): P
   }
 
   // 3. Versions come from each pack's release.json, never from the lock.
+  // The current toolkit is only read for its version; it never runs.
   let downgrade = false;
-  try {
-    const found = resolveDigest({ digest: current.sha256, repoRoot, ownRelease: own, env, origin: current.origin, version: current.version });
-    from.version = releaseVersion(found.release.dir);
-    downgrade = compareVersions(toSide.version, from.version) < 0;
-  } catch (error) {
-    if (!(error instanceof CliError) || error.code !== 'E_TOOLKIT_MISSING' || !allowDowngrade) {
+  const currentQuery = { digest: current.sha256, repoRoot, ownRelease: own, env, origin: current.origin, version: current.version };
+  if (allowDowngrade) {
+    // --allow-downgrade skips the comparison: a current toolkit that is
+    // missing, untrusted, or corrupt, or a version that is not semver, does
+    // not block moving the document to a trusted target.
+    try {
+      from.version = releaseVersion(resolveDigest(currentQuery).release.dir);
+    } catch (error) {
+      if (!(error instanceof CliError)) throw error;
+    }
+    if (from.version !== undefined) {
+      try {
+        downgrade = compareVersions(toSide.version, from.version) < 0;
+      } catch (error) {
+        if (!(error instanceof HashError)) throw error;
+      }
+    }
+  } else {
+    let found: Resolved;
+    try {
+      found = resolveDigest(currentQuery);
+    } catch (error) {
       if (error instanceof CliError && error.code === 'E_TOOLKIT_MISSING') {
         throw new CliError('E_TOOLKIT_MISSING', `the current toolkit ${current.sha256} is not installed, so its version is unknown; install it to compare versions, or pass --allow-downgrade to skip the comparison (${error.message})`, EXIT.unavailable);
       }
+      if (error instanceof CliError && error.code === 'E_TOOLKIT_UNTRUSTED') {
+        throw new CliError('E_TOOLKIT_UNTRUSTED', `${error.message}; upgrade only reads its version: pass --allow-downgrade to skip the comparison without trusting it`, error.exitCode);
+      }
       throw error;
+    }
+    from.version = releaseVersion(found.release.dir);
+    try {
+      downgrade = compareVersions(toSide.version, from.version) < 0;
+    } catch (error) {
+      if (!(error instanceof HashError)) throw error;
+      throw new CliError('E_SYNTAX', `cannot compare the toolkit versions: ${error.message}; pass --allow-downgrade to skip the comparison`, EXIT.invalid);
     }
   }
   if (downgrade && !allowDowngrade) {

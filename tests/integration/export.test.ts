@@ -159,6 +159,23 @@ describe('export --format site', () => {
     expect(report.warnings.map((w: { code: string }) => w.code)).not.toContain('W_PRIVATE_ORIGIN');
   });
 
+  it('@R20 a source that passes the allowlist only by its recorded name gets W_PUBLIC_BY_NAME', () => {
+    const ctx = context();
+    const index = initDoc(ctx, 'pub', { visibility: 'public' });
+    // The label is free text from `capture git --repository-label`; nothing ties it to the real origin.
+    captureGitSource(ctx, index, 'public-lib');
+    mkdirSync(ctx.env.EXPLAIN_HOME!, { recursive: true });
+    writeFileSync(join(ctx.env.EXPLAIN_HOME!, 'config.json'), JSON.stringify({ publicRepositories: ['public-lib'] }));
+    const report = exportJson(ctx.run('export', index, '--format', 'site', '--out', join(ctx.repo, 'site'), '--audience', 'public', '--json'));
+    const warning = report.warnings.find((w: { code: string }) => w.code === 'W_PUBLIC_BY_NAME');
+    expect(warning, 'W_PUBLIC_BY_NAME').toBeDefined();
+    expect(warning.message).toContain('src_a (public-lib)');
+    expect(warning.message).toContain('trusts recorded names, not origins');
+    // A private export does not need the allowlist, so it gets no such warning.
+    const privateReport = exportJson(ctx.run('export', index, '--format', 'site', '--out', join(ctx.repo, 'site-private'), '--json'));
+    expect(privateReport.warnings.map((w: { code: string }) => w.code)).not.toContain('W_PUBLIC_BY_NAME');
+  });
+
   it('@R20 the report lists private-origin sources with a warning in a private export', () => {
     const ctx = context();
     const index = initDoc(ctx, 'priv');

@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { createServer, type Server } from 'node:https';
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFromRelease, packRelease, readTrust } from '../../packages/core/src/distribution/index.ts';
@@ -296,5 +297,42 @@ describe('the install --from-release command', () => {
     expect(await runInstall(args())).toBe(3);
     standardRoutes({ assetUrl: `http://${api.host}/x` });
     expect(await runInstall(args())).toBe(4);
+  });
+});
+
+describe('install --from-release: review fixes (§12.5)', () => {
+  it('@R10 OWNER or REPO of `.` or `..` is E_USAGE, and no request is sent (URL normalization would change the API path)', async () => {
+    for (const repository of ['octo/..', 'octo/.']) {
+      await expect(installFromRelease(opts({ repository }))).rejects.toMatchObject({ code: 'E_USAGE' });
+    }
+    expect(api.seen).toHaveLength(0);
+    nothingInstalled();
+  });
+
+  it('@R10 a download that drips bytes stops at the total deadline; nothing is installed and no temporary file is left', async () => {
+    assets.handle = (req, res) => {
+      if (!req.url?.startsWith('/download/')) { res.statusCode = 404; res.end(); return; }
+      res.setHeader('content-length', String(archive.length));
+      let i = 0;
+      const timer = setInterval(() => {
+        if (res.destroyed || i >= archive.length) { clearInterval(timer); res.end(); return; }
+        res.write(archive.subarray(i, i + 1));
+        i += 1;
+      }, 100);
+      res.on('close', () => clearInterval(timer));
+    };
+    const before = new Set(readdirSync(tmpdir()).filter((n) => n.startsWith('explain-download-')));
+    const started = Date.now();
+    await expect(installFromRelease(opts({ downloadDeadlineMs: 800 }))).rejects.toMatchObject({ code: 'E_SOURCE_UNAVAILABLE', message: expect.stringMatching(/took longer than 800 ms/) });
+    expect(Date.now() - started).toBeLessThan(5_000);
+    nothingInstalled();
+    const after = readdirSync(tmpdir()).filter((n) => n.startsWith('explain-download-') && !before.has(n));
+    expect(after).toEqual([]);
+  });
+
+  it('@R10 a slow release API answer stops at the API deadline', async () => {
+    api.handle = (_req, res) => { setTimeout(() => { if (!res.destroyed) res.end('{}'); }, 3_000); };
+    await expect(installFromRelease(opts({ apiDeadlineMs: 500 }))).rejects.toMatchObject({ code: 'E_SOURCE_UNAVAILABLE', message: expect.stringMatching(/took longer than 500 ms/) });
+    nothingInstalled();
   });
 });

@@ -5,4 +5,4 @@ export { readCollection, type Collection } from './collection.ts';
 export { publicRepositories } from './user-config.ts';
 export { exportSources, publicExportProblems, type ExportSource, type ExportedDocument } from './policy.ts';
 export { collectionIndexHtml, COLLECTION_CSP, type IndexEntry } from './index-page.ts';
-export { STATIC_HOST_WARNINGS, privateOriginWarning, type ExportWarning } from './warnings.ts';
+export { STATIC_HOST_WARNINGS, privateOriginWarning, publicByNameWarning, type ExportWarning } from './warnings.ts';
