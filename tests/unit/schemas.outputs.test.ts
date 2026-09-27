@@ -43,6 +43,7 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
   show: { schema: 'explain-show/1', packet, yaml: 'schema: explain-ref/1\n' },
   refresh: { schema: 'explain-refresh/1', refused: false, packet, yaml: 'schema: explain-ref/1\n', targetBodyUnchanged: true },
   release: { schema: 'explain-release/1', version: '0.0.0', files: [{ path: 'bin/explain.cjs', sha256: SHA }] },
+  trustStore: { schema: 'explain-trust-store/1', toolkits: { [SHA]: { source: 'install --from-dir dist/release', addedAt: '2026-09-27T00:00:00Z' } } },
 };
 
 describe('schemas for --json outputs and metadata files (§5.4)', () => {
@@ -58,6 +59,10 @@ describe('schemas for --json outputs and metadata files (§5.4)', () => {
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: true, currentRevision: SHA, diagnostics: [diagnostic] }).ok).toBe(true);
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: true }).ok).toBe(false);
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: false }).ok).toBe(false);
+  });
+
+  it('trustStore: a key that is not a digest is rejected', () => {
+    expect(validateAgainst('trustStore', { schema: 'explain-trust-store/1', toolkits: { 'not-a-digest': { source: 'x', addedAt: '2026-09-27T00:00:00Z' } } }).ok).toBe(false);
   });
 
   it('check: an unknown origin state is rejected', () => {

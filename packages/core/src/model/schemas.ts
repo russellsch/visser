@@ -16,6 +16,7 @@ import showSchema from '../../../../schemas/explain-show-1.schema.json' with { t
 import refreshSchema from '../../../../schemas/explain-refresh-1.schema.json' with { type: 'json' };
 import buildSchema from '../../../../schemas/explain-build-1.schema.json' with { type: 'json' };
 import releaseSchema from '../../../../schemas/explain-release-1.schema.json' with { type: 'json' };
+import trustStoreSchema from '../../../../schemas/explain-trust-store-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -41,6 +42,7 @@ export const validators = {
   refresh: compile(refreshSchema),
   build: compile(buildSchema),
   release: compile(releaseSchema),
+  trustStore: compile(trustStoreSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;
