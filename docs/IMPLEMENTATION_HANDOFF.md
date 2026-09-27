@@ -35,7 +35,8 @@ content, working-tree material, and illustrative examples.
    compile, serve, inspect an edge, copy a reference, resolve it, move the target,
    detect staleness, deliberately refresh, and make a guarded edit.
 3. Implement every v1 catalogue family with its mobile/text fallback and target
-   mapping, reusing kernels and reader primitives.
+   mapping, reusing kernels and reader primitives. Then add Mermaid diagrams
+   (§9.12, Phase 2b in §17.5a), starting with its spike.
 4. Complete capture/verification, source privacy, lock/conflict handling, and exact
    dependency resolution. Implement all required CLI commands or report a genuine
    incomplete implementation; do not leave successful no-op stubs.

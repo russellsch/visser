@@ -49,6 +49,9 @@ read only the catalogue guides and schemas relevant to the explanation.
    comparisons for concrete tradeoffs, and causal diagrams only for supported
    causal explanations. Never infer chronology from left-to-right layout. Each
    visual needs a `question` that prose answers less well; otherwise remove it.
+   Use a Mermaid diagram for a type the catalogue lacks (ER, class, Gantt) or a
+   quick flow where per-edge evidence is not needed; prefer a catalogue family
+   when readers must inspect relationships or their evidence.
 5. Capture minimal sufficient evidence using toolkit capture commands. Prefer
    exact Git commits and real line ranges. Keep working-tree captures labelled.
    Do not invent SHAs, citations, measurements, or source verification. For

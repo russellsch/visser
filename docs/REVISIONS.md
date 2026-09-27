@@ -88,3 +88,16 @@ Implementation choices that are not spec changes: TypeScript 5.9.3 rather than 7
 - The §7.1 `dependencies` rule also covers `evidence`, `group`, `parent`, `branch`, and `exclusiveWith`, so broken references in them are reported.
 - The contract gate now fails when any test in any report failed (§18.8 "zero failures"), not only when a tag lacks a passing test.
 - The Phase 2 inspection report and open visual items are in `docs/validation/phase2-review.md`.
+
+## Revision 1.10 — Mermaid diagrams (user decision)
+
+The user asked for Mermaid diagrams and answered two rounds of questions on 27 September 2026:
+
+- **Purpose:** more diagram types, a familiar look, and easier LLM authoring.
+- **Rendering:** `mermaid.js` in the browser, shipped once per toolkit as a separate asset that loads only on pages with a Mermaid figure. This revises ADR-04 and ADR-06 and adds a §2.3 budget exception (about 1.6 MB gzip for 12.0.0).
+- **Types:** all Mermaid types. Flowchart, state, and sequence diagrams get build-time identities; other types are one figure-level target.
+- **Catalogue:** Mermaid is an addition; the skill prefers a catalogue family when relationships and evidence must be inspectable.
+- **CSP:** decided from a spike in Phase 2b step 1; the strict policy stands until then.
+- **Order:** Phase 2b runs before Phase 3.
+
+Changes: §1.2, §2.1, §2.3, the new §9.12, §13.1, ADR-04 and ADR-06 notes, the new §17.5a, the skill (Appendix B step 4), and the handoff build sequence.

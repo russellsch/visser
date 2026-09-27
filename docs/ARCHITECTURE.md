@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.9, 27 September 2026. Revisions 1.7–1.9 add the Phase 0–2 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.10, 27 September 2026. Revision 1.10 adds Mermaid diagrams (§9.12, Phase 2b) by user decision; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -73,6 +73,7 @@ Do not treat these as interchangeable. A renderer cannot decide whether an archi
 | Reuse | Most documents use catalogue components. Custom components are allowed and can be promoted into the catalogue after review. |
 | Storage | Shared libraries/assets; no dependency tree or many JavaScript files copied into each document. |
 | New editing requirement | A reader can select a document chunk and copy a unique reference for an LLM to make a targeted change. |
+| Mermaid diagrams (27 September 2026) | Documents may contain Mermaid diagrams of any type, rendered in the browser by a pinned `mermaid.js` that ships once per toolkit and loads only on pages that contain one. Reasons: diagram types the catalogue lacks, a familiar look, and easier LLM authoring. Flowchart, state, and sequence diagrams get build-time identities; other types are one figure-level target. Mermaid is an addition to the catalogue, not a replacement (§9.12). |
 
 **Interpretation of “TA”:** the request did not expand this abbreviation. This design treats it as the toolkit/assets and other shared authoring content, rather than assuming a specific third-party product. No architecture depends on that label.
 
@@ -88,7 +89,7 @@ Relationships are first-class explanatory objects. An edge may expose its payloa
 
 ### 2.1 Required first release
 
-The first release includes a command-line compiler/server, the full basic catalogue in §9, source capture, Markdown export, stable references, a read-only resolver, guarded single-file replacement, desktop/mobile inspection, shared installation, static export, and skill adapters for Claude Code and Codex. Catalogue families share a small number of rendering kernels; eight families do not mean eight bespoke applications.
+The first release includes a command-line compiler/server, the full basic catalogue in §9, source capture, Markdown export, stable references, a read-only resolver, guarded single-file replacement, desktop/mobile inspection, shared installation, static export, and skill adapters for Claude Code and Codex. Catalogue families share a small number of rendering kernels; eight families do not mean eight bespoke applications. Mermaid diagrams (§9.12) are a ninth family with a browser renderer.
 
 First release excludes a browser editor, accounts, a database, live LLM calls, an MCP server, collaborative comments, autonomous publishing, automatic fact discovery, source execution, simulations, and automatic synchronization with code changes.
 
@@ -124,6 +125,7 @@ Measure, do not claim these before testing. Size, count, and limit rows are rele
 | Property | Initial budget / rule |
 |---|---|
 | Shared browser JavaScript | At most 100 KiB gzip for all core interactions. One production bundle; no diagram layout engine in the browser. |
+| Mermaid asset (exception) | The pinned `mermaid.js` (about 1.6 MB gzip for 12.0.0) is a separate asset outside the core budget. It ships once per toolkit pack, loads only on pages that contain a Mermaid figure, and never from a remote origin. Its size is measured and reported, not gated. |
 | Shared CSS | At most 50 KiB gzip. System fonts; no external font service. |
 | Document-specific executable JS | Zero document-authored or per-document generated JS. Optional browser code of a trusted extension is packaged once per extension digest (§13.1). |
 | First-release production asset files | Core JS + core CSS + release manifest; document artifacts and optional image assets are separate. |
@@ -884,6 +886,43 @@ Desktop: artifact with annotations beside it; mobile: annotated spans/regions wi
 
 A decorative hero, metric card with invented numbers, generic three-column “benefits” panel, animated gradient, or mandatory executive-summary tile is not an explanatory component. Standard headings, paragraphs, lists, and tables remain first-class options. No rule requires a minimum number of diagrams.
 
+### 9.12 Mermaid diagram — `mermaid`
+
+**Question:** whatever the diagram answers; the same `question` rule as §9.1 applies.
+
+**Status:** added by user decision in revision 1.10 (§1.2). This family trades the build-time guarantees of ADR-04 and ADR-06 for Mermaid's diagram range and familiarity. Use it where those gains matter; prefer a catalogue family when readers must inspect edges, see evidence per relationship, or rely on byte-identical figures.
+
+**Syntax.** A `mermaid` block tag with `id`, `title`, and `question` holds exactly one fenced code block with language `mermaid`, plus an optional leading interpretation paragraph:
+
+````markdown
+{% mermaid id="order_flow" title="Where an order waits" question="Which step can block the client?" %}
+The client waits only for the API; the worker runs later.
+
+```mermaid
+flowchart LR
+  client[Client] -->|POST /orders| api[Order API]
+  api -->|enqueue| queue[(Charge queue)]
+```
+{% /mermaid %}
+````
+
+**Types and identity.**
+
+- *Flowchart, state (`stateDiagram-v2`), and sequence diagrams* are parsed at build time. Each node, state, or participant ID must match the §6.3 ID grammar and becomes a document target (kind `mermaid-node`, `mermaid-state`, or `mermaid-participant`), with the Mermaid label as its label. A flowchart edge with a Mermaid edge ID (`e1@-->`) becomes a relationship target with that ID; other edges, transitions, and sequence messages are relationships with derived IDs (`FIG~from~to~N`) that are not referenceable, like trace `order` relationships (§9.2). A reference to a derived relationship resolves to its figure.
+- *All other Mermaid types* (ER, class, Gantt, and so on) are one figure-level target. Their nodes are not individually inspectable, and the page says so.
+- The parsing method (Mermaid's own parser in Node, or a restricted subset parser) is chosen in Phase 2b step 1 from spike evidence. Unsupported syntax in the three parsed types is `E_SEMANTIC`, never a silent downgrade to figure level.
+
+**Rejected content** (build time, `E_UNSAFE_CONTENT`): `%%{init: …}%%` directives, YAML frontmatter configuration in the diagram source, `click` statements, and links with a scheme other than §15.2 allows. Theme and configuration come only from the toolkit, so a document cannot change security settings.
+
+**Rendering.**
+
+- The static HTML contains the figure title, interpretation, the Mermaid source in a `<pre>` (the no-JavaScript and text fallback, so R01 holds), and, for parsed types, a node/relationship list with `data-ex-target` and `data-ex-rel` instances like the graph kernels.
+- The runtime loads `_explain/assets/TOOLKIT_DIGEST/mermaid.js` only when the page contains a Mermaid figure, renders with `securityLevel: 'strict'` and the toolkit's fixed configuration, and attaches `data-ex-target` to the rendered elements of parsed types so inspection and reference mode work on the drawing.
+- Narrow screens show the list first for parsed types, with the rendered drawing as the alternate view (§10.5); other types show the drawing in a scrollable viewport with the source text available.
+- Rendered SVG is browser output: byte determinism (§7.5) covers the HTML and the source, not the drawing. A render failure leaves the source and lists in place and shows a visible notice.
+
+**Content Security Policy.** Mermaid injects styles into its SVG. The policy for pages with a Mermaid figure is decided in Phase 2b step 1 from spike evidence; until then the strict §15.3 policy stands, and no page relaxes it silently. Script sources stay `'self'` in every case.
+
 ## 10. Reader interface and accessibility
 
 ### 10.1 Default page
@@ -1282,6 +1321,7 @@ site/
   _explain/assets/TOOLKIT_DIGEST/
     reader.js
     reader.css
+    mermaid.js                           # only when a built page contains a Mermaid figure
   _explain/extensions/EXTENSION_DIGEST/   # only when explicitly trusted/used
   d/DOC_UUID/SOURCE_REVISION/BUILD_ID/
     index.html
@@ -1626,6 +1666,17 @@ Add mode validators and remaining kernels; consistent inspection/history; narrow
 
 Deliver: at least one complete example for each family, a second cross-domain example reusing multiple families, and a prose-first example that uses one annotated excerpt and no diagram, so agents do not learn that every document needs several visuals. No catalogue entry is declared supported until its text/mobile/target tests pass.
 
+### 17.5a Phase 2b — Mermaid diagrams
+
+Runs after Phase 2 and before Phase 3 (user decision, §1.2).
+
+1. **Spike and decisions.** Pin `mermaid@12.0.0`. Measure rendering under the strict §15.3 CSP and with relaxed style sources for flowchart, sequence, state, ER, and class diagrams; decide the Mermaid-page CSP (§9.12). Decide the build-time parsing method for the three parsed types. Record the rendered element IDs that the runtime maps to targets, and whether `securityLevel: 'strict'` and build-time rejection cover `click`, links, directives, and frontmatter.
+2. **Model.** The `mermaid` tag, validation, targets for parsed types, derived relationship IDs, projection (source text plus lists), and `E_UNSAFE_CONTENT` rejections.
+3. **Build and runtime.** Static fallback markup, the lazily loaded asset copied only when used, the per-page CSP from step 1, rendering, element-to-target mapping, list-first narrow view, and a visible render-failure notice.
+4. **Skill.** Guidance for choosing Mermaid or a catalogue family (§16, Appendix B).
+
+Deliver: one example for each parsed type and one figure-level example (ER or class). Tests: every parsed node, state, and participant resolves `exact` from a browser-copied packet (R03); list and projection coverage (R06, R14) for parsed types; the no-JS page shows the source; the Mermaid asset loads only on Mermaid pages and never from another origin; the CSP header and meta match the step 1 decision per page; rejected directives fail the build.
+
 ### 17.6 Phase 3 — source integrity and guarded editing
 
 Implement capture/verify commands, `refs retire`, fork, `content import`, hardening of refresh, locks, and replacement from Phase 1, dependent-target reporting, and conflict tests. Preserve working-tree status and source/evidence distinction.
@@ -1835,6 +1886,8 @@ All ADRs below are accepted for v1. Revisit triggers indicate when a deliberate 
 
 **Decision:** build all explanatory content and layout ahead of reading; vanilla runtime enhances it. **Alternatives:** SPA, browser Markdoc parsing, React app per document, live diagram engine. **Rationale:** small artifacts, offline reading, no-JS fallback, simple hosting. **Cost:** no live computations in v1. **Revisit:** interactive teaching experiments become a validated requirement.
 
+**Revision 1.10:** by user decision, Mermaid diagrams (§9.12) render in the browser with a pinned, lazily loaded `mermaid.js`. The rest of ADR-04 stands: every other family is static, and a Mermaid page stays readable without JavaScript through its source text and lists.
+
 ### ADR-05 — Snapshot provenance with captured excerpts
 
 **Decision:** preserve minimal excerpts and exact origins; no automatic source synchronization. **Alternatives:** links only; embed entire repositories; live code browser. **Rationale:** readable archives and defensible provenance without large storage or credentials in browsers. **Cost:** captures become old and require deliberate regeneration. **Revisit:** maintained documentation becomes a separate explicit workflow.
@@ -1842,6 +1895,8 @@ All ADRs below are accepted for v1. Revisit triggers indicate when a deliberate 
 ### ADR-06 — Build-time ELK, multiple semantic views
 
 **Decision:** use ELK for graph geometry, dedicated layouts for traces/tables, and equivalent mobile/text views. **Alternatives:** force all visuals through Mermaid, use browser graph libraries, shrink desktop diagrams on mobile. **Rationale:** relationships and inspectable targets need direct ownership, not opaque rendered diagrams. **Cost:** maintain a small renderer layer and characterization tests. **Revisit:** a catalogue renderer demonstrably meets source mapping, interaction, and mobile contracts more simply.
+
+**Revision 1.10:** Mermaid is now an additional family (§9.12), not the path for all visuals. Build-time parsing gives flowchart, state, and sequence diagrams stable targets; the catalogue families keep their ownership of relationships and evidence.
 
 ### ADR-07 — Catalogue first; trusted extensions as an escape hatch
 
@@ -2151,6 +2206,9 @@ read only the catalogue guides and schemas relevant to the explanation.
    comparisons for concrete tradeoffs, and causal diagrams only for supported
    causal explanations. Never infer chronology from left-to-right layout. Each
    visual needs a `question` that prose answers less well; otherwise remove it.
+   Use a Mermaid diagram for a type the catalogue lacks (ER, class, Gantt) or a
+   quick flow where per-edge evidence is not needed; prefer a catalogue family
+   when readers must inspect relationships or their evidence.
 5. Capture minimal sufficient evidence using toolkit capture commands. Prefer
    exact Git commits and real line ranges. Keep working-tree captures labelled.
    Do not invent SHAs, citations, measurements, or source verification. For
@@ -2271,7 +2329,8 @@ content, working-tree material, and illustrative examples.
    compile, serve, inspect an edge, copy a reference, resolve it, move the target,
    detect staleness, deliberately refresh, and make a guarded edit.
 3. Implement every v1 catalogue family with its mobile/text fallback and target
-   mapping, reusing kernels and reader primitives.
+   mapping, reusing kernels and reader primitives. Then add Mermaid diagrams
+   (§9.12, Phase 2b in §17.5a), starting with its spike.
 4. Complete capture/verification, source privacy, lock/conflict handling, and exact
    dependency resolution. Implement all required CLI commands or report a genuine
    incomplete implementation; do not leave successful no-op stubs.
