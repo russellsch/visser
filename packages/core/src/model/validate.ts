@@ -3,6 +3,7 @@
 // literal limits; this pass checks attributes, placement, references by kind,
 // and the family rules. Existence of referenced IDs is checked in targets.ts
 // (E_REF_BROKEN); this pass reports only kind and scope errors for IDs that exist.
+import { identityProblem } from '../provenance/identity.ts';
 import type { Diagnostic, ParsedSource, ParsedTarget, TargetId } from '../types.ts';
 import { normalizeText, sha256Hex } from './hash.ts';
 import type { MNode, TargetModel } from './targets.ts';
@@ -447,18 +448,6 @@ function validateRetirement(
   }
 }
 
-/**
- * §8.2: `repository` holds a portable identity, never a local path, because
- * pages and exports print it. An absolute path, a `file:` URL, or a URL with
- * credentials is unsafe.
- */
-export function unsafeRepositoryIdentity(value: string): string | undefined {
-  if (/^(\/|~|[A-Za-z]:[\\/]|\\\\)/.test(value)) return 'an absolute local path';
-  if (/^file:/i.test(value)) return 'a file: URL';
-  if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/@\s]*@/.test(value)) return 'a URL with credentials';
-  return undefined;
-}
-
 /** The fenced body of a source tag, or undefined when it has none. */
 function fenceText(model: TargetModel, id: string): string | undefined {
   const node = model.nodes.get(id);
@@ -474,8 +463,16 @@ function validateSource(
 ): void {
   const a = t.attributes;
   if (typeof a['repository'] === 'string') {
-    const unsafe = unsafeRepositoryIdentity(a['repository']);
-    if (unsafe) report('E_UNSAFE_CONTENT', `source ${t.id}: \`repository\` is ${unsafe}; record the remote URL without credentials or a label (§8.2)`, t);
+    // One rule for captured and hand-written sources (provenance/identity.ts).
+    const problem = identityProblem(a['repository']);
+    if (problem) report('E_UNSAFE_CONTENT', `source ${t.id}: \`repository\` ${problem}; record the remote URL without credentials, query, or fragment, or a label (§8.2)`, t);
+  }
+  // §8.1: a recorded commit is a resolved full object ID, never a moving ref.
+  for (const key of ['commit', 'baseCommit']) {
+    const value = a[key];
+    if (typeof value === 'string' && !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(value)) {
+      report('E_SEMANTIC', `source ${t.id}: \`${key}\` must be a full commit ID (40 or 64 lowercase hex characters), not ${JSON.stringify(value)}`, t);
+    }
   }
   const node = model.nodes.get(t.id);
   const fences = node?.children.filter((c) => c.type === 'fence') ?? [];

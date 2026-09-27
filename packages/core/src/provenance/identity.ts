@@ -21,7 +21,10 @@ export function identityProblem(value: string): string | undefined {
     } catch {
       return 'is not a valid URL';
     }
-    if (url.username || url.password) return 'must not contain credentials';
+    if (url.password) return 'must not contain credentials';
+    // An ssh user name (ssh://git@host/...) is an account, not a secret; in any
+    // other scheme a bare user name can be a token (https://TOKEN@host/...).
+    if (url.username && !/^(ssh|git\+ssh)$/i.test(scheme[1]!)) return 'must not contain credentials';
     if (url.search || url.hash) return 'must not contain a query or fragment';
   }
   return undefined;

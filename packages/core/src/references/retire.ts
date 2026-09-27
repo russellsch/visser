@@ -122,6 +122,8 @@ export function retireTarget(packet: ReferencePacket, request: RetireRequest, ex
       original: bytes,
       candidate: withRetiredEntries(cut, entries),
       validate: (next) => {
+        // A candidate with errors fails in the guarded write with its own code.
+        if (next.diagnostics.some((d) => d.severity === 'error')) return;
         for (const id of removed) if (next.model.targets.has(id)) fail('E_SEMANTIC', `${id} is still live after the edit; nothing was written`);
       },
     };

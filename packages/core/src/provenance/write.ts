@@ -198,6 +198,8 @@ export function writeSource(opts: WriteSourceOptions): WriteSourceResult {
         original,
         candidate: new Uint8Array(Buffer.from(candidateText, 'utf8')),
         validate: (next) => {
+          // A candidate with errors fails in the guarded write with its own code.
+          if (next.diagnostics.some((d) => d.severity === 'error')) return;
           const ids = new Set(next.model.targets.keys());
           const extra = [...ids].filter((id) => !expected.has(id));
           const missing = [...expected].filter((id) => !ids.has(id) && !(replaced && bundle.model.targets.get(id)?.parentId === attrs.id));

@@ -80,6 +80,13 @@ describe('retiredTargets insertion (§11.11) @R19', () => {
     for (const reason of rejected) expect(codeOf(() => checkReason(reason)), JSON.stringify(reason)).toBe('E_USAGE');
     expect(codeOf(() => checkReason('y'.repeat(200)))).toBeUndefined();
   });
+
+  it('refuses an insertion that would change an existing entry (review B6b)', () => {
+    // The "# second" line is block-scalar text, not a comment. Inserting after the last
+    // non-comment line would move it out of a1.reason; the parse-and-compare check refuses.
+    const text = fm('retiredTargets:\n  a1:\n    reason: |\n      first\n      # second\n');
+    expect(codeOf(() => insertRetiredTargets(text, [{ id: 'b2', reason: 'new' }]))).toBe('E_SEMANTIC');
+  });
 });
 
 describe('docId rewrite for fork (§11.5)', () => {

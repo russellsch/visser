@@ -1,0 +1,12 @@
+import { join } from 'node:path';
+import { read, tempRepo } from './lib.ts';
+import { parsePacket, retireTarget, showReference } from './tmp/new/packages/core/src/references/index.ts';
+const src = read(join(import.meta.dirname, 'tmp/new/examples/bounded-queue/index.md')).replace(/\n/g, '\r\n');
+const count = (t: string) => (t.match(/\r\n\r\n\r\n/g) ?? []).length;
+const { repo, doc } = tempRepo(src);
+const p = parsePacket(showReference(doc, 'p_limits', { repoRoot: repo }).yaml);
+retireTarget(p, { reason: 'x' }, p.sourceRevision, { repoRoot: repo, doc });
+const after = read(doc);
+const i = after.indexOf('<!-- ex:id p_takeaway -->');
+console.log('triple-blank runs before:', count(src), 'after:', count(after));
+console.log(JSON.stringify(after.slice(i, after.indexOf('<!-- ex:id p_vocabulary -->') + 30)));

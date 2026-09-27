@@ -63,7 +63,9 @@ export function parseArgs(args: string[]): ParsedArgs {
   return { positional, flags, all };
 }
 
+/** A single-valued flag. A repeat is refused: the last-wins rule would let a stray guard flag override the intended one. */
 export function stringFlag(args: ParsedArgs, name: string): string | undefined {
+  if ((args.all.get(name)?.length ?? 0) > 1) throw new CliError('E_USAGE', `--${name} may appear only once`, EXIT.invalid);
   const value = args.flags.get(name);
   if (value === true) throw new CliError('E_USAGE', `--${name} needs a value`, EXIT.invalid);
   return value;

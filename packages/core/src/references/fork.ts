@@ -67,6 +67,12 @@ export function forkDocument(doc: string, dest: string, opts: ForkOptions): Fork
   if (!roots.some((root) => isInside(realTarget, root) && realTarget !== root)) {
     fail('E_PATH_ESCAPE', `${dest} is not inside a configured document root`);
   }
+  // A fork inside another bundle would become part of that bundle's files.
+  const root = roots.filter((r) => isInside(realTarget, r)).sort((a, b) => b.length - a.length)[0]!;
+  for (let dir = realParent; isInside(dir, root); dir = dirname(dir)) {
+    if (existsSync(join(dir, 'index.md'))) fail('E_USAGE', `${dest} is inside the bundle at ${dir}; fork into a new directory outside every bundle`);
+    if (dir === root) break;
+  }
 
   // Declared files only (§7.4), plus the lock. loadBundle has already refused
   // symlinked declared assets; check again at copy time.
@@ -111,6 +117,7 @@ export function forkDocument(doc: string, dest: string, opts: ForkOptions): Fork
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') fail('E_USAGE', `${dest} appeared during the fork; nothing was written`);
       throw error;
     }
+    opts.fsContext?.afterClaim?.(realTarget);
     try {
       renameSync(staging, realTarget);
     } catch (error) {

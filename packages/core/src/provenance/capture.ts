@@ -23,12 +23,16 @@ export function capturedAtValue(explicit: string | undefined, now: () => Date = 
   return now().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
+// C0, DEL, C1, and the Unicode line and paragraph separators: none may enter a
+// one-line attribute, even though JSON encoding would keep the tag intact.
+const UNSAFE_LINE_CHARS = /[\0-\x1f\x7f-\x9f\u2028\u2029]/;
+
 function checkTitle(title: string): void {
-  if (title.trim() === '' || title.length > 200 || /[\0-\x1f\x7f]/.test(title)) fail('E_USAGE', '--title must be one line of 1 to 200 characters');
+  if (title.trim() === '' || title.length > 200 || UNSAFE_LINE_CHARS.test(title)) fail('E_USAGE', '--title must be one line of 1 to 200 characters');
 }
 
 function checkSymbol(symbol: string | undefined): void {
-  if (symbol !== undefined && (symbol === '' || symbol.length > 200 || /[\0-\x1f\x7f]/.test(symbol))) fail('E_USAGE', '--symbol must be one line of 1 to 200 characters');
+  if (symbol !== undefined && (symbol === '' || symbol.length > 200 || UNSAFE_LINE_CHARS.test(symbol))) fail('E_USAGE', '--symbol must be one line of 1 to 200 characters');
 }
 
 export type CaptureGitRequest = {
@@ -136,7 +140,7 @@ export type CaptureFileRequest = {
 };
 
 function checkLabel(label: string): void {
-  if (label === '' || label.length > 200 || /[\0-\x1f\x7f\\]/.test(label) || label.startsWith('/') || label.startsWith('~') || /^[A-Za-z]:/.test(label)) {
+  if (label === '' || label.length > 200 || UNSAFE_LINE_CHARS.test(label) || label.includes('\\') || label.startsWith('/') || label.startsWith('~') || /^[A-Za-z]:/.test(label)) {
     fail('E_USAGE', `--label ${JSON.stringify(label)} must be a relative origin label, not a local path`);
   }
 }

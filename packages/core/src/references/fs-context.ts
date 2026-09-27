@@ -5,6 +5,8 @@ import { randomBytes } from 'node:crypto';
 export type FsContext = {
   /** Called after the candidate is written and before the final raw-hash recheck. */
   beforeRename?: (indexPath: string) => void;
+  /** fork only: called after the exclusive mkdir claims DEST and before the rename. */
+  afterClaim?: (dest: string) => void;
   /** Wall clock for lock metadata only; never enters a build. */
   now?: () => Date;
   /** Random token source for lock and temporary file names. */

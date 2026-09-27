@@ -122,7 +122,7 @@ export type GuardedCandidate = {
   original: Uint8Array;
   /** The complete new file content. */
   candidate: Uint8Array;
-  /** Extra checks on the candidate document; throw to abort. */
+  /** Extra checks on the candidate document; throw to abort. They run before the generic error check, so they can see a candidate with errors. */
   validate?: (after: LoadedBundle) => void;
 };
 
@@ -160,9 +160,11 @@ export function guardedWrite(opts: GuardedWriteOptions, produce: () => GuardedCa
     chmodSync(tempPath, statSync(indexPath).mode & 0o7777);
 
     const after = loadBundle(tempPath);
-    const firstError = after.diagnostics.find((d) => d.severity === 'error');
-    if (firstError) fail(firstError.code, `the edited document would not be valid: ${firstError.message}`);
+    // The caller's check runs first: it can map a candidate error to a more
+    // exact code (refs replace maps a duplicate ID to E_ID_RETENTION, §15.6).
     validate?.(after);
+    const firstError = after.diagnostics.find((d) => d.severity === 'error');
+    if (firstError) fail(firstError.code, `the edited document would not be valid: ${firstError.message}${firstError.startLine ? ` (line ${firstError.startLine})` : ''}`);
 
     opts.fsContext?.beforeRename?.(indexPath);
     if (lstatSync(indexPath).isSymbolicLink() || sha256Hex(new Uint8Array(readFileSync(indexPath))) !== rawHash) {

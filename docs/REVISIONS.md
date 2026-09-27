@@ -149,3 +149,11 @@ Accepted (§8.2, §8.4, §8.5, §11.11, §12.8, §17.1, §17.6):
 - The guarded write is one shared module used by replace, retire, capture, and the fork's docId rewrite.
 - Fixed during integration: `fork` claims `DEST` with an exclusive `mkdir` before renaming, because rename(2) silently replaces an empty directory (a test with the seam in the old race window showed the old code overwriting it); `capture` with a missing document now gives `E_SOURCE_UNAVAILABLE` instead of an internal error.
 - Known gaps: JSON schemas for `explain-capture/1`, `explain-fork/1`, and the `origins` part of `explain-check/1` are not yet in `schemas/` (§5.4 asks for one per `--json` output); planned for Phase 4 with the other schema work.
+
+## Revision 1.16 — Phase 3 code review
+
+Two Claude Opus 5.5 code reviews tested the implemented Phase 3. The author reran the key attacks before accepting: a hostile repository's `protocol.ext.allow=always` made capture run a command, and `protocol.file.allow=always` let it fetch; a symlinked `objects` directory or a `commondir` file read another repository's private data; a hand-written `commit="HEAD"` passed `check` and verified as `origin-matched`.
+
+Fixes: `GIT_ALLOW_PROTOCOL=none`; object-location containment and `commondir` refusal; a hash recheck of the commit and every tree on the path; full-ID `commit` and `baseCommit`; suppressed Git advice lines; control and line-separator characters refused in titles, symbols, and labels; one repository-identity rule for captured and hand-written sources (no password, query, or fragment); `guardedWrite` runs the caller's check first, so `refs replace` again reports `E_ID_RETENTION` as §15.6 specifies (the Phase 3 refactor had changed it to `E_ID_DUPLICATE`); JSON-quoted `retiredTargets` keys and values; a fork `docId` rewrite that keeps comments and quotes; refusal of a fork inside another bundle; an `afterClaim` seam whose test fails against the old racy code (the earlier race test could not); refusal of repeated flags. After the fixes, the reviewers' attack scripts are all refused.
+
+JSON schemas: every `--json` output and `build.json`/`release.json` now have schemas, every CLI JSON output is validated before printing, and the contract gate fails on unvalidated JSON output.

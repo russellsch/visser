@@ -28,6 +28,10 @@ export function gitEnvironment(): NodeJS.ProcessEnv {
     GIT_NO_REPLACE_OBJECTS: '1',
     GIT_GRAFT_FILE: '/dev/null',
     GIT_LITERAL_PATHSPECS: '1',
+    // Overrides every protocol.<name>.allow in repository config, so a hostile
+    // promisor URL (ext::, file://, ssh with core.sshCommand) can neither run
+    // a command nor fetch (§8.2 step 1). `protocol.allow=never` alone is only a default.
+    GIT_ALLOW_PROTOCOL: 'none',
   };
   if (process.env['PATH'] !== undefined) env['PATH'] = process.env['PATH'];
   if (process.env['HOME'] !== undefined) env['HOME'] = process.env['HOME'];
@@ -40,6 +44,7 @@ export const HARDENED_FLAGS: readonly string[] = [
   '-c', 'core.fsmonitor=',
   '-c', 'core.hooksPath=/dev/null',
   '-c', 'protocol.allow=never',
+  '-c', 'advice.graftFileDeprecated=false',
 ];
 
 type GitResult = { status: number | null; stdout: Buffer; stderr: string };
@@ -57,6 +62,7 @@ function runGit(dir: string, args: readonly string[]): GitResult {
 
 function gitError(args: readonly string[], stderr: string): never {
   if (/dubious ownership/i.test(stderr)) fail('E_SOURCE_UNAVAILABLE', `git refused the repository (dubious ownership): ${stderr}`);
+  if (/hash mismatch|corrupt|does not match/i.test(stderr)) fail('E_INTEGRITY', `git found an object that does not match its ID: ${stderr}`);
   if (/could not fetch|promisor/i.test(stderr)) fail('E_SOURCE_UNAVAILABLE', `the object is not in the local repository and capture never fetches: ${stderr}`);
   fail('E_SOURCE_UNAVAILABLE', `git ${args[0] ?? ''} failed: ${stderr || 'unknown error'}`);
 }
@@ -99,8 +105,23 @@ export function openRepository(repoPath: string, opts: OpenOptions = {}): Reposi
   if (!isInside(realGitDir, toplevel) && !opts.allowExternalGitdir) {
     fail('E_PATH_ESCAPE', `the git dir ${realGitDir} is outside ${toplevel} (a .git file can redirect reads); pass --allow-external-gitdir for a linked worktree or submodule`);
   }
-  if (existsSync(join(realGitDir, 'objects', 'info', 'alternates')) && !opts.allowAlternates) {
-    fail('E_PATH_ESCAPE', 'objects/info/alternates lets this repository read another repository\'s objects; pass --allow-alternates to accept it');
+  // Where the objects really are: a `commondir` file or a symlinked objects
+  // directory can redirect reads to another repository (§8.2 steps 3-4).
+  if (existsSync(join(realGitDir, 'commondir')) && !opts.allowExternalGitdir) {
+    fail('E_PATH_ESCAPE', 'the git dir has a commondir file that redirects object reads; pass --allow-external-gitdir for a linked worktree');
+  }
+  const paths = mustGit(requested, ['rev-parse', '--path-format=absolute', '--git-common-dir', '--git-path', 'objects']).toString('utf8').split('\n');
+  const commonDir = realpathSync(paths[0]?.trim() || realGitDir);
+  const objectsDir = realpathSync(paths[1]?.trim() || join(realGitDir, 'objects'));
+  for (const [what, dir] of [['common git dir', commonDir], ['object directory', objectsDir]] as const) {
+    if (!isInside(dir, toplevel) && !opts.allowExternalGitdir) {
+      fail('E_PATH_ESCAPE', `the ${what} ${dir} is outside ${toplevel}; pass --allow-external-gitdir for a linked worktree or submodule`);
+    }
+  }
+  for (const name of ['alternates', 'http-alternates']) {
+    if (existsSync(join(objectsDir, 'info', name)) && !opts.allowAlternates) {
+      fail('E_PATH_ESCAPE', `objects/info/${name} lets this repository read another repository's objects; pass --allow-alternates to accept it`);
+    }
   }
   const format = mustGit(toplevel, ['rev-parse', '--show-object-format']).toString('utf8').trim();
   if (format !== 'sha1' && format !== 'sha256') fail('E_SOURCE_UNAVAILABLE', `unsupported object format ${format}`);
@@ -143,12 +164,64 @@ export function resolveCommit(repo: Repository, rev: string): string {
   return mustGit(repo.toplevel, ['rev-parse', '--verify', '--end-of-options', `${rev}^{commit}`]).toString('utf8').trim();
 }
 
-/** Git's object hash of `bytes` as a blob, in the repository's object format. */
-export function blobObjectId(bytes: Uint8Array, format: 'sha1' | 'sha256'): string {
+/** Git's object hash of `bytes` as an object of `type`, in the repository's object format. */
+export function objectId(type: 'blob' | 'tree' | 'commit', bytes: Uint8Array, format: 'sha1' | 'sha256'): string {
   const hash = createHash(format === 'sha1' ? 'sha1' : 'sha256');
-  hash.update(`blob ${bytes.length}\0`);
+  hash.update(`${type} ${bytes.length}\0`);
   hash.update(bytes);
   return hash.digest('hex');
+}
+
+/** Git's object hash of `bytes` as a blob, in the repository's object format. */
+export function blobObjectId(bytes: Uint8Array, format: 'sha1' | 'sha256'): string {
+  return objectId('blob', bytes, format);
+}
+
+/** Read an object of `type` and require that its bytes hash to `oid` (§8.2 step 8, for every object on the path). */
+function readVerified(repo: Repository, type: 'tree' | 'commit', oid: string): Uint8Array {
+  const bytes = new Uint8Array(mustGit(repo.toplevel, ['cat-file', type, '--end-of-options', oid]));
+  if (objectId(type, bytes, repo.objectFormat) !== oid) fail('E_INTEGRITY', `the ${type} git returned does not hash to object ${oid}`);
+  return bytes;
+}
+
+type TreeEntry = { mode: string; name: string; oid: string };
+
+function parseTree(bytes: Uint8Array, format: 'sha1' | 'sha256'): TreeEntry[] {
+  const idLength = format === 'sha1' ? 20 : 32;
+  const entries: TreeEntry[] = [];
+  let i = 0;
+  while (i < bytes.length) {
+    const space = bytes.indexOf(0x20, i);
+    const nul = bytes.indexOf(0x00, space + 1);
+    if (space < 0 || nul < 0 || nul + 1 + idLength > bytes.length) fail('E_INTEGRITY', 'a tree object is malformed');
+    const mode = new TextDecoder().decode(bytes.subarray(i, space));
+    const name = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(space + 1, nul));
+    const oid = Buffer.from(bytes.subarray(nul + 1, nul + 1 + idLength)).toString('hex');
+    entries.push({ mode, name, oid });
+    i = nul + 1 + idLength;
+  }
+  return entries;
+}
+
+/**
+ * Walk commit -> tree -> ... -> entry for `file`, rechecking every object's
+ * hash, so neither `ls-tree` nor a packed object is the source of trust.
+ */
+function treeEntryAt(repo: Repository, commit: string, file: string): TreeEntry {
+  const commitBytes = readVerified(repo, 'commit', commit);
+  const header = new TextDecoder().decode(commitBytes.subarray(0, Math.min(commitBytes.length, 200)));
+  const m = /^tree ([0-9a-f]+)\n/.exec(header);
+  if (!m) fail('E_INTEGRITY', `commit ${commit} has no tree`);
+  let tree = m[1]!;
+  const segments = file.split('/');
+  for (let k = 0; k < segments.length; k++) {
+    const entry = parseTree(readVerified(repo, 'tree', tree), repo.objectFormat).find((e) => e.name === segments[k]);
+    if (!entry) fail('E_SOURCE_UNAVAILABLE', `${file} does not exist at commit ${commit}`);
+    if (k === segments.length - 1) return entry;
+    if (entry.mode !== '40000') fail('E_SOURCE_UNAVAILABLE', `${segments.slice(0, k + 1).join('/')} is not a directory at commit ${commit}`);
+    tree = entry.oid;
+  }
+  fail('E_SOURCE_UNAVAILABLE', `${file} does not exist at commit ${commit}`);
 }
 
 export type BlobRead = { commit: string; blob: string; bytes: Uint8Array };
@@ -156,16 +229,12 @@ export type BlobRead = { commit: string; blob: string; bytes: Uint8Array };
 /** Read `<commit>:<file>` as a regular blob (§8.2 steps 5–8). */
 export function readBlobAt(repo: Repository, commit: string, file: string): BlobRead {
   checkRepoPath(file);
-  // Mode and type from the tree entry: a submodule is a commit, a symlink is mode 120000.
-  const entry = mustGit(repo.toplevel, ['ls-tree', '-z', '--full-tree', commit, '--', file]).toString('utf8');
-  const record = entry.split('\0').find((line) => line.length > 0);
-  if (!record) fail('E_SOURCE_UNAVAILABLE', `${file} does not exist at commit ${commit}`);
-  const tab = record.indexOf('\t');
-  const [mode, type, oid] = record.slice(0, tab).split(' ');
-  if (record.slice(tab + 1) !== file) fail('E_SOURCE_UNAVAILABLE', `${file} does not exist at commit ${commit}`);
-  if (type !== 'blob') fail('E_SOURCE_UNAVAILABLE', `${file} is a ${type ?? 'non-blob'} at commit ${commit}, not a file`);
+  // Mode from the verified tree entry: a submodule is 160000, a directory 40000, a symlink 120000.
+  const { mode, oid } = treeEntryAt(repo, commit, file);
+  if (mode === '40000') fail('E_SOURCE_UNAVAILABLE', `${file} is a tree at commit ${commit}, not a file`);
+  if (mode === '160000') fail('E_SOURCE_UNAVAILABLE', `${file} is a commit (submodule) at commit ${commit}, not a file`);
   if (mode === '120000') fail('E_SOURCE_UNAVAILABLE', `${file} is a committed symbolic link; capture its target file instead`);
-  if (!oid) fail('E_SOURCE_UNAVAILABLE', `no object for ${file}`);
+  if (mode !== '100644' && mode !== '100755') fail('E_SOURCE_UNAVAILABLE', `${file} has unsupported mode ${mode}`);
   const size = Number(mustGit(repo.toplevel, ['cat-file', '-s', '--end-of-options', oid]).toString('utf8').trim());
   if (!Number.isSafeInteger(size) || size > MAX_CAPTURE_BYTES) fail('E_LIMIT', `${file} is ${size} bytes; the capture limit is ${MAX_CAPTURE_BYTES}`);
   const bytes = new Uint8Array(mustGit(repo.toplevel, ['cat-file', 'blob', '--end-of-options', oid]));

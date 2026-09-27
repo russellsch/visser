@@ -107,9 +107,14 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
       if (kind === 'git') {
         const commit = typeof a['commit'] === 'string' ? a['commit'] : undefined;
         if (!commit) { push('origin-unavailable', 'no commit is recorded'); continue; }
+        // §8.1: only a full commit ID pins the evidence; a ref such as HEAD or a
+        // branch would make "origin-matched" mean "matches whatever it points to today".
+        if (!/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) { push('origin-unavailable', `commit ${JSON.stringify(commit)} is not a full commit ID`); continue; }
         let read;
         try {
-          read = readBlobAt(repo, resolveCommit(repo, commit), file);
+          const resolved = resolveCommit(repo, commit);
+          if (resolved !== commit) { push('origin-unavailable', `commit ${commit} does not resolve to itself (it resolves to ${resolved})`); continue; }
+          read = readBlobAt(repo, resolved, file);
         } catch (error) {
           if (error instanceof HashError && error.code === 'E_INTEGRITY') throw error;
           push('origin-unavailable', reasonOf(error));

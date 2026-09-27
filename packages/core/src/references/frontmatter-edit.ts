@@ -95,9 +95,10 @@ function checkEdit(before: Record<string, unknown>, afterLines: string[], change
   return after;
 }
 
+/** JSON quoting keeps IDs such as `null`, `true`, and `on` strings in YAML. */
 function entryLines(entry: RetiredEntry): string[] {
-  const lines = [`  ${entry.id}:`, `    reason: ${JSON.stringify(entry.reason)}`];
-  if (entry.replacement !== undefined) lines.push(`    replacement: ${entry.replacement}`);
+  const lines = [`  ${JSON.stringify(entry.id)}:`, `    reason: ${JSON.stringify(entry.reason)}`];
+  if (entry.replacement !== undefined) lines.push(`    replacement: ${JSON.stringify(entry.replacement)}`);
   return lines;
 }
 
@@ -152,7 +153,10 @@ export function rewriteDocId(text: string, docId: string): string {
   const indexes = fm.lines.map((line, i) => (TOP_LEVEL_KEY.exec(line)?.[1] === 'docId' ? i : -1)).filter((i) => i >= 0);
   if (indexes.length !== 1) fail('E_SEMANTIC', 'the frontmatter must have exactly one top-level `docId` line');
   const lines = [...fm.lines];
-  lines[indexes[0]!] = `docId: ${docId}`;
+  // Replace only the value token: keep its quote style and any trailing comment.
+  const line = fm.lines[indexes[0]!]!;
+  const value = /^(docId:[ \t]*)(["']?)([0-9A-Fa-f-]+)\2(.*)$/.exec(line);
+  lines[indexes[0]!] = value ? `${value[1]}${value[2]}${docId}${value[2]}${value[4]}` : `docId: ${docId}`;
   checkEdit(before, lines, 'docId', docId);
   return joinFrontmatter({ ...fm, lines });
 }
