@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.16, 27 September 2026 (Phase 3 implemented and code-reviewed). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.17, 27 September 2026 (Phase 4 plan reviewed against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -162,7 +162,7 @@ The agent resolves the reference locally, reads its current source and dependenc
 
 ### 3.4 Reuse across repositories
 
-A user installs a pinned toolkit release once in their user folder. Repositories contain small config/lock files and document sources. A repository can instead vendor/install the same release under `.explain/`. Exact document locks prevent a user-level update from silently changing an older document.
+A user installs a pinned toolkit release once in their user folder. Repositories contain small config/lock files and document sources. A repository can instead install the same release under `.explain/`; its code runs only after the user trusts that digest (§12.4). Exact document locks prevent a user-level update from silently changing an older document.
 
 ### 3.5 Share a snapshot
 
@@ -232,7 +232,7 @@ The GitHub repository is a distribution origin for trusted toolkit releases and 
 
 ### 4.3 Data flow and side effects
 
-`init`, `capture`, `ids assign`, `refs replace`, `refs retire`, `fork`, `upgrade`, `content import`, `install`, `vendor`, `extension trust`, and `export` are explicit write commands (`extension trust` writes only local trust storage). `check`, `build`, `refs resolve`, `refs show`, `refs refresh`, `catalogue list|show`, `skill show`, `extension inspect`, and `doctor` do not modify canonical source. `build` writes only a selected generated-output location. `serve` may build generated output but never inserts IDs or refreshes evidence.
+`init`, `capture`, `ids assign`, `refs replace`, `refs retire`, `fork`, `upgrade`, `install`, `trust toolkit`, `extension trust`, and `export` are explicit write commands (`trust toolkit` and `extension trust` write only the user trust store). `vendor` and `content import` are deferred beyond v1. `check`, `build`, `refs resolve`, `refs show`, `refs refresh`, `catalogue list|show`, `skill show`, `extension inspect`, and `doctor` do not modify canonical source. `build` writes only a selected generated-output location. `serve` may build generated output but never inserts IDs or refreshes evidence.
 
 Ordinary `build` and `serve` are offline operations. Missing dependencies produce an actionable diagnostic, not an implicit download or fallback to a floating version.
 
@@ -1233,19 +1233,23 @@ Consumer installs do not run `npm install` and do not receive `node_modules`. Re
 
 A release is identified by its **toolkit digest**: SHA-256 of canonical `release.json`, whose sorted entries hash every shipped file except the manifest itself. Transport archives have a separate archive digest. Do not confuse a ZIP/tar digest with the installed file-tree digest.
 
-For v1, distribute `tar.gz` and use a pinned, bundled `tar` package in the installer with strict extraction filtering. Reject absolute paths, traversal, symlinks, hard links, device files, duplicate entries (including names whose case-folded NFC forms are equal), and files outside the manifest. Verify file digests again after extraction. Cap archive size at 64 MiB and extracted content at 256 MiB by default. Verify the archive before extraction, and file digests before activation. Do not depend on `curl | sh`.
+For v1, distribute `tar.gz`. The installer uses a small ustar reader written for Explain, not a general tar library: the Phase 4 review showed `node-tar` sanitizing hostile entries silently (stripping an absolute path and extracting the file, skipping `..`, hard-link, and symlink entries, keeping one of two duplicates, extracting both case-colliding names) and reporting success. The reader rejects the whole archive (`E_INTEGRITY`) on any entry type other than regular file or directory; an absolute path, an empty, `.`, or `..` segment, or a non-NFC name after PAX and GNU long-name resolution; duplicate names or names whose case-folded NFC forms are equal; a declared size sum over 256 MiB or decompressed bytes over 256 MiB (counted while streaming, not trusted from headers); and an archive over 64 MiB. It extracts into a staging directory, then walks it with `lstat` and requires the file set to equal the manifest set exactly, before verifying digests and activating by rename. `release:pack` writes entries in sorted order with fixed metadata, so the archive digest can be reproduced. Do not depend on `curl | sh`.
+
+**Release verification** (at install and at every resolution): `release.json` validates against its schema with the §7.4 bundle-path grammar; every listed file is a regular file (`lstat`, no symlinks) inside the release; the on-disk file set equals the manifest set (an unlisted file is `E_INTEGRITY`: the review showed an extra `workers/evil.cjs` and a symlinked `bin/explain.cjs` passing the Phase 3 check with an unchanged digest); and every digest matches.
+
+**Release contents:** besides the CLI, workers, browser assets, and schemas, a release ships `skills/explain/SKILL.md`, `skills/explain/references/format.md` (the §9.1 format guide, whose snippets the contract tests compile), and `LICENSES.txt`, generated from the bundled dependencies' license metadata. Catalogue guides and templates arrive in Phase 5.
 
 ### 12.2 Scope layouts
 
 | Scope | Toolkit and shared content | Small invocation shim |
 |---|---|---|
 | User | `${EXPLAIN_HOME:-$HOME/.explain}/toolchains/DIGEST/` | `${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs` |
-| Repository | `REPO/.explain/toolchains/DIGEST/` | `REPO/.explain/bin/explain.cjs` |
+| Repository | `REPO/.explain/toolchains/DIGEST/` | None: wrappers never execute a repository shim (§12.7). |
 | Development | Explicit trusted toolkit checkout | Direct built CLI path. |
 
 `EXPLAIN_HOME` changes the user installation root only. Do not automatically edit shell startup files or PATH. Print the installed invocation and optionally create a user-approved symlink into an existing user bin directory.
 
-Repository-generated toolchains, output, caches, registry, and `edit-locks/` are gitignored. Small config, locks, document sources, and repository skill wrappers can be committed. An explicit `vendor` command may copy a release into the repository for offline handoff; it must explain the disk/version-control tradeoff and not add or commit files itself.
+Repository-generated toolchains, output, caches, registry, and `edit-locks/` are gitignored. Small config, locks, document sources, and repository skill wrappers can be committed. `vendor` is deferred beyond v1 (revision 1.17): a vendored toolchain is repository-controlled code, it would sit in an ignored directory, and no requirement depends on it.
 
 ### 12.3 Configuration
 
@@ -1295,18 +1299,22 @@ Config precedence for operational preferences: explicit CLI option > nearest wor
 ### 12.4 Exact release resolution
 
 1. Read the document lock, or the workspace default only when initializing a new document.
-2. Look for that exact toolkit digest in explicit `--toolkit-dir`, then repository installation, then user installation.
-3. Validate the chosen release manifest and required file hashes. A corrupt higher-priority installation is an error, not a silent fallback.
+2. Look for that exact toolkit digest in explicit `--toolkit-dir`, then repository installation, then user installation. A toolkit found in a repository installation is eligible only if its digest is in the user trust store (§14.2); otherwise `E_TOOLKIT_UNTRUSTED`. The user installation is trusted because the user installed it, and `install` records its digest in the trust store. `--toolkit-dir` and `--dev-toolkit` are explicit user choices for one invocation.
+3. Validate the chosen release with the §12.1 release verification. A corrupt higher-priority installation is `E_INTEGRITY`, not a silent fallback.
+
+**Whose code runs:** the user shim dispatches every command to the resolved toolkit's own `bin/explain.cjs`, so the compiler, workers, and runtime all come from one verified, trusted release. A command never runs a worker or script from a different toolkit than the CLI that is running. (The Phase 4 review showed a repository toolchain whose worker ran during `build`.)
 4. If the digest is absent, fail with `E_TOOLKIT_MISSING` and an explicit install command. For a `local-dir` or `archive` origin, there is no command to print; the diagnostic states that only a copy of the release tree with the same digest can satisfy the lock.
 5. Never select “latest,” satisfy a lock with a merely compatible version, or use mutable GitHub `main` content during build.
 
-**Development override:** during toolkit development each rebuild changes the digest. `--dev-toolkit PATH` accepts a toolkit whose digest differs from the lock, emits a warning diagnostic, records the actual digest in `build.json`, and marks the output as a development build. Release builds and `check --release` reject it.
+**Development override:** during toolkit development each rebuild changes the digest. `--dev-toolkit PATH` accepts a toolkit whose digest differs from the lock, emits a warning diagnostic, records the actual digest in `build.json`, and marks the output as a development build with `development: true` in `build.json`. `check --release` and `export --audience public` reject development builds.
 
 Installation updates a default pointer only when requested. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
 
 ### 12.5 GitHub acquisition
 
 Support `install --from-release OWNER/REPO --version VERSION --sha256 ARCHIVE_DIGEST --scope user|repo`, as well as `--archive PATH` and `--from-dir PATH` for offline/local installs. Resolve the release asset through GitHub's documented release-asset API, download over HTTPS, validate the expected archive digest, extract to a temporary directory, verify its file-tree digest, and atomically activate.[S12]
+
+Acquisition rules: `OWNER/REPO` matches `^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$` and the version has a strict grammar, both URL-encoded; requests use `https:` only, `redirect: 'manual'`, at most three hops, and only allowed hosts (`api.github.com`, the GitHub release-asset hosts named at implementation, and `distributionHosts` from user config, never repository config); the download streams with a 64 MiB cap; the archive digest is checked before any extraction; tokens never appear in logs, diagnostics, `--json` output, or locks. Tests use a local HTTPS server through an explicit test CA option.
 
 An archive and checksum fetched from the same compromised origin do not establish independent authenticity. V1 relies on an explicitly trusted release origin and pinned digest; signature/attestation verification can be added later. Display the origin and digest during install. No tokens go into committed locks or generated documents.
 
@@ -1321,7 +1329,7 @@ The first implementation must support a straightforward source-build path before
 npm ci
 npm run build
 npm test
-node packages/cli/dist/main.cjs install --from-dir dist/release --scope user
+node dist/release/bin/explain.cjs install --from-dir dist/release --scope user
 ```
 
 The installer and bootstrap script are themselves executable software. Users must trust/review them before execution. The future published bootstrap downloads a pinned release and verifies it; it does not create a circular claim that an unverified installer verifies itself.
@@ -1339,9 +1347,9 @@ Install small adapter `SKILL.md` files in these supported locations:
 
 These locations are documented by the respective products at the research date.[S13][S14] Host discovery and duplicate-name rules can differ; do not assume that a repository wrapper always overrides a user wrapper.
 
-Both wrappers use the same location-independent dispatcher contract: locate the nearest repository `.explain/bin/explain.cjs`, otherwise the user shim. A repository shim or repository toolchain is executable code chosen by whoever controls the repository: it runs only when its toolkit digest is in the user-scope trust store (§14.2), which `install --scope repo` and `vendor` record when the user runs them. Otherwise the dispatcher uses the user installation or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the selected shim for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
+Both wrappers use the same location-independent dispatcher contract: always call the **user** shim (`${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs`), which the user installed. A repository shim is never executed by a wrapper or by `doctor`: it is code chosen by whoever controls the repository, and a trust check inside it would run too late. The user shim resolves the document's locked toolkit by §12.4 (repository toolchains only when trusted) or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the resolved toolkit for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
 
-`explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reports conflicting adapters and the actual toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
+`explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository; it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
 
 User-folder installation on one host is not implied to exist in a separate remote/cloud machine. Commit repository wrappers and locks, and perform an explicit install in that environment. Local remote-control use may share the host filesystem; independent environments do not.
 
@@ -1349,7 +1357,7 @@ User-folder installation on one host is not implied to exist in a separate remot
 
 Catalogue guides, templates, and examples are read directly from the installed pack and may also be browsed at their pinned GitHub revision. They are common authoring resources, not document-specific facts.
 
-**Deferred to Phase 4** (revision 1.14): the Phase 3 reviews found this command under-specified (input kinds, network behaviour, fragment grammar, ID prefixing, provenance kind). It stays `E_UNSUPPORTED` until Phase 4 specifies it. The v1 narrowing: import reads only a local file inside the repository or a file in the installed toolkit pack, never a URL; the fragment must parse as top-level restricted-profile blocks with no frontmatter and pass the full validator; every ID becomes `PREFIX_ID`, and a collision is `E_ID_DUPLICATE`; import writes one `source` block (`kind="file"`) and an `imports` entry `{idPrefix, origin, sha256}` through the guarded write.
+**Deferred beyond v1** (revision 1.17; first deferred to Phase 4 in revision 1.14): no requirement depends on it, and the Phase 3 and Phase 4 reviews found it under-specified (input kinds, network behaviour, fragment grammar, ID prefixing, provenance kind). It stays `E_UNSUPPORTED` until Phase 4 specifies it. The v1 narrowing: import reads only a local file inside the repository or a file in the installed toolkit pack, never a URL; the fragment must parse as top-level restricted-profile blocks with no frontmatter and pass the full validator; every ID becomes `PREFIX_ID`, and a collision is `E_ID_DUPLICATE`; import writes one `source` block (`kind="file"`) and an `imports` entry `{idPrefix, origin, sha256}` through the guarded write.
 
 Reusable definitions or explanation fragments can be imported through `explain content import`. The command materializes a selected text fragment into the document, records acquisition origin/hash in `imports`, and also puts any reader-visible provenance in a canonical `source` block within the document. The lock is not an alternative source of explanatory facts. The command requires an explicit ID prefix or resolves no collisions at all. Subsequent builds use that local captured text. Updates are deliberate; no shared glossary edit silently changes old snapshots.
 
@@ -1423,6 +1431,16 @@ Emit relative URLs for internal assets and document links. Test under a project 
 Publishing is not part of `build` or `serve`. `export --audience public` creates a previewable staging folder and a visibility report. The user decides whether to commit/upload/deploy it. The first release supplies an example GitHub Actions publication workflow, disabled by default, with minimal permissions and pinned action revisions chosen at implementation time.
 
 Private origin repositories do not make exported excerpts private. An ordinary public static site cannot enforce the source repository's access controls. Show that warning in the export report, especially for `visibility: private` documents. `export --audience public` also lists every non-`example`/`supplied` source with its repository, whatever the document's `visibility`, and requires `--allow-private-content` unless each repository is in an explicit public-repository allowlist in user config; public exports omit `sourceHint`. A public export of a private document requires `--allow-private-content` and lists affected sources; the flag does not guarantee that publication is lawful or appropriate.
+
+**Export contract (revision 1.17):**
+
+- `export --format site` writes the §13.1 layout, one asset pack per toolkit digest (including `mermaid.js` only when a page needs it, with the per-page integrity check), and a collection index page with its own CSP meta and relative links. Collection input is `explain-collection/1`.
+- The export report is JSON (`explain-export/1`): the documents, their visibility, every non-`example` source with its repository, the Mermaid pages, and the warnings below.
+- Mermaid `%%` comment lines are removed from the source text that pages and `document.md` show (they do not affect rendering); the Phase 4 review found an internal hostname in a Mermaid comment in both `index.html` and `document.md`.
+- Public exports refuse development builds, and `build.json` records only the Node major version in them.
+- `--include-source` copies only declared bundle files, with the same rules as `fork`.
+- The public-repository allowlist is `publicRepositories` in user config, never repository config.
+- The report states the static-host limits: `frame-ancestors` cannot be set by a meta element, and a host that rewrites JavaScript breaks SRI (Mermaid pages then show their failure notice).
 
 ### 13.6 Why not remote CDN JavaScript by default?
 
@@ -1648,7 +1666,7 @@ The command names below are normative v1 interfaces. They may share implementati
 |---|---|
 | `init PATH` | Create source bundle, UUID, real toolkit lock; `--kind`, `--title`; do not overwrite existing content. |
 | `ids assign DOC` | Insert missing ordinary-block IDs; `--check` reports without writing. |
-| `check DOC` | Validate source/IDs/semantics/capture consistency; `--json`, `--verify-origins` (local only, never fetches) with `--repo-map LABEL=PATH`. |
+| `check DOC` | Validate source/IDs/semantics/capture consistency; `--json`, `--verify-origins` (local only, never fetches) with `--repo-map LABEL=PATH`, `--release` (refuses development builds and `--dev-toolkit`). |
 | `build DOC` | Immutable build; `--out`, `--allow-layout-fallback`, `--toolkit-dir`, `--dev-toolkit`; no source mutation/network. |
 | `serve DOC` | Build and serve snapshot; `--port`, `--host`, `--public-origin`, `--base-path`, `--cache-private`, `--toolkit-dir`. |
 | `export DOC_OR_COLLECTION` | `--out`, `--format site|markdown`, `--include-source`, `--audience private|public`, `--allow-private-content`. |
@@ -1660,12 +1678,13 @@ The command names below are normative v1 interfaces. They may share implementati
 | `refs replace` | Guarded complete-target replacement; `--packet`, `--replacement`, `--expected-revision`, repeatable `--retire ID --reason TEXT` for dropped nested IDs (§11.11). |
 | `refs retire` | Guarded deletion that records `retiredTargets`; `--packet`, `--reason`, optional `--replacement`, `--expected-revision`. |
 | `fork DOC DEST` | New document identity, retained internal IDs/provenance. Copies only declared bundle files and `explain.lock.json` (regular files, no symlinks), rewrites only the frontmatter `docId` with the §11.11 text-edit rules, keeps `retiredTargets`, and writes through a temporary directory renamed into place. `DEST` must not exist, must not be inside the source bundle, and must be inside a document root. |
-| `catalogue list|show NAME` | Print available patterns or a selected guide/schema/example. |
+| `catalogue list|show NAME` | Print available patterns or a selected guide/schema/example. Phase 5; `E_UNSUPPORTED` until the guides exist. |
 | `skill show` | Print pinned core skill and local guide locations for `--doc` or current workspace. |
-| `install` | Explicit exact release installation; `--scope user|repo`, `--from-dir`, `--archive`, or `--from-release`; integrity options. |
-| `upgrade DOC` | Explicit lock update; produces reviewable diff and rebuild, not silent source migration. |
-| `vendor` | Copy a selected exact release under repo for offline use; no Git actions. |
-| `content import` | Deferred to Phase 4 (§12.8); `E_UNSUPPORTED` until then. |
+| `install` | Explicit exact release installation; `--scope user|repo`, `--from-dir`, `--archive`, or `--from-release`; integrity options; records the digest in the user trust store. |
+| `trust toolkit DIGEST` | Trust an exact toolkit digest in user scope (for a repository toolchain); `--revoke`. |
+| `upgrade DOC --to DIGEST` | Resolve and verify the target toolkit, run its `check` on the document, write `explain.lock.json` with a guarded write (edit lock, raw-hash recheck, schema validation, atomic rename), print the lock diff, and rebuild. The version comes from the pack's `release.json`, never from the lock; a lower version needs `--allow-downgrade`. Old snapshots stay. |
+| `vendor` | Deferred beyond v1 (§12.2); `E_UNSUPPORTED`. |
+| `content import` | Deferred beyond v1 (§12.8); `E_UNSUPPORTED`. |
 | `extension inspect|trust` | Show metadata without execution, or explicitly trust an exact extension digest. |
 | `doctor` | Report Node, release resolution, adapter paths, missing locks, port availability, and trust state. |
 
@@ -1759,13 +1778,22 @@ Deliver and exit check: `npm run build`, `typecheck`, `npm test`, the full Chrom
 
 ### 17.7 Phase 4 — distribution and static exports
 
-Implement release packing, exact digest verification, repo/user installation, `doctor`, `upgrade`, `skill show`, `catalogue list|show`, `content import` (specified per §12.8 first), skill dispatchers, shared asset mapping, offline vendor flow, collection export, GitHub Pages subpaths, and public-export reporting. Add hostile archive and server confinement tests.
+Already in place (do not rework): `dist/release` with a canonical, schema-validated `release.json` and toolkit digest; `local-dir`, `archive`, and `github-release` lock origins; `--dev-toolkit`; per-file asset copying verified against `release.json` (including `mermaid.js`); relative asset URLs that work under a project subpath; per-page CSP header and meta; `serve --base-path`; `no-store` for private pages; the `printJson` rule for JSON outputs.
 
-Deliver: two source repositories using one user release, a repo-local installation, and a portable export readable on a clean machine with no Node installation.
+Work order:
+
+- **4a — release, installation, trust.** `LICENSES.txt` and `references/format.md` in the release; reproducible `release:pack`; the strict ustar reader and §12.1 release verification; `install --from-dir|--archive --scope user|repo`; the §12.4 resolution order with repository toolchains gated by the user trust store; `trust toolkit`; the user shim as the only dispatcher (§12.7); `doctor` (never executes repository code); `skill show`; the `development` mark and `check --release`. Tests: R09 (two repositories share one user release; a repository installation), every hostile archive from the review (each must be rejected, not only contained), extra or symlinked release files, a corrupt higher-priority copy, and an untrusted repository toolchain whose worker writes a sentinel (no sentinel, `E_TOOLKIT_UNTRUSTED`).
+- **4b — export.** `export --format site` for a document and a collection with the revision 1.17 export contract; the example GitHub Pages workflow, disabled by default, with pinned actions. Tests: one asset pack across 20 documents; the browser journeys against a project-subpath export served by a generic static server; R20 (private content stops a public export; Mermaid comments removed; development builds refused); R08 offline under `unshare -rn`, where `check-offline.mjs` first proves isolation (a public TCP connection must fail) and otherwise reports "not run".
+- **4c — network and lifecycle.** `install --from-release` with the §12.5 rules and a local HTTPS test server (match, mismatch, disallowed redirect host, size cap, HTTP URL, token not logged), then `upgrade` with downgrade refusal and a concurrent-writer test.
+- Deferred beyond v1: `vendor`, `content import`. Moved to Phase 5: catalogue guides, templates, and `catalogue list|show`.
+
+New JSON outputs each get a schema (the gate enforces it): `explain-install/1`, `explain-trust/1`, `explain-doctor/1`, `explain-skill/1`, `explain-upgrade/1`, `explain-export/1`, `explain-collection/1`.
+
+Deliver and exit check: build, typecheck, `npm test`, the full Chromium tier, and the contract gate exit 0 with traceability entries for R08, R09, R10, and R20 covered; `test:offline` passes under `unshare -rn`; the subpath export passes the browser journeys from a generic static server; a scripted clean-machine run installs from the archive into an empty `EXPLAIN_HOME`, then builds, exports, and reads; `npm audit` reports 0 vulnerabilities.
 
 ### 17.8 Phase 5 — extensions, skill quality, and release hardening
 
-Implement extension manifest/trust gating, one example build-only extension with complete semantic fallback, on-demand catalogue guides, the core skill, editorial fixtures for R16, the `W_JARGON`/`W_VISUAL_DENSITY`/`W_EVIDENCE_GAP` review prompts, and end-to-end agent handoff instructions. Run performance budgets. Prepare the human comprehension trial protocol and materials; running the trial is a human validation gate (§21.1).
+Implement extension manifest/trust gating (reusing the Phase 4 trust store), one example build-only extension with complete semantic fallback, on-demand catalogue guides with templates and `catalogue list|show`, the core skill, editorial fixtures for R16, the `W_JARGON`/`W_VISUAL_DENSITY`/`W_EVIDENCE_GAP` review prompts, and end-to-end agent handoff instructions. Run performance budgets. Prepare the human comprehension trial protocol and materials; running the trial is a human validation gate (§21.1).
 
 Deliver: complete first-release functionality, documented remaining limitations, no fake success paths, and no claim of measured comprehension improvement without actual participants/results.
 
