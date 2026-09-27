@@ -7,6 +7,7 @@ import lockSchema from '../../../../schemas/explain-lock-1.schema.json' with { t
 import workspaceSchema from '../../../../schemas/explain-workspace-1.schema.json' with { type: 'json' };
 import manifestSchema from '../../../../schemas/explain-source-manifest-1.schema.json' with { type: 'json' };
 import resolveSchema from '../../../../schemas/explain-resolve-1.schema.json' with { type: 'json' };
+import editSchema from '../../../../schemas/explain-edit-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -21,6 +22,7 @@ export const validators = {
   workspace: compile(workspaceSchema),
   sourceManifest: compile(manifestSchema),
   resolve: compile(resolveSchema),
+  edit: compile(editSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;

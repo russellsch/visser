@@ -72,3 +72,10 @@ Phase 0 implementation on Node 24.21.0 and Markdoc 0.5.10 required these explici
 - A definition's label is its `term` attribute (§7.1).
 
 Implementation choices that are not spec changes: TypeScript 5.9.3 rather than 7.x (the `tsc` behavior of 7.x was not verified); one root `tsconfig.json` with `erasableSyntaxOnly`, because Node 24 type stripping rejects parameter properties and project references cannot use `noEmit`.
+
+## Revision 1.8 — Phase 1 amendments
+
+- §15.6 lists the implementation diagnostic codes that Phase 1 added: `E_USAGE`, `E_BUILD`, `E_PORT_BUSY`, `W_DEV_TOOLKIT`, `W_UNDECLARED_FILE`, `W_QUOTE_NOT_FOUND`, `W_UNSUPPORTED_COMPONENT`, and `W_LAYOUT_FALLBACK`.
+- The DOM contract lives in `packages/core/src/compiler/dom-contract.ts`. Phase 1 added instance names that the contract comment does not list yet: `l-FIGURE.ID` list instances for nodes and actors, and `v-FIGURE.ANN.LINE` annotation markers. The runtime treats any `[data-ex-target]` element as an instance.
+- `refs resolve` exits 2 for `deleted`, `missing`, and `ambiguous`; §15.6 has no separate code for them.
+- The Phase 1 inspection report and open visual defects are in `docs/validation/phase1-review.md`.

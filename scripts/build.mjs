@@ -26,6 +26,31 @@ await build({
   logLevel: 'warning',
 });
 
+// Browser runtime: one shared script and stylesheet per toolkit (§2.3, §13.1).
+await build({
+  entryPoints: [join(root, 'packages/runtime/src/reader.ts')],
+  outfile: join(out, 'browser/reader.js'),
+  bundle: true,
+  format: 'iife',
+  target: 'es2022',
+  minify: true,
+  legalComments: 'none',
+  logLevel: 'warning',
+});
+cpSync(join(root, 'packages/runtime/src/reader.css'), join(out, 'browser/reader.css'));
+
+// Graph layout worker (§5.1): ELK runs only inside this bounded worker.
+await build({
+  entryPoints: [join(root, 'packages/core/src/compiler/layout-worker.ts')],
+  outfile: join(out, 'workers/layout.cjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node24',
+  legalComments: 'none',
+  logLevel: 'warning',
+});
+
 cpSync(join(root, 'schemas'), join(out, 'schemas'), { recursive: true });
 cpSync(join(root, 'skills'), join(out, 'skills'), { recursive: true });
 

@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.7, 26 September 2026. Revision 1.7 adds the Phase 0 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.8, 27 September 2026. Revisions 1.7 and 1.8 add the Phase 0 and Phase 1 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -1485,6 +1485,14 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_PRIVATE_EXPORT` | Public export contains material requiring explicit approval. |
 | `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. |
 | `W_UNSAFE_TEXT` | Bidirectional control characters rendered as visible escapes. |
+| `E_USAGE` | Invalid command-line usage; exit 2. |
+| `E_BUILD` | Build stopped because the source or compilation failed; the exit code follows the underlying diagnostics. |
+| `E_PORT_BUSY` | The requested `serve` port is in use; exit 3. |
+| `W_DEV_TOOLKIT` | `--dev-toolkit` accepted a toolkit that differs from the lock, or a missing lock. |
+| `W_UNDECLARED_FILE` | A file in the bundle folder is not a declared dependency and is not read. |
+| `W_QUOTE_NOT_FOUND` | A packet quote is not in the current target text. |
+| `W_UNSUPPORTED_COMPONENT` | A catalogue family is not rendered yet; its text is shown. |
+| `W_LAYOUT_FALLBACK` | Layout failed and `--allow-layout-fallback` showed the semantic lists only. |
 
 `check` and machine-facing commands output structured diagnostics with `code`, `severity`, `message`, `path?`, `startLine?`, `targetId?`, and `suggestedAction?`. Human output is readable; `--json` emits only JSON on stdout. Logs go to stderr. Exit codes: `0` success, `2` invalid input/content, `3` missing dependency, unavailable source, or unsupported feature, `4` security/trust failure, `5` stale/conflict, `1` unexpected internal error. No successful exit after a failed write/build.
 

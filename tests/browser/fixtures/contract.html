@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>A full queue blocks producers, not consumers</title>
+<link rel="stylesheet" href="assets/reader.css">
+<script src="assets/reader.js" defer></script>
+</head>
+<body>
+<nav class="ex-toolbar" aria-label="Document tools" hidden>
+  <button type="button" id="ex-btn-contents">Contents</button>
+  <button type="button" id="ex-btn-refmode" aria-pressed="false">Reference mode</button>
+  <button type="button" id="ex-btn-expand">Expand details</button>
+  <button type="button" id="ex-btn-about">About this snapshot</button>
+</nav>
+<main id="ex-doc" data-ex-doc="4f8ac70c-7e14-4f06-9865-e194f57c7239" data-ex-rev="3fbf8fad06dbd6dd6fadae2ee6d0bc6c0a91ca596a58929a21fff953481b68bd" data-ex-build="1111111111111111111111111111111111111111111111111111111111111111">
+<header class="ex-snapshot"><p>Snapshot captured 2026-09-26. Teaching example.</p></header>
+
+<div class="ex-block" id="x-overview" data-ex-target="overview" data-ex-body="0000000000000000000000000000000000000000000000000000000000000001" data-ex-kind="heading" data-ex-label="A full queue blocks producers, not consumers">
+<h1>A full queue blocks producers, not consumers</h1>
+</div>
+
+<div class="ex-block" id="x-p_takeaway" data-ex-target="p_takeaway" data-ex-body="0000000000000000000000000000000000000000000000000000000000000002" data-ex-kind="paragraph" data-ex-label="The queue bounds the number of stored items by making producers wait when it is">
+<p>The queue bounds the number of stored items by making producers wait when it is full. A consumer taking an item creates space; it does not mean that processing of that item has finished. <a class="ex-cite" href="#x-src_queue" data-ex-generated>[source]</a></p>
+</div>
+
+<div class="ex-block" id="x-p_vocabulary" data-ex-target="p_vocabulary" data-ex-body="0000000000000000000000000000000000000000000000000000000000000003" data-ex-kind="paragraph" data-ex-label="This is backpressure: the queue makes the producer wait rather than accept">
+<p>This is <a class="ex-term" href="#x-def_backpressure" data-ex-term="def_backpressure">backpressure</a>: the queue makes the producer wait rather than accept unlimited pending work.</p>
+</div>
+
+<figure class="ex-figure" id="x-handoff" data-ex-target="handoff" data-ex-body="0000000000000000000000000000000000000000000000000000000000000004" data-ex-kind="graph" data-ex-label="Space, rather than completion, releases the producer" data-ex-question="Where does waiting occur?" aria-describedby="ex-q-handoff">
+<figcaption>Space, rather than completion, releases the producer</figcaption>
+<p id="ex-q-handoff" class="ex-sr">Where does waiting occur?</p>
+<p>The calls below share one queue. The arrows describe calls, not execution order.</p>
+<div class="ex-viewport" data-ex-viewport>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="260" viewBox="0 0 640 260" role="group" aria-label="Architecture map: Producer, Bounded queue, Consumer">
+<defs><marker id="ex-arrow-handoff" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<a class="ex-node" id="v-handoff.producer" href="#x-producer" data-ex-target="producer" data-ex-interactive><rect x="20" y="100" width="140" height="56" rx="6" fill="none" stroke="currentColor"/><text x="90" y="133" text-anchor="middle" font-size="14" fill="currentColor">Producer</text></a>
+<a class="ex-node" id="v-handoff.queue" href="#x-queue" data-ex-target="queue" data-ex-interactive><rect x="250" y="100" width="140" height="56" rx="6" fill="none" stroke="currentColor"/><text x="320" y="133" text-anchor="middle" font-size="14" fill="currentColor">Bounded queue</text></a>
+<a class="ex-node" id="v-handoff.worker" href="#x-worker" data-ex-target="worker" data-ex-interactive><rect x="480" y="100" width="140" height="56" rx="6" fill="none" stroke="currentColor"/><text x="550" y="133" text-anchor="middle" font-size="14" fill="currentColor">Consumer</text></a>
+<a class="ex-edge" id="v-handoff.enqueue" href="#x-enqueue" data-ex-target="enqueue" data-ex-rel="enqueue" data-ex-interactive><path d="M160,128 L250,128" fill="none" stroke="transparent" stroke-width="18"/><path d="M160,128 L248,128" fill="none" stroke="currentColor" marker-end="url(#ex-arrow-handoff)"/><text x="205" y="90" text-anchor="middle" font-size="14" fill="currentColor">put waits while full</text></a>
+<a class="ex-edge" id="v-handoff.dequeue" href="#x-dequeue" data-ex-target="dequeue" data-ex-rel="dequeue" data-ex-interactive><path d="M480,128 L390,128" fill="none" stroke="transparent" stroke-width="18"/><path d="M480,128 L392,128" fill="none" stroke="currentColor" marker-end="url(#ex-arrow-handoff)"/><text x="435" y="190" text-anchor="middle" font-size="14" fill="currentColor">get removes one item</text></a>
+</svg>
+</div>
+<ol class="ex-rel-list">
+<li><a id="l-handoff.enqueue" href="#x-enqueue" data-ex-target="enqueue" data-ex-rel="enqueue" data-ex-interactive>Producer — blocking call: put waits while full → Bounded queue</a></li>
+<li><a id="l-handoff.dequeue" href="#x-dequeue" data-ex-target="dequeue" data-ex-rel="dequeue" data-ex-interactive>Consumer — blocking call: get removes one item; waits while empty → Bounded queue</a></li>
+</ol>
+</figure>
+
+<div class="ex-block" id="x-p_trace" data-ex-target="p_trace" data-ex-body="0000000000000000000000000000000000000000000000000000000000000005" data-ex-kind="paragraph" data-ex-label="One possible execution begins with a full queue. Follow the wait and release.">
+<p>One possible execution begins with a full queue. Follow <a class="ex-focus" href="#x-enqueue" data-ex-focus="enqueue event_wait">the wait and release</a>. This is one possible ordering, not every legal thread interleaving.</p>
+</div>
+
+<figure class="ex-figure" id="x-full_queue_trace" data-ex-target="full_queue_trace" data-ex-body="0000000000000000000000000000000000000000000000000000000000000006" data-ex-kind="trace" data-ex-label="A consumer creates space" data-ex-question="What lets the producer continue?" aria-describedby="ex-q-full_queue_trace">
+<figcaption>A consumer creates space</figcaption>
+<p id="ex-q-full_queue_trace" class="ex-sr">What lets the producer continue?</p>
+<p data-ex-generated>Ordering, not duration.</p>
+<ol class="ex-rel-list">
+<li><a id="l-full_queue_trace.event_call" href="#x-event_call" data-ex-target="event_call" data-ex-interactive>Producer: Calls put with the queue full</a></li>
+<li><a id="l-full_queue_trace.event_wait" href="#x-event_wait" data-ex-target="event_wait" data-ex-interactive>Producer: Waits for capacity</a> <span data-ex-rel="event_wait~after~event_call" data-ex-generated>(after: Calls put)</span></li>
+</ol>
+</figure>
+
+<section id="ex-appendix" aria-label="Details and evidence">
+<h2>Details and evidence</h2>
+<details class="ex-detail" id="x-producer" data-ex-target="producer" data-ex-body="0000000000000000000000000000000000000000000000000000000000000011" data-ex-kind="node" data-ex-label="Producer"><summary>Producer</summary><p>Calls <code>put(item)</code> and may wait for space.</p></details>
+<details class="ex-detail" id="x-queue" data-ex-target="queue" data-ex-body="0000000000000000000000000000000000000000000000000000000000000012" data-ex-kind="node" data-ex-label="Bounded queue"><summary>Bounded queue</summary><p>Protects its item deque with a condition variable.</p></details>
+<details class="ex-detail" id="x-worker" data-ex-target="worker" data-ex-body="0000000000000000000000000000000000000000000000000000000000000013" data-ex-kind="node" data-ex-label="Consumer"><summary>Consumer</summary><p>Calls <code>get()</code>, then processes the returned item.</p></details>
+<details class="ex-detail" id="x-enqueue" data-ex-target="enqueue" data-ex-body="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" data-ex-kind="edge" data-ex-label="put waits while full"><summary>put waits while full</summary><p><code>put</code> rechecks capacity after waking. Another producer may have taken a newly available slot. A notification is not a reservation. <a class="ex-cite" href="#x-src_queue" data-ex-generated>[source]</a></p></details>
+<details class="ex-detail" id="x-dequeue" data-ex-target="dequeue" data-ex-body="0000000000000000000000000000000000000000000000000000000000000015" data-ex-kind="edge" data-ex-label="get removes one item; waits while empty"><summary>get removes one item; waits while empty</summary><p>Removing an item creates queue capacity.</p></details>
+<details class="ex-detail" id="x-event_call" data-ex-target="event_call" data-ex-body="0000000000000000000000000000000000000000000000000000000000000016" data-ex-kind="event" data-ex-label="Calls put with the queue full"><summary>Calls put with the queue full</summary><p>The call enters the queue's condition-protected section.</p></details>
+<details class="ex-detail" id="x-event_wait" data-ex-target="event_wait" data-ex-body="0000000000000000000000000000000000000000000000000000000000000017" data-ex-kind="event" data-ex-label="Waits for capacity"><summary>Waits for capacity</summary><p>The wait releases the condition lock while blocked.</p></details>
+<details class="ex-detail" id="x-def_backpressure" data-ex-target="def_backpressure" data-ex-body="0000000000000000000000000000000000000000000000000000000000000018" data-ex-kind="definition" data-ex-label="Backpressure"><summary>Backpressure</summary><p>A mechanism that makes upstream work wait or slow down when a downstream resource cannot accept more work. Here it is implemented by blocking <code>put</code>.</p></details>
+<details class="ex-detail" id="x-src_queue" data-ex-target="src_queue" data-ex-body="0000000000000000000000000000000000000000000000000000000000000019" data-ex-kind="source" data-ex-label="Illustrative bounded queue"><summary>Illustrative bounded queue</summary><p>Example source, captured 2026-09-26.</p><pre><code>def put(self, item):
+    with self.changed:
+        while len(self.items) &gt;= self.capacity:
+            self.changed.wait()</code></pre></details>
+</section>
+</main>
+</body>
+</html>

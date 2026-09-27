@@ -16,7 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --pretty false",
     "test": "vitest run",
     "test:contracts": "node scripts/check-contracts.mjs",
-    "test:browser": "node -e \"console.error('E_UNSUPPORTED: browser tests start in Phase 1'); process.exit(3)\"",
+    "test:browser": "playwright test",
     "test:offline": "node -e \"console.error('E_UNSUPPORTED: offline test starts in Phase 1'); process.exit(3)\"",
     "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 1'); process.exit(3)\"",
     "release:pack": "node -e \"console.error('E_UNSUPPORTED: release packing starts in Phase 4'); process.exit(3)\""

@@ -31,21 +31,30 @@
     },
     {
       "id": "R03",
-      "phase": 0,
+      "phase": 1,
       "status": "partial",
       "tags": [
         "@R03"
       ],
-      "note": "All Appendix A block and entity kinds get targets with proven spans. Browser selection-to-resolver tests are Phase 1-2."
+      "note": "Targets for all Appendix A kinds; browser reference selection for the graph relationship. Per-kind browser references for every \u00a718.4 kind are Phase 2."
     },
     {
       "id": "R04",
-      "phase": 0,
-      "status": "partial",
+      "phase": 1,
+      "status": "covered",
       "tags": [
         "@R04"
       ],
-      "note": "Nodes and edges are inspectable targets in the model. Browser inspection is Phase 1."
+      "note": "Edges and nodes open labelled details with evidence from the SVG and from the relationship list (browser journeys)."
+    },
+    {
+      "id": "R05",
+      "phase": 1,
+      "status": "partial",
+      "tags": [
+        "@R05"
+      ],
+      "note": "Definition tooltip on hover/focus and tap-to-open. Real touch-device review is a human gate."
     },
     {
       "id": "R11",
@@ -58,12 +67,21 @@
     },
     {
       "id": "R12",
-      "phase": 0,
-      "status": "partial",
+      "phase": 1,
+      "status": "covered",
       "tags": [
         "@R12"
       ],
-      "note": "Reference URI and packet parsing identify a target only by doc ID and target ID. Resolver behavior (renamed file, repeated text) is Phase 1."
+      "note": "Packets resolve by doc ID and target ID; renamed folders, forged hints, and the browser-copied packet resolve through the CLI."
+    },
+    {
+      "id": "R13",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@R13"
+      ],
+      "note": "Stale packets refuse guarded writes; refresh is required; concurrent-writer check before rename (T20)."
     },
     {
       "id": "R14",
@@ -73,6 +91,15 @@
         "@R14"
       ],
       "note": "Markdown projection is generated from the model with full target and relationship coverage. HTML and reference-map derivation are Phase 1."
+    },
+    {
+      "id": "R17",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@R17"
+      ],
+      "note": "Manifest-only server: GET/HEAD only, Host allowlist, no source or guessed paths, encoded traversal rejected."
     },
     {
       "id": "R18",
@@ -103,12 +130,12 @@
     },
     {
       "id": "T03",
-      "phase": 0,
-      "status": "partial",
+      "phase": 1,
+      "status": "covered",
       "tags": [
         "@T03"
       ],
-      "note": "A moved block keeps its ID and body hash. The stale packet result is Phase 1."
+      "note": "A moved edge resolves stale with targetBodyUnchanged=true, from a browser-copied packet."
     },
     {
       "id": "T04",
@@ -129,13 +156,22 @@
       "note": "Duplicate IDs fail with E_ID_DUPLICATE (fixtures/negative/E_ID_DUPLICATE). Resolver-level rejection is Phase 1."
     },
     {
+      "id": "T09",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T09"
+      ],
+      "note": "The packet keeps the viewed revision; resolve surfaces staleness after the source changes."
+    },
+    {
       "id": "T10",
       "phase": 1,
-      "status": "partial",
+      "status": "covered",
       "tags": [
         "@T10"
       ],
-      "note": "Packet-level check that uri and bodySha256 must agree. Resolver-level 'current revision with wrong body digest is invalid' is Phase 1."
+      "note": "Packet agreement checks and resolver-level invalid for a wrong body at the current revision."
     },
     {
       "id": "T14",

@@ -1,0 +1,8 @@
+export { parsePacket, createPacket, normalizeQuoteText, type ReferencePacket, type PacketQuote } from './packet.ts';
+export { formatReferenceUri, parseReferenceUri, type ReferenceParts } from './uri.ts';
+export { findRepoRoot, documentRoots, locateDocument, assertInsideRoots, DEFAULT_DOCUMENT_ROOTS, type LocateResult } from './registry.ts';
+export { resolveReference, currentView, parentContext, type ResolveResult, type ResolveStatus, type ResolveOptions, type Resolution } from './resolve.ts';
+export { showReference, sourceHintFor, type ShowResult } from './show.ts';
+export { refreshReference, RefreshRefused, type RefreshResult, type RefreshAcknowledgements } from './refresh.ts';
+export { replaceTarget, type EditResult, type ReplaceOptions } from './replace.ts';
+export type { FsContext } from './fs-context.ts';

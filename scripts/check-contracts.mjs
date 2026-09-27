@@ -130,23 +130,30 @@ if (shapeErrors.length > 0) {
   process.exit(2);
 }
 
+// Reports: Vitest (required) and Playwright (required once any entry needs a
+// browser test). A missing report means "not run", never "passed" (§18.8).
 const junitPath = at('reports/vitest-junit.xml');
 if (!existsSync(junitPath)) {
   console.error('not run: reports/vitest-junit.xml is missing; run the unit tests first');
   process.exit(3);
 }
-const junit = readFileSync(junitPath, 'utf8');
+const browserPath = at('reports/playwright-junit.xml');
+const browserPresent = existsSync(browserPath);
 const decode = (s) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const cases = [];
-for (const m of junit.matchAll(/<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g)) {
-  const attrs = m[1];
-  const body = m[3] ?? '';
-  const name = decode(/\bname="([^"]*)"/.exec(attrs)?.[1] ?? '');
-  const classname = decode(/\bclassname="([^"]*)"/.exec(attrs)?.[1] ?? '');
-  const passed = !/<(failure|error|skipped)\b/.test(body);
-  cases.push({ text: `${classname} ${name}`, passed });
+const suiteNames = [];
+for (const path of [junitPath, ...(browserPresent ? [browserPath] : [])]) {
+  const junit = readFileSync(path, 'utf8');
+  for (const m of junit.matchAll(/<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g)) {
+    const attrs = m[1];
+    const body = m[3] ?? '';
+    const name = decode(/\bname="([^"]*)"/.exec(attrs)?.[1] ?? '');
+    const classname = decode(/\bclassname="([^"]*)"/.exec(attrs)?.[1] ?? '');
+    const passed = !/<(failure|error|skipped)\b/.test(body);
+    cases.push({ text: `${classname} ${name}`, passed });
+  }
+  suiteNames.push(...[...junit.matchAll(/<testsuite\b[^>]*\bname="([^"]*)"/g)].map((m) => decode(m[1])));
 }
-const suiteNames = [...junit.matchAll(/<testsuite\b[^>]*\bname="([^"]*)"/g)].map((m) => decode(m[1]));
 
 const missing = [];
 for (const e of traceability.entries) {
@@ -161,6 +168,10 @@ for (const e of traceability.entries) {
 const counts = traceability.entries.reduce((acc, e) => ((acc[e.status] = (acc[e.status] ?? 0) + 1), acc), {});
 console.log(`traceability: ${traceability.entries.length} entries (${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ')}); report has ${cases.length} testcases`);
 for (const m of missing) console.log(`  UNPROVEN ${m}`);
+if (missing.length > 0 && !browserPresent) {
+  console.error('not run: reports/playwright-junit.xml is missing; browser-tagged entries cannot be proven');
+  process.exit(3);
+}
 if (missing.length > 0) failed = true;
 
 process.exit(failed ? 1 : 0);

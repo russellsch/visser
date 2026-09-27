@@ -5,10 +5,13 @@ import { runInit } from './commands/init.ts';
 import { runIdsAssign } from './commands/ids-assign.ts';
 import { runCheck } from './commands/check.ts';
 import { runExport } from './commands/export.ts';
+import { runBuild } from './commands/build.ts';
+import { runServe } from './commands/serve.ts';
+import { runRefs } from './commands/refs.ts';
 import { CliError, EXIT, parseArgs, printDiagnostics } from './cli-util.ts';
 
 const DEFERRED = new Map<string, string>([
-  ['build', 'Phase 1'], ['serve', 'Phase 1'], ['capture', 'Phase 3'], ['refs', 'Phase 1'],
+  ['capture', 'Phase 3'],
   ['fork', 'Phase 3'], ['catalogue', 'Phase 4'], ['skill', 'Phase 4'], ['install', 'Phase 4'],
   ['upgrade', 'Phase 4'], ['vendor', 'Phase 4'], ['content', 'Phase 3'], ['extension', 'Phase 5'],
   ['doctor', 'Phase 4'],
@@ -27,10 +30,16 @@ export async function main(argv: string[]): Promise<number> {
         return await runCheck(parseArgs(rest));
       case 'export':
         return await runExport(parseArgs(rest));
+      case 'build':
+        return await runBuild(parseArgs(rest));
+      case 'serve':
+        return await runServe(parseArgs(rest));
+      case 'refs':
+        return await runRefs(parseArgs(rest));
       case undefined:
       case '--help':
       case '-h':
-        process.stdout.write('usage: explain <init|ids assign|check|export> ...\n');
+        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs> ...\n');
         return command === undefined ? EXIT.invalid : EXIT.ok;
       default: {
         const phase = DEFERRED.get(command);
