@@ -113,3 +113,12 @@ Two Claude Opus 5.5 reviews read the Phase 2b plan and ran experiments in `spike
 **Security, robustness, and UX:** build-time rejection of `%%{` anywhere, leading `---`, `click`/`href`/`call`/`callback`, label HTML other than `<br>` (not inside `<<…>>`), `img:`/`icon:` shapes, and non-allowlisted style declarations; `useMaxWidth: false`; SRI on the lazy script; eager rendering; accessible names; cleanup of Mermaid's error graphic; parse limits in the bounded worker (64 KiB, §2.3 caps, 30 s, reusing `E_LIMIT`).
 
 **Refinement by the author:** the review proposed rejecting any `<` followed by a letter; that would also reject `<br>` line breaks and `<<choice>>`/`<<interface>>` stereotypes, so the rule allows `<br>` and skips stereotypes.
+
+## Revision 1.12 — Phase 2b implemented
+
+- The parse worker needs no jsdom: a DOMPurify stub is enough; the worker is one bundled file and runs through `spawnSync` with a timeout and a heap limit. `jsdom` remains only as a test dependency.
+- The build also rejects `link` and `links` statements, which create links in class and sequence diagrams.
+- Accessibility: no `aria-label` on drawn elements (axe `aria-prohibited-attr`); the render viewport is focusable (axe `scrollable-region-focusable` at 320 px); autonumber badges are raised to 14 px.
+- Dependency: Mermaid 12.0.0 reaches `lodash-es` 4.17.23 through `chevrotain`; an npm override selects 4.18.1, and `npm audit` reports 0 vulnerabilities.
+- Known gaps: state initial/terminal information from `[*]` is not in the figure model (the source shows it); only an ER example exists for figure-level types (no class example); a lifeline can cross a message label in Mermaid's sequence layout.
+- The Phase 2b inspection report is `docs/validation/phase2b-review.md`.

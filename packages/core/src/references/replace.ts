@@ -217,6 +217,9 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
     }
     const record = bundle.model.targets.get(packet.targetId)!;
     if (record.kind === 'source') fail('E_REF_INVALID', 'captured evidence cannot be replaced; recapture it instead');
+    if (record.kind.startsWith('mermaid-')) {
+      fail('E_REF_INVALID', `${packet.targetId} is inside Mermaid figure ${record.parentId ?? ''}; edit the figure (replace ${record.parentId ?? 'the figure'} as a whole)`);
+    }
 
     // Step 3: build the candidate and validate the whole resulting document.
     const original = bundle.parsed.rawBytes;

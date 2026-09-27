@@ -2,6 +2,7 @@
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
 import { figureView, VIEW_CLASS } from './views.ts';
+import { renderMermaidFigures } from './mermaid.ts';
 import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE_CONTEXT_MAX, QUOTE_EXACT_MAX } from './packet.ts';
 
 const A = DOM.attr;
@@ -615,7 +616,8 @@ function onClick(e: MouseEvent): void {
     return;
   }
 
-  const link = target.closest<HTMLElement>(`a.ex-term, a.ex-cite, a[${A.target}], a[${A.interactive}]`);
+  // Drawn Mermaid elements are not links; they carry the target of their list instance (§9.12).
+  const link = target.closest<HTMLElement>(`a.ex-term, a.ex-cite, a[${A.target}], a[${A.interactive}], [data-ex-mermaid-drawn]`);
   if (link && !link.closest(`.${DOM.toolbar}, #ex-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {
@@ -676,6 +678,8 @@ function init(): void {
   window.addEventListener('beforeprint', beforePrint);
   window.addEventListener('afterprint', afterPrint);
   onHash();
+  // Render eagerly, not on visibility, so an early print shows the drawing (§9.12).
+  void renderMermaidFigures();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

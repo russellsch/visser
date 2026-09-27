@@ -3,6 +3,7 @@
 // `explain-text/1` ID line so tests can extract target IDs.
 import type { ParsedSource, TargetId, TargetRecord } from '../types.ts';
 import { buildTargetRecords, inlineText, type MNode, type SemanticRelationship } from './targets.ts';
+import type { MermaidFigure } from '../mermaid/types.ts';
 
 const idLine = (id: TargetId) => `<!-- ex:target ${id} -->`;
 
@@ -71,6 +72,7 @@ type Context = {
   nodes: Map<TargetId, MNode>;
   relationships: SemanticRelationship[];
   targetNodes: Set<MNode>;
+  mermaid: Map<TargetId, MermaidFigure>;
 };
 
 function labelOf(ctx: Context, id: string): string {
@@ -270,6 +272,29 @@ function renderComponent(ctx: Context, record: TargetRecord, node: MNode): strin
   return out;
 }
 
+/** A Mermaid figure (§9.12): source text always; elements and relationships for parsed types. */
+function renderMermaid(ctx: Context, record: TargetRecord, node: MNode, figure: MermaidFigure | undefined): string[] {
+  const out: string[] = [`**mermaid (${figure?.declaredType || 'diagram'}): ${attr(node, 'title') ?? record.label}**`];
+  const question = attr(node, 'question');
+  if (question) out.push(`Question: ${question}`);
+  const body = bodyOf(ctx, node); // interpretation, then the fenced Mermaid source
+  if (body) out.push(body);
+  if (!figure || !figure.parsed) {
+    out.push('Figure-level Mermaid diagram: its elements are not individually inspectable; the source above is the text form.');
+    return out;
+  }
+  for (const e of figure.elements) {
+    const lines = [idLine(e.id), `${e.kind.replace('mermaid-', 'Mermaid ')} ${e.label}${e.name !== e.label ? ` (name: ${e.name})` : ''}`];
+    if (e.members && e.members.length > 0) lines.push(`members: ${e.members.join(', ')}`);
+    out.push(lines.join('\n'));
+  }
+  for (const r of figure.relationships) {
+    const line = relationshipLine(ctx, r.id) ?? `${r.from} --[${r.kind}; ${r.label}]--> ${r.to}`;
+    out.push(r.referenceable ? `${idLine(r.id)}\n${line}` : line);
+  }
+  return out;
+}
+
 function renderEntity(ctx: Context, record: TargetRecord, node: MNode): string[] {
   if (record.kind === 'definition') {
     return [`**Definition: ${record.label}**`, bodyOf(ctx, node)].filter((s) => s !== '');
@@ -290,6 +315,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
     nodes: model.nodes,
     relationships: model.relationships,
     targetNodes: new Set(model.nodes.values()),
+    mermaid: model.mermaid,
   };
   const title = typeof parsed.frontmatter['title'] === 'string' ? parsed.frontmatter['title'] : undefined;
   const docId = typeof parsed.frontmatter['docId'] === 'string' ? parsed.frontmatter['docId'] : undefined;
@@ -300,6 +326,10 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
   }
   for (const record of topLevel) {
     const node = ctx.nodes.get(record.id)!;
+    if (record.kind === 'mermaid') {
+      blocks.push([idLine(record.id), renderMermaid(ctx, record, node, ctx.mermaid.get(record.id)).join('\n\n')].join('\n'));
+      continue;
+    }
     const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'trace', 'transform', 'compare', 'annotated'].includes(record.kind);
     const parts = isComponent
       ? renderComponent(ctx, record, node)

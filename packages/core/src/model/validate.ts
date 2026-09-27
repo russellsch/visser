@@ -77,6 +77,7 @@ const SPECS: Record<string, TagSpec> = {
     enums: { valueStatus: ['measured', 'estimated', 'illustrative'] }, parents: ['compare'],
   },
   annotated: { required: { ...VISUAL, source: 'id' }, optional: {} },
+  mermaid: { required: { ...VISUAL }, optional: {} },
   annotation: { required: { id: 'id', label: 'string' }, optional: { lines: 'lines', region: 'region' }, parents: ['annotated'] },
   definition: { required: { id: 'id', term: 'string' }, optional: {} },
   detail: { required: { id: 'id', label: 'string' }, optional: { summary: 'string' }, parents: DETAIL_PARENTS, topLevel: true },
@@ -235,6 +236,24 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       const mode = byId.get(t.parentId!)?.attributes['mode'];
       if (typeof mode === 'string' && !spec.graphModes.includes(mode)) {
         report('E_SYNTAX', `${t.tagName} ${t.id} is not allowed in graph mode "${mode}" (allowed in ${spec.graphModes.join(', ')})`, t);
+      }
+    }
+  }
+
+  // Mermaid figures (§9.12): an optional interpretation, then exactly one ```mermaid fence.
+  for (const t of parsed.targets) {
+    if (t.tagName !== 'mermaid') continue;
+    const node = model.nodes.get(t.id);
+    if (!node) continue;
+    const fences = node.children.filter((c) => c.type === 'fence');
+    if (fences.length !== 1) {
+      report('E_SYNTAX', `mermaid ${t.id} must contain exactly one \`\`\`mermaid fence, not ${fences.length}`, t);
+    } else if (fences[0]!.attributes['language'] !== 'mermaid') {
+      report('E_SYNTAX', `mermaid ${t.id}: the fence language must be \`mermaid\``, t);
+    }
+    for (const child of node.children) {
+      if (child.type !== 'fence' && child.type !== 'paragraph') {
+        report('E_SYNTAX', `mermaid ${t.id} may contain only interpretation paragraphs and the fence, not ${child.type === 'tag' ? `a ${child.tag} tag` : `a ${child.type}`}`, t);
       }
     }
   }

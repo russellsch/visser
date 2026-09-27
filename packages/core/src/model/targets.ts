@@ -1,6 +1,7 @@
 // Target records with the derived fields of §7.1, and relationships (§9.2).
 import type { Diagnostic, ParsedSource, ParsedTarget, TargetId, TargetRecord } from '../types.ts';
 import { bodySha256, sha256Hex } from './hash.ts';
+import { resolveMermaidFigures, type MermaidFigure } from '../mermaid/index.ts';
 
 // Structural view of the Markdoc AST nodes read here (see syntax/parse.ts).
 export type MNode = {
@@ -27,6 +28,7 @@ export type TargetModel = {
   nodes: Map<TargetId, MNode>; // AST node of each target (the block after a marker)
   relationships: SemanticRelationship[];
   diagnostics: Diagnostic[];
+  mermaid: Map<TargetId, MermaidFigure>; // §9.12, keyed by figure ID
 };
 
 // Attributes whose values name document-local IDs (§7.1 `dependencies`). The
@@ -36,7 +38,7 @@ const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'opt
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
 const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).
-const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated']);
+const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid']);
 
 const LABEL_LIMIT = 80;
 
@@ -138,7 +140,7 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
   const relationships: SemanticRelationship[] = [];
   const ast = parsed.ast as MNode | null;
   if (!ast || parsed.diagnostics.some((d) => d.severity === 'error')) {
-    return { targets, nodes: new Map(), relationships, diagnostics };
+    return { targets, nodes: new Map(), relationships, diagnostics, mermaid: new Map() };
   }
 
   const nodes = findNodes(ast, parsed);
@@ -212,6 +214,8 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
     targets.set(t.id, record);
   }
 
+  const mermaid = addMermaidTargets(parsed, nodes, targets, relationships, diagnostics);
+
   // Reference integrity and the entity rule (§6.6, §9.3).
   for (const record of targets.values()) {
     for (const dep of record.dependencies) {
@@ -220,7 +224,9 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
       }
     }
     const entity = byId.get(record.id)?.attributes['entity'];
-    if (typeof entity === 'string') {
+    if (typeof entity === 'string' && targets.get(entity)?.kind.startsWith('mermaid-')) {
+      diagnostics.push({ code: 'E_REF_BROKEN', severity: 'error', message: `entity ${entity} is a Mermaid element; Mermaid elements cannot be canonical entities in v1`, path: parsed.path, startLine: record.span.startLine, targetId: record.id });
+    } else if (typeof entity === 'string') {
       const referenced = byId.get(entity);
       if (referenced && (referenced.tagName !== 'node' || referenced.attributes['entity'] !== undefined)) {
         diagnostics.push({ code: 'E_REF_BROKEN', severity: 'error', message: `entity ${entity} must name a node without its own entity`, path: parsed.path, startLine: record.span.startLine, targetId: record.id });
@@ -262,5 +268,70 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
     }
   }
 
-  return { targets, nodes, relationships, diagnostics };
+  return { targets, nodes, relationships, diagnostics, mermaid };
+}
+
+/** The single ```mermaid fence of a `mermaid` figure, if the body has exactly one. */
+export function mermaidFence(node: MNode): MNode | undefined {
+  const fences = node.children.filter((c) => c.type === 'fence');
+  if (fences.length !== 1 || fences[0]!.attributes['language'] !== 'mermaid') return undefined;
+  return fences[0];
+}
+
+/**
+ * Mermaid figures (§9.12): parse, then add elements as targets that share the
+ * figure's span and body digest, and add their relationships. Referenceable
+ * relationships (explicit flowchart edge IDs) are targets too.
+ */
+function addMermaidTargets(
+  parsed: ParsedSource,
+  nodes: Map<TargetId, MNode>,
+  targets: Map<TargetId, TargetRecord>,
+  relationships: SemanticRelationship[],
+  diagnostics: Diagnostic[],
+): Map<TargetId, MermaidFigure> {
+  const figures = parsed.targets.filter((t) => t.tagName === 'mermaid' && targets.has(t.id));
+  const inputs = figures.flatMap((t) => {
+    const fence = mermaidFence(nodes.get(t.id)!);
+    return fence ? [{ figureId: t.id, source: String(fence.attributes['content'] ?? '') }] : [];
+  });
+  const out = new Map<TargetId, MermaidFigure>();
+  if (inputs.length === 0) return out;
+  const resolved = resolveMermaidFigures(inputs);
+  for (const t of figures) {
+    const result = resolved.get(t.id);
+    if (!result) continue;
+    out.set(t.id, result.figure);
+    const figureRecord = targets.get(t.id)!;
+    // Fence body lines start after the opening tag line and the fence line.
+    const fence = mermaidFence(nodes.get(t.id)!)!;
+    const fenceLine = (fence.lines[0] ?? 0) + 1; // 1-based line of the ``` line
+    for (const issue of result.issues) {
+      const d: Diagnostic = { code: issue.code, severity: 'error', message: `mermaid ${t.id}: ${issue.message}`, path: parsed.path, targetId: t.id };
+      d.startLine = issue.line !== undefined ? fenceLine + issue.line : t.startLine;
+      diagnostics.push(d);
+    }
+    const shared = { span: { ...figureRecord.span }, bodySha256: figureRecord.bodySha256, parentId: t.id, ownerComponentId: t.id, inspectable: true };
+    const section = figureRecord.sectionId;
+    const add = (record: TargetRecord) => {
+      if (targets.has(record.id)) {
+        diagnostics.push({ code: 'E_ID_DUPLICATE', severity: 'error', message: `mermaid ${t.id}: target ID ${record.id} is already used in this document; use a distinctive Mermaid name`, path: parsed.path, startLine: t.startLine, targetId: record.id });
+        return;
+      }
+      targets.set(record.id, record);
+    };
+    for (const e of result.figure.elements) {
+      const record: TargetRecord = { id: e.id, kind: e.kind, label: e.label, ...shared, span: { ...shared.span }, dependencies: e.members ? [...e.members] : [], plainText: e.label };
+      if (section) record.sectionId = section;
+      add(record);
+    }
+    for (const r of result.figure.relationships) {
+      relationships.push({ id: r.id, from: r.from, to: r.to, kind: r.kind, label: r.label, evidenceIds: [] });
+      if (!r.referenceable) continue;
+      const record: TargetRecord = { id: r.id, kind: r.kind, label: r.label || `${r.from} to ${r.to}`, ...shared, span: { ...shared.span }, dependencies: [r.from, r.to], plainText: r.label };
+      if (section) record.sectionId = section;
+      add(record);
+    }
+  }
+  return out;
 }

@@ -17,6 +17,7 @@ export const BLOCK_TAGS: ReadonlySet<string> = new Set([
   'transform', 'stage', 'conversion',
   'compare', 'option', 'criterion', 'cell',
   'annotated', 'annotation',
+  'mermaid',
 ]);
 
 /** Markdoc tags that evaluate or include content; rejected as unsafe (§6.5, R11). */

@@ -10,6 +10,7 @@ import { DOM } from './dom-contract.ts';
 import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
 import { graphSvg } from './svg.ts';
+import type { MermaidFigure } from '../mermaid/types.ts';
 
 export type Toolkit = {
   version: string;
@@ -17,6 +18,9 @@ export type Toolkit = {
   // Optional digests of shipped browser assets (path -> hex sha256), used for
   // integrity attributes and the manifest's asset list.
   assets?: Record<string, string>;
+  // Subresource Integrity values (e.g. `sha384-…`) for assets the runtime loads
+  // lazily, such as `mermaid.js` (§9.12).
+  integrity?: Record<string, string>;
 };
 
 export type CompileOptions = {
@@ -51,6 +55,9 @@ export type CompileResult = {
   files: OutputFile[];
   manifest: BuildManifest;
   diagnostics: Diagnostic[];
+  // True when index.html contains a Mermaid figure: the page needs mermaid.js
+  // and the Mermaid-page Content Security Policy (§9.12).
+  needsMermaid: boolean;
 };
 
 export class CompileError extends Error {
@@ -65,10 +72,24 @@ export const GRAPH_WARN_NODES = 25;
 export const GRAPH_MAX_NODES = 200;
 export const GRAPH_MAX_EDGES = 400;
 
-const CSP = [
-  "default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self'", "font-src 'none'",
-  "connect-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-src 'none'",
-].join('; ');
+/**
+ * Content Security Policy for a page (§15.3, §9.12). Pages with a Mermaid figure,
+ * and only those, add 'unsafe-inline' to style-src: Mermaid measures text with
+ * inline styles while it draws. Every other directive is unchanged. The meta
+ * element cannot carry frame-ancestors, so only the header form includes it.
+ */
+export function contentSecurityPolicy(options: { mermaid: boolean; delivery: 'header' | 'meta' }): string {
+  return [
+    "default-src 'none'", "script-src 'self'", options.mermaid ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
+    "img-src 'self'", "font-src 'none'", "connect-src 'none'", "object-src 'none'", "base-uri 'none'",
+    "form-action 'none'", "frame-src 'none'", ...(options.delivery === 'header' ? ["frame-ancestors 'none'"] : []),
+  ].join('; ');
+}
+
+const MERMAID_KIND_TEXT: Record<string, string> = {
+  'mermaid-node': 'node', 'mermaid-group': 'group', 'mermaid-state': 'state', 'mermaid-participant': 'participant',
+  'mermaid-edge': 'edge', 'mermaid-transition': 'transition', 'mermaid-message': 'message',
+};
 
 const ENTITY_KINDS = new Set(['definition', 'source', 'detail']);
 const COMPONENTS = new Set(['graph', 'trace', 'annotated', 'transform', 'compare']);
@@ -109,6 +130,7 @@ class Renderer {
   readonly images = new Map<string, OutputFile>(); // bundle path -> output asset
   readonly layout: LayoutFunction;
   readonly options: CompileOptions;
+  usesMermaid = false;
 
   constructor(bundle: LoadedBundle, options: CompileOptions) {
     this.bundle = bundle;
@@ -663,6 +685,98 @@ class Renderer {
 
   // --- Appendix -------------------------------------------------------------
 
+  // --- Mermaid (§9.12) --------------------------------------------------------
+
+  mermaidFigures(): Map<string, MermaidFigure> {
+    return (this.bundle.model as { mermaid?: Map<string, MermaidFigure> }).mermaid ?? new Map();
+  }
+
+  /** The Mermaid figure that owns a target, for element and relationship targets. */
+  mermaidOwner(id: string): MermaidFigure | undefined {
+    for (const figure of this.mermaidFigures().values()) {
+      if (figure.elements.some((e) => e.id === id) || figure.relationships.some((r) => r.id === id)) return figure;
+    }
+    return undefined;
+  }
+
+  mermaid(id: string, node: MNode): HNode {
+    this.usesMermaid = true;
+    const fence = node.children.find((c) => c.type === 'fence');
+    const figure: MermaidFigure = this.mermaidFigures().get(id) ?? {
+      figureId: id,
+      diagramType: 'other',
+      declaredType: '',
+      source: String(fence?.attributes['content'] ?? ''),
+      parsed: false,
+      elements: [],
+      relationships: [],
+    };
+    const question = attrString(node, 'question') ?? '';
+    const title = attrString(node, 'title') ?? this.label(id);
+    const interpretation = this.blocks({ ...node, children: node.children.filter((c) => c.type !== 'fence') });
+    const source = h('pre', { class: 'ex-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(figure.source, id)));
+    const arrow = (text: string) => h('span', { [DOM.attr.generated]: true }, text);
+    let lists: Child = null;
+    if (figure.parsed) {
+      const nodeList = h('ul', { class: 'ex-node-list', 'aria-label': 'Elements' },
+        figure.elements.map((e) => h('li', {},
+          h('a', {
+            href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id,
+            [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: e.renderKey,
+          }, this.label(e.id)),
+          h('span', { class: 'ex-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind})`))));
+      const relList = h('ol', { class: 'ex-rel-list', 'aria-label': 'Relationships' },
+        figure.relationships.map((r) => h('li', {},
+          h('a', {
+            href: `#${DOM.canonicalId(r.referenceable ? r.id : r.from)}`, id: DOM.listInstanceId(id, r.id),
+            // A derived relationship is not referenceable; a reference resolves to its figure (§9.12).
+            [DOM.attr.target]: r.referenceable ? r.id : id, [DOM.attr.rel]: r.id,
+            [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: r.renderKey,
+          }, this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
+      lists = h('div', { class: 'ex-lists' }, nodeList, relList);
+    }
+    return h('figure', {
+      class: 'ex-figure ex-mermaid', ...this.canonical(id), [DOM.attr.mermaid]: figure.diagramType,
+      [DOM.attr.question]: question, 'aria-describedby': `ex-q-${id}`, [DOM.attr.views]: figure.parsed ? 'map list' : undefined,
+    },
+      h('figcaption', { id: `ex-t-${id}` }, this.safeText(title, id)),
+      h('p', { id: `ex-q-${id}`, class: 'ex-sr' }, this.safeText(question, id)),
+      interpretation,
+      h('div', { class: 'ex-viewport', id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
+      source,
+      figure.parsed ? null : h('p', { class: 'ex-mermaid-note', [DOM.attr.generated]: true },
+        'The parts of this diagram are not individually inspectable; its source above holds the full content.'),
+      lists,
+      h('p', { class: 'ex-mermaid-notice', role: 'status', hidden: true, [DOM.attr.generated]: true }));
+  }
+
+  /** Canonical detail for a target inside a Mermaid figure (§9.12). */
+  mermaidDetail(record: TargetRecord): HNode {
+    const figure = this.mermaidOwner(record.id);
+    const specifics: Child[] = [];
+    const figureId = figure?.figureId ?? record.parentId;
+    if (figureId) {
+      specifics.push(h('p', { class: 'ex-entity', [DOM.attr.generated]: true }, 'In diagram ',
+        h('a', { href: `#${DOM.canonicalId(figureId)}` }, this.label(figureId))));
+    }
+    const rels = figure?.relationships.filter((r) => r.from === record.id || r.to === record.id || r.id === record.id) ?? [];
+    if (rels.length > 0) {
+      specifics.push(h('ul', { class: 'ex-mermaid-rels' }, rels.map((r) => h('li', {},
+        h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
+        h('span', { [DOM.attr.generated]: true }, ' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, record.id),
+        h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
+        h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))))));
+    }
+    const element = figure?.elements.find((e) => e.id === record.id);
+    if (element?.members && element.members.length > 0) {
+      specifics.push(h('p', { class: 'ex-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
+        element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
+    }
+    return h('details', { class: `ex-detail ex-kind-${record.kind}`, ...this.canonical(record.id) },
+      h('summary', {}, this.label(record.id), h('span', { class: 'ex-kind', [DOM.attr.generated]: true }, ` ${MERMAID_KIND_TEXT[record.kind] ?? record.kind}`)),
+      h('div', { class: 'ex-detail-body' }, specifics));
+  }
+
   evidence(id: string): Child {
     const ids = this.relationship(id)?.evidenceIds ?? [];
     if (ids.length === 0) return null;
@@ -711,6 +825,7 @@ class Renderer {
   }
 
   detail(record: TargetRecord): HNode {
+    if (record.kind.startsWith('mermaid-') || !this.nodes.has(record.id)) return this.mermaidDetail(record);
     const node = this.nodes.get(record.id)!;
     const specifics: Child[] = [];
     const r = this.relationship(record.id);
@@ -780,6 +895,7 @@ class Renderer {
       else if (record.kind === 'trace') out.push(this.trace(id, child));
       else if (record.kind === 'annotated') out.push(this.annotated(id, child));
       else if (record.kind === 'compare') out.push(this.compare(id, child));
+      else if (record.kind === 'mermaid') out.push(this.mermaid(id, child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
         this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
         out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.blocks(child)));
@@ -873,13 +989,15 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const doc = h('html', { lang: 'en' },
       h('head', {},
         h('meta', { charset: 'utf-8' }),
-        h('meta', { 'http-equiv': 'Content-Security-Policy', content: CSP }),
+        h('meta', { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy({ mermaid: r.usesMermaid, delivery: 'meta' }) }),
         h('meta', { name: 'referrer', content: 'no-referrer' }),
         h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
         fm['visibility'] !== 'public' ? h('meta', { name: 'robots', content: 'noindex, nofollow' }) : null,
         h('title', {}, r.safeText(title)),
         h('link', { rel: 'stylesheet', href: `${assetBase}/reader.css`, integrity: cssSha ? integrity(cssSha) : undefined }),
-        h('script', { src: `${assetBase}/reader.js`, defer: true, integrity: jsSha ? integrity(jsSha) : undefined })),
+        h('script', { src: `${assetBase}/reader.js`, defer: true, integrity: jsSha ? integrity(jsSha) : undefined }),
+        // The runtime loads mermaid.js with this integrity value only on pages that need it (§9.12).
+        r.usesMermaid ? h('meta', { name: DOM.mermaidMeta, content: toolkit.integrity?.['mermaid.js'] ?? '' }) : null),
       h('body', {},
         h('nav', { class: DOM.toolbar, 'aria-label': 'Document tools', hidden: true },
           h('button', { type: 'button', id: DOM.buttons.contents }, 'Contents'),
@@ -924,8 +1042,8 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     ...(options.nodeVersion ? { nodeVersion: options.nodeVersion } : {}),
     sourceFiles: bundle.manifest.files.map((f) => ({ path: f.path, sha256: f.sha256 })),
     outputFiles: files.map((f) => ({ path: f.path.slice(directory.length + 1), sha256: sha256Hex(f.bytes), mediaType: f.mediaType })),
-    assets: ['reader.css', 'reader.js'].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),
+    assets: ['reader.css', 'reader.js', ...(r.usesMermaid ? ['mermaid.js'] : [])].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),
   };
   add('build.json', encoder.encode(canonicalJSON(manifest) + '\n'), 'application/json');
-  return { docId, sourceRevision, buildId, directory, files, manifest, diagnostics: r.diagnostics };
+  return { docId, sourceRevision, buildId, directory, files, manifest, diagnostics: r.diagnostics, needsMermaid: r.usesMermaid };
 }

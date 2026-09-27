@@ -242,6 +242,18 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
 /* The actor-grouped trace cards are the narrow-screen view only. */
 .ex-trace-by-actor { display: none; }
 
+/* ------------------------------------------------------------ Mermaid (§9.12) */
+
+.ex-mermaid-source { overflow-x: auto; }
+/* After the drawing renders, the source moves behind a toggle; without
+   JavaScript, or when rendering fails, the source stays visible. */
+.ex-mermaid-rendered .ex-mermaid-source { display: none; }
+.ex-mermaid-rendered.ex-mermaid-show-source .ex-mermaid-source { display: block; }
+.ex-mermaid-notice { border-left: 4px solid var(--ex-accent, #b00020); padding: 0.25rem 0.75rem; }
+.ex-mermaid-note { font-size: 0.875rem; }
+.ex-mermaid .ex-viewport:empty { display: none; }
+[data-ex-mermaid-drawn] { cursor: pointer; }
+
 /* ------------------------------------------------------------ narrow screens */
 
 @media (max-width: 899px) {
@@ -284,6 +296,8 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   #ex-doc { max-width: none; padding: 0; }
   details::details-content { content-visibility: visible; display: block; }
   .ex-viewport { overflow: visible; }
+  /* Print the drawing if it rendered, and the source otherwise (§9.12). */
+  .ex-mermaid-rendered .ex-mermaid-source, .ex-source-toggle { display: none !important; }
   .ex-view-bar { display: none !important; }
   .ex-figure.ex-view-list .ex-viewport, .ex-figure.ex-view-map .ex-lists { display: block !important; }
   .ex-compare-table { display: table !important; }
@@ -292,3 +306,7 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   .ex-trace .ex-trace-events, .ex-trace .ex-actor-list { display: block !important; }
   a { color: inherit; }
 }
+
+/* Mermaid autonumber badges carry the message order, so they keep the 14 px
+   minimum (§18.8). Mermaid scopes its own styles by ID, hence !important. */
+.ex-mermaid svg text.sequenceNumber { font-size: 14px !important; }

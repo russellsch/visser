@@ -3,7 +3,7 @@
 // every shipped file except itself.
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJSON } from '../packages/core/src/model/hash.ts';
@@ -39,6 +39,10 @@ await build({
 });
 cpSync(join(root, 'packages/runtime/src/reader.css'), join(out, 'browser/reader.css'));
 
+// Mermaid (§9.12): the pinned browser build ships once per toolkit as its own
+// asset; pages load it only when they contain a Mermaid figure.
+cpSync(join(root, 'node_modules/mermaid/dist/mermaid.min.js'), join(out, 'browser/mermaid.js'));
+
 // Graph layout worker (§5.1): ELK runs only inside this bounded worker.
 await build({
   entryPoints: [join(root, 'packages/core/src/compiler/layout-worker.ts')],
@@ -50,6 +54,26 @@ await build({
   legalComments: 'none',
   logLevel: 'warning',
 });
+
+// Mermaid build-time parse worker (§9.12): runs as a separate, bounded process.
+const mermaidWorker = join(root, 'packages/core/src/mermaid/parse-worker.ts');
+if (existsSync(mermaidWorker)) {
+  await build({
+    entryPoints: [mermaidWorker],
+    outfile: join(out, 'workers/mermaid-parse.cjs'),
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node24',
+    legalComments: 'none',
+    logLevel: 'warning',
+    // The build parses structure only; DOMPurify needs a DOM, so it is replaced
+    // by the stub (source mode uses a resolve hook for the same mapping).
+    alias: { dompurify: join(root, 'packages/core/src/mermaid/dompurify-stub.ts') },
+  });
+} else {
+  console.warn('warning: packages/core/src/mermaid/parse-worker.ts is missing; the release cannot parse Mermaid figures');
+}
 
 cpSync(join(root, 'schemas'), join(out, 'schemas'), { recursive: true });
 cpSync(join(root, 'skills'), join(out, 'skills'), { recursive: true });

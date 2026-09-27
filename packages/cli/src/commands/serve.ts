@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CliError, EXIT, type ParsedArgs, stringFlag } from '../cli-util.ts';
 import { type Route, serveArtifacts } from '../server.ts';
+import { contentSecurityPolicy } from '../../../core/src/compiler/compile.ts';
 import { buildDocument } from './build.ts';
 
 const MEDIA: Record<string, string> = {
@@ -39,13 +40,18 @@ export async function runServe(args: ParsedArgs): Promise<number> {
   const outcome = await buildDocument(args);
   const { result, outDir, toolkit } = outcome;
   const routes = new Map<string, Route>();
-  const add = (sitePath: string, bytes: Uint8Array, cache: Route['cache']) => {
+  const add = (sitePath: string, bytes: Uint8Array, cache: Route['cache'], csp?: string) => {
     const ext = sitePath.slice(sitePath.lastIndexOf('.'));
-    routes.set(basePath + sitePath, { bytes, mediaType: MEDIA[ext] ?? 'application/octet-stream', cache });
+    routes.set(basePath + sitePath, { bytes, mediaType: MEDIA[ext] ?? 'application/octet-stream', cache, ...(csp ? { csp } : {}) });
   };
+  // A page with a Mermaid figure gets the Mermaid-page policy; other routes keep the strict one (§9.12).
+  const pageCsp = result.needsMermaid ? contentSecurityPolicy({ mermaid: true, delivery: 'header' }) : undefined;
   const snapshotCache: Route['cache'] = args.flags.has('cache-private') ? 'immutable' : 'no-store';
-  for (const file of result.files) add(file.path, file.bytes, file.path.endsWith('.html') ? snapshotCache : 'immutable');
-  for (const name of ['reader.js', 'reader.css']) {
+  for (const file of result.files) {
+    const html = file.path.endsWith('.html');
+    add(file.path, file.bytes, html ? snapshotCache : 'immutable', html ? pageCsp : undefined);
+  }
+  for (const name of ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])]) {
     add(`_explain/assets/${toolkit.release.sha256}/${name}`, readFileSync(join(outDir, '_explain', 'assets', toolkit.release.sha256, name)), 'immutable');
   }
   const title = typeof outcome.frontmatter['title'] === 'string' ? outcome.frontmatter['title'] : result.docId;

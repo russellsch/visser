@@ -16,6 +16,29 @@ export type BuildOutcome = {
   frontmatter: Record<string, unknown>;
 };
 
+/**
+ * Copy each named browser asset from the release into the output asset
+ * directory unless an identical copy is already there. Each copy is checked
+ * against the release manifest's digest and written through a temporary file.
+ */
+export function copyAssets(releaseDir: string, assetDir: string, names: string[]): void {
+  const manifest = JSON.parse(readFileSync(join(releaseDir, 'release.json'), 'utf8')) as { files: Array<{ path: string; sha256: string }> };
+  mkdirSync(assetDir, { recursive: true });
+  for (const name of names) {
+    const expected = manifest.files.find((f) => f.path === `browser/${name}`)?.sha256;
+    const bytes = readFileSync(join(releaseDir, 'browser', name));
+    const actual = createHash('sha256').update(bytes).digest('hex');
+    if (!expected || actual !== expected) {
+      throw new CliError('E_INTEGRITY', `browser/${name} does not match release.json`, EXIT.security);
+    }
+    const dest = join(assetDir, name);
+    if (existsSync(dest) && createHash('sha256').update(readFileSync(dest)).digest('hex') === expected) continue;
+    const tmp = join(assetDir, `.${name}.${process.pid}.tmp`);
+    writeFileSync(tmp, bytes);
+    renameSync(tmp, dest);
+  }
+}
+
 /** Nearest ancestor with .git or .explain, else the document folder. */
 export function repoRootFor(start: string): string {
   let dir = resolve(start);
@@ -45,12 +68,26 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
 
   const releaseDir = toolkit.release.dir;
   const assetSha = (name: string) => createHash('sha256').update(readFileSync(join(releaseDir, 'browser', name))).digest('hex');
+  const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
+  // SRI value for the lazily loaded Mermaid asset (§9.12).
+  const integrity = existsSync(mermaidPath)
+    ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
+    : undefined;
   const workerPath = join(releaseDir, 'workers', 'layout.cjs');
   let result: CompileResult;
   try {
     result = await compileDocument(
       bundle,
-      { version: toolkit.release.version, sha256: toolkit.release.sha256, assets: { 'reader.js': assetSha('reader.js'), 'reader.css': assetSha('reader.css') } },
+      {
+        version: toolkit.release.version,
+        sha256: toolkit.release.sha256,
+        assets: {
+          'reader.js': assetSha('reader.js'),
+          'reader.css': assetSha('reader.css'),
+          ...(existsSync(mermaidPath) ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
+        },
+        ...(integrity ? { integrity } : {}),
+      },
       {
         audience: 'private',
         includeSource: false,
@@ -70,16 +107,14 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   const snapshotDir = `d/${result.docId}/${result.sourceRevision}/${result.buildId}`;
   const finalDir = join(outDir, snapshotDir);
 
-  // Shared asset pack: copied once per toolkit digest (§13.1).
+  // Shared asset pack (§13.1): each needed file is copied on its own, so a later
+  // Mermaid build adds mermaid.js to an asset directory that already exists.
   const assetDir = join(outDir, '_explain', 'assets', toolkit.release.sha256);
-  if (!existsSync(assetDir)) {
-    mkdirSync(dirname(assetDir), { recursive: true });
-    const tmp = mkdtempSync(join(dirname(assetDir), '.tmp-'));
-    for (const name of ['reader.js', 'reader.css']) {
-      writeFileSync(join(tmp, name), readFileSync(join(toolkit.release.dir, 'browser', name)));
-    }
-    renameSync(tmp, assetDir);
+  const needed = ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])];
+  if (result.needsMermaid && !existsSync(mermaidPath)) {
+    throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${releaseDir} has no browser/mermaid.js; this document needs a toolkit with Mermaid support`, EXIT.unavailable);
   }
+  copyAssets(releaseDir, assetDir, needed);
 
   // Immutable snapshot: publish atomically; an existing snapshot is left untouched.
   if (!existsSync(finalDir)) {

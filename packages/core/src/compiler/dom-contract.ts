@@ -74,6 +74,8 @@
 //     fallback), then for parsed types the lists with instances that carry
 //     data-ex-mermaid-key=RENDER_KEY (see packages/core/src/mermaid/types.ts),
 //     then <p class="ex-mermaid-notice" hidden> for render failures.
+//   After rendering, the runtime marks drawn elements with data-ex-mermaid-drawn
+//   and makes the viewport focusable (tabindex=0, role=region).
 //   The page <head> carries <meta name="ex-mermaid" content=SRI_DIGEST> when
 //   the page needs the Mermaid asset; the runtime loads ASSETS/mermaid.js with
 //   that integrity value only then.

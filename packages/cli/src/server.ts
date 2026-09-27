@@ -1,11 +1,14 @@
 // Manifest-only read server (§13.3, §15.3, §15.4). Serves exactly the files in
 // `routes`; GET and HEAD only; exact Host allowlist; no directory listing.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { contentSecurityPolicy } from '../../core/src/compiler/compile.ts';
 
 export type Route = {
   bytes: Uint8Array;
   mediaType: string;
   cache: 'immutable' | 'no-cache' | 'no-store';
+  // Per-route policy; pages with a Mermaid figure use the Mermaid-page policy (§9.12).
+  csp?: string;
 };
 
 export type HostPolicy = {
@@ -19,19 +22,7 @@ export type ServerHandle = {
   close: () => Promise<void>;
 };
 
-const CSP = [
-  "default-src 'none'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self'",
-  "font-src 'none'",
-  "connect-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-src 'none'",
-  "frame-ancestors 'none'",
-].join('; ');
+const CSP = contentSecurityPolicy({ mermaid: false, delivery: 'header' });
 
 const CACHE: Record<Route['cache'], string> = {
   immutable: 'public, max-age=31536000, immutable',
@@ -99,7 +90,7 @@ export function serveArtifacts(routes: Map<string, Route>, host: string, request
     res.writeHead(200, {
       'Content-Type': route.mediaType,
       'Content-Length': String(route.bytes.byteLength),
-      'Content-Security-Policy': CSP,
+      'Content-Security-Policy': route.csp ?? CSP,
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
       'Cache-Control': CACHE[route.cache],
