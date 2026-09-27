@@ -103,3 +103,13 @@ The user asked for Mermaid diagrams and answered two rounds of questions on 27 S
 Changes: §1.2, §2.1, §2.3, the new §9.12, §13.1, ADR-04 and ADR-06 notes, the new §17.5a, the skill (Appendix B step 4), and the handoff build sequence.
 
 **Spike results (same revision):** the Mermaid-page CSP adds `'unsafe-inline'` to `style-src` only on pages with a Mermaid figure (the strict policy broke rendering; no narrower variant worked); parsing uses Mermaid's `getDiagramFromText` under jsdom; the rendered element mapping and the `securityLevel: 'strict'` checks are recorded in §9.12.
+
+## Revision 1.11 — Phase 2b review corrections
+
+Two Claude Opus 5.5 reviews read the Phase 2b plan and ran experiments in `spikes/mermaid/`. The author reran the key evidence independently (composite-state parse, sequence control records, label `<a>`/`<img>` survival, and `useMaxWidth` scaling to 2.5 px at 320 px) before accepting findings.
+
+**Consistency and implementability:** Mermaid names map one way to target IDs (lowercase, `.` to `_`) and must be document-unique; subgraphs are `mermaid-group` targets; composite and concurrent states are rejected in v1; sequence messages map by raw `getMessages()` index; in-fence targets take their figure's span and cannot be replaced or retired alone; Mermaid nodes are not entities; R06/R14 scope for figure-level types; jsdom shipping method (shim first, then declared data files, never a `node_modules` subtree) with a release-level test; per-file asset copying and per-page CSP in the implementation; characterization, render-timing, and print tests.
+
+**Security, robustness, and UX:** build-time rejection of `%%{` anywhere, leading `---`, `click`/`href`/`call`/`callback`, label HTML other than `<br>` (not inside `<<…>>`), `img:`/`icon:` shapes, and non-allowlisted style declarations; `useMaxWidth: false`; SRI on the lazy script; eager rendering; accessible names; cleanup of Mermaid's error graphic; parse limits in the bounded worker (64 KiB, §2.3 caps, 30 s, reusing `E_LIMIT`).
+
+**Refinement by the author:** the review proposed rejecting any `<` followed by a letter; that would also reject `<br>` line breaks and `<<choice>>`/`<<interface>>` stereotypes, so the rule allows `<br>` and skips stereotypes.

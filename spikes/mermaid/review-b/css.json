@@ -1,0 +1,355 @@
+{
+ "baseline": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "style=\"display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;\"",
+  "csp": []
+ },
+ "classDefBreak": {
+  "err": "Error: Lexical error on line 3. Unrecognized text.\n...classDef x fill:red;}body{display:none \n-----------------------^",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "classDefBreak2": {
+  "err": "Error: Lexical error on line 3. Unrecognized text.\n... classDef x fill:red} #caveat{display:no\n-----------------------^",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "styleBreak": {
+  "err": "Error: Lexical error on line 3. Unrecognized text.\n...ill:#f00,stroke:#000} * {color:transpare\n-----------------------^",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "styleBreak2": {
+  "err": "Error: Lexical error on line 3. Unrecognized text.\n...  style a fill:#f00}#caveat{visibility:\n----------------------^",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "linkStyleBreak": {
+  "err": "Error: Lexical error on line 3. Unrecognized text.\n...kStyle 0 stroke:red;}#caveat{display:non\n-----------------------^",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "styleFixedOverlay": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "style=\"position:fixed !important;top:0 !important;left:0 !important;width:100vw !important;height:100vh !important;fill:",
+  "csp": []
+ },
+ "classDefFixed": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": true,
+  "styleSnippet": "-family:\"trebuchet ms\",verdana,arial,sans-serif;}#ckmgnv .x>*{position:fixed!important;top:0px!important;left:0px!importan",
+  "fixedEls": 1,
+  "svgAttrStyleSample": "style=\"position:fixed !important;top:0 !important;left:0 !important\"",
+  "csp": []
+ },
+ "styleUrlExfil": {
+  "err": "Error: Parse error on line 3:\n...]  style a fill:url(https://evil.exampl\n----------------------^\nExpecting 'SEMI', 'NEWLINE', 'SPACE', 'EOF', 'COLON', 'STYLE', ",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "styleBgImport": {
+  "err": "Error: Parse error on line 3:\n...> b[B]  classDef x fill:red;}@import ur\n----------------------^\nExpecting 'SPACE', 'COLON', 'STYLE', 'NUM', 'NODE_STRING', 'UNI",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "stateClassDef": {
+  "err": "SyntaxError: Failed to execute 'insertRule' on 'CSSStyleSheet': Failed to parse the rule '.bad > * { fill:red}#caveat{display:none !important; }'.",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "labelStyleTag": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "style=\"display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;\"",
+  "csp": []
+ },
+ "labelInlineStyle": {
+  "err": "Error: Parse error on line 2:\n...px;background:#fff\\\">SAFE</span>\"] --> b\n-----------------------^\nExpecting 'SQE', 'DOUBLECIRCLEEND', 'PE', '-)', 'STADIUMEND',",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "themeCssInit": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": true,
+  "styleSnippet": "r:drop-shadow(1px 2px 2px rgba(185, 185, 185, 1));}#cb4zdx #caveat{display:none;}#cb4zdx body{background:red;}#cb4zdx :root{--",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "style=\"display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;\"",
+  "csp": []
+ },
+ "themeVarsFront": {
+  "err": "Error: Unsupported color format: \"\"",
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "",
+  "csp": []
+ },
+ "fontFamilyInit": {
+  "err": null,
+  "caveat": {
+   "display": "block",
+   "visibility": "visible",
+   "color": "rgb(0, 0, 0)",
+   "opacity": "1",
+   "fontSize": "16px"
+  },
+  "body": {
+   "display": "block",
+   "background": "rgba(0, 0, 0, 0)"
+  },
+  "toolbar": {
+   "display": "block"
+  },
+  "injectedInStyle": false,
+  "styleSnippet": "",
+  "fixedEls": 0,
+  "svgAttrStyleSample": "style=\"display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;\"",
+  "csp": []
+ },
+ "offOrigin": []
+}

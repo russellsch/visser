@@ -1,0 +1,16 @@
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { chromium } from '/home/r/Documents/MyStuff/random_ts/visser/node_modules/playwright/index.mjs';
+const good = 'sha384-' + createHash('sha384').update(readFileSync('lazy-mermaid.js')).digest('base64');
+writeFileSync('attack.js', readFileSync('attack.js', 'utf8'));
+const server = spawn(process.execPath, ['serve.mjs', '4706'], { stdio: 'ignore' });
+await new Promise((r) => setTimeout(r, 400));
+const b = await chromium.launch(); const page = await b.newPage();
+await page.goto('http://127.0.0.1:4706/');
+await page.addScriptTag({ url: '/sri-page.js' });
+console.log('good digest:', await page.evaluate((i) => window.loadWith(i), good));
+await page.goto('http://127.0.0.1:4706/');
+await page.addScriptTag({ url: '/sri-page.js' });
+console.log('wrong digest:', await page.evaluate(() => window.loadWith('sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')));
+await b.close(); server.kill();
