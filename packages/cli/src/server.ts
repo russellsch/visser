@@ -1,6 +1,7 @@
 // Manifest-only read server (§13.3, §15.3, §15.4). Serves exactly the files in
 // `routes`; GET and HEAD only; exact Host allowlist; no directory listing.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { contentSecurityPolicy } from '../../core/src/compiler/compile.ts';
 
 export type Route = {
@@ -40,6 +41,43 @@ function allowedHosts(policy: HostPolicy): Set<string> {
     hosts.add(url.host); // includes a non-default port when present
   }
   return hosts;
+}
+
+// Text routes are sent gzip-encoded when the client accepts it (§2.3 initial
+// usable page). Every route is fixed bytes with no request data reflected in
+// it, so compression cannot leak a secret (BREACH needs both). Each route is
+// compressed once, on its first gzip request.
+const gzipCache = new WeakMap<Route, Uint8Array>();
+
+function compressible(mediaType: string): boolean {
+  return mediaType.startsWith('text/') || mediaType.startsWith('application/json') || mediaType.startsWith('image/svg+xml');
+}
+
+function gzipped(route: Route): Uint8Array {
+  let bytes = gzipCache.get(route);
+  if (!bytes) {
+    bytes = new Uint8Array(gzipSync(route.bytes, { level: 9 }));
+    gzipCache.set(route, bytes);
+  }
+  return bytes;
+}
+
+/** True if Accept-Encoding allows gzip: `gzip` with q > 0, or `*` with q > 0 and no explicit `gzip`. */
+export function acceptsGzip(header: string | undefined): boolean {
+  if (!header) return false;
+  let gzip: number | undefined;
+  let star: number | undefined;
+  for (const part of header.split(',')) {
+    const [token, ...params] = part.split(';').map((x) => x.trim().toLowerCase());
+    let q = 1;
+    for (const param of params) {
+      const m = /^q=([0-9.]+)$/.exec(param);
+      if (m) q = Number(m[1]);
+    }
+    if (token === 'gzip') gzip = q;
+    else if (token === '*') star = q;
+  }
+  return (gzip ?? star ?? 0) > 0;
 }
 
 /** Decode a request path once and reject traversal and encoded separators. */
@@ -87,15 +125,20 @@ export function serveArtifacts(routes: Map<string, Route>, host: string, request
       send(res, 404, 'not found\n', headOnly);
       return;
     }
+    const canGzip = compressible(route.mediaType);
+    const useGzip = canGzip && acceptsGzip(req.headers['accept-encoding']) && gzipped(route).byteLength < route.bytes.byteLength;
+    const body = useGzip ? gzipped(route) : route.bytes;
     res.writeHead(200, {
       'Content-Type': route.mediaType,
-      'Content-Length': String(route.bytes.byteLength),
+      'Content-Length': String(body.byteLength),
+      ...(useGzip ? { 'Content-Encoding': 'gzip' } : {}),
+      ...(canGzip ? { Vary: 'Accept-Encoding' } : {}),
       'Content-Security-Policy': route.csp ?? CSP,
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
       'Cache-Control': CACHE[route.cache],
     });
-    res.end(headOnly ? undefined : route.bytes);
+    res.end(headOnly ? undefined : body);
   };
 
   const server = createServer({ maxHeaderSize: 16 * 1024, headersTimeout: 10_000, requestTimeout: 30_000 }, handler);

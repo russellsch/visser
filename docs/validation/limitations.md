@@ -12,16 +12,11 @@ below is a known gap. None of them is hidden behind a passing test.
   viewports only. Nobody has checked them on a real touch device.
 - See `human-gates.md` for the full list.
 
-## Measured budgets that miss their target
+## Measured timing notes
 
-- **Initial usable page: 3,599 ms, target 2 s.** This time was measured on a
-  throttled mobile profile, and it is reported only, not gated. The main cause:
-  `serve` sends files without compression (the page is 675,821 bytes, and
-  55,027 bytes with gzip). A static host that compresses files avoids most of
-  this cost.
-- **First Mermaid figure: about 31 s** on the same profile, because
-  `mermaid.js` is 5.3 MB and has no compression. Pages without Mermaid do not
-  load that file.
+- **First Mermaid figure: about 9.4 s** on a throttled mobile profile, because
+  `mermaid.js` is 1.6 MB even with gzip. Pages without Mermaid do not load that
+  file. (The initial usable page meets its 2 s target: 635.5 ms with gzip.)
 - The build time came from a desktop machine, not from the laptop that §2.3
   names. See `budgets.md` for the hardware.
 

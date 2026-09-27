@@ -1405,7 +1405,7 @@ No per-document script is generated. A runtime failure leaves meaningful HTML an
 explain serve docs/explanations/queue/index.md --port 4310
 ```
 
-The command builds a snapshot, serves it at the immutable route, and prints the full URL and source/build IDs. It fails on a busy requested port instead of silently choosing a different one. Port `0` is an explicit request for an automatically assigned port. Bind loopback by default.
+The command builds a snapshot, serves it at the immutable route, and prints the full URL and source/build IDs. It fails on a busy requested port instead of silently choosing a different one. Port `0` is an explicit request for an automatically assigned port. Bind loopback by default. `serve` sends text routes (HTML, Markdown, JSON, JavaScript, CSS, SVG) gzip-encoded when the request's `Accept-Encoding` allows gzip, with `Vary: Accept-Encoding` (revision 1.20). Every route is fixed bytes with no request data in it, so compression cannot leak a secret. SRI checks the decoded bytes, so it is not affected.
 
 The first release is snapshot serving, not an implicit watcher. After edits, `build`/`serve` produces a new revision; existing snapshots can remain served for the process lifetime. A future watch mode can announce a new snapshot, but must not silently reload a page into a different revision while the reader copies a reference.
 

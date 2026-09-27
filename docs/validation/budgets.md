@@ -55,17 +55,17 @@ Other tests cover the limits that this script does not gate:
 |---|---|---|---|
 | `mermaid.js` size | 5,575,485 bytes, 1,608,869 gzip | reported only | |
 | Built page | 675,821 bytes, 55,027 gzip | none | `document.md` is 145,390 bytes |
-| Offline build of the fixture | 1,227 ms (runs 1,205 to 1,234) | under 3 s | Wall clock of `explain build` from `dist/release`, including Node start. |
-| Initial usable page | 3,599 ms (runs 3,594 to 3,606) | under 2 s (target) | Profile: 390x844 mobile, 150 ms latency, 1.6 Mbit/s down, 750 kbit/s up, CPU 4x, cache off |
-| First Mermaid figure drawn | 31,267 ms | none | Same runs as the initial usable page |
-| Inspector after a click | 14.6 ms (5 targets, 5 clicks each) | under 100 ms | 1440x1000, no throttling |
+| Offline build of the fixture | 1,295 ms (runs 1,286 to 1,303) | under 3 s | Wall clock of `explain build` from `dist/release`, including Node start. |
+| Initial usable page | 635.5 ms (runs 625.4 to 670.4), gzip | under 2 s (target) | Profile: 390x844 mobile, 150 ms latency, 1.6 Mbit/s down, 750 kbit/s up, CPU 4x, cache off |
+| First Mermaid figure drawn | 9,433.6 ms (runs 9,403.7 to 9,458.7), gzip | none | Same runs as the initial usable page |
+| Inspector after a click | 14.1 ms (5 targets, 5 clicks each) | under 100 ms | 1440x1000, no throttling |
 
 "Usable" means that the main prose has text, the first figure has an SVG, and `reader.js` has run. The time is `performance.now()` in the page, from the start of navigation.
 
 ## Findings
 
-- **The initial usable page misses the 2-second target** under this profile. `explain serve` sends the page and its assets without compression (`content-encoding: identity`). The page is 660 KiB, and at 1.6 Mbit/s that alone takes about 3.3 s. Gzip would make it 55 KiB. A static host that compresses (GitHub Pages does) would come close to the target. Adding compression to `serve`, or putting the excerpt bodies out of the initial HTML, would help.
-- **The first Mermaid figure takes about 31 s** on this profile, because the 5.3 MB `mermaid.js` is also sent without compression. The asset loads only on pages that have a Mermaid figure. The text and the build-time element lists are readable before it loads.
+- **The initial usable page meets the 2-second target** since `serve` sends text routes with gzip: 635.5 ms. Before gzip it was 3,599 ms, because the 660 KiB page took about 3.3 s at 1.6 Mbit/s; with gzip the page is 55 KiB.
+- **The first Mermaid figure takes about 9.4 s** on this profile (31,267 ms before gzip). `mermaid.js` is still 1.6 MB after gzip, which takes about 8 s at 1.6 Mbit/s. The asset loads only on pages that have a Mermaid figure. The text and the build-time element lists are readable before it loads.
 - **The build is about 1.2 s** on this machine, well under 3 s. A laptop result is still needed.
 - **Finding during this work:** before the Phase 5 change to `check`, `check` exited 0 on a 201-node graph, but `build` failed with `E_LAYOUT_LIMIT`. The gate for `check` in this script now catches that difference.
 

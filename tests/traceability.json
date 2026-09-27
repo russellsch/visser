@@ -198,7 +198,7 @@
       "tags": [
         "@BUDGETS"
       ],
-      "note": "Section 2.3 size and count gates (reader.js, reader.css, per-document JS, release browser assets, skill size, graph caps) on a 5,000-word reference fixture. Timing is reported only, in docs/validation/budgets.md; the initial usable page missed its 2 s target because serve does not compress."
+      "note": "Section 2.3 size and count gates (reader.js, reader.css, per-document JS, release browser assets, skill size, graph caps) on a 5,000-word reference fixture, and gzip in serve. Timing is reported only, in docs/validation/budgets.md: the initial usable page is 635.5 ms with gzip (target 2 s)."
     },
     {
       "id": "T01",
