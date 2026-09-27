@@ -82,6 +82,17 @@ export type LayoutFunction = (graph: GraphInput) => Promise<GraphLayout>;
 export const NODE_LABEL_WIDTH = 160;
 export const EDGE_LABEL_WIDTH = 140;
 
+export type LayoutDirection = 'RIGHT' | 'DOWN';
+
+/**
+ * Widest figure the default left-to-right layout may produce (§7.5 allowlist).
+ * 1100 px fits a 1180 px window: the wide-screen figure breakout allows the
+ * window width minus 4rem (64 px), and a desktop scrollbar takes about 16 px.
+ * Most laptop windows are at least that wide, so a figure at or below this
+ * width needs no horizontal scrolling on a desktop.
+ */
+export const MAX_FIGURE_WIDTH = 1100;
+
 // The fixed option allowlist (§7.5). Changing any value changes layout bytes.
 export const LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
   'elk.algorithm': 'layered',
@@ -101,7 +112,7 @@ export const LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
 };
 
 /** The ELK graph for an input, with sizes from the text-metrics table. */
-export function toElkGraph(graph: GraphInput): { root: ElkNode; lines: Map<string, string[]> } {
+export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGHT'): { root: ElkNode; lines: Map<string, string[]> } {
   const lines = new Map<string, string[]>();
   const elkNodes = new Map<string, ElkNode>();
   for (const g of graph.groups) {
@@ -117,7 +128,7 @@ export function toElkGraph(graph: GraphInput): { root: ElkNode; lines: Map<strin
     lines.set(n.id, b.lines);
     elkNodes.set(n.id, { id: n.id, width: b.width, height: b.height });
   }
-  const root: ElkNode = { id: `root:${graph.id}`, layoutOptions: { ...LAYOUT_OPTIONS }, children: [], edges: [] };
+  const root: ElkNode = { id: `root:${graph.id}`, layoutOptions: { ...LAYOUT_OPTIONS, 'elk.direction': direction }, children: [], edges: [] };
   const attach = (id: string, parent: string | undefined) => {
     const node = elkNodes.get(id)!;
     const container = parent ? elkNodes.get(parent) : undefined;
@@ -184,7 +195,15 @@ export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, s
 /** Lay out one graph in-process. The build normally calls this through the layout worker. */
 export async function layoutGraph(graph: GraphInput): Promise<GraphLayout> {
   const elk = new ELK();
-  const { root, lines } = toElkGraph(graph);
-  const result = await elk.layout(structuredClone(root));
-  return fromElk(graph, result, lines);
+  const run = async (direction: LayoutDirection) => {
+    const { root, lines } = toElkGraph(graph, direction);
+    return fromElk(graph, await elk.layout(structuredClone(root)), lines);
+  };
+  // Direction rule: left-to-right first. A layout wider than MAX_FIGURE_WIDTH
+  // switches to top-to-bottom when that is narrower. The choice depends only on
+  // the layout input, so the output stays byte-deterministic (§7.5).
+  const right = await run('RIGHT');
+  if (right.width <= MAX_FIGURE_WIDTH) return right;
+  const down = await run('DOWN');
+  return down.width < right.width ? down : right;
 }

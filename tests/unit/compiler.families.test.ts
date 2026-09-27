@@ -271,9 +271,12 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
       expect(cards).toContain(`data-ex-target="${cell}"`);
     }
     for (const option of ['o_bounded', 'o_unbounded']) {
-      expect(cards.split(`data-ex-target="${option}"`).length - 1).toBe(2); // one per criterion card
+      expect(cards.split(`data-ex-target="${option}"`).length - 1).toBe(1); // the options line
     }
     expect(cards).toContain('Not provided');
+    // One link per option row: no generated "Details" link in the cards.
+    expect(cards).not.toContain('>Details<');
+    expect(cards).toContain('aria-label="Bounded queue: Failure behavior"');
     expect(html.toLowerCase()).not.toMatch(/winner|score/);
     expect(html).not.toMatch(/<figure[^>]*id="x-queues"[^>]*data-ex-views/);
   });

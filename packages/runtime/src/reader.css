@@ -239,6 +239,9 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   }
 }
 
+/* The actor-grouped trace cards are the narrow-screen view only. */
+.ex-trace-by-actor { display: none; }
+
 /* ------------------------------------------------------------ narrow screens */
 
 @media (max-width: 899px) {
@@ -256,6 +259,12 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   .ex-figure.ex-view-map .ex-lists { display: none; }
   .ex-compare-table { display: none; }
   .ex-compare-cards { display: block; }
+  /* Narrow screens: the actor-grouped cards replace the flat event list and the actor list. */
+  .ex-trace .ex-trace-events, .ex-trace .ex-actor-list { display: none; }
+  .ex-trace .ex-trace-by-actor { display: block; }
+  .ex-actor-group { margin: 0.75rem 0; }
+  .ex-actor-heading { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+  .ex-trace-cards { list-style: none; padding-left: 0; margin: 0; }
   .ex-trace-events { list-style: none; padding-left: 0; }
   .ex-event { border: 1px solid var(--ex-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
   .ex-event-layer { display: block; }
@@ -279,5 +288,7 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   .ex-figure.ex-view-list .ex-viewport, .ex-figure.ex-view-map .ex-lists { display: block !important; }
   .ex-compare-table { display: table !important; }
   .ex-compare-cards { display: none !important; }
+  .ex-trace .ex-trace-by-actor { display: none !important; }
+  .ex-trace .ex-trace-events, .ex-trace .ex-actor-list { display: block !important; }
   a { color: inherit; }
 }

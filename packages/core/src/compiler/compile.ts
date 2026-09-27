@@ -487,13 +487,32 @@ class Renderer {
           return h('td', {}, cellContent(cell, cell ? DOM.svgInstanceId(id, cell.id) : ''));
         })))));
     // Narrow screens: criteria as rows, every option stacked inside each criterion (§9.8).
-    const cards = h('div', { class: 'ex-compare-cards' }, criteria.map((c) => h('section', { class: 'ex-compare-card', 'aria-label': this.label(c.id) },
+    // One link per option row: the option label opens that cell's detail, and the
+    // value is plain text, so a card does not repeat a "Details" link per cell. A
+    // single options line keeps one narrow-screen instance of each option target.
+    const optionLine = h('p', { class: 'ex-compare-options' },
+      h('span', { [DOM.attr.generated]: true }, 'Options: '),
+      options.map((o, i) => [i > 0 ? h('span', { [DOM.attr.generated]: true }, ', ') : null, link(o.id, DOM.listInstanceId(id, o.id), this.label(o.id))]));
+    const cardValue = (cell: TargetRecord | undefined): Child => {
+      if (!cell) return h('span', { class: 'ex-not-provided', [DOM.attr.generated]: true }, 'Not provided');
+      const n = this.nodes.get(cell.id)!;
+      const value = n.attributes['value'];
+      const status = attrString(n, 'valueStatus');
+      return [
+        value !== undefined ? h('span', { class: 'ex-cell-value' }, this.safeText(String(value), cell.id)) : null,
+        status ? h('span', { class: 'ex-value-status', [DOM.attr.generated]: true }, `${value !== undefined ? ' ' : ''}(${status})`) : null,
+        h('div', { class: 'ex-cell-body' }, this.blocks(n)),
+      ];
+    };
+    const cards = h('div', { class: 'ex-compare-cards' }, optionLine, criteria.map((c) => h('section', { class: 'ex-compare-card', 'aria-label': this.label(c.id) },
       h('p', { class: 'ex-compare-criterion' }, criterionLabel(c, DOM.listInstanceId(id, c.id))),
       h('dl', {}, options.map((o) => {
         const cell = cellFor(o.id, c.id);
         return [
-          h('dt', {}, link(o.id, DOM.listInstanceId(id, `${c.id}.${o.id}`), this.label(o.id))),
-          h('dd', {}, cellContent(cell, cell ? DOM.listInstanceId(id, cell.id) : '')),
+          h('dt', {}, cell
+            ? h('a', { href: `#${DOM.canonicalId(cell.id)}`, id: DOM.listInstanceId(id, cell.id), [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}` }, this.label(o.id))
+            : h('span', {}, this.label(o.id))),
+          h('dd', {}, cardValue(cell)),
         ];
       })))));
     return this.figureShell(id, node, 'ex-compare', [table, cards]);
@@ -514,7 +533,7 @@ class Renderer {
         const entity = attrString(this.nodes.get(a.id)!, 'entity');
         return h('li', {},
           h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
-          entity ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
       }));
     // Order layer: the longest `after` chain before an event. Events in one layer
     // have no ordering constraint between them; the number is not a timestamp.
@@ -528,35 +547,54 @@ class Renderer {
       layer.set(eventId, value);
       return value;
     };
+    // One event's content; `suffix` keeps instance IDs unique across the flat
+    // list and the narrow-screen actor groups.
+    const eventContent = (e: TargetRecord, suffix: string, showActor: boolean): Child[] => {
+      const en = this.nodes.get(e.id)!;
+      const actor = attrString(en, 'actor');
+      const kind = attrString(en, 'kind') ?? 'event';
+      const branch = attrString(en, 'branch');
+      const time = en.attributes['time'];
+      const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && r.to === e.id);
+      // An event with `to` is also a message relationship whose ID is the event ID (§9.2).
+      const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
+      return [
+        h('span', { class: 'ex-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
+        h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: message ? e.id : undefined, [DOM.attr.interactive]: true },
+          showActor && actor ? h('span', { class: 'ex-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
+          this.label(e.id),
+          message ? h('span', { class: 'ex-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
+        h('span', { class: 'ex-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
+        scale === 'time' && time !== undefined ? h('span', { class: 'ex-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
+        branch ? h('span', { class: 'ex-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
+        orders.length > 0
+          ? h('span', { class: 'ex-after', [DOM.attr.generated]: true }, ' after: ',
+              orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.label(r.from))]))
+          : null,
+      ];
+    };
+    const kindOf = (e: TargetRecord) => attrString(this.nodes.get(e.id)!, 'kind') ?? 'event';
     const eventList = h('ol', { class: 'ex-trace-events', 'aria-label': 'Events in authored order' },
-      events.map((e) => {
-        const en = this.nodes.get(e.id)!;
-        const actor = attrString(en, 'actor');
-        const kind = attrString(en, 'kind') ?? 'event';
-        const branch = attrString(en, 'branch');
-        const time = en.attributes['time'];
-        const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && r.to === e.id);
-        // An event with `to` is also a message relationship whose ID is the event ID (§9.2).
-        const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
-        return h('li', { class: `ex-event ex-kind-${kind}` },
-          h('span', { class: 'ex-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
-          h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: message ? e.id : undefined, [DOM.attr.interactive]: true },
-            actor ? h('span', { class: 'ex-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
-            this.label(e.id),
-            message ? h('span', { class: 'ex-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
-          h('span', { class: 'ex-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
-          scale === 'time' && time !== undefined ? h('span', { class: 'ex-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
-          branch ? h('span', { class: 'ex-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
-          orders.length > 0
-            ? h('span', { class: 'ex-after', [DOM.attr.generated]: true }, ' after: ',
-                orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.label(r.from))]))
-            : null);
-      }));
+      events.map((e) => h('li', { class: `ex-event ex-kind-${kindOf(e)}` }, eventContent(e, '', true))));
+    // Narrow screens: event cards grouped by actor, in authored order within each
+    // actor (§9.4). Order layer, `after`, branch, and message target stay visible.
+    const byActor = h('div', { class: 'ex-trace-by-actor' }, actors.map((a) => {
+      const entity = attrString(this.nodes.get(a.id)!, 'entity');
+      const own = events.filter((e) => attrString(this.nodes.get(e.id)!, 'actor') === a.id);
+      return h('section', { class: 'ex-actor-group', 'aria-label': this.label(a.id) },
+        h('p', { class: 'ex-actor-heading' },
+          h('a', { href: `#${DOM.canonicalId(a.id)}`, id: `${DOM.listInstanceId(id, a.id)}.card`, [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null),
+        own.length > 0
+          ? h('ol', { class: 'ex-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
+              own.map((e) => h('li', { class: `ex-event ex-kind-${kindOf(e)}` }, eventContent(e, '.card', false))))
+          : h('p', { class: 'ex-no-events', [DOM.attr.generated]: true }, 'No events.'));
+    }));
     const branchList = branches.length > 0
       ? h('ul', { class: 'ex-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
           h('a', { href: `#${DOM.canonicalId(b.id)}`, id: DOM.listInstanceId(id, b.id), [DOM.attr.target]: b.id, [DOM.attr.interactive]: true }, this.label(b.id)))))
       : null;
-    return this.figureShell(id, node, 'ex-trace', [scaleNote, actorList, branchList, eventList]);
+    return this.figureShell(id, node, 'ex-trace', [scaleNote, actorList, branchList, eventList, byActor]);
   }
 
   /** Captured text of a source target: its fenced body, or a declared text asset. */

@@ -27,9 +27,10 @@ Every example passes `explain check` with no diagnostics: `bounded-queue` (archi
 | # | Defect | Status |
 |---|---|---|
 | 1 | At 1440, wide figures were clipped at the text-column edge (the cause graph and the transform pipeline), with no scroll cue. | Fixed: wide figures break out of the column, centred, up to the window width |
-| 2 | Pipelines longer than the window (the 6-stage transform) still scroll inside their viewport. This is permitted by §10.5; a layout direction better suited to long chains is layout tuning. | Open |
-| 3 | On narrow screens, compare cards show a generated "Details" link before each cell body, which adds clutter. | Open |
-| 4 | Trace event cards on narrow screens are not regrouped by actor (§9.4 asks for cards grouped by actor or order layer; they are labelled by order layer). | Open |
+| 2 | Pipelines longer than the window (the 6-stage transform) still scrolled inside their viewport. | Fixed: a deterministic rule uses a top-to-bottom layout when the left-to-right layout is wider than 1100 px and the other is narrower (`fix-image-pipeline-1440.png`) |
+| 3 | On narrow screens, compare cards showed a generated "Details" link before each cell body. | Fixed: the option label in each card is the single link to the cell (`fix-queue-designs-390.png`) |
+| 4 | Trace event cards on narrow screens were not grouped by actor. | Fixed: one group per actor, each card with its order layer and `after` links (`fix-order-intake-trace-390.png`) |
+| 6 | The trace branch list has no visible heading; only its `aria-label` names it. | Open, minor |
 | 5 | Phase 1 defects 3–5 (metadata before title, citation line spacing, map-first mobile view). | Fixed in Phase 2 |
 
 ## Fixed during integration
