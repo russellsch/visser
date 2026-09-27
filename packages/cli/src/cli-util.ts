@@ -1,4 +1,5 @@
 import type { Diagnostic } from '../../core/src/types.ts';
+import { type SchemaName, validateAgainst } from '../../core/src/model/schemas.ts';
 
 // Exit codes (§15.6).
 export const EXIT = {
@@ -70,7 +71,7 @@ export function stringFlag(args: ParsedArgs, name: string): string | undefined {
 
 export function printDiagnostics(diagnostics: Diagnostic[], json: boolean): void {
   if (json) {
-    process.stdout.write(JSON.stringify({ diagnostics }, null, 2) + '\n');
+    printJson('diagnostics', { schema: 'explain-diagnostics/1', diagnostics });
     return;
   }
   for (const d of diagnostics) {
@@ -90,4 +91,15 @@ export function exitCodeFor(diagnostics: Diagnostic[]): number {
   if (errors.some((d) => ['E_REF_STALE', 'E_WRITE_CONFLICT'].includes(d.code))) return EXIT.conflict;
   if (errors.some((d) => ['E_TOOLKIT_MISSING', 'E_SOURCE_UNAVAILABLE', 'E_UNSUPPORTED'].includes(d.code))) return EXIT.unavailable;
   return EXIT.invalid;
+}
+
+/**
+ * Print a --json result after validating it against its normative schema
+ * (§5.4). An output that violates its own schema is a toolkit bug, so this
+ * throws an internal error instead of printing unchecked JSON.
+ */
+export function printJson(name: SchemaName, value: unknown): void {
+  const result = validateAgainst(name, value);
+  if (!result.ok) throw new Error(`--json output violates schema ${name}: ${result.errors.join('; ')}`);
+  process.stdout.write(JSON.stringify(value, null, 2) + '\n');
 }

@@ -130,6 +130,27 @@ if (shapeErrors.length > 0) {
   process.exit(2);
 }
 
+// §5.4: every --json output is validated against its schema before printing.
+// A CLI file that prints JSON directly bypasses that check, so the gate fails.
+{
+  const { readdirSync, statSync } = await import('node:fs');
+  const walk = (dir) => readdirSync(dir).flatMap((name) => {
+    const full = `${dir}/${name}`;
+    return statSync(full).isDirectory() ? walk(full) : [full];
+  });
+  // cli-util.ts defines printJson, the one place that may print JSON directly.
+  const allowed = new Set([at('packages/cli/src/cli-util.ts')]);
+  const offenders = walk(at('packages/cli/src')).filter((f) => f.endsWith('.ts') && !allowed.has(f))
+    .filter((f) => /process\.stdout\.write\(\s*JSON\.stringify/.test(readFileSync(f, 'utf8')));
+  if (offenders.length > 0) {
+    console.log(`json outputs: ${offenders.length} file(s) print JSON without schema validation (use printJson):`);
+    for (const f of offenders) console.log(`  UNCHECKED ${f}`);
+    failed = true;
+  } else {
+    console.log('json outputs: every CLI --json output goes through printJson');
+  }
+}
+
 // Reports: Vitest (required) and Playwright (required once any entry needs a
 // browser test). A missing report means "not run", never "passed" (§18.8).
 const junitPath = at('reports/vitest-junit.xml');

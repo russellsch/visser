@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-build-1.schema.json",
+  "title": "build.json: public artifact metadata of one snapshot (\u00a77.1, \u00a713.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "docId",
+    "sourceRevision",
+    "buildId",
+    "toolkitSha256",
+    "effectiveRenderOptions",
+    "sourceFiles",
+    "outputFiles",
+    "assets"
+  ],
+  "properties": {
+    "schema": {
+      "const": "explain-build/1"
+    },
+    "docId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "sourceRevision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "buildId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "toolkitSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "toolkitVersion": {
+      "type": "string"
+    },
+    "nodeVersion": {
+      "type": "string",
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+"
+    },
+    "effectiveRenderOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "includeSource",
+        "layoutFallback"
+      ],
+      "properties": {
+        "audience": {
+          "enum": [
+            "private",
+            "public"
+          ]
+        },
+        "includeSource": {
+          "type": "boolean"
+        },
+        "layoutFallback": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sourceFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "outputFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "mediaType"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "mediaType": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "packSha256",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "packSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

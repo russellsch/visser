@@ -3,7 +3,7 @@
 import { HashError } from '../../../core/src/model/hash.ts';
 import { forkDocument } from '../../../core/src/references/fork.ts';
 import { findRepoRoot } from '../../../core/src/references/registry.ts';
-import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
+import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag, printJson } from '../cli-util.ts';
 
 export async function runFork(args: ParsedArgs): Promise<number> {
   const [doc, dest] = args.positional;
@@ -13,7 +13,7 @@ export async function runFork(args: ParsedArgs): Promise<number> {
   if (!root) throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .explain) found; pass --root DIR', EXIT.unavailable);
   try {
     const result = forkDocument(doc, dest, { repoRoot: root });
-    if (json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    if (json) printJson('fork', result);
     else process.stdout.write(`forked ${result.sourceDocId} -> ${result.docId}\n  ${result.path}\n  copied: ${result.files.join(', ')}\n`);
     return EXIT.ok;
   } catch (error) {

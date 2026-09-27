@@ -97,6 +97,10 @@ const files = listFiles(out)
   .sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
 
 const manifest = { schema: 'explain-release/1', version, files };
+// release.json has a normative schema (§5.4, §12.1); never ship an invalid one.
+const { validateAgainst } = await import('../packages/core/src/model/schemas.ts');
+const releaseCheck = validateAgainst('release', manifest);
+if (!releaseCheck.ok) throw new Error(`release.json violates explain-release/1: ${releaseCheck.errors.join('; ')}`);
 writeFileSync(join(out, 'release.json'), canonicalJSON(manifest) + '\n');
 const digest = createHash('sha256').update(canonicalJSON(manifest)).digest('hex');
 console.log(`dist/release ${version} toolkit ${digest} (${files.length} files)`);

@@ -4,7 +4,7 @@ import { lstatSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { HashError } from '../../../core/src/model/hash.ts';
 import { captureFile, captureGit, type CaptureResult } from '../../../core/src/provenance/index.ts';
-import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
+import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag, printJson } from '../cli-util.ts';
 
 const USAGE = [
   'usage: explain capture git --repo DIR --file PATH --lines START:END --doc DOC --id ID --title TITLE',
@@ -34,7 +34,7 @@ function optional(args: ParsedArgs, name: string): Record<string, string> {
 
 function report(result: CaptureResult, json: boolean): void {
   if (json) {
-    process.stdout.write(JSON.stringify({ schema: 'explain-capture/1', ...result }, null, 2) + '\n');
+    printJson('capture', { schema: 'explain-capture/1', ...result });
     return;
   }
   const a = result.attributes;

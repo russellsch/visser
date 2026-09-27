@@ -4,7 +4,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
-import { validateAgainst } from '../../../core/src/model/schemas.ts';
 import { PACKET_MAX_BYTES, parsePacket, type ReferencePacket } from '../../../core/src/references/packet.ts';
 import { findRepoRoot } from '../../../core/src/references/registry.ts';
 import { resolveReference, type ResolveResult } from '../../../core/src/references/resolve.ts';
@@ -12,7 +11,7 @@ import { showReference } from '../../../core/src/references/show.ts';
 import { refreshReference, RefreshRefused } from '../../../core/src/references/refresh.ts';
 import { replaceTarget, type EditResult } from '../../../core/src/references/replace.ts';
 import { retireTarget } from '../../../core/src/references/retire.ts';
-import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
+import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag, printJson } from '../cli-util.ts';
 
 const USAGE = [
   'usage: explain refs resolve --packet FILE [--doc PATH] [--root DIR] [--json]',
@@ -67,9 +66,7 @@ function exitForStatus(result: ResolveResult): number {
 
 function printResolve(result: ResolveResult, json: boolean): void {
   if (json) {
-    const check = validateAgainst('resolve', result);
-    if (!check.ok) throw new Error(`resolver output violates explain-resolve/1: ${check.errors.join('; ')}`);
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    printJson('resolve', result);
     return;
   }
   const flags = [
@@ -109,7 +106,7 @@ async function show(args: ParsedArgs): Promise<number> {
   const json = booleanFlag(args, 'json');
   const quote = stringFlag(args, 'quote');
   const result = showReference(doc, targetId, { repoRoot: repoRoot(args), ...(quote !== undefined ? { quote } : {}) });
-  if (json) process.stdout.write(JSON.stringify({ packet: result.packet, yaml: result.yaml, ...(result.quoteFound !== undefined ? { quoteFound: result.quoteFound } : {}) }, null, 2) + '\n');
+  if (json) printJson('show', { schema: 'explain-show/1', packet: result.packet, yaml: result.yaml, ...(result.quoteFound !== undefined ? { quoteFound: result.quoteFound } : {}) });
   else process.stdout.write(result.yaml);
   if (result.quoteFound === false) printDiagnostics([{ code: 'W_QUOTE_NOT_FOUND', severity: 'warning', message: 'the quote is not in the target text' }], false);
   return EXIT.ok;
@@ -123,14 +120,14 @@ async function refresh(args: ParsedArgs): Promise<number> {
   const doc = stringFlag(args, 'doc');
   try {
     const result = refreshReference(packet, expected, acknowledgements, { repoRoot: repoRoot(args), ...(doc !== undefined ? { doc } : {}) });
-    if (json) process.stdout.write(JSON.stringify({ packet: result.packet, yaml: result.yaml, targetBodyUnchanged: result.targetBodyUnchanged }, null, 2) + '\n');
+    if (json) printJson('refresh', { schema: 'explain-refresh/1', refused: false, packet: result.packet, yaml: result.yaml, ...(result.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: result.targetBodyUnchanged } : {}) });
     else process.stdout.write(result.yaml);
     return EXIT.ok;
   } catch (error) {
     if (!(error instanceof RefreshRefused)) throw error;
     const diagnostics: Diagnostic[] = [{ code: 'E_REF_STALE', severity: 'error', message: error.message, targetId: packet.targetId }];
     if (json) {
-      process.stdout.write(JSON.stringify({ refused: true, targetBodyUnchanged: error.resolution.targetBodyUnchanged, currentRevision: error.resolution.currentRevision, currentText: error.currentText, diagnostics }, null, 2) + '\n');
+      printJson('refresh', { schema: 'explain-refresh/1', refused: true, ...(error.resolution.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: error.resolution.targetBodyUnchanged } : {}), ...(error.resolution.currentRevision !== undefined ? { currentRevision: error.resolution.currentRevision } : {}), ...(error.currentText !== undefined ? { currentText: error.currentText } : {}), diagnostics });
     } else {
       if (error.currentText !== undefined) process.stdout.write(`--- current target text ---\n${error.currentText}`);
       printDiagnostics(diagnostics, false);
@@ -141,9 +138,7 @@ async function refresh(args: ParsedArgs): Promise<number> {
 
 function printEdit(result: EditResult, verb: string, json: boolean): void {
   if (json) {
-    const check = validateAgainst('edit', result);
-    if (!check.ok) throw new Error(`edit output violates explain-edit/1: ${check.errors.join('; ')}`);
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    printJson('edit', result);
     return;
   }
   process.stdout.write([

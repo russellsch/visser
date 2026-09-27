@@ -9,7 +9,7 @@ import type { Diagnostic } from '../../../core/src/types.ts';
 import { loadBundle } from '../../../core/src/model/bundle.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
 import { parseRepoMapEntry, userRepositoryMap, verifyOrigins, type OriginResult } from '../../../core/src/provenance/index.ts';
-import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics } from '../cli-util.ts';
+import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson } from '../cli-util.ts';
 import { loadDocument } from './load.ts';
 
 function repositoryMap(args: ParsedArgs): Map<string, string> {
@@ -45,7 +45,7 @@ export async function runCheck(args: ParsedArgs): Promise<number> {
   }
   const code = exitCodeFor(all);
   if (json) {
-    process.stdout.write(JSON.stringify({ schema: 'explain-check/1', ok: code === EXIT.ok, targetCount: targets.size, diagnostics: all, ...(origins ? { origins } : {}) }, null, 2) + '\n');
+    printJson('check', { schema: 'explain-check/1', ok: code === EXIT.ok, targetCount: targets.size, diagnostics: all, ...(origins ? { origins } : {}) });
   } else {
     printDiagnostics(all, false);
     if (origins) {
