@@ -910,7 +910,8 @@ flowchart LR
 
 - *Flowchart, state (`stateDiagram-v2`), and sequence diagrams* are parsed at build time. Each node, state, or participant ID must match the §6.3 ID grammar and becomes a document target (kind `mermaid-node`, `mermaid-state`, or `mermaid-participant`), with the Mermaid label as its label. A flowchart edge with a Mermaid edge ID (`e1@-->`) becomes a relationship target with that ID; other edges, transitions, and sequence messages are relationships with derived IDs (`FIG~from~to~N`) that are not referenceable, like trace `order` relationships (§9.2). A reference to a derived relationship resolves to its figure.
 - *All other Mermaid types* (ER, class, Gantt, and so on) are one figure-level target. Their nodes are not individually inspectable, and the page says so.
-- The parsing method (Mermaid's own parser in Node, or a restricted subset parser) is chosen in Phase 2b step 1 from spike evidence. Unsupported syntax in the three parsed types is `E_SEMANTIC`, never a silent downgrade to figure level.
+- **Parsing (decided by the spike, `spikes/mermaid/`):** the build worker parses with Mermaid's own `mermaidAPI.getDiagramFromText(text).db`, under jsdom for flowchart and state (DOMPurify needs a `window`); `@mermaid-js/parser` does not cover these three types. `mermaid` and `jsdom` are pinned build dependencies. State transitions and sequence messages have no source IDs, so their derived IDs use source order, which is also the order of the rendered `data-id` values. Unsupported syntax in the three parsed types is `E_SEMANTIC`, never a silent downgrade to figure level.
+- **Rendered element mapping:** flowchart nodes by the node name in the element ID (`RENDER-flowchart-NAME-N`), flowchart edges by `data-id` (the explicit `e1@` ID or `L_A_B_N`), state nodes by name (`RENDER-state-NAME-N`), transitions by `data-id` index, participants by `data-et="participant" data-id=NAME`, and messages by `data-et="message" data-id` index.
 
 **Rejected content** (build time, `E_UNSAFE_CONTENT`): `%%{init: …}%%` directives, YAML frontmatter configuration in the diagram source, `click` statements, and links with a scheme other than §15.2 allows. Theme and configuration come only from the toolkit, so a document cannot change security settings.
 
@@ -921,7 +922,9 @@ flowchart LR
 - Narrow screens show the list first for parsed types, with the rendered drawing as the alternate view (§10.5); other types show the drawing in a scrollable viewport with the source text available.
 - Rendered SVG is browser output: byte determinism (§7.5) covers the HTML and the source, not the drawing. A render failure leaves the source and lists in place and shows a visible notice.
 
-**Content Security Policy.** Mermaid injects styles into its SVG. The policy for pages with a Mermaid figure is decided in Phase 2b step 1 from spike evidence; until then the strict §15.3 policy stands, and no page relaxes it silently. Script sources stay `'self'` in every case.
+**Content Security Policy (decided by the spike).** Under the strict §15.3 policy Mermaid 12.0.0 caused 15 `style-src-elem` and 382 `style-src-attr` violations and rendered wrongly; moving its CSS to a same-origin stylesheet did not fix the rendering, because Mermaid measures text with inline styles during `render`, and `style-src-attr` cannot use a nonce. `style-src 'self' 'unsafe-inline'` rendered flowchart, sequence, state, ER, and class diagrams correctly with no violations. Therefore pages that contain a Mermaid figure, and only those pages, add `'unsafe-inline'` to `style-src`, in the server header and in the static-export meta element. Every other directive stays as in §15.3: scripts `'self'`, images `'self'`, fonts and connections `'none'`. Injected CSS therefore cannot load or send anything off-origin. Mermaid needs no `'unsafe-eval'`, no `data:` images, and no fonts.
+
+**Security (verified by the spike).** With `securityLevel: 'strict'`, `click` callbacks did not run, `javascript:` links lost their href, and `onerror`, `<img>`, and `<script>` in labels were removed. An `init` directive or frontmatter that sets `securityLevel: loose` did not loosen it, but frontmatter `config` did change the theme, so the build-time rejection of directives and frontmatter configuration is still required.
 
 ## 10. Reader interface and accessibility
 
@@ -1670,7 +1673,7 @@ Deliver: at least one complete example for each family, a second cross-domain ex
 
 Runs after Phase 2 and before Phase 3 (user decision, §1.2).
 
-1. **Spike and decisions.** Pin `mermaid@12.0.0`. Measure rendering under the strict §15.3 CSP and with relaxed style sources for flowchart, sequence, state, ER, and class diagrams; decide the Mermaid-page CSP (§9.12). Decide the build-time parsing method for the three parsed types. Record the rendered element IDs that the runtime maps to targets, and whether `securityLevel: 'strict'` and build-time rejection cover `click`, links, directives, and frontmatter.
+1. **Spike and decisions — done** (`spikes/mermaid/`, recorded in §9.12 and `VALIDATION.md`): the Mermaid-page CSP, the parsing method, the rendered element mapping, and the security checks.
 2. **Model.** The `mermaid` tag, validation, targets for parsed types, derived relationship IDs, projection (source text plus lists), and `E_UNSAFE_CONTENT` rejections.
 3. **Build and runtime.** Static fallback markup, the lazily loaded asset copied only when used, the per-page CSP from step 1, rendering, element-to-target mapping, list-first narrow view, and a visible render-failure notice.
 4. **Skill.** Guidance for choosing Mermaid or a catalogue family (§16, Appendix B).

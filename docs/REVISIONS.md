@@ -101,3 +101,5 @@ The user asked for Mermaid diagrams and answered two rounds of questions on 27 S
 - **Order:** Phase 2b runs before Phase 3.
 
 Changes: §1.2, §2.1, §2.3, the new §9.12, §13.1, ADR-04 and ADR-06 notes, the new §17.5a, the skill (Appendix B step 4), and the handoff build sequence.
+
+**Spike results (same revision):** the Mermaid-page CSP adds `'unsafe-inline'` to `style-src` only on pages with a Mermaid figure (the strict policy broke rendering; no narrower variant worked); parsing uses Mermaid's `getDiagramFromText` under jsdom; the rendered element mapping and the `securityLevel: 'strict'` checks are recorded in §9.12.
