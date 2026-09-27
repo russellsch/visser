@@ -141,3 +141,11 @@ Accepted (§8.2, §8.4, §8.5, §11.11, §12.8, §17.1, §17.6):
 - **Retire:** frontmatter insertion only into a two-space block mapping, validation before rename, `check` enforcement of the §11.7 rules, and `refs replace --retire` for nested IDs that cannot be retired alone (a Mermaid node was otherwise undeletable).
 - **Scope:** `content import` is deferred to Phase 4 with a v1 narrowing; `fork` copies only declared files and writes through a temporary directory.
 - **Plan:** a work order that reuses the Phase 1 lock code and the spike's capture code, and a concrete exit check.
+
+## Revision 1.15 — Phase 3 implemented
+
+- New diagnostics: `E_ORIGIN_MISMATCH` (exit 2) and `W_ORIGIN_UNAVAILABLE` (warning); verification states in `check --verify-origins` output include `origin-mismatch` and `working-tree-matched`.
+- `content import` remains `E_UNSUPPORTED` (Phase 4).
+- The guarded write is one shared module used by replace, retire, capture, and the fork's docId rewrite.
+- Fixed during integration: `fork` claims `DEST` with an exclusive `mkdir` before renaming, because rename(2) silently replaces an empty directory (a test with the seam in the old race window showed the old code overwriting it); `capture` with a missing document now gives `E_SOURCE_UNAVAILABLE` instead of an internal error.
+- Known gaps: JSON schemas for `explain-capture/1`, `explain-fork/1`, and the `origins` part of `explain-check/1` are not yet in `schemas/` (§5.4 asks for one per `--json` output); planned for Phase 4 with the other schema work.

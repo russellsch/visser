@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.14, 27 September 2026 (Phase 3 plan reviewed against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.15, 27 September 2026 (Phase 3 implemented). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -702,7 +702,7 @@ Generated verification state is one of:
 
 Use these exact ideas in UI language. Do not shorten them to “true” or “verified claim.” Ordinary offline build checks capture consistency only. `explain check --verify-origins` is explicit, reads local Git objects with the §8.2 procedure, and never fetches (`protocol.allow=never`).
 
-**Where the states appear (v1):** rendered pages show only `capture-consistent` or `link-only`, recomputed at every build, so no stale verification result reaches a reader. `check --verify-origins` reports `origin-matched`, `origin-unavailable`, or a mismatch for each source in its output and JSON. Showing origin states on pages would need an explicit `build --verify-origins` option in `effectiveRenderOptions`; that is deferred.
+**Where the states appear (v1):** rendered pages show only `capture-consistent` or `link-only`, recomputed at every build, so no stale verification result reaches a reader. `check --verify-origins` reports one state per source in its output and in `origins` in its JSON: `origin-matched`, `origin-mismatch` (`E_ORIGIN_MISMATCH`), `origin-unavailable` (`W_ORIGIN_UNAVAILABLE`), `working-tree-matched` (with `checkedAt`), `capture-consistent` for `example` sources, or `link-only`. `--repo-map` may repeat. Showing origin states on pages would need an explicit `build --verify-origins` option in `effectiveRenderOptions`; that is deferred.
 
 **Comparison:** a `git` source is `origin-matched` when the normalized lines `start..end` of the blob at the recorded `commit` (with one terminal LF) equal the stored excerpt, and, if `originFileSha256` is present, the whole blob's raw bytes hash to it. A `working-tree` source is compared with the current file and reported as "matched the working tree at TIME", never as `origin-matched`, because the file can change afterwards; a missing file is `origin-unavailable`.
 
@@ -1567,6 +1567,8 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_PRIVATE_EXPORT` | Public export contains material requiring explicit approval. |
 | `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. |
 | `W_UNSAFE_TEXT` | Bidirectional control characters rendered as visible escapes. |
+| `E_ORIGIN_MISMATCH` | `check --verify-origins`: a captured excerpt differs from its origin; exit 2. |
+| `W_ORIGIN_UNAVAILABLE` | `check --verify-origins`: the origin could not be read (missing object, repository, or file); a warning, so the exit stays 0. |
 | `E_SEMANTIC` | A family validation rule in §9 is violated (for example two initial states, a dependency cycle, or two cells for one option and criterion); exit 2. |
 | `E_USAGE` | Invalid command-line usage; exit 2. |
 | `E_BUILD` | Build stopped because the source or compilation failed; the exit code follows the underlying diagnostics. |

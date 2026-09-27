@@ -419,7 +419,44 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       validateSource(figure, model, assets, report);
     }
   }
+  validateRetirement(parsed, model, report);
   return diagnostics;
+}
+
+/**
+ * §11.7: no ID is both live and retired; a replacement names a live target;
+ * no replacement names a retired target, so chains and cycles cannot form.
+ */
+function validateRetirement(
+  parsed: ParsedSource,
+  model: TargetModel,
+  report: (code: string, message: string, t: ParsedTarget | undefined, severity?: 'error' | 'warning', line?: number) => void,
+): void {
+  const raw = parsed.frontmatter['retiredTargets'];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return; // shape errors come from the schema
+  const retired = raw as Record<string, { replacement?: unknown }>;
+  for (const [id, entry] of Object.entries(retired)) {
+    if (model.targets.has(id)) report('E_SEMANTIC', `${id} is both live and retired (§11.7); remove the retirement entry or the target`, undefined, 'error', 1);
+    const replacement = entry && typeof entry === 'object' ? entry.replacement : undefined;
+    if (typeof replacement !== 'string') continue;
+    if (Object.hasOwn(retired, replacement)) {
+      report('E_SEMANTIC', `retired ${id} names ${replacement} as its replacement, but ${replacement} is also retired; replacement chains are not allowed (§11.7)`, undefined, 'error', 1);
+    } else if (!model.targets.has(replacement)) {
+      report('E_SEMANTIC', `retired ${id} names ${replacement} as its replacement, but ${replacement} is not a live target (§11.7)`, undefined, 'error', 1);
+    }
+  }
+}
+
+/**
+ * §8.2: `repository` holds a portable identity, never a local path, because
+ * pages and exports print it. An absolute path, a `file:` URL, or a URL with
+ * credentials is unsafe.
+ */
+export function unsafeRepositoryIdentity(value: string): string | undefined {
+  if (/^(\/|~|[A-Za-z]:[\\/]|\\\\)/.test(value)) return 'an absolute local path';
+  if (/^file:/i.test(value)) return 'a file: URL';
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/@\s]*@/.test(value)) return 'a URL with credentials';
+  return undefined;
 }
 
 /** The fenced body of a source tag, or undefined when it has none. */
@@ -436,6 +473,10 @@ function validateSource(
   report: (code: string, message: string, t: ParsedTarget | undefined, severity?: 'error' | 'warning') => void,
 ): void {
   const a = t.attributes;
+  if (typeof a['repository'] === 'string') {
+    const unsafe = unsafeRepositoryIdentity(a['repository']);
+    if (unsafe) report('E_UNSAFE_CONTENT', `source ${t.id}: \`repository\` is ${unsafe}; record the remote URL without credentials or a label (§8.2)`, t);
+  }
   const node = model.nodes.get(t.id);
   const fences = node?.children.filter((c) => c.type === 'fence') ?? [];
   const asset = typeof a['asset'] === 'string' ? a['asset'] : undefined;

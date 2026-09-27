@@ -58,8 +58,16 @@ describe('Phase 0 CLI against the built release', () => {
     expect(exported.stdout).toContain('Producer --[blocking-call; put waits while full]--> Bounded queue');
   });
 
+  it('capture with a missing document is E_SOURCE_UNAVAILABLE, not an internal error', () => {
+    const missing = join(mkdtempSync(join(tmpdir(), 'explain-')), 'none', 'index.md');
+    const result = run('capture', 'git', '--repo', root, '--file', 'README.md', '--lines', '1:1', '--doc', missing, '--id', 'src_x', '--title', 'X');
+    expect(result.status).toBe(3);
+    expect(result.stderr).toContain('E_SOURCE_UNAVAILABLE');
+    expect(result.stderr).not.toContain('internal error');
+  });
+
   it('deferred commands exit 3 with E_UNSUPPORTED instead of succeeding', () => {
-    for (const command of ['capture', 'fork', 'install', 'doctor', 'vendor']) {
+    for (const command of ['content', 'install', 'doctor', 'vendor', 'upgrade']) {
       const result = run(command, '--json');
       expect(result.status).toBe(3);
       expect(result.stdout).toContain('E_UNSUPPORTED');

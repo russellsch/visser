@@ -23,6 +23,8 @@ export class CliError extends Error {
 export type ParsedArgs = {
   positional: string[];
   flags: Map<string, string | true>;
+  /** Every value of each flag, in order, for repeatable flags such as `--retire`. */
+  all: Map<string, Array<string | true>>;
 };
 
 // Parse `--name value`, `--name=value`, and boolean `--name` flags.
@@ -32,6 +34,11 @@ const BOOLEAN_FLAGS = new Set(['json', 'check', 'help']);
 export function parseArgs(args: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags = new Map<string, string | true>();
+  const all = new Map<string, Array<string | true>>();
+  const set = (name: string, value: string | true) => {
+    flags.set(name, value);
+    all.set(name, [...(all.get(name) ?? []), value]);
+  };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (!arg.startsWith('--')) {
@@ -40,19 +47,19 @@ export function parseArgs(args: string[]): ParsedArgs {
     }
     const eq = arg.indexOf('=');
     if (eq !== -1) {
-      flags.set(arg.slice(2, eq), arg.slice(eq + 1));
+      set(arg.slice(2, eq), arg.slice(eq + 1));
       continue;
     }
     const name = arg.slice(2);
     const next = args[i + 1];
     if (BOOLEAN_FLAGS.has(name) || next === undefined || next.startsWith('--')) {
-      flags.set(name, true);
+      set(name, true);
     } else {
-      flags.set(name, next);
+      set(name, next);
       i++;
     }
   }
-  return { positional, flags };
+  return { positional, flags, all };
 }
 
 export function stringFlag(args: ParsedArgs, name: string): string | undefined {

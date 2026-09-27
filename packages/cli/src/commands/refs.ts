@@ -1,4 +1,4 @@
-// `explain refs resolve|show|refresh|replace` (§11.6, §11.9, §11.10, §11.12, §17.1).
+// `explain refs resolve|show|refresh|replace|retire` (§11.6, §11.9–11.12, §17.1).
 // Exit codes (§15.6): 0 exact/success, 2 invalid, missing, deleted, ambiguous, or
 // ID retention, 3 unsupported or no repository, 4 path escape, 5 stale or write conflict.
 import { readFileSync, statSync } from 'node:fs';
@@ -10,14 +10,16 @@ import { findRepoRoot } from '../../../core/src/references/registry.ts';
 import { resolveReference, type ResolveResult } from '../../../core/src/references/resolve.ts';
 import { showReference } from '../../../core/src/references/show.ts';
 import { refreshReference, RefreshRefused } from '../../../core/src/references/refresh.ts';
-import { replaceTarget } from '../../../core/src/references/replace.ts';
+import { replaceTarget, type EditResult } from '../../../core/src/references/replace.ts';
+import { retireTarget } from '../../../core/src/references/retire.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
 
 const USAGE = [
   'usage: explain refs resolve --packet FILE [--doc PATH] [--root DIR] [--json]',
   '       explain refs show DOC TARGET_ID [--quote TEXT] [--root DIR] [--json]',
   '       explain refs refresh --packet FILE --expected-current REV --acknowledge-stale [--acknowledge-body-change] [--doc PATH] [--root DIR] [--json]',
-  '       explain refs replace --packet FILE --replacement FILE --expected-revision REV [--doc PATH] [--root DIR] [--json]',
+  '       explain refs replace --packet FILE --replacement FILE --expected-revision REV [--retire ID --reason TEXT]... [--doc PATH] [--root DIR] [--json]',
+  '       explain refs retire --packet FILE --reason TEXT [--replacement ID] --expected-revision REV [--doc PATH] [--root DIR] [--json]',
 ].join('\n');
 
 function booleanFlag(args: ParsedArgs, name: string): boolean {
@@ -137,11 +139,47 @@ async function refresh(args: ParsedArgs): Promise<number> {
   }
 }
 
+function printEdit(result: EditResult, verb: string, json: boolean): void {
+  if (json) {
+    const check = validateAgainst('edit', result);
+    if (!check.ok) throw new Error(`edit output violates explain-edit/1: ${check.errors.join('; ')}`);
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    return;
+  }
+  process.stdout.write([
+    `${verb} ${result.targetId}: ${result.oldRevision} -> ${result.newRevision}`,
+    `changed: ${result.changedTargets.join(', ') || '(none)'}`,
+    `containing: ${result.containingTargets.join(', ') || '(none)'}`,
+    `added: ${result.addedTargets.join(', ') || '(none)'}`,
+    ...(result.retiredTargets && result.retiredTargets.length > 0 ? [`retired: ${result.retiredTargets.join(', ')}`] : []),
+    ...result.dependentTargets.filter((d) => d.dependents.length > 0).map((d) => `dependents of ${d.target}: ${d.dependents.join(', ')}`),
+    '',
+    result.diff,
+  ].join('\n'));
+}
+
+/** Pair repeated `--retire ID` and `--reason TEXT` flags by position. */
+function retireList(args: ParsedArgs): Array<{ id: string; reason: string }> {
+  const ids = args.all.get('retire') ?? [];
+  const reasons = args.all.get('reason') ?? [];
+  if (ids.length === 0) {
+    if (reasons.length > 0) throw new CliError('E_USAGE', '--reason needs a matching --retire ID', EXIT.invalid);
+    return [];
+  }
+  if (ids.length !== reasons.length) throw new CliError('E_USAGE', 'each --retire ID needs its own --reason TEXT', EXIT.invalid);
+  return ids.map((id, i) => {
+    const reason = reasons[i];
+    if (id === true || reason === true || reason === undefined) throw new CliError('E_USAGE', '--retire and --reason need values', EXIT.invalid);
+    return { id, reason };
+  });
+}
+
 async function replace(args: ParsedArgs): Promise<number> {
   const json = booleanFlag(args, 'json');
   const packet = readPacket(required(args, 'packet'));
   const replacementPath = required(args, 'replacement');
   const expected = required(args, 'expected-revision');
+  const retire = retireList(args);
   let replacement: Uint8Array;
   try {
     replacement = new Uint8Array(readFileSync(replacementPath));
@@ -149,22 +187,21 @@ async function replace(args: ParsedArgs): Promise<number> {
     throw new CliError('E_SOURCE_UNAVAILABLE', `cannot read replacement ${replacementPath}`, EXIT.unavailable);
   }
   const doc = stringFlag(args, 'doc');
-  const result = replaceTarget(packet, replacement, expected, { repoRoot: repoRoot(args), ...(doc !== undefined ? { doc } : {}) });
-  if (json) {
-    const check = validateAgainst('edit', result);
-    if (!check.ok) throw new Error(`edit output violates explain-edit/1: ${check.errors.join('; ')}`);
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  } else {
-    process.stdout.write([
-      `replaced ${result.targetId}: ${result.oldRevision} -> ${result.newRevision}`,
-      `changed: ${result.changedTargets.join(', ') || '(none)'}`,
-      `containing: ${result.containingTargets.join(', ') || '(none)'}`,
-      `added: ${result.addedTargets.join(', ') || '(none)'}`,
-      ...result.dependentTargets.filter((d) => d.dependents.length > 0).map((d) => `dependents of ${d.target}: ${d.dependents.join(', ')}`),
-      '',
-      result.diff,
-    ].join('\n'));
-  }
+  const result = replaceTarget(packet, replacement, expected, { repoRoot: repoRoot(args), ...(doc !== undefined ? { doc } : {}), ...(retire.length > 0 ? { retire } : {}) });
+  printEdit(result, 'replaced', json);
+  return EXIT.ok;
+}
+
+async function retire(args: ParsedArgs): Promise<number> {
+  const json = booleanFlag(args, 'json');
+  const packet = readPacket(required(args, 'packet'));
+  const reason = required(args, 'reason');
+  const expected = required(args, 'expected-revision');
+  if ((args.all.get('reason') ?? []).length > 1) throw new CliError('E_USAGE', 'refs retire takes one --reason', EXIT.invalid);
+  const replacement = stringFlag(args, 'replacement');
+  const doc = stringFlag(args, 'doc');
+  const result = retireTarget(packet, { reason, ...(replacement !== undefined ? { replacement } : {}) }, expected, { repoRoot: repoRoot(args), ...(doc !== undefined ? { doc } : {}) });
+  printEdit(result, 'retired', json);
   return EXIT.ok;
 }
 
@@ -176,10 +213,7 @@ export async function runRefs(args: ParsedArgs): Promise<number> {
       case 'show': return await show(args);
       case 'refresh': return await refresh(args);
       case 'replace': return await replace(args);
-      case 'retire': {
-        printDiagnostics([{ code: 'E_UNSUPPORTED', severity: 'error', message: '`refs retire` is not implemented yet (planned for Phase 3)' }], args.flags.has('json'));
-        return EXIT.unavailable;
-      }
+      case 'retire': return await retire(args);
       default:
         throw new CliError('E_USAGE', USAGE, EXIT.invalid);
     }

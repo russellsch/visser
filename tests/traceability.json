@@ -66,6 +66,15 @@
       "note": "Narrow and no-JS views carry the same target and relationship sets as the model for every example, including order, branch, and exclusivity data."
     },
     {
+      "id": "R07",
+      "phase": 3,
+      "status": "covered",
+      "tags": [
+        "@R07"
+      ],
+      "note": "Committed capture ignores a dirty working tree; working-tree captures are labelled and compared as working-tree matches; example and link-only sources; unavailable origins and hostile repositories (replace refs, partial clones, gitfiles, alternates) fail closed."
+    },
+    {
       "id": "R11",
       "phase": 0,
       "status": "partial",
@@ -121,12 +130,12 @@
     },
     {
       "id": "R19",
-      "phase": 0,
-      "status": "partial",
+      "phase": 3,
+      "status": "covered",
       "tags": [
         "@R19"
       ],
-      "note": "ids assign preserves existing IDs and other bytes. Guarded-edit preservation (T15) is Phase 1."
+      "note": "ids assign, guarded replace, retire, and capture keep every other target ID and body hash; frontmatter edits keep every other key."
     },
     {
       "id": "T01",
@@ -172,6 +181,24 @@
         "@T05"
       ],
       "note": "Duplicate IDs fail with E_ID_DUPLICATE (fixtures/negative/E_ID_DUPLICATE). Resolver-level rejection is Phase 1."
+    },
+    {
+      "id": "T06",
+      "phase": 3,
+      "status": "covered",
+      "tags": [
+        "@T06"
+      ],
+      "note": "fork gives a new doc ID; original packets do not address the fork."
+    },
+    {
+      "id": "T07",
+      "phase": 3,
+      "status": "covered",
+      "tags": [
+        "@T07"
+      ],
+      "note": "retire and merge give deleted with an advisory replacement only."
     },
     {
       "id": "T08",
@@ -244,6 +271,24 @@
         "@T15"
       ],
       "note": "A guarded replace changes only the target and its ancestors."
+    },
+    {
+      "id": "T16",
+      "phase": 3,
+      "status": "covered",
+      "tags": [
+        "@T16"
+      ],
+      "note": "Retiring a nested edge: the edge resolves deleted and its container stale."
+    },
+    {
+      "id": "T17",
+      "phase": 3,
+      "status": "covered",
+      "tags": [
+        "@T17"
+      ],
+      "note": "Retire with a live referrer is refused with E_REF_BROKEN and lists the referrers."
     },
     {
       "id": "T18",

@@ -10,6 +10,8 @@ import { fail, guardedWrite, unifiedDiff } from './guarded-write.ts';
 import type { ReferencePacket } from './packet.ts';
 import { locateDocument } from './registry.ts';
 import { resolveReference, type ResolveOptions } from './resolve.ts';
+import { checkReason, type RetiredEntry } from './frontmatter-edit.ts';
+import { withRetiredEntries } from './retire.ts';
 
 export type EditResult = {
   schema: 'explain-edit/1';
@@ -21,10 +23,16 @@ export type EditResult = {
   addedTargets: TargetId[];
   containingTargets: TargetId[];
   dependentTargets: Array<{ target: TargetId; dependents: TargetId[] }>;
+  /** IDs this edit recorded under `retiredTargets` (§11.11). */
+  retiredTargets?: TargetId[];
   diff: string;
 };
 
-export type ReplaceOptions = ResolveOptions & { fsContext?: FsContext };
+export type ReplaceOptions = ResolveOptions & {
+  fsContext?: FsContext;
+  /** §11.11: nested IDs the replacement drops, retired in the same guarded write. */
+  retire?: Array<{ id: TargetId; reason: string }>;
+};
 
 // ---------------------------------------------------------------------------
 // Replacement validation (§11.9 step 3)
@@ -59,7 +67,7 @@ function fitReplacement(replacement: Uint8Array, original: Uint8Array, span: Uin
   return new TextEncoder().encode(newline === '\n' ? text : text.replace(/\n/g, newline));
 }
 
-function validateCandidate(before: LoadedBundle, after: LoadedBundle, targetId: TargetId, region: { start: number; end: number }): void {
+function validateCandidate(before: LoadedBundle, after: LoadedBundle, targetId: TargetId, region: { start: number; end: number }, retiring: ReadonlySet<TargetId> = new Set()): void {
   const errors = after.diagnostics.filter((d) => d.severity === 'error');
   if (errors.length > 0) {
     const retention = errors.find((d) => d.code === 'E_ID_DUPLICATE');
@@ -73,8 +81,12 @@ function validateCandidate(before: LoadedBundle, after: LoadedBundle, targetId: 
   // Every nested ID of the old target must remain inside the replacement exactly once.
   for (const id of descendants(before.model.targets, targetId)) {
     const kept = after.model.targets.get(id);
+    if (retiring.has(id)) {
+      if (kept) fail('E_SEMANTIC', `--retire ${id}: the replacement still contains ${id}`);
+      continue;
+    }
     if (!kept || !inRegion(kept)) {
-      fail('E_ID_RETENTION', `the replacement drops nested target ${id}; retire it first (refs retire, Phase 3)`);
+      fail('E_ID_RETENTION', `the replacement drops nested target ${id}; add \`--retire ${id} --reason TEXT\` to retire it in the same write`);
     }
   }
   // Roots in the region other than the retained one are new siblings (a split) and must be new IDs.
@@ -121,9 +133,21 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
     next.set(bytes.subarray(0, startByte), 0);
     next.set(fitted, startByte);
     next.set(bytes.subarray(endByte), startByte + fitted.length);
+    // §11.11: --retire applies only to IDs nested in the old span.
+    const retire = opts.retire ?? [];
+    const nested = new Set(descendants(bundle.model.targets, packet.targetId));
+    for (const entry of retire) {
+      checkReason(entry.reason);
+      if (!nested.has(entry.id)) fail('E_SEMANTIC', `--retire ${entry.id}: only IDs nested in ${packet.targetId} can be retired with refs replace`);
+    }
+    const entries: RetiredEntry[] = retire.map((entry) => ({ id: entry.id, reason: entry.reason }));
+    const withEntries = entries.length > 0 ? withRetiredEntries(next, entries) : next;
+    // The frontmatter precedes the span, so inserted entries shift the region.
+    const shift = withEntries.length - next.length;
     before = bundle;
-    region = { start: startByte, end: startByte + fitted.length };
-    return { original: bytes, candidate: next, validate: (candidateBundle) => validateCandidate(bundle, candidateBundle, packet.targetId, region) };
+    region = { start: startByte + shift, end: startByte + shift + fitted.length };
+    const retiring = new Set(retire.map((entry) => entry.id));
+    return { original: bytes, candidate: withEntries, validate: (candidateBundle) => validateCandidate(bundle, candidateBundle, packet.targetId, region, retiring) };
   });
   const bundle = before!;
 
@@ -153,6 +177,7 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
     addedTargets: added,
     containingTargets: containing,
     dependentTargets,
+    ...((opts.retire ?? []).length > 0 ? { retiredTargets: (opts.retire ?? []).map((entry) => entry.id) } : {}),
     diff: unifiedDiff(oldText, newText, relative(opts.repoRoot, indexPath).split(sep).join('/')),
   };
 }

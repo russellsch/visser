@@ -1,35 +1,96 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://explain.invalid/schemas/explain-edit-1.schema.json",
-  "title": "Explain guarded edit result (explain-edit/1, §11.9 step 6)",
+  "title": "Explain guarded edit result (explain-edit/1, \u00a711.9 step 6)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "docId", "targetId", "oldRevision", "newRevision", "changedTargets", "addedTargets", "containingTargets", "dependentTargets", "diff"],
+  "required": [
+    "schema",
+    "docId",
+    "targetId",
+    "oldRevision",
+    "newRevision",
+    "changedTargets",
+    "addedTargets",
+    "containingTargets",
+    "dependentTargets",
+    "diff"
+  ],
   "properties": {
-    "schema": { "const": "explain-edit/1" },
-    "docId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "targetId": { "$ref": "#/$defs/targetId" },
-    "oldRevision": { "$ref": "#/$defs/sha256" },
-    "newRevision": { "$ref": "#/$defs/sha256" },
-    "changedTargets": { "type": "array", "items": { "$ref": "#/$defs/targetId" } },
-    "addedTargets": { "type": "array", "items": { "$ref": "#/$defs/targetId" } },
-    "containingTargets": { "type": "array", "items": { "$ref": "#/$defs/targetId" } },
+    "schema": {
+      "const": "explain-edit/1"
+    },
+    "docId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "targetId": {
+      "$ref": "#/$defs/targetId"
+    },
+    "oldRevision": {
+      "$ref": "#/$defs/sha256"
+    },
+    "newRevision": {
+      "$ref": "#/$defs/sha256"
+    },
+    "changedTargets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetId"
+      }
+    },
+    "addedTargets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetId"
+      }
+    },
+    "containingTargets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetId"
+      }
+    },
     "dependentTargets": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["target", "dependents"],
+        "required": [
+          "target",
+          "dependents"
+        ],
         "properties": {
-          "target": { "$ref": "#/$defs/targetId" },
-          "dependents": { "type": "array", "items": { "$ref": "#/$defs/targetId" } }
+          "target": {
+            "$ref": "#/$defs/targetId"
+          },
+          "dependents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/targetId"
+            }
+          }
         }
       }
     },
-    "diff": { "type": "string" }
+    "retiredTargets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetId"
+      }
+    },
+    "diff": {
+      "type": "string"
+    }
   },
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "targetId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" }
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "targetId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    }
   }
 }

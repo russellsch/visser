@@ -212,7 +212,7 @@ describe('explain refs CLI', () => {
     expect(JSON.parse(again.stdout).packet.label).toBe('put blocks while the queue is full');
   });
 
-  it('maps outcomes to exit codes and never reports success for retire', async () => {
+  it('maps outcomes to exit codes, including a malformed retire packet', async () => {
     const { repo, doc } = tempRepo();
     const dir = mkdtempSync(join(tmpdir(), 'explain-packets-'));
     const bad = join(dir, 'bad.yaml');
@@ -220,7 +220,8 @@ describe('explain refs CLI', () => {
     const invalid = await refs('resolve', '--packet', bad, '--root', repo, '--json');
     expect(invalid.code).toBe(2);
     expect(JSON.parse(invalid.stdout).status).toBe('invalid');
-    expect((await refs('retire', '--packet', bad)).code).toBe(3);
+    // retire is implemented (Phase 3): a malformed packet is invalid input, not an unsupported command.
+    expect((await refs('retire', '--packet', bad, '--reason', 'x', '--expected-revision', 'a'.repeat(64))).code).toBe(2);
     expect((await refs('show', doc, 'no_such_target', '--root', repo)).code).toBe(2);
     expect((await refs('show', join(repo, 'outside.md'), 'x', '--root', repo)).code).toBe(2);
     copyFileSync(EXAMPLE, join(repo, 'outside.md'));

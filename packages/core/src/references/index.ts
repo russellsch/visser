@@ -5,4 +5,8 @@ export { resolveReference, currentView, parentContext, type ResolveResult, type 
 export { showReference, sourceHintFor, type ShowResult } from './show.ts';
 export { refreshReference, RefreshRefused, type RefreshResult, type RefreshAcknowledgements } from './refresh.ts';
 export { replaceTarget, type EditResult, type ReplaceOptions } from './replace.ts';
+export { retireTarget, removeSpan, type RetireRequest, type RetireResult } from './retire.ts';
+export { forkDocument, type ForkOptions, type ForkResult } from './fork.ts';
+export { insertRetiredTargets, rewriteDocId, checkReason, type RetiredEntry } from './frontmatter-edit.ts';
+export { guardedWrite, type GuardedCandidate, type GuardedWriteOptions } from './guarded-write.ts';
 export type { FsContext } from './fs-context.ts';
