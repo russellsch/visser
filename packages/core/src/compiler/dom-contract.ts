@@ -66,6 +66,18 @@
 //   data-ex-placeholder=ID> left where a moved detail came from, and the copy
 //   fallback <textarea id="ex-copy-fallback">.
 
+// Mermaid figures (§9.12):
+//   <figure class="ex-figure ex-mermaid" id="x-FIG" data-ex-mermaid=TYPE ...>
+//     interpretation, then <div class="ex-viewport" data-ex-viewport id="m-FIG"
+//     data-ex-mermaid-render> (the runtime renders here), then
+//     <pre class="ex-mermaid-source"><code> source </code></pre> (no-JS/text
+//     fallback), then for parsed types the lists with instances that carry
+//     data-ex-mermaid-key=RENDER_KEY (see packages/core/src/mermaid/types.ts),
+//     then <p class="ex-mermaid-notice" hidden> for render failures.
+//   The page <head> carries <meta name="ex-mermaid" content=SRI_DIGEST> when
+//   the page needs the Mermaid asset; the runtime loads ASSETS/mermaid.js with
+//   that integrity value only then.
+
 export const DOM = {
   root: 'ex-doc',
   appendix: 'ex-appendix',
@@ -95,9 +107,14 @@ export const DOM = {
     term: 'data-ex-term',
     focus: 'data-ex-focus',
     placeholder: 'data-ex-placeholder',
+    mermaid: 'data-ex-mermaid',
+    mermaidKey: 'data-ex-mermaid-key',
+    mermaidRender: 'data-ex-mermaid-render',
     views: 'data-ex-views',
   },
   canonicalId: (id: string) => `x-${id}`,
+  mermaidRenderId: (figure: string) => `m-${figure}`,
+  mermaidMeta: 'ex-mermaid',
   svgInstanceId: (figure: string, id: string) => `v-${figure}.${id}`,
   listInstanceId: (figure: string, id: string) => `l-${figure}.${id}`,
   // Breakpoint between the desktop <aside> inspector and the narrow <dialog>.
