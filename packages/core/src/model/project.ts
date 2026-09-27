@@ -185,6 +185,13 @@ function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
       lines.push(`prerequisites: ${prereqs.length > 0 ? prereqs.map((r) => `${r.from} (${r.kind})`).join(', ') : '(none)'}`);
       break;
     }
+    case 'part': {
+      // Extension part (§14): its label and its source-visible attributes.
+      const extra = Object.keys(node.attributes).filter((k) => k !== 'id' && k !== 'label').sort();
+      lines.push(`Part ${child.label}`);
+      lines.push(...attrLines(node, extra));
+      break;
+    }
     case 'group': {
       lines.push(`Group ${child.label}${attr(node, 'parent') ? ` (inside: ${attr(node, 'parent')})` : ''}`);
       break;
@@ -265,6 +272,11 @@ function renderComponent(ctx: Context, record: TargetRecord, node: MNode): strin
     out.push(scale === 'ordinal' ? 'Ordering, not duration.' : `Time scale: ${attr(node, 'timeUnit') ?? '?'}.`);
   }
   if (mode === 'plan') out.push('Tasks are listed in source order; only the stated prerequisites order them.');
+  if (record.kind === 'extension') {
+    // The text form never depends on running the extension (§14.3).
+    const extra = Object.keys(node.attributes).filter((k) => !['id', 'title', 'question', 'use'].includes(k)).sort();
+    out.push([`Extension: ${attr(node, 'use') ?? '?'}`, ...attrLines(node, extra)].join('\n'));
+  }
   const body = bodyOf(ctx, node);
   if (body) out.push(body);
   if (record.kind === 'annotated') out.push(`Source: ${attr(node, 'source') ?? '?'}`);
@@ -339,7 +351,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
       blocks.push([idLine(record.id), renderMermaid(ctx, record, node, ctx.mermaid.get(record.id)).join('\n\n')].join('\n'));
       continue;
     }
-    const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'trace', 'transform', 'compare', 'annotated'].includes(record.kind);
+    const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'trace', 'transform', 'compare', 'annotated', 'extension'].includes(record.kind);
     const parts = isComponent
       ? renderComponent(ctx, record, node)
       : ['definition', 'source', 'detail'].includes(record.kind)

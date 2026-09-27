@@ -4,16 +4,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
 const cli = join(release, 'bin/explain.cjs');
 
-beforeAll(() => {
-  execFileSync(process.execPath, [join(root, 'scripts/build.mjs')], { cwd: root, stdio: 'pipe' });
-}, 60_000);
 
 type Ctx = { env: NodeJS.ProcessEnv; repo: string; run: (...args: string[]) => ReturnType<typeof spawnSync> & { stdout: string; stderr: string } };
 
@@ -97,7 +94,7 @@ describe('export --format site', () => {
         expect(existsSync(target), `${relative(site, page)} -> ${url}`).toBe(true);
       }
     }
-  });
+  }, 60_000);
 
   it('writes the §13.1 snapshot layout for one document into an empty directory', () => {
     const ctx = context();

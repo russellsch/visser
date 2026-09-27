@@ -10,13 +10,16 @@ import type { MNode, TargetModel } from './targets.ts';
 
 type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region';
 
-type TagSpec = {
+export type TagSpec = {
   required: Record<string, AttrType>;
   optional: Record<string, AttrType>;
   enums?: Record<string, readonly string[]>;
   parents?: readonly string[]; // allowed parent tags; undefined = top level only
   topLevel?: boolean; // also allowed at the top level when `parents` is set
   graphModes?: readonly string[]; // allowed graph modes when the parent is `graph`
+  // Extension tags (§14): other scalar attributes are allowed here and are
+  // checked against the extension's own schema when the extension is resolved.
+  open?: boolean;
 };
 
 const BASIS = ['observed', 'inferred', 'hypothesis', 'stipulated'] as const;
@@ -79,6 +82,8 @@ const SPECS: Record<string, TagSpec> = {
   },
   annotated: { required: { ...VISUAL, source: 'id' }, optional: {} },
   mermaid: { required: { ...VISUAL }, optional: {} },
+  extension: { required: { ...VISUAL, use: 'string' }, optional: {}, open: true },
+  part: { required: { id: 'id', label: 'string' }, optional: {}, parents: ['extension'], open: true },
   annotation: { required: { id: 'id', label: 'string' }, optional: { lines: 'lines', region: 'region' }, parents: ['annotated'] },
   definition: { required: { id: 'id', term: 'string' }, optional: {} },
   detail: { required: { id: 'id', label: 'string' }, optional: { summary: 'string' }, parents: DETAIL_PARENTS, topLevel: true },
@@ -92,6 +97,9 @@ const SPECS: Record<string, TagSpec> = {
     enums: { kind: ['git', 'working-tree', 'web', 'file', 'supplied', 'example'], availability: ['captured', 'link-only'] },
   },
 };
+
+/** The attribute rules for each tag; `catalogue show --part schema` and the guide tests read them. */
+export const TAG_SPECS: Readonly<Record<string, Readonly<TagSpec>>> = SPECS;
 
 const INLINE_SPECS: Record<string, { required: Record<string, AttrType>; optional: Record<string, AttrType>; refKind?: string }> = {
   term: { required: { ref: 'id' }, optional: {}, refKind: 'definition' },
@@ -215,6 +223,10 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
     for (const [name, value] of Object.entries(a)) {
       if (name === 'id' || name in spec.required) continue;
       const type = spec.optional[name];
+      if (type === undefined && spec.open) {
+        if (!['string', 'number', 'boolean'].includes(typeof value)) report('E_SYNTAX', `${t.tagName} ${t.id}: extension attribute \`${name}\` must be a string, number, or boolean`, t);
+        continue;
+      }
       if (type === undefined) report('E_SYNTAX', `${t.tagName} ${t.id}: unknown attribute \`${name}\``, t);
       else if (!typeOk(value, type)) report('E_SYNTAX', `${t.tagName} ${t.id}: \`${name}\` must be ${type}`, t);
     }
@@ -238,6 +250,17 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       if (typeof mode === 'string' && !spec.graphModes.includes(mode)) {
         report('E_SYNTAX', `${t.tagName} ${t.id} is not allowed in graph mode "${mode}" (allowed in ${spec.graphModes.join(', ')})`, t);
       }
+    }
+  }
+
+  // Extension components (§14): at least one part; at most the graph node cap.
+  for (const t of parsed.targets) {
+    if (t.tagName !== 'extension') continue;
+    const parts = parsed.targets.filter((p) => p.parentId === t.id && p.tagName === 'part').length;
+    if (parts === 0) report('E_SYNTAX', `extension ${t.id} needs at least one part`, t);
+    if (parts > GRAPH_MAX_NODES) report('E_LIMIT', `extension ${t.id} has ${parts} parts; the limit is ${GRAPH_MAX_NODES}`, t);
+    if (typeof t.attributes['use'] === 'string' && !/^[a-z][a-z0-9-]{0,63}$/.test(t.attributes['use'] as string)) {
+      report('E_SYNTAX', `extension ${t.id}: \`use\` must be an extension name such as timeline-lanes`, t);
     }
   }
 

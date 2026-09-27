@@ -4,7 +4,7 @@ These gates stay **open** until a person runs them and records the result (§21.
 
 | Gate | Checklist | Device / OS / browser | Reviewer | Date | Result |
 |---|---|---|---|---|---|
-| Comprehension trial (§18.7) | Protocol and materials from Phase 5 | | | | open |
+| Comprehension trial (§18.7) | Protocol and materials: [comprehension-trial.md](comprehension-trial.md) and [trial/](trial/). Prepared, not run; results go in [trial/results.md](trial/results.md) | | | | open |
 | Real touch device | Open an edge detail from the map and from the list; copy a reference; use the fallback copy text; return to the same place | | | | open |
 | Manual keyboard review | Reach every edge through the relationship list with Tab only; open and close the inspector; focus returns to the origin | | | | open |
 | First visual baseline | Approve the pinned-container screenshots of each page state | | | | open |

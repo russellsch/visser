@@ -34,7 +34,7 @@ function codeOf(fn: () => unknown): string | undefined {
 afterEach(() => vi.restoreAllMocks());
 
 describe('fork (§11.5)', () => {
-  it('creates a new document identity; original packets do not address the fork @T06', () => {
+  it('creates a new document identity; original packets do not address the fork @T06 @R02', () => {
     const { repo, doc } = tempRepo();
     const packet = parsePacket(showReference(doc, 'enqueue', { repoRoot: repo }).yaml);
     const dest = join(repo, 'docs/explanations/copy');

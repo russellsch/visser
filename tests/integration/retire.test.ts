@@ -55,7 +55,7 @@ async function refs(...argv: string[]): Promise<{ code: number; stdout: string; 
 afterEach(() => vi.restoreAllMocks());
 
 describe('refs retire (§11.11)', () => {
-  it('removes the span and one blank line, records retiredTargets, and resolves deleted @T07 @R19', () => {
+  it('removes the span and one blank line, records retiredTargets, and resolves deleted @T07 @R19 @R02', () => {
     const { repo, doc } = tempRepo();
     const before = loadBundle(doc);
     const packet = packetFor(repo, doc, 'p_limits');

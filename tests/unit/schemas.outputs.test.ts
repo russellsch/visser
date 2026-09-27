@@ -80,6 +80,24 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
   },
   collection: { schema: 'explain-collection/1', title: 'Notes', documents: [{ path: 'queue/index.md' }] },
   upgrade: { schema: 'explain-upgrade/1', doc: '/tmp/x/index.md', from: { sha256: SHA, version: '0.1.0' }, to: { sha256: 'b'.repeat(64), version: '0.2.0' }, changed: true, downgrade: false, dryRun: false, diff: '--- a/explain.lock.json\n', rebuilt: true },
+  catalogue: { schema: 'explain-catalogue/1', toolkit: { sha256: SHA, version: '0.0.0', dir: '/tmp/r' }, entry: { name: 'trace', title: 'Execution trace', question: 'What happens?', path: '/tmp/r/trace.md' }, part: 'template', template: '{% trace %}\n' },
+  // Extensions (§14).
+  extension: {
+    schema: 'explain-extension/1', name: 'timeline-lanes', version: '0.1.0', api: 'explain-component/1', buildEntry: 'build.cjs', browserEntry: null,
+    schemaFile: 'schema.json', guide: 'GUIDE.md', files: [{ path: 'build.cjs', sha256: SHA }, { path: 'schema.json', sha256: SHA }, { path: 'GUIDE.md', sha256: SHA }],
+  },
+  componentOutput: {
+    schema: 'explain-component-output/1',
+    svg: { tag: 'svg', attrs: { viewBox: '0 0 10 10' }, children: [{ tag: 'g', target: 'lane_a', children: [{ tag: 'rect', attrs: { x: 0, y: 0, width: 10, height: 5 } }, { tag: 'text', children: ['A'] }] }] },
+    parts: { lane_a: { text: 'A runs from 0 to 5 ms.' } },
+  },
+  extensionInspect: {
+    schema: 'explain-extension-inspect/1', name: 'timeline-lanes', version: '0.1.0', sha256: SHA, path: '/x', location: 'user', trusted: false, executable: true,
+    buildEntry: 'build.cjs', files: [{ path: 'build.cjs', sha256: SHA }], componentSchema: { type: 'object' }, guide: '# Guide\n',
+  },
+  extensionTrust: { schema: 'explain-extension-trust/1', digest: SHA, trusted: true, changed: true, source: 'extension trust', addedAt: '2026-09-27T00:00:00Z' },
+  extensionInstall: { schema: 'explain-extension-install/1', scope: 'user', name: 'timeline-lanes', version: '0.1.0', sha256: SHA, path: `/home/u/.explain/extensions/${SHA}`, alreadyInstalled: false, trusted: false },
+  extensionPin: { schema: 'explain-extension-pin/1', doc: '/r/docs/a/index.md', name: 'timeline-lanes', version: '0.1.0', sha256: SHA, changed: true, diff: '--- a/explain.lock.json\n' },
 };
 
 describe('schemas for --json outputs and metadata files (§5.4)', () => {

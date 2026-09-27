@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.19, 27 September 2026 (Phase 4 implemented: 4a, 4b, and 4c; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.20, 27 September 2026 (Phase 5 implemented; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -1492,6 +1492,18 @@ The actual manifest lists every file. An extension digest covers its canonical m
 
 The document lock lists required extensions but cannot mark them trusted. Trust is a local user decision keyed by exact digest and stored only in `${EXPLAIN_HOME:-~/.explain}/trust.json`. Tools never read trust data from a repository or workspace config. `explain extension trust DIGEST` is explicit. A generated or downloaded extension is executable code; a document-writing skill may propose it but must not silently trust it.
 
+**As implemented (revision 1.20):** the manifest file is `extension.json`. In v1, `browserEntry` must be `null`: extensions are build-only, so `_explain/extensions/` is reserved and unused. Commands: `extension install --from-dir DIR --scope user|repo` (verifies and activates, never trusts), `extension inspect DIR|DIGEST` (static, never executes), `extension trust DIGEST [--revoke]` (user store only), and `extension pin DOC DIGEST` (guarded lock write). A document uses an extension through a block tag with `part` children:
+
+```markdown
+{% extension id="startup_lanes" use="timeline-lanes" title="Startup" question="What overlaps?" unit="ms" %}
+{% part id="lane_config" label="Load config" start=0 end=40 %}
+Body text.
+{% /part %}
+{% /extension %}
+```
+
+Each `part` is a target. Targets, IDs, and `document.md` come only from the source, so running the extension never changes identity or the text projection. Extra attributes are checked against the extension's `schema.json` before trust. The build entry runs in a separate process (10 s, 256 MB heap, 4 MiB output, environment `LANG=C` only). It prints an element tree; the core rebuilds it through the same allowlist as core SVG and fails the build on anything outside it. Every part needs a text fallback. `build --allow-extension-fallback` turns a missing or untrusted extension into `W_EXTENSION_FALLBACK` and shows the parts as text; `export` has no fallback. `check` never runs extensions. The digests of extensions that ran are part of `buildId` and are listed in `build.json`.
+
 ### 14.3 Execution boundary
 
 Do not dynamically `import()` a path supplied in Markdown. Resolve only installed, pinned, explicitly trusted extensions through the extension registry. Static schema inspection is possible before trust; running its build entry is not.
@@ -1584,6 +1596,9 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_EVIDENCE_HASH` | Captured excerpt bytes disagree with capture metadata. |
 | `E_TOOLKIT_MISSING`, `E_INTEGRITY` | Exact release absent or corrupt. |
 | `E_EXTENSION_UNTRUSTED` | Required executable component not explicitly trusted. |
+| `E_EXTENSION_MISSING` | A used extension is not pinned in the lock or not installed; exit 3. |
+| `E_EXTENSION_FAILED` | A trusted extension crashed, timed out, exceeded its output cap, broke its output schema, or gave no text fallback; exit 2. |
+| `W_EXTENSION_FALLBACK` | `--allow-extension-fallback` showed an extension's parts as text. |
 | `E_PATH_ESCAPE`, `E_UNSAFE_CONTENT` | Forbidden path or content (security failure, exit 4). |
 | `E_PATH_INVALID` | Non-NFC or non-portable bundle path; invalid input, exit 2. |
 | `E_ID_RETENTION` | Replacement drops or duplicates a nested target ID; exit 2. |
@@ -1593,7 +1608,7 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_LAYOUT_LIMIT`, `E_LAYOUT_TIMEOUT` | Graph exceeds declared resource bounds. |
 | `E_WRITE_CONFLICT` | Lock/revision/raw file changed before guarded write. |
 | `E_PRIVATE_EXPORT` | Public export contains material requiring explicit approval. |
-| `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. |
+| `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. `check --review` adds them only when the document has no errors, and they never change the exit code (revision 1.20). The rules are in `packages/core/src/review/index.ts`: vague intensifiers and undefined repeated acronyms; more than 25 nodes, empty edge labels, or an architecture map that claims an order; `observed` claims without evidence, chronology labels on causal links, uncited certainty, and a caveat placed only in a detail. |
 | `W_UNSAFE_TEXT` | Bidirectional control characters rendered as visible escapes. |
 | `E_ORIGIN_MISMATCH` | `check --verify-origins`: a captured excerpt differs from its origin; exit 2. |
 | `W_ORIGIN_UNAVAILABLE` | `check --verify-origins`: the origin could not be read (missing object, repository, or file); a warning, so the exit stays 0. |
@@ -2295,9 +2310,9 @@ extension merely to finish an explanation. Those are separate authorizations.
 
 ## Load the correct toolkit
 
-Use the current document's exact Explain lock. Locate the repository shim first
-(it runs only if its toolkit digest is trusted in user scope), otherwise the user
-shim, and run `skill show --doc PATH` or `doctor`. Host-level
+Use the current document's exact Explain lock. Run only the user shim
+(`node ${EXPLAIN_HOME:-~/.explain}/bin/explain.cjs`); never run a repository
+shim. Run `skill show --doc PATH` or `doctor`. Host-level
 skill precedence does not override the document lock. Missing dependencies need
 an explicit permitted installation; do not silently download during build.
 Always read `references/format.md` before writing or editing source. Otherwise

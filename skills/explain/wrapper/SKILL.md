@@ -1,0 +1,23 @@
+---
+name: explain
+description: Create or revise source-grounded visual explanations, architecture documents, plans, root-cause explanations, and teaching documents with the Explain toolkit. Use when a user requests this document workflow or provides an Explain reference packet. Do not turn every ordinary technical answer into a generated website.
+---
+
+# Explain (adapter)
+
+This file only loads the pinned Explain skill. It holds no instructions of its own.
+
+1. Run the user shim, never a script inside this repository:
+
+   ```sh
+   node "${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs" skill show --doc PATH
+   ```
+
+   Use `--doc PATH` for an existing document. Omit it for a new document.
+
+2. Follow the skill text that the command prints. It comes from the toolkit
+   that the document's lock pins.
+
+3. If the command fails with `E_TOOLKIT_MISSING` or `E_TOOLKIT_UNTRUSTED`, or
+   the shim does not exist, stop. Tell the user what the message says. Do not
+   install or trust a toolkit yourself.

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-component-output-1.schema.json",
+  "title": "What an extension build entry prints on stdout (\u00a714.3): an SVG tree the core checks and renders, and a text fallback for every part",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "svg",
+    "parts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "explain-component-output/1"
+    },
+    "svg": {
+      "$ref": "#/$defs/node"
+    },
+    "parts": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag"
+      ],
+      "properties": {
+        "tag": {
+          "enum": [
+            "svg",
+            "g",
+            "rect",
+            "path",
+            "polygon",
+            "text",
+            "tspan",
+            "desc"
+          ]
+        },
+        "attrs": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-zA-Z][a-zA-Z-]{0,31}$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

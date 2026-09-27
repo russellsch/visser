@@ -7,6 +7,8 @@ import { CompileError, compileDocument, workerLayout, type CompileResult } from 
 import { createHash } from 'node:crypto';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
 import { resolveForDocument, type ToolkitSelection } from '../toolkit.ts';
+import { bindExtensions } from '../../../core/src/extensions/registry.ts';
+import { HashError } from '../../../core/src/model/hash.ts';
 
 export type BuildOutcome = {
   outDir: string;
@@ -44,6 +46,8 @@ export type CompileRequest = {
   includeSource: boolean;
   layoutFallback: boolean;
   nodeVersion: string;
+  /** Show the source text of extension components whose extension cannot run (§14). */
+  extensionFallback?: boolean;
 };
 
 /**
@@ -63,6 +67,24 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
   // Workers come only from the running CLI's own release (§12.4 "Whose code
   // runs"); in source mode there is none, and layout runs in process.
   const workerPath = toolkit.workerRelease ? join(toolkit.workerRelease, 'workers', 'layout.cjs') : undefined;
+  // Extensions (§14.3): pinned by the lock, verified, and run only if the user
+  // trusts their exact digest. Resolution never executes anything.
+  let extensions;
+  try {
+    const bound = bindExtensions(bundle.model, { bundleRoot: bundle.root, repoRoot: repoRootFor(bundle.root), allowFallback: request.extensionFallback === true });
+    printDiagnostics(bound.diagnostics.filter((d) => d.severity === 'warning'), false);
+    const errors = bound.diagnostics.filter((d) => d.severity === 'error');
+    if (errors.length > 0) {
+      printDiagnostics(errors, false);
+      throw new CliError('E_BUILD', 'build stopped: an extension cannot run', exitCodeFor(errors));
+    }
+    extensions = bound.bindings;
+  } catch (error) {
+    if (!(error instanceof HashError)) throw error;
+    const d = { code: error.code, severity: 'error' as const, message: error.message };
+    printDiagnostics([d], false);
+    throw new CliError('E_BUILD', 'build stopped: an extension cannot run', exitCodeFor([d]));
+  }
   try {
     return await compileDocument(
       bundle,
@@ -83,6 +105,7 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
         ...(workerPath && existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
         nodeVersion: request.nodeVersion,
         ...(toolkit.development ? { development: true } : {}),
+        extensions,
       },
     );
   } catch (error) {
@@ -134,6 +157,7 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
     includeSource: false,
     layoutFallback: args.flags.has('allow-layout-fallback'),
     nodeVersion: process.version,
+    extensionFallback: args.flags.has('allow-extension-fallback'),
   });
   printDiagnostics(result.diagnostics.filter((d) => d.severity === 'warning'), false);
 

@@ -1,17 +1,14 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
 const cli = join(release, 'bin/explain.cjs');
 const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
 
-beforeAll(() => {
-  execFileSync(process.execPath, [join(root, 'scripts/build.mjs')], { cwd: root, stdio: 'pipe' });
-}, 60_000);
 
 describe('Phase 0 CLI against the built release', () => {
   it('builds dist/release with a verifiable release.json', () => {
@@ -67,7 +64,7 @@ describe('Phase 0 CLI against the built release', () => {
   });
 
   it('deferred commands exit 3 with E_UNSUPPORTED instead of succeeding', () => {
-    for (const command of ['content', 'vendor', 'catalogue', 'extension']) {
+    for (const command of ['content', 'vendor']) {
       const result = run(command, '--json');
       expect(result.status).toBe(3);
       expect(result.stdout).toContain('E_UNSUPPORTED');

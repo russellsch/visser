@@ -23,11 +23,11 @@
     {
       "id": "R02",
       "phase": 0,
-      "status": "partial",
+      "status": "covered",
       "tags": [
         "@R02"
       ],
-      "note": "Frontmatter docId schema, duplicate-ID rejection, and ID stability under moves (spans, model tests). Copy and deletion lifecycle are Phases 1 and 3."
+      "note": "Frontmatter docId schema, duplicate-ID rejection, ID stability under moves, a fork (copy) that gets a new docId and keeps target IDs, and retire (deletion) that resolves deleted."
     },
     {
       "id": "R03",
@@ -103,12 +103,12 @@
     },
     {
       "id": "R11",
-      "phase": 0,
-      "status": "partial",
+      "phase": 5,
+      "status": "covered",
       "tags": [
         "@R11"
       ],
-      "note": "Variables, functions, if/partial, raw HTML, and unknown tags are rejected before transform. Untrusted-extension fixtures are Phase 5."
+      "note": "Variables, functions, if/partial, raw HTML, and unknown tags are rejected before transform. An untrusted extension whose build entry writes a sentinel never runs (build, export, check, fallback build, inspect)."
     },
     {
       "id": "R12",
@@ -138,13 +138,22 @@
       "note": "Desktop HTML, narrow view, no-JS view, and the Markdown projection derive the same target and relationship tuples."
     },
     {
+      "id": "R15",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@R15"
+      ],
+      "note": "Extensions expose source-visible part targets, a text fallback, and schema-checked attributes; output passes the core SVG allowlist. Parts have no relationship tuples in v1, and there is no browser test of an extension page."
+    },
+    {
       "id": "R16",
-      "phase": 4,
+      "phase": 5,
       "status": "partial",
       "tags": [
         "@R16"
       ],
-      "note": "references/format.md snippets compile as stated. Catalogue guides, editorial fixtures, and the human trial are Phase 5."
+      "note": "format.md snippets and catalogue templates compile; guides match the tag rules; check --review flags every bad editorial fixture and no good one. The human comprehension trial is prepared but not run (docs/validation/comprehension-trial.md), so this stays partial."
     },
     {
       "id": "R17",
@@ -183,6 +192,15 @@
       "note": "Public export refuses private documents, unlisted source repositories, and development builds; Mermaid comments are removed from pages and document.md."
     },
     {
+      "id": "BUDGETS",
+      "phase": 5,
+      "status": "covered",
+      "tags": [
+        "@BUDGETS"
+      ],
+      "note": "Section 2.3 size and count gates (reader.js, reader.css, per-document JS, release browser assets, skill size, graph caps) on a 5,000-word reference fixture. Timing is reported only, in docs/validation/budgets.md; the initial usable page missed its 2 s target because serve does not compress."
+    },
+    {
       "id": "T01",
       "phase": 1,
       "status": "covered",
@@ -212,11 +230,11 @@
     {
       "id": "T04",
       "phase": 0,
-      "status": "partial",
+      "status": "covered",
       "tags": [
         "@T04"
       ],
-      "note": "Identical paragraphs get independent IDs and spans. Quote-based resolution is Phase 1."
+      "note": "Identical paragraphs get independent IDs and spans, and resolve independently by ID, never by quote."
     },
     {
       "id": "T05",

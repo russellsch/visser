@@ -24,6 +24,13 @@ import trustSchema from '../../../../schemas/explain-trust-1.schema.json' with {
 import exportSchema from '../../../../schemas/explain-export-1.schema.json' with { type: 'json' };
 import collectionSchema from '../../../../schemas/explain-collection-1.schema.json' with { type: 'json' };
 import upgradeSchema from '../../../../schemas/explain-upgrade-1.schema.json' with { type: 'json' };
+import extensionSchema from '../../../../schemas/explain-extension-1.schema.json' with { type: 'json' };
+import componentOutputSchema from '../../../../schemas/explain-component-output-1.schema.json' with { type: 'json' };
+import extensionInspectSchema from '../../../../schemas/explain-extension-inspect-1.schema.json' with { type: 'json' };
+import extensionTrustSchema from '../../../../schemas/explain-extension-trust-1.schema.json' with { type: 'json' };
+import extensionInstallSchema from '../../../../schemas/explain-extension-install-1.schema.json' with { type: 'json' };
+import extensionPinSchema from '../../../../schemas/explain-extension-pin-1.schema.json' with { type: 'json' };
+import catalogueSchema from '../../../../schemas/explain-catalogue-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -57,6 +64,13 @@ export const validators = {
   export: compile(exportSchema),
   collection: compile(collectionSchema),
   upgrade: compile(upgradeSchema),
+  extension: compile(extensionSchema),
+  componentOutput: compile(componentOutputSchema),
+  extensionInspect: compile(extensionInspectSchema),
+  extensionTrust: compile(extensionTrustSchema),
+  extensionInstall: compile(extensionInstallSchema),
+  extensionPin: compile(extensionPinSchema),
+  catalogue: compile(catalogueSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;

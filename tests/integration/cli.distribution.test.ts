@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
 import { toolkitCopy } from './resolution.fixtures.ts';
 
@@ -19,9 +19,6 @@ function home(): NodeJS.ProcessEnv {
 const run = (env: NodeJS.ProcessEnv, entry: string, ...args: string[]) =>
   spawnSync(process.execPath, [entry, ...args], { encoding: 'utf8', env });
 
-beforeAll(() => {
-  execFileSync(process.execPath, [join(root, 'scripts/build.mjs')], { cwd: root, stdio: 'pipe' });
-}, 60_000);
 
 describe('Phase 4a commands through the built CLI and the user shim', () => {
   it('@R09 install --scope user --default, then the shim runs init, check, skill show, and doctor', () => {

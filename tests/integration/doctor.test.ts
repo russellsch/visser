@@ -77,12 +77,18 @@ describe('doctor', () => {
     mkdirSync(join(fx.userHome, '.claude', 'skills', 'explain'), { recursive: true });
     writeFileSync(join(fx.userHome, '.claude', 'skills', 'explain', 'SKILL.md'), 'user wrapper\n');
     const report = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
-    const hasCanonical = existsSync(join(release, CANONICAL_WRAPPER));
+    // The pack carries the canonical wrapper (skills/explain/wrapper/SKILL.md).
+    expect(existsSync(join(release, CANONICAL_WRAPPER))).toBe(true);
     expect(report.wrappers.map((w) => [w.scope, w.state])).toEqual([
-      ['repository', hasCanonical ? 'differs' : 'no-canonical'],
-      ['user', hasCanonical ? 'differs' : 'no-canonical'],
+      ['repository', 'differs'],
+      ['user', 'differs'],
     ]);
     expect(report.conflicts.some((c) => c.startsWith('claude-code:'))).toBe(true);
+
+    // A repository wrapper that is a copy of the canonical text matches.
+    cpSync(join(release, CANONICAL_WRAPPER), join(repo, '.claude', 'skills', 'explain', 'SKILL.md'));
+    const again = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
+    expect(again.wrappers.find((w) => w.scope === 'repository')?.state).toBe('matches');
   });
 });
 

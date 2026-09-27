@@ -18,6 +18,8 @@ export const BLOCK_TAGS: ReadonlySet<string> = new Set([
   'compare', 'option', 'criterion', 'cell',
   'annotated', 'annotation',
   'mermaid',
+  // A trusted extension component and its parts (§14).
+  'extension', 'part',
 ]);
 
 /** Markdoc tags that evaluate or include content; rejected as unsafe (§6.5, R11). */

@@ -186,3 +186,12 @@ Phase 4c added `install --from-release` and `upgrade`. The spec now records thes
 - `E_DOWNGRADE` for a refused downgrade.
 - The user shim runs the target toolkit's CLI for `upgrade`, because an older pinned toolkit may have no `upgrade` command.
 - `upgrade` writes `origin: local-dir` and keeps the new lock if the rebuild fails.
+
+## Revision 1.20 — Phase 5 implemented
+
+Phase 5 added extensions, catalogue guides with templates and `catalogue list|show`, the core skill, the handoff guide, the canonical wrapper, `check --review` with the R16 editorial fixtures, the prepared (not run) comprehension trial, and the performance budgets. The spec now records:
+
+- Build-only extensions (`browserEntry: null`), the `extension` and `part` tags, the four `extension` commands, the new codes `E_EXTENSION_MISSING`, `E_EXTENSION_FAILED`, and `W_EXTENSION_FALLBACK`.
+- The review prompt rules and the rule that they never change the exit code.
+- Appendix B now runs only the user shim, as §12.7 has required since revision 1.17.
+- `check` now runs the same semantic validation as `build`; before, `check` passed a document that `build` rejected.

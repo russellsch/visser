@@ -12,7 +12,7 @@ export type SkillOptions = { env?: NodeJS.ProcessEnv; cwd?: string; ownRelease?:
 
 const USAGE = 'usage: explain skill show [--doc PATH] [--toolkit-dir DIR] [--json]';
 
-function selectForSkill(args: ParsedArgs, opts: SkillOptions): Resolved & { document?: string } {
+export function selectForSkill(args: ParsedArgs, opts: SkillOptions): Resolved & { document?: string } {
   const env = opts.env ?? process.env;
   const cwd = opts.cwd ?? process.cwd();
   const own = 'ownRelease' in opts ? opts.ownRelease : bundledReleaseDir();
@@ -43,9 +43,11 @@ export async function runSkill(args: ParsedArgs, opts: SkillOptions = {}): Promi
   if (!existsSync(skillPath)) throw new CliError('E_TOOLKIT_MISSING', `toolkit ${found.release.sha256} has no skills/explain/SKILL.md`, EXIT.unavailable);
   const text = readFileSync(skillPath, 'utf8');
   const referenceDir = join(dir, 'skills', 'explain', 'references');
-  const guides = existsSync(referenceDir)
-    ? readdirSync(referenceDir).filter((name) => name.endsWith('.md')).sort().map((name) => join(referenceDir, name))
+  // references/*.md, then the catalogue guides in references/catalogue/.
+  const markdown = (dir: string) => existsSync(dir)
+    ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort().map((name) => join(dir, name))
     : [];
+  const guides = [...markdown(referenceDir), ...markdown(join(referenceDir, 'catalogue'))];
   if (args.flags.has('json')) {
     printJson('skill', {
       schema: 'explain-skill/1',

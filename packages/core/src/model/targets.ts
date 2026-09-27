@@ -38,7 +38,7 @@ const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'opt
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
 const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).
-const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid']);
+const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid', 'extension']);
 
 const LABEL_LIMIT = 80;
 

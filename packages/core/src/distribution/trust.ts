@@ -9,7 +9,9 @@ import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
 
 export type TrustEntry = { source: string; addedAt: string };
-export type TrustStore = { schema: 'explain-trust-store/1'; toolkits: Record<string, TrustEntry> };
+// `extensions` is optional, so a store written before extensions existed stays valid.
+export type TrustStore = { schema: 'explain-trust-store/1'; toolkits: Record<string, TrustEntry>; extensions?: Record<string, TrustEntry> };
+export type TrustKind = 'toolkits' | 'extensions';
 
 function fail(code: string, message: string): never {
   throw new HashError(code, code, message);
@@ -66,17 +68,26 @@ function writeStore(store: TrustStore, env: NodeJS.ProcessEnv): void {
   }
 }
 
-export function addTrust(digest: string, source: string, env: NodeJS.ProcessEnv = process.env, now: () => Date = () => new Date()): TrustStore {
-  if (!/^[0-9a-f]{64}$/.test(digest)) fail('E_USAGE', `a toolkit digest is 64 lowercase hex characters, not ${JSON.stringify(digest)}`);
+export function addTrust(digest: string, source: string, env: NodeJS.ProcessEnv = process.env, now: () => Date = () => new Date(), kind: TrustKind = 'toolkits'): TrustStore {
+  const what = kind === 'toolkits' ? 'toolkit' : 'extension';
+  if (!/^[0-9a-f]{64}$/.test(digest)) fail('E_USAGE', `a ${what} digest is 64 lowercase hex characters, not ${JSON.stringify(digest)}`);
   const store = readTrust(env);
-  store.toolkits[digest] = { source, addedAt: now().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+  const map = kind === 'toolkits' ? store.toolkits : (store.extensions ??= {});
+  map[digest] = { source, addedAt: now().toISOString().replace(/\.\d{3}Z$/, 'Z') };
   writeStore(store, env);
   return store;
 }
 
-export function revokeTrust(digest: string, env: NodeJS.ProcessEnv = process.env): TrustStore {
+export function revokeTrust(digest: string, env: NodeJS.ProcessEnv = process.env, kind: TrustKind = 'toolkits'): TrustStore {
   const store = readTrust(env);
-  delete store.toolkits[digest];
+  if (kind === 'toolkits') delete store.toolkits[digest];
+  else if (store.extensions) delete store.extensions[digest];
   writeStore(store, env);
   return store;
+}
+
+/** True only for an exact extension digest in the user trust store (§14.2). */
+export function isExtensionTrusted(digest: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const map = readTrust(env).extensions;
+  return map !== undefined && Object.hasOwn(map, digest);
 }

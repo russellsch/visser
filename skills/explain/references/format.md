@@ -506,6 +506,27 @@ flowchart LR
 {% /mermaid %}
 ````
 
+## Extension components
+
+Use an extension only when the catalogue cannot answer the question. An
+extension is executable code: never install or trust one without the user's
+authorization. Run `extension inspect DIR|DIGEST` to read its manifest, schema,
+and guide without running it, and follow its `GUIDE.md`. The document's lock
+must pin the extension (`extension pin DOC DIGEST`).
+
+```markdown
+{% extension id="startup_lanes" use="timeline-lanes" title="Startup" question="What overlaps?" unit="ms" %}
+{% part id="lane_config" label="Load config" start=0 end=40 %}
+Body text.
+{% /part %}
+{% /extension %}
+```
+
+Each `part` is a target and needs its own ID. A `part` outside an `extension`
+is `E_SYNTAX`. Extra attributes must match the extension's schema. A missing or
+unpinned extension is `E_EXTENSION_MISSING`; an untrusted one is
+`E_EXTENSION_UNTRUSTED`.
+
 ## 9. Retired targets
 
 To remove a target that other documents can refer to, use `explain refs retire`.

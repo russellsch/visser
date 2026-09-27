@@ -16,7 +16,7 @@ This folder holds an example workflow, `publish.yml.example`. It is disabled by 
 2. Read the export report. Open `site/index.html` and read each page.
 3. Commit the `site/` folder.
 4. Copy `publish.yml.example` to `.github/workflows/publish.yml` in your repository.
-5. Verify each pinned action SHA against the release tag in the comment next to it. The SHAs in this example are not verified.
+5. Each pinned action SHA was checked against its release tag on 27 September 2026. Check again if you change a version.
 6. In the repository settings, set the GitHub Pages source to "GitHub Actions".
 7. Start the workflow by hand from the Actions tab.
 

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-extension-1.schema.json",
+  "title": "extension.json: an extension manifest; its canonical digest is the extension digest (\u00a714.2). V1 extensions are build-only: browserEntry is null.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "name",
+    "version",
+    "api",
+    "buildEntry",
+    "browserEntry",
+    "schemaFile",
+    "guide",
+    "files"
+  ],
+  "properties": {
+    "schema": {
+      "const": "explain-extension/1"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+    },
+    "api": {
+      "const": "explain-component/1"
+    },
+    "buildEntry": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "browserEntry": {
+      "type": "null"
+    },
+    "schemaFile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "guide": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

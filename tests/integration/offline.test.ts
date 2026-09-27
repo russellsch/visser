@@ -1,17 +1,14 @@
 // R08 (§17.7 4b, §18.8): the toolkit works with no network. The script proves
 // isolation first and never passes without that proof.
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
 import { dirname, join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 const root = new URL('../..', import.meta.url).pathname;
 const script = join(root, 'scripts/check-offline.mjs');
 const hasUnshare = spawnSync('unshare', ['-rn', 'true']).status === 0;
 
-beforeAll(() => {
-  execFileSync(process.execPath, [join(root, 'scripts/build.mjs')], { cwd: root, stdio: 'pipe' });
-}, 60_000);
 
 describe('offline check (R08)', () => {
   it('reports "not run" (exit 3) when unshare is not on PATH', () => {

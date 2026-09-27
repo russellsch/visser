@@ -30,7 +30,7 @@ export type ParsedArgs = {
 
 // Parse `--name value`, `--name=value`, and boolean `--name` flags.
 // `booleans` lists flags that never take a value.
-const BOOLEAN_FLAGS = new Set(['json', 'check', 'help', 'release', 'default']);
+const BOOLEAN_FLAGS = new Set(['json', 'check', 'help', 'release', 'default', 'review']);
 
 export function parseArgs(args: string[]): ParsedArgs {
   const positional: string[] = [];
@@ -91,7 +91,7 @@ export function exitCodeFor(diagnostics: Diagnostic[]): number {
   const security = ['E_PATH_ESCAPE', 'E_UNSAFE_CONTENT', 'E_EXTENSION_UNTRUSTED', 'E_TOOLKIT_UNTRUSTED', 'E_INTEGRITY'];
   if (errors.some((d) => security.includes(d.code))) return EXIT.security;
   if (errors.some((d) => ['E_REF_STALE', 'E_WRITE_CONFLICT'].includes(d.code))) return EXIT.conflict;
-  if (errors.some((d) => ['E_TOOLKIT_MISSING', 'E_SOURCE_UNAVAILABLE', 'E_UNSUPPORTED'].includes(d.code))) return EXIT.unavailable;
+  if (errors.some((d) => ['E_TOOLKIT_MISSING', 'E_EXTENSION_MISSING', 'E_SOURCE_UNAVAILABLE', 'E_UNSUPPORTED'].includes(d.code))) return EXIT.unavailable;
   return EXIT.invalid;
 }
 

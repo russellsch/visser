@@ -19,7 +19,7 @@
     "test:browser": "playwright test",
     "test:clean-machine": "node scripts/clean-machine.mjs",
     "test:offline": "node scripts/check-offline.mjs",
-    "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 5'); process.exit(3)\"",
+    "test:budgets": "node scripts/check-budgets.mjs",
     "release:pack": "node scripts/release.mjs"
   },
   "devDependencies": {

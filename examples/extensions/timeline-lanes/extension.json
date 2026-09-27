@@ -1,0 +1,24 @@
+{
+  "schema": "explain-extension/1",
+  "name": "timeline-lanes",
+  "version": "0.1.0",
+  "api": "explain-component/1",
+  "buildEntry": "build.cjs",
+  "browserEntry": null,
+  "schemaFile": "schema.json",
+  "guide": "GUIDE.md",
+  "files": [
+    {
+      "path": "GUIDE.md",
+      "sha256": "70732270f62b1b34de7fe2a1afab6d7508d818c3c6f331d35bc6a2d74ea5c6f4"
+    },
+    {
+      "path": "build.cjs",
+      "sha256": "edca97ef4efcd3e088e8cb598fca18394ae395b8f2e447ce3166921b39d47f81"
+    },
+    {
+      "path": "schema.json",
+      "sha256": "d2fba2542d749443ff6a3d148df6718293178680005e224b7baa35e577376aa0"
+    }
+  ]
+}

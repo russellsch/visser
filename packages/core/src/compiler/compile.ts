@@ -12,6 +12,9 @@ import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } f
 import { graphSvg } from './svg.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
+import type { ExtensionBinding } from '../extensions/registry.ts';
+import { componentInputs } from '../extensions/run.ts';
+import { extensionSvg } from '../extensions/svg.ts';
 
 export type Toolkit = {
   version: string;
@@ -31,6 +34,9 @@ export type CompileOptions = {
   layout?: LayoutFunction;
   nodeVersion?: string; // recorded in build.json when given (§7.5)
   development?: boolean; // --dev-toolkit accepted a toolkit other than the lock's (§12.4)
+  // Resolved extensions by name (§14.3). The caller resolves and trust-gates
+  // them; a binding that is not ready renders the component's text fallback.
+  extensions?: ReadonlyMap<string, ExtensionBinding>;
 };
 
 export type OutputFile = { path: string; bytes: Uint8Array; mediaType: string };
@@ -45,6 +51,7 @@ export type BuildManifest = {
   effectiveRenderOptions: { audience: 'private' | 'public'; includeSource: boolean; layoutFallback: boolean };
   nodeVersion?: string;
   development?: true;
+  extensions?: Array<{ name: string; version: string; sha256: string }>;
   sourceFiles: Array<{ path: string; sha256: string }>;
   outputFiles: Array<{ path: string; sha256: string; mediaType: string }>;
   assets: Array<{ packSha256: string; path: string; sha256?: string }>;
@@ -398,9 +405,8 @@ class Renderer {
     const nodes = children.filter((c) => !edges.includes(c) && c.kind !== 'group');
     if (nodes.length > GRAPH_MAX_NODES || edges.length > GRAPH_MAX_EDGES) {
       this.error('E_LAYOUT_LIMIT', `graph ${id} has ${nodes.length} nodes and ${edges.length} edges; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}`, id);
-    } else if (nodes.length > GRAPH_WARN_NODES) {
-      this.warn('W_VISUAL_DENSITY', `graph ${id} has ${nodes.length} visible nodes`, id);
     }
+    // The validator reports W_VISUAL_DENSITY above GRAPH_WARN_NODES; do not repeat it here.
     const notes = new Map(nodes.map((n) => [n.id, this.nodeNotes(family, n.id)]));
     const input: GraphInput = {
       id,
@@ -472,6 +478,49 @@ class Renderer {
     return this.figureShell(id, node, `ex-graph ex-family-${family}`, [
       svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
       h('div', { class: 'ex-lists' }, nodeList, relList),
+    ], svg !== null);
+  }
+
+  /**
+   * An extension component (§14). The part list is always rendered from the
+   * source, so the figure is never the only form. The SVG comes from a trusted
+   * build entry and is rebuilt through the allowlist; without a runnable
+   * extension, the list alone is shown with a generated note.
+   */
+  extension(id: string, node: MNode): HNode {
+    const use = attrString(node, 'use') ?? '';
+    const parts = this.childTargets(id).filter((c) => c.kind === 'part');
+    const binding = this.options.extensions?.get(use);
+    let svg: HNode | null = null;
+    const texts = new Map<string, string>();
+    let note: string | undefined;
+    if (!binding) {
+      this.error('E_EXTENSION_MISSING', `extension ${use} was not resolved for this build`, id);
+    } else if (!binding.ready) {
+      note = `The ${use} extension did not run for this build (${binding.code}). The parts below are the complete text form.`;
+    } else {
+      const input = componentInputs(this.bundle.model).find((c) => c.id === id)!.input;
+      try {
+        const output = binding.run(input);
+        for (const [partId, value] of Object.entries(output.parts)) texts.set(partId, value.text);
+        svg = extensionSvg(output.svg, {
+          extension: use, figureId: id, title: attrString(node, 'title') ?? this.label(id),
+          parts: new Map(parts.map((p) => [p.id, this.label(p.id)])), text: (x) => this.safeText(x, id),
+        });
+      } catch (error) {
+        const e = error as { code?: string; message: string };
+        if (error instanceof HashError || error instanceof UnsafeMarkupError) this.error(e.code ?? 'E_EXTENSION_FAILED', e.message, id);
+        else throw error;
+      }
+    }
+    const list = h('ul', { class: 'ex-node-list ex-ext-parts', 'aria-label': 'Parts' },
+      parts.map((p) => h('li', {},
+        h('a', { href: `#${DOM.canonicalId(p.id)}`, id: DOM.listInstanceId(id, p.id), [DOM.attr.target]: p.id, [DOM.attr.interactive]: true }, this.label(p.id)),
+        texts.has(p.id) ? h('span', { class: 'ex-role', [DOM.attr.generated]: true }, ` (${this.safeText(texts.get(p.id)!, p.id)})`) : null)));
+    return this.figureShell(id, node, `ex-extension ex-ext-${use}`, [
+      svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      note ? h('p', { class: 'ex-extension-note', role: 'note', [DOM.attr.generated]: true }, note) : null,
+      h('div', { class: 'ex-lists' }, list),
     ], svg !== null);
   }
 
@@ -844,8 +893,9 @@ class Renderer {
     switch (record.kind) {
       case 'node': case 'state': case 'factor': case 'task': case 'stage':
       case 'transition': case 'causal-link': case 'conversion': case 'dependency':
-      case 'option': case 'criterion': case 'cell': {
-        const keys = DETAIL_FACTS[record.kind] ?? [];
+      case 'option': case 'criterion': case 'cell': case 'part': {
+        // A part shows its extension-specific attributes (§14).
+        const keys = record.kind === 'part' ? Object.keys(node.attributes).filter((k) => k !== 'id' && k !== 'label').sort() : (DETAIL_FACTS[record.kind] ?? []);
         const facts: Array<[string, string]> = [];
         for (const key of keys) {
           const v = node.attributes[key];
@@ -902,6 +952,7 @@ class Renderer {
       else if (record.kind === 'annotated') out.push(this.annotated(id, child));
       else if (record.kind === 'compare') out.push(this.compare(id, child));
       else if (record.kind === 'mermaid') out.push(this.mermaid(id, child));
+      else if (record.kind === 'extension') out.push(this.extension(id, child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
         this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
         out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.blocks(child)));
@@ -959,9 +1010,15 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     throw new CompileError(upstream.length > 0 ? bundle.diagnostics : [{ code: 'E_SYNTAX', severity: 'error', message: 'bundle has no docId or source revision', path: 'index.md' }]);
   }
   const effectiveRenderOptions = { audience: options.audience, includeSource: options.includeSource, layoutFallback: options.layoutFallback };
+  // Extensions that run for this build are part of its identity (§4.4, §7.4).
+  const used = new Set(componentInputs(bundle.model).map((c) => c.use));
+  const executed = [...(options.extensions?.values() ?? [])]
+    .filter((b): b is Extract<ExtensionBinding, { ready: true }> => b.ready && used.has(b.name))
+    .map((b) => ({ name: b.name, version: b.version, sha256: b.sha256 }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   let buildId: string;
   try {
-    buildId = computeBuildId({ sourceRevision: bundle.sourceRevision, toolkitSha256: toolkit.sha256, extensionDigests: [], effectiveRenderOptions }).buildId;
+    buildId = computeBuildId({ sourceRevision: bundle.sourceRevision, toolkitSha256: toolkit.sha256, extensionDigests: executed.map((e) => e.sha256), effectiveRenderOptions }).buildId;
   } catch (error) {
     if (error instanceof HashError) throw new CompileError([{ code: error.code, severity: 'error', message: error.message }]);
     throw error;
@@ -1052,6 +1109,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     effectiveRenderOptions,
     ...(options.nodeVersion ? { nodeVersion: options.nodeVersion } : {}),
     ...(options.development ? { development: true as const } : {}),
+    ...(executed.length > 0 ? { extensions: executed } : {}),
     sourceFiles: bundle.manifest.files.map((f) => ({ path: f.path, sha256: f.sha256 })),
     outputFiles: files.map((f) => ({ path: f.path.slice(directory.length + 1), sha256: sha256Hex(f.bytes), mediaType: f.mediaType })),
     assets: ['reader.css', 'reader.js', ...(r.usesMermaid ? ['mermaid.js'] : [])].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),
