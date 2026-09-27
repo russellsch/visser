@@ -75,10 +75,14 @@ export function attachTargets(figure: Element, svg: Element, renderId: string): 
     const rel = instance.getAttribute(A.rel);
     const drawn = findDrawn(svg, renderId, key);
     if (drawn.length === 0) missing++;
+    // A derived relationship (no edge ID of its own) points at the figure: its
+    // relationship ID differs from its target. It is not interactive (§9.12).
+    const derived = rel !== null && rel !== target;
     for (const element of drawn) {
       if (target) element.setAttribute(A.target, target);
       if (rel) element.setAttribute(A.rel, rel);
-      element.setAttribute(A.interactive, '');
+      if (derived) element.setAttribute('data-ex-mermaid-derived', '');
+      else element.setAttribute(A.interactive, '');
       element.setAttribute('data-ex-mermaid-drawn', '');
       // No aria-label here: drawn elements have no role and are not keyboard
       // targets; the lists are the keyboard path (§10.5) and the drawing has
@@ -99,11 +103,22 @@ function assetBase(): string | undefined {
   return reader.src.slice(0, reader.src.length - 'reader.js'.length);
 }
 
+/** A Subresource Integrity value for the pinned asset: sha384 only, fail closed (§9.12). */
+export function isValidIntegrity(value: string): boolean {
+  return /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+/** The failure notice for one figure: only parsed types have lists (§9.12). */
+export function noticeText(figure: Element): string {
+  const parsed = ['flowchart', 'state', 'sequence'].includes(figure.getAttribute(A.mermaid) ?? '');
+  return `This diagram could not be drawn. Its source${parsed ? ' and lists are' : ' is'} shown instead.`;
+}
+
 function loadScript(src: string, integrity: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = src;
-    if (integrity) script.integrity = integrity;
+    script.integrity = integrity;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error('mermaid.js failed to load'));
     document.head.append(script);
@@ -154,7 +169,7 @@ async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void>
   } catch {
     viewport.replaceChildren();
     removeStray(renderId, viewport);
-    showNotice(figure, 'This diagram could not be drawn. Its source and lists are shown instead.');
+    showNotice(figure, noticeText(figure));
   }
 }
 
@@ -184,6 +199,8 @@ export async function renderMermaidFigures(): Promise<void> {
   const base = assetBase();
   try {
     if (!base) throw new Error('no asset base');
+    // Never load the asset without a valid digest (fail closed).
+    if (!isValidIntegrity(meta.content)) throw new Error('missing or invalid integrity value');
     await loadScript(`${base}mermaid.js`, meta.content);
     const api = (window as unknown as { mermaid?: MermaidApi }).mermaid;
     if (!api) throw new Error('mermaid.js did not define mermaid');
@@ -191,6 +208,6 @@ export async function renderMermaidFigures(): Promise<void> {
     // Render one figure at a time: Mermaid keeps global state while it draws.
     for (const figure of figures) await renderFigure(api, figure);
   } catch {
-    for (const figure of figures) showNotice(figure, 'Diagrams could not be drawn on this page. Their source and lists are shown instead.');
+    for (const figure of figures) showNotice(figure, noticeText(figure));
   }
 }

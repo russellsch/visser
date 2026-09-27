@@ -4,16 +4,22 @@
 // source digest for the life of the process.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import type { RawResult } from './parse-worker.ts';
 import type { MermaidDiagramType } from './types.ts';
 
 export type ParseRequest = { figureId: string; source: string; type: MermaidDiagramType };
 export type ParseOutcome = RawResult | { figureId: string; ok: false; error: string; code: 'E_LIMIT' | 'E_SEMANTIC' };
 
+/** The source-mode worker next to this module; fileURLToPath decodes `%20` and other escapes. */
+export function workerPathFor(moduleUrl: string): string {
+  return fileURLToPath(new URL('./parse-worker.ts', moduleUrl));
+}
+
 let workerPath: string | undefined = (() => {
   try {
     const here = import.meta.url;
-    return here ? new URL('./parse-worker.ts', here).pathname : undefined;
+    return here ? workerPathFor(here) : undefined;
   } catch {
     return undefined;
   }

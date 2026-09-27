@@ -103,11 +103,24 @@ export function buildMermaidFigure(
         if (STATE_PSEUDO.has(s.id)) continue;
         addElement(s.id, 'mermaid-state', cleanLabel(s.description, s.id), `state:${s.id}`);
       }
-      // Transition K is the Kth relation, which is also the renderer's edgeK.
-      raw.state.relations.forEach((r, k) => {
-        if (STATE_PSEUDO.has(r.from) || STATE_PSEUDO.has(r.to)) return; // start/end markers are not targets
-        addRelationship(r.from, r.to, cleanLabel(r.title, ''), 'mermaid-transition', `transition:${k}`);
-      });
+      // Transitions keep the renderer's edge number (edgeN from getData()).
+      // Start/end marker transitions are not relationships; they mark the
+      // state as initial or terminal instead.
+      const byName = new Map(figure.elements.map((e) => [e.name, e]));
+      for (const r of raw.state.relations) {
+        if (STATE_PSEUDO.has(r.from) && !STATE_PSEUDO.has(r.to)) {
+          const el = byName.get(r.to);
+          if (el) el.initial = true;
+          continue;
+        }
+        if (STATE_PSEUDO.has(r.to) && !STATE_PSEUDO.has(r.from)) {
+          const el = byName.get(r.from);
+          if (el) el.terminal = true;
+          continue;
+        }
+        if (STATE_PSEUDO.has(r.from) || STATE_PSEUDO.has(r.to)) continue;
+        addRelationship(r.from, r.to, cleanLabel(r.title, ''), 'mermaid-transition', `transition:${r.edge}`);
+      }
     }
   } else if (raw.sequence) {
     for (const a of raw.sequence.actors) {

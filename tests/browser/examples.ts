@@ -12,10 +12,11 @@ export const EXAMPLE_PORTS = {
   'mermaid-state': 4329,
   'mermaid-sequence': 4330,
   'mermaid-er': 4331,
+  'mermaid-class': 4332,
 } as const;
 
 export type ExampleName = keyof typeof EXAMPLE_PORTS;
 export const EXAMPLES = Object.keys(EXAMPLE_PORTS) as ExampleName[];
 
 /** Examples with a Mermaid figure (§9.12). */
-export const MERMAID_EXAMPLES = ['mermaid-flowchart', 'mermaid-state', 'mermaid-sequence', 'mermaid-er'] as const satisfies readonly ExampleName[];
+export const MERMAID_EXAMPLES = ['mermaid-flowchart', 'mermaid-state', 'mermaid-sequence', 'mermaid-er', 'mermaid-class'] as const satisfies readonly ExampleName[];

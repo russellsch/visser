@@ -1,0 +1,189 @@
+{
+ "mermaid-flowchart": {
+  "url": "http://127.0.0.1:4501/d/338508ba-1093-4c58-b8f8-bc45c01054bb/9040dd875aa8d07a39d2c8df464c293627519d413ba12e784e4e97a462fd649d/9fcf817d5c8ec9c619c36cff2e8b04f3cf3c009a1ee7d0e8db0621302cdd6d77/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.ex-mermaid button').filter({ hasText: 'Show map' }).first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" aria-pressed=\"false\" class=\"ex-btn ex-view-toggle\" aria-label=\"Show map: Only a miss reaches the origin\">Show map</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for"
+ },
+ "mermaid-state": {
+  "url": "http://127.0.0.1:4502/d/fc51c531-4784-4722-893c-9368c8965549/5506c0501e29e212b54761121fc91214f4087457bf688e90d11cd68e75f41791/74f49111df917bb6afacbe22d3b8c282cdd8beaed38b3716ff5d8128c5413553/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.ex-mermaid button').filter({ hasText: 'Show map' }).first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" aria-pressed=\"false\" class=\"ex-btn ex-view-toggle\" aria-label=\"Show map: The capture check keeps an oversized capture from failing the payment\">Show map</button>\u001b[22m\n\u001b[2m  - attempting cl"
+ },
+ "mermaid-sequence": {
+  "url": "http://127.0.0.1:4503/d/64c930f4-6228-4ef3-887c-869c7f9484b4/be99e4e24222ce522bd31bb28312599aaaf039e3dea938ef2fb6705b540f0fc0/8749656ca27b5c0486da6baa35dd3d4e3af62e1c93927bf2059043d3e1974aeb/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.ex-mermaid button').filter({ hasText: 'Show map' }).first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" aria-pressed=\"false\" class=\"ex-btn ex-view-toggle\" aria-label=\"Show map: Only a revoked refresh token sends the user back to login\">Show map</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b["
+ },
+ "mermaid-er": {
+  "url": "http://127.0.0.1:4504/d/798bf1cc-2e92-4df6-ad9a-190434de6749/5835d37a81880bfb81f23dfa4643acbab487b075b59ee304a943f1a720815909/65bb6598575c498acf121c7e4a8272e3f0fd83e3bc129c42c990830608006222/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "w1440": {
+   "renderMs": 344,
+   "figures": [
+    {
+     "id": "x-bill_schema",
+     "type": "other",
+     "instances": 0,
+     "missing": [],
+     "drawn": 0,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-bill_schema",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 1440,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": null
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w390": {
+   "renderMs": 343,
+   "figures": [
+    {
+     "id": "x-bill_schema",
+     "type": "other",
+     "instances": 0,
+     "missing": [],
+     "drawn": 0,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-bill_schema",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 390,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": null
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w320": {
+   "renderMs": 350,
+   "figures": [
+    {
+     "id": "x-bill_schema",
+     "type": "other",
+     "instances": 0,
+     "missing": [],
+     "drawn": 0,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-bill_schema",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 320,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": null
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "nojs": [
+   {
+    "srcVisible": true,
+    "lists": 0,
+    "emptyViewportHidden": true
+   }
+  ]
+ }
+}

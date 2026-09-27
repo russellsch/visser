@@ -11,8 +11,16 @@ const TARGET_ID = /^[a-z][a-z0-9_-]{0,63}$/;
 
 // classDef/style/linkStyle declarations that cannot move, hide, or resize content.
 const STYLE_PROPERTIES = new Set(['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'color', 'font-weight', 'font-style']);
-// Literal values only: hex or named colours, numbers, px lengths, and number lists (dash arrays).
-const STYLE_VALUE = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|-?\d+(\.\d+)?(px)?(\s+-?\d+(\.\d+)?(px)?)*)$/;
+// Literal values only: opaque hex (3 or 6 digits) or named colours, numbers, px
+// lengths, and number lists (dash arrays). Alpha hex (4 or 8 digits) and
+// `transparent` are rejected because they can hide content (review-c).
+const STYLE_VALUE = /^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|[a-zA-Z]+|-?\d+(\.\d+)?(px)?(\s+-?\d+(\.\d+)?(px)?)*)$/;
+// Colours for sequence `rect` and `box`: rgb()/rgba(), opaque hex, or a name.
+const BLOCK_COLOUR = /^(rgba?\(\s*[\d.%]+\s*(,\s*[\d.%]+\s*){2,3}\)|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|[a-zA-Z]+)$/;
+// Real stereotypes only (`<<choice>>`, `<<interface>>`); `<<a href=…>>` is a tag.
+const STEREOTYPE = /<<[A-Za-z0-9_ -]+>>/g;
+// Mermaid entity codes (`#quot;`, `#35;`) are garbled by the renderer.
+const ENTITY_CODE = /#([A-Za-z]+|\d+);/;
 
 /** Normalize a fenced body: strip one BOM and use LF line endings. */
 export function normalizeMermaidSource(source: string): string {
@@ -30,7 +38,7 @@ export function declaredTypeOf(source: string): string {
 }
 
 export function diagramTypeOf(declaredType: string): MermaidDiagramType {
-  if (declaredType === 'flowchart' || declaredType === 'graph') return 'flowchart';
+  if (declaredType === 'flowchart' || declaredType === 'graph' || declaredType === 'flowchart-elk') return 'flowchart';
   if (declaredType === 'stateDiagram' || declaredType === 'stateDiagram-v2') return 'state';
   if (declaredType === 'sequenceDiagram') return 'sequence';
   return 'other';
@@ -50,6 +58,51 @@ function withoutQuotes(line: string): string {
   return line.replace(/"(?:[^"\\]|\\.)*"/g, '""');
 }
 
+/** Split a line into statements at every `;` outside double or single quotes. */
+export function splitStatements(line: string): string[] {
+  const out: string[] = [];
+  let quote: string | undefined;
+  let start = 0;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!;
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = undefined;
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === ';') {
+      out.push(line.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(line.slice(start));
+  return out;
+}
+
+/** Each `@{ … }` shape block, ended by a quote-aware scan (a `}` inside quotes does not end it). */
+function shapeBlocks(text: string): Array<{ body: string; index: number }> {
+  const blocks: Array<{ body: string; index: number }> = [];
+  for (let at = text.indexOf('@{'); at !== -1; at = text.indexOf('@{', at + 2)) {
+    let quote: string | undefined;
+    let depth = 0;
+    let end = text.length;
+    for (let i = at + 1; i < text.length; i++) {
+      const c = text[i]!;
+      if (quote) {
+        if (c === '\\') i++;
+        else if (c === quote) quote = undefined;
+      } else if (c === '"' || c === "'") quote = c;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+    blocks.push({ body: text.slice(at, end), index: at });
+  }
+  return blocks;
+}
+
 function checkStyleLine(line: string, lineNo: number, issues: MermaidIssue[]): void {
   const m = /^\s*(classDef|style|linkStyle)\s+(\S+)\s*(.*)$/.exec(line);
   if (!m) return;
@@ -63,7 +116,7 @@ function checkStyleLine(line: string, lineNo: number, issues: MermaidIssue[]): v
     const value = colon === -1 ? '' : decl.slice(colon + 1).trim();
     if (!STYLE_PROPERTIES.has(property)) {
       issues.push({ code: 'E_UNSAFE_CONTENT', message: `${m[1]} declaration \`${property}\` is not allowed; use fill, stroke, stroke-width, stroke-dasharray, color, font-weight, or font-style`, line: lineNo });
-    } else if (!STYLE_VALUE.test(value)) {
+    } else if (!STYLE_VALUE.test(value) || /^transparent$/i.test(value) || (property === 'color' && /^none$/i.test(value))) {
       issues.push({ code: 'E_UNSAFE_CONTENT', message: `${m[1]} value \`${value}\` for \`${property}\` must be a literal colour, number, or px length`, line: lineNo });
     }
   }
@@ -91,27 +144,48 @@ export function checkMermaidSource(source: string): MermaidIssue[] {
     if (/%%\s*\{/.test(line)) {
       issues.push({ code: 'E_UNSAFE_CONTENT', message: '`%%{…}%%` directives are not allowed; the toolkit sets the configuration', line: lineNo });
     }
-    const statement = withoutQuotes(line);
-    // Interaction and link statements: `click`, `href`, `call`, `callback`, and
-    // the `link`/`links` statements of class and sequence diagrams. A node that
-    // happens to use one of these names is still allowed when an arrow follows.
-    const keyword = /^\s*(click|href|call|callback|link|links)\b(\s+(?![-=.~<>|&o*x])\S)/i.exec(statement);
-    if (keyword) {
-      issues.push({ code: 'E_UNSAFE_CONTENT', message: `\`${keyword[1]}\` statements are not allowed in Mermaid source (they create links or callbacks)`, line: lineNo });
+    const entity = ENTITY_CODE.exec(line);
+    if (entity) {
+      issues.push({ code: 'E_SEMANTIC', message: `Mermaid entity code \`${entity[0]}\` is garbled by the renderer; write the character directly`, line: lineNo });
     }
-    // HTML tags in labels, except <br>; `<<…>>` stereotypes are not tags.
-    const withoutStereotypes = line.replace(/<<[^<>]*>>/g, '');
+    const unquoted = withoutQuotes(line);
+    if (/url\s*\(/i.test(unquoted)) {
+      issues.push({ code: 'E_UNSAFE_CONTENT', message: '`url(…)` is not allowed in Mermaid source; it fetches off-origin content', line: lineNo });
+    }
+    // Mermaid accepts `;` as a statement separator, so check each statement.
+    for (const statement of splitStatements(unquoted)) {
+      // Interaction and link statements: `click`, `href`, `call`, `callback`, and
+      // the `link`/`links` statements of class and sequence diagrams. A node that
+      // happens to use one of these names is still allowed when an arrow follows.
+      const keyword = /^\s*(click|href|call|callback|link|links)\b(\s+(?![-=.~<>&|])\S)/i.exec(statement);
+      if (keyword) {
+        issues.push({ code: 'E_UNSAFE_CONTENT', message: `\`${keyword[1]}\` statements are not allowed in Mermaid source (they create links or callbacks)`, line: lineNo });
+      }
+      // Sequence `rect` and `box` colours.
+      const block = /^\s*(rect|box)\s+(.*)$/.exec(statement);
+      if (block) {
+        const value = block[2]!.trim();
+        const colour = block[1] === 'rect' ? value : (/^(rgba?\([^)]*\)|\S+)/.exec(value)?.[0] ?? '');
+        const isFunction = /^[A-Za-z-]+\s*\(/.test(colour);
+        if ((block[1] === 'rect' || isFunction) && !BLOCK_COLOUR.test(colour)) {
+          issues.push({ code: 'E_UNSAFE_CONTENT', message: `\`${block[1]}\` colour \`${colour.slice(0, 40)}\` must be rgb(), rgba(), an opaque hex colour, or a name`, line: lineNo });
+        }
+      }
+      checkStyleLine(statement, lineNo, issues);
+    }
+    // HTML tags in labels, except <br>; real `<<stereotypes>>` are not tags.
+    const withoutStereotypes = line.replace(STEREOTYPE, '');
     for (const tag of withoutStereotypes.matchAll(/<\/?[A-Za-z][^>]*>?/g)) {
       if (!/^<br\s*\/?>$/i.test(tag[0])) {
         issues.push({ code: 'E_UNSAFE_CONTENT', message: `HTML \`${tag[0].slice(0, 40)}\` is not allowed in Mermaid labels (only <br> is); write &lt; for a literal <`, line: lineNo });
       }
     }
-    checkStyleLine(line, lineNo, issues);
   });
 
-  // Node shapes with images or icons fetch or embed external content.
-  for (const shape of text.matchAll(/@\{[^}]*\}/gs)) {
-    const kind = /\b(img|icon)\s*:/.exec(shape[0]);
+  // Node shapes with images or icons fetch or embed external content. The end
+  // of each block is found with a quote-aware scan, and keys may be quoted.
+  for (const shape of shapeBlocks(text)) {
+    const kind = /(?:^|[{,\s])["']?(img|icon)["']?\s*:/.exec(shape.body);
     if (kind) {
       const lineNo = text.slice(0, shape.index).split('\n').length;
       issues.push({ code: 'E_UNSAFE_CONTENT', message: `the \`${kind[1]}:\` node-shape attribute is not allowed`, line: lineNo });
@@ -123,9 +197,11 @@ export function checkMermaidSource(source: string): MermaidIssue[] {
 /** Plain label text: `<br>` becomes a space, markdown-string backticks are removed. */
 export function cleanLabel(text: unknown, fallback: string): string {
   if (typeof text !== 'string') return fallback;
-  const cleaned = text
+  // A markdown string (`\`…\``) renders its emphasis, so drop the markers.
+  const markdown = /^`([\s\S]*)`$/.exec(text);
+  const body = markdown ? markdown[1]!.replace(/(\*\*|__)(.+?)\1/g, '$2').replace(/(\*|_)(.+?)\1/g, '$2') : text;
+  const cleaned = body
     .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/^`([\s\S]*)`$/, '$1')
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned === '' ? fallback : cleaned;

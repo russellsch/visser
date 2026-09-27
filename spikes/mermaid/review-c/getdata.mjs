@@ -1,0 +1,12 @@
+import { registerHooks } from 'node:module';
+const stub = new URL('/home/r/Documents/MyStuff/random_ts/visser/packages/core/src/mermaid/dompurify-stub.ts', 'file://').href;
+registerHooks({ resolve(s, c, n) { return s === 'dompurify' ? { url: stub, shortCircuit: true } : n(s, c); } });
+const { default: mermaid } = await import('/home/r/Documents/MyStuff/random_ts/visser/node_modules/mermaid/dist/mermaid.core.mjs');
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', logLevel: 'fatal' });
+const src = 'stateDiagram-v2\n  [*] --> Idle\n  Idle --> Busy : start\n  note right of Idle : waits here\n  Busy --> Idle : done\n  note left of Busy : works\n  Busy --> [*]';
+await mermaid.parse(src);
+const d = await mermaid.mermaidAPI.getDiagramFromText(src);
+console.log('db keys:', Object.keys(Object.getPrototypeOf(d.db)).filter((k) => /data|edge|rel/i.test(k)).join(','));
+const data = d.db.getData?.();
+console.log('edges:', data?.edges?.map((e) => `${e.id}:${e.start}->${e.end}:${e.label ?? ''}`).join(' | '));
+console.log('nodes:', data?.nodes?.map((n) => `${n.id}/${n.shape ?? ''}`).join(' '));

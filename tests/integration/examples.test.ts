@@ -8,7 +8,7 @@ import { projectText } from '../../packages/core/src/model/project.ts';
 const root = new URL('../..', import.meta.url).pathname;
 const examplesDir = join(root, 'examples');
 const examples = readdirSync(examplesDir).filter((name) => existsSync(join(examplesDir, name, 'index.md'))).sort();
-const toolkit = { version: '0.0.0-test', sha256: 'a'.repeat(64) };
+const toolkit = { version: '0.0.0-test', sha256: 'a'.repeat(64), integrity: { 'mermaid.js': 'sha384-TESTDIGEST' } };
 
 describe('example bundles (§17.5) @R14', () => {
   it('includes one example per catalogue family, a cross-domain example, and a prose-first example', () => {

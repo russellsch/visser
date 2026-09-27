@@ -438,9 +438,11 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
   const withText = button('Copy reference with selected text', 'ex-btn', () => void copyReference(targetId, true));
   withText.disabled = state.lastSelection?.targetId !== targetId;
   actions.append(copy, withText);
-  const note = state.crossBlock && withText.disabled
-    ? el('p', 'ex-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
-    : undefined;
+  const note = from.closest('[data-ex-mermaid-derived]')
+    ? el('p', 'ex-refpanel__note', 'This arrow has no ID of its own; the reference is to the diagram. Give it an edge ID (e1@-->) to reference it.')
+    : state.crossBlock && withText.disabled
+      ? el('p', 'ex-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
+      : undefined;
   if (node instanceof HTMLDetailsElement) {
     actions.append(button('Open detail', 'ex-btn', () => openInspector(targetId, copy)));
   }
@@ -617,7 +619,7 @@ function onClick(e: MouseEvent): void {
   }
 
   // Drawn Mermaid elements are not links; they carry the target of their list instance (§9.12).
-  const link = target.closest<HTMLElement>(`a.ex-term, a.ex-cite, a[${A.target}], a[${A.interactive}], [data-ex-mermaid-drawn]`);
+  const link = target.closest<HTMLElement>(`a.ex-term, a.ex-cite, a[${A.target}], a[${A.interactive}], [data-ex-mermaid-drawn]:not([data-ex-mermaid-derived])`);
   if (link && !link.closest(`.${DOM.toolbar}, #ex-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {

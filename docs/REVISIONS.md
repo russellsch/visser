@@ -122,3 +122,9 @@ Two Claude Opus 5.5 reviews read the Phase 2b plan and ran experiments in `spike
 - Dependency: Mermaid 12.0.0 reaches `lodash-es` 4.17.23 through `chevrotain`; an npm override selects 4.18.1, and `npm audit` reports 0 vulnerabilities.
 - Known gaps: state initial/terminal information from `[*]` is not in the figure model (the source shows it); only an ER example exists for figure-level types (no class example); a lifeline can cross a message label in Mermaid's sequence layout.
 - The Phase 2b inspection report is `docs/validation/phase2b-review.md`.
+
+## Revision 1.13 — Phase 2b code review
+
+Two Claude Opus 5.5 code reviews tested the implemented Phase 2b. The author reran the evidence before accepting: 11 rule bypasses that produced external links or off-origin requests, and a state-transition misalignment with notes.
+
+Fixes: statement splitting at `;`, a strict stereotype pattern, a keyword lookahead that no longer skips names starting with `o`/`x`/`*`, quote-aware `@{…}` scanning, `url(` rejection, opaque-only colours, rejection of entity codes; transitions from `getData()`; initial and terminal flags; `flowchart-elk` as a flowchart; fail-closed SRI (`E_INTEGRITY`); figure-type notice text; non-interactive derived arrows with a reference-mode note; a lifeline halo; 14 px cardinality labels; five test-weakness fixes; and new tests for two figures on a page, a single-figure failure, and prefix names. A class-diagram example (`examples/mermaid-class/`) closes the last example gap. After the fixes, the bypass scripts give 0 harmful accepted cases out of 31.

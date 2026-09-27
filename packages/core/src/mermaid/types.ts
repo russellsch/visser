@@ -20,6 +20,8 @@ export type MermaidElement = {
   kind: 'mermaid-node' | 'mermaid-group' | 'mermaid-state' | 'mermaid-participant';
   label: string;
   members?: string[]; // mapped IDs of a subgraph's members
+  initial?: true; // a state with a transition from the start marker [*]
+  terminal?: true; // a state with a transition to the end marker [*]
   renderKey: RenderKey;
 };
 

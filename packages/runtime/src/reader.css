@@ -252,7 +252,7 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
 .ex-mermaid-notice { border-left: 4px solid var(--ex-accent, #b00020); padding: 0.25rem 0.75rem; }
 .ex-mermaid-note { font-size: 0.875rem; }
 .ex-mermaid .ex-viewport:empty { display: none; }
-[data-ex-mermaid-drawn] { cursor: pointer; }
+[data-ex-mermaid-drawn]:not([data-ex-mermaid-derived]) { cursor: pointer; }
 
 /* ------------------------------------------------------------ narrow screens */
 
@@ -310,3 +310,19 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
 /* Mermaid autonumber badges carry the message order, so they keep the 14 px
    minimum (§18.8). Mermaid scopes its own styles by ID, hence !important. */
 .ex-mermaid svg text.sequenceNumber { font-size: 14px !important; }
+
+/* Sequence lifelines are drawn under message text; a halo in the page
+   background colour keeps crossed labels readable (review-d). Mermaid scopes
+   its own styles by ID, hence !important. */
+.ex-mermaid svg .messageText, .ex-mermaid svg .loopText, .ex-mermaid svg .labelText {
+  paint-order: stroke fill !important;
+  stroke: var(--ex-bg) !important;
+  stroke-width: 6px !important;
+  stroke-linejoin: round !important;
+}
+
+/* Class-diagram cardinality labels ("1", "0..*") render at 11 px; they carry
+   meaning, so they keep the 14 px minimum. Their foreignObject was sized for the
+   smaller text, so it may overflow. */
+.ex-mermaid svg .edgeTerminals .edgeLabel { font-size: 14px !important; }
+.ex-mermaid svg .edgeTerminals foreignObject { overflow: visible; }

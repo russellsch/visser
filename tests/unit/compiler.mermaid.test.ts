@@ -1,20 +1,12 @@
-// Mermaid kernel (§9.12). Until the Mermaid model lands, these tests build a
-// synthetic bundle: a real document whose `detail` component is rewritten into a
-// `mermaid` figure, plus a hand-made MermaidFigure in the model.
+// Mermaid kernel (§9.12), compiled from real documents through loadBundle and
+// the real Mermaid model (no projection stub, no synthetic figures).
 import { readFileSync } from 'node:fs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-
-// The Markdown projection belongs to the model; these tests cover the compiler's
-// HTML only, so the projection is stubbed.
-vi.mock('../../packages/core/src/model/project.ts', () => ({ projectText: () => 'projection stub\n' }));
+import { describe, expect, it } from 'vitest';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
-import { compileDocument, contentSecurityPolicy } from '../../packages/core/src/compiler/index.ts';
-import type { MNode } from '../../packages/core/src/model/targets.ts';
-import type { MermaidFigure } from '../../packages/core/src/mermaid/types.ts';
-import type { TargetRecord } from '../../packages/core/src/types.ts';
+import { CompileError, compileDocument, contentSecurityPolicy } from '../../packages/core/src/compiler/index.ts';
 
 const SOURCE = [
   'flowchart LR',
@@ -22,8 +14,9 @@ const SOURCE = [
   '  Queue e1@--> Worker[Worker]',
   '',
 ].join('\n');
+const ER_SOURCE = ['erDiagram', '  CUSTOMER ||--o{ INVOICE : "is billed by"', ''].join('\n');
 
-const DOC = `---
+const doc = (source: string) => `---
 format: explain/1
 docId: 2b6d1c0e-6f2a-4c3e-9b1d-5a7e8f9c0d1e
 title: Mermaid kernel test
@@ -35,12 +28,12 @@ visibility: private
 <!-- ex:id overview -->
 # Mermaid kernel test
 
-{% detail id="flow" label="Where the producer waits" %}
+{% mermaid id="flow" title="Where the producer waits" question="Where does the producer wait?" %}
 The producer waits at the queue, not at the worker.
 
 \`\`\`mermaid
-${SOURCE}\`\`\`
-{% /detail %}
+${source}\`\`\`
+{% /mermaid %}
 `;
 
 const TOOLKIT = {
@@ -51,49 +44,12 @@ const TOOLKIT = {
 };
 const OPTIONS = { audience: 'private' as const, includeSource: false, layoutFallback: false };
 
-function figure(parsed: boolean): MermaidFigure {
-  if (!parsed) {
-    return { figureId: 'flow', diagramType: 'other', declaredType: 'erDiagram', source: SOURCE, parsed: false, elements: [], relationships: [] };
-  }
-  return {
-    figureId: 'flow',
-    diagramType: 'flowchart',
-    declaredType: 'flowchart',
-    source: SOURCE,
-    parsed: true,
-    elements: [
-      { id: 'producer', name: 'Producer', kind: 'mermaid-node', label: 'Producer', renderKey: 'node:Producer' },
-      { id: 'queue', name: 'Queue', kind: 'mermaid-node', label: 'Queue', renderKey: 'node:Queue' },
-      { id: 'worker', name: 'Worker', kind: 'mermaid-node', label: 'Worker', renderKey: 'node:Worker' },
-    ],
-    relationships: [
-      { id: 'flow~producer~queue~0', referenceable: false, from: 'producer', to: 'queue', label: 'put waits', kind: 'mermaid-edge', renderKey: 'edge:L_Producer_Queue_0' },
-      { id: 'e1', referenceable: true, from: 'queue', to: 'worker', label: '', kind: 'mermaid-edge', renderKey: 'edge:e1' },
-    ],
-  };
-}
-
-/** A loaded bundle whose `flow` component is a Mermaid figure. */
+/** A loaded bundle of a real Mermaid document; `parsed` false uses a figure-level ER diagram. */
 function mermaidBundle(parsed = true) {
   const dir = mkdtempSync(join(tmpdir(), 'explain-mermaid-'));
-  writeFileSync(join(dir, 'index.md'), DOC);
+  writeFileSync(join(dir, 'index.md'), doc(parsed ? SOURCE : ER_SOURCE));
   const bundle = loadBundle(join(dir, 'index.md'));
   expect(bundle.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
-  const node = bundle.model.nodes.get('flow') as MNode;
-  node.tag = 'mermaid';
-  node.attributes = { id: 'flow', title: 'Where the producer waits', question: 'Where does the producer wait?' };
-  const flow = bundle.model.targets.get('flow')!;
-  flow.kind = 'mermaid';
-  flow.inspectable = false;
-  const fig = figure(parsed);
-  const add = (id: string, kind: string, label: string) => {
-    const record: TargetRecord = { ...flow, id, kind, label, parentId: 'flow', ownerComponentId: 'flow', dependencies: [], plainText: label, inspectable: true };
-    delete record.sectionId;
-    bundle.model.targets.set(id, record);
-  };
-  for (const e of fig.elements) add(e.id, e.kind, e.label);
-  for (const r of fig.relationships) if (r.referenceable) add(r.id, r.kind, r.label || 'edge');
-  (bundle.model as { mermaid?: Map<string, MermaidFigure> }).mermaid = new Map([['flow', fig]]);
   return bundle;
 }
 
@@ -173,6 +129,18 @@ describe('Mermaid kernel (§9.12)', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(a.html).not.toMatch(/\sstyle=/);
     expect(a.html).not.toMatch(/<script>/);
+  });
+
+  it('refuses to build a Mermaid page without an integrity digest (fail closed)', async () => {
+    const { integrity: _omit, ...withoutIntegrity } = TOOLKIT;
+    await expect(compileDocument(mermaidBundle(), withoutIntegrity, OPTIONS)).rejects.toBeInstanceOf(CompileError);
+  });
+
+  it('projects the real Mermaid figure into document.md', async () => {
+    const { result } = await page();
+    const md = new TextDecoder().decode(result.files.find((f) => f.path.endsWith('document.md'))!.bytes);
+    expect(md).toContain('<!-- ex:target producer -->');
+    expect(md).toContain('flowchart LR');
   });
 
   it('keeps the Appendix A example output unaffected by the Mermaid kernel', async () => {

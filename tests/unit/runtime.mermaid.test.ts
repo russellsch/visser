@@ -4,7 +4,7 @@
 // @ts-expect-error jsdom ships no type declarations, and @types/jsdom is not a dependency.
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { attachTargets, findDrawn, mermaidConfig, renderIdFor } from '../../packages/runtime/src/mermaid.ts';
+import { attachTargets, findDrawn, isValidIntegrity, mermaidConfig, noticeText, renderIdFor } from '../../packages/runtime/src/mermaid.ts';
 
 function dom(html: string): Document {
   return (new JSDOM(`<!doctype html><body>${html}</body>`) as { window: { document: Document } }).window.document;
@@ -88,6 +88,32 @@ describe('Mermaid element mapping (§9.12)', () => {
     for (const edge of Array.from(svg.querySelectorAll('[data-id="L_Producer_Queue_0"]'))) {
       expect(edge.getAttribute('data-ex-target')).toBe('flow');
       expect(edge.getAttribute('data-ex-rel')).toBe('flow~producer~queue~0');
+      // A derived relationship has no ID of its own: it is not interactive.
+      expect(edge.hasAttribute('data-ex-interactive')).toBe(false);
+      expect(edge.hasAttribute('data-ex-mermaid-derived')).toBe(true);
     }
+  });
+
+  it('keeps an explicit edge ID interactive', () => {
+    const doc = dom(`<figure id="x-flow">${FLOW_SVG}<a data-ex-target="e1" data-ex-rel="e1" data-ex-mermaid-key="edge:e1">e1</a></figure>`);
+    const figure = doc.querySelector('figure')!;
+    attachTargets(figure, figure.querySelector('svg')!, FLOW);
+    const edge = figure.querySelector('[data-id="e1"]')!;
+    expect(edge.hasAttribute('data-ex-interactive')).toBe(true);
+    expect(edge.hasAttribute('data-ex-mermaid-derived')).toBe(false);
+  });
+});
+
+describe('Mermaid loading and failure notices (§9.12)', () => {
+  it('accepts only a sha384 integrity value (fail closed)', () => {
+    expect(isValidIntegrity('sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC')).toBe(true);
+    for (const bad of ['', 'sha256-abc', 'sha384-', 'sha384-not base64!', ' sha384-abc']) expect(isValidIntegrity(bad), bad).toBe(false);
+  });
+
+  it('describes the fallback that the figure actually has', () => {
+    const doc = dom('<figure data-ex-mermaid="flowchart"></figure><figure data-ex-mermaid="other"></figure>');
+    const [parsed, figureLevel] = Array.from(doc.querySelectorAll('figure'));
+    expect(noticeText(parsed!)).toBe('This diagram could not be drawn. Its source and lists are shown instead.');
+    expect(noticeText(figureLevel!)).toBe('This diagram could not be drawn. Its source is shown instead.');
   });
 });

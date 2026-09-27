@@ -724,7 +724,7 @@ class Renderer {
             href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id,
             [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: e.renderKey,
           }, this.label(e.id)),
-          h('span', { class: 'ex-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind})`))));
+          h('span', { class: 'ex-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind}${e.initial ? ', initial' : ''}${e.terminal ? ', terminal' : ''})`))));
       const relList = h('ol', { class: 'ex-rel-list', 'aria-label': 'Relationships' },
         figure.relationships.map((r) => h('li', {},
           h('a', {
@@ -768,6 +768,8 @@ class Renderer {
         h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))))));
     }
     const element = figure?.elements.find((e) => e.id === record.id);
+    if (element?.initial) specifics.push(h('p', { class: 'ex-mermaid-marker', [DOM.attr.generated]: true }, 'Initial state'));
+    if (element?.terminal) specifics.push(h('p', { class: 'ex-mermaid-marker', [DOM.attr.generated]: true }, 'Terminal state'));
     if (element?.members && element.members.length > 0) {
       specifics.push(h('p', { class: 'ex-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
         element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
@@ -986,6 +988,11 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const [firstBlock, ...restBlocks] = mainContent;
     const titleBlocks: Child[] = firstIsH1 ? [firstBlock] : [];
     const bodyBlocks: Child[] = firstIsH1 ? restBlocks : mainContent;
+    // Fail closed: a Mermaid page never loads mermaid.js without an SRI digest (§9.12).
+    const mermaidIntegrity = toolkit.integrity?.['mermaid.js'];
+    if (r.usesMermaid && !(mermaidIntegrity && /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(mermaidIntegrity))) {
+      throw new CompileError([{ code: 'E_INTEGRITY', severity: 'error', message: 'this page has a Mermaid figure, but the toolkit gives no sha384 integrity digest for mermaid.js', path: 'index.md' }]);
+    }
     const doc = h('html', { lang: 'en' },
       h('head', {},
         h('meta', { charset: 'utf-8' }),
@@ -997,7 +1004,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
         h('link', { rel: 'stylesheet', href: `${assetBase}/reader.css`, integrity: cssSha ? integrity(cssSha) : undefined }),
         h('script', { src: `${assetBase}/reader.js`, defer: true, integrity: jsSha ? integrity(jsSha) : undefined }),
         // The runtime loads mermaid.js with this integrity value only on pages that need it (§9.12).
-        r.usesMermaid ? h('meta', { name: DOM.mermaidMeta, content: toolkit.integrity?.['mermaid.js'] ?? '' }) : null),
+        r.usesMermaid ? h('meta', { name: DOM.mermaidMeta, content: mermaidIntegrity }) : null),
       h('body', {},
         h('nav', { class: DOM.toolbar, 'aria-label': 'Document tools', hidden: true },
           h('button', { type: 'button', id: DOM.buttons.contents }, 'Contents'),

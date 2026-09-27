@@ -14,7 +14,9 @@ export type RawFlowchart = {
 };
 export type RawState = {
   states: Array<{ id: string; type: string; description: string | undefined; composite: boolean }>;
-  relations: Array<{ from: string; to: string; title: unknown }>;
+  // From getData().edges: only `edgeN` edges, where N is the drawn edge number
+  // (note connectors also take numbers, so the relation index is not enough).
+  relations: Array<{ from: string; to: string; title: unknown; edge: number }>;
 };
 export type RawSequence = {
   actors: Array<{ name: string; description: unknown; type: string }>;
@@ -66,7 +68,7 @@ function extract(type: MermaidDiagramType, db: Db): Omit<Extract<RawResult, { ok
   }
   if (type === 'state') {
     const states = [...(db['getStates']!() as Map<string, Record<string, unknown>>).values()];
-    const relations = db['getRelations']!() as Array<Record<string, unknown>>;
+    const edges = ((db['getData']!() as { edges?: Array<Record<string, unknown>> }).edges ?? []);
     return {
       state: {
         states: states.map((s) => ({
@@ -75,7 +77,10 @@ function extract(type: MermaidDiagramType, db: Db): Omit<Extract<RawResult, { ok
           description: Array.isArray(s['descriptions']) && typeof s['descriptions'][0] === 'string' ? s['descriptions'][0] : undefined,
           composite: s['doc'] !== undefined && s['doc'] !== null,
         })),
-        relations: relations.map((r) => ({ from: String(r['id1']), to: String(r['id2']), title: r['relationTitle'] })),
+        relations: edges.flatMap((e) => {
+          const m = /^edge(\d+)$/.exec(String(e['id']));
+          return m ? [{ from: String(e['start']), to: String(e['end']), title: e['label'], edge: Number(m[1]) }] : [];
+        }),
       },
     };
   }

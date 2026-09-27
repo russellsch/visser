@@ -12,9 +12,9 @@ import { projectText } from '../../packages/core/src/model/project.ts';
 import { compileDocument } from '../../packages/core/src/compiler/index.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
-const MERMAID_EXAMPLES = ['mermaid-flowchart', 'mermaid-state', 'mermaid-sequence', 'mermaid-er'] as const;
+const MERMAID_EXAMPLES = ['mermaid-flowchart', 'mermaid-state', 'mermaid-sequence', 'mermaid-er', 'mermaid-class'] as const;
 const PARSED = new Set(['mermaid-flowchart', 'mermaid-state', 'mermaid-sequence']);
-const TOOLKIT = { version: '0.0.0-test', sha256: 'a'.repeat(64) };
+const TOOLKIT = { version: '0.0.0-test', sha256: 'a'.repeat(64), integrity: { 'mermaid.js': 'sha384-TESTDIGEST' } };
 const OPTIONS = { audience: 'private' as const, includeSource: false, layoutFallback: false };
 
 const load = (example: string) => loadBundle(join(root, 'examples', example, 'index.md'));
@@ -75,7 +75,8 @@ describe('Mermaid examples load and compile (§9.12) @R01 @R14', () => {
       if (!PARSED.has(example)) {
         // Figure-level types: one figure target, no element targets, the source as text.
         expect([...bundle.model.targets.values()].filter((t) => isMermaidElement(t.kind))).toEqual([]);
-        expect(text).toContain('CUSTOMER ||--o{ INVOICE');
+        const sourceLine: Record<string, string> = { 'mermaid-er': 'CUSTOMER ||--o{ INVOICE', 'mermaid-class': 'WorkQueue <|.. BlockingQueue' };
+        expect(text).toContain(sourceLine[example]);
       }
     });
   }

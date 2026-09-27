@@ -20,6 +20,7 @@ const FIGURE: Record<(typeof MERMAID_EXAMPLES)[number], string> = {
   'mermaid-state': 'pay_lifecycle',
   'mermaid-sequence': 'tok_refresh',
   'mermaid-er': 'bill_schema',
+  'mermaid-class': 'queue_classes',
 };
 
 const renderArea = (page: Page, figure: string) => page.locator(`[id="m-${figure}"]`);
@@ -122,16 +123,31 @@ test.describe('Mermaid rendering and mapping', () => {
           .filter((t) => (t.textContent ?? '').trim() !== '')
           .map((t) => parseFloat(getComputedStyle(t).fontSize) * scale)
           .filter((n) => Number.isFinite(n) && n > 0);
-        return Math.min(...sizes);
+        return { count: sizes.length, min: Math.min(...sizes) };
       }, figure);
-      expect(min, `${example} smallest effective label`).toBeGreaterThanOrEqual(13.95);
+      // Math.min of nothing is Infinity: require labels to exist first.
+      expect(min.count, `${example} has measured labels`).toBeGreaterThan(0);
+      expect(min.min, `${example} smallest effective label`).toBeGreaterThanOrEqual(13.95);
     }
   });
 
-  test('reflow holds at every width for Mermaid pages', async ({ page, offOrigin: _ }) => {
+  test('sequence message text has a background halo so lifelines do not cross it', async ({ page, offOrigin: _ }) => {
+    await openSnapshot(page, '', 'mermaid-sequence');
+    await showMap(page, 'tok_refresh');
+    await waitForDrawing(page, 'tok_refresh');
+    const strokes = await page.locator('[id="m-tok_refresh"] svg .messageText').evaluateAll((els) => els.map((e) => getComputedStyle(e).stroke));
+    expect(strokes.length).toBeGreaterThan(0);
+    for (const stroke of strokes) expect(stroke).not.toBe('none');
+  });
+
+  test('reflow holds at every width for Mermaid pages', async ({ page, offOrigin: _ }, info) => {
     for (const example of MERMAID_EXAMPLES) {
       await openSnapshot(page, '', example);
-      await waitForDrawing(page, FIGURE[example]).catch(() => undefined);
+      // Require a settled figure: drawn, or a visible failure notice. Never skip silently.
+      const figure = byId(page, `x-${FIGURE[example]}`);
+      await expect(figure.locator('.ex-mermaid-notice:visible, [data-ex-mermaid-render] svg').first()).toBeAttached({ timeout: 20_000 });
+      const outcome = (await figure.evaluate((f) => f.classList.contains('ex-mermaid-rendered'))) ? 'rendered' : 'notice';
+      info.annotations.push({ type: 'mermaid-outcome', description: `${example}: ${outcome}` });
       const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
       expect(scroll, example).toBeLessThanOrEqual(inner);
     }
@@ -139,8 +155,14 @@ test.describe('Mermaid rendering and mapping', () => {
 
   test('deep links open a Mermaid node detail before and after rendering', async ({ page, offOrigin: _ }, info) => {
     desktopOnly(info.project.name);
-    await openSnapshot(page, '#x-edgecache', 'mermaid-flowchart');
+    // Hold mermaid.js until the "before rendering" assertion has run.
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    await page.route('**/mermaid.js', async (route) => { await held; await route.continue(); });
+    await openSnapshot(page, '#x-edgecache', 'mermaid-flowchart', 'domcontentloaded');
     await expect(byId(page, 'x-edgecache')).toHaveAttribute('open', '');
+    expect(await byId(page, 'x-cdn_path').evaluate((f) => f.classList.contains('ex-mermaid-rendered')), 'not rendered yet').toBe(false);
+    release();
     await waitForDrawing(page, 'cdn_path');
     await page.evaluate(() => { location.hash = '#x-articledb'; });
     await expect(byId(page, 'x-articledb')).toHaveAttribute('open', '');

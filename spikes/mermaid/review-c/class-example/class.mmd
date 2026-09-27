@@ -1,0 +1,26 @@
+classDiagram
+  class WorkQueue~T~ {
+    <<interface>>
+    +put(item T) bool
+    +take() T
+  }
+  class BlockingQueue~T~ {
+    -RingBuffer~T~ buffer
+    -Condition notFull
+    +put(item T) bool
+    +take() T
+  }
+  class DroppingQueue~T~ {
+    -RingBuffer~T~ buffer
+    -int dropped
+    +put(item T) bool
+    +take() T
+  }
+  class RingBuffer~T~ {
+    -int capacity
+    +isFull() bool
+  }
+  WorkQueue <|.. BlockingQueue : implements
+  WorkQueue <|.. DroppingQueue : implements
+  BlockingQueue *-- "1" RingBuffer : owns
+  DroppingQueue *-- "1" RingBuffer : owns

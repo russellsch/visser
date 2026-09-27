@@ -8,12 +8,13 @@ import { EXAMPLE_PORTS, type ExampleName } from './examples.ts';
  * Open the snapshot page, optionally with a fragment such as `#x-enqueue`.
  * `example` selects one of the served example bundles (tests/browser/examples.ts).
  */
-export async function openSnapshot(page: Page, hash = '', example: ExampleName = 'bounded-queue'): Promise<void> {
+export async function openSnapshot(page: Page, hash = '', example: ExampleName = 'bounded-queue', waitUntil: 'load' | 'domcontentloaded' = 'load'): Promise<void> {
   await page.goto(example === 'bounded-queue' ? '/' : `http://127.0.0.1:${EXAMPLE_PORTS[example]}/`);
   // Every server answers `/` with an index that links to exactly one snapshot.
   const href = await page.locator('a').first().getAttribute('href');
   if (!href) throw new Error('index page has no snapshot link');
-  await page.goto(new URL(href, page.url()).href + hash);
+  // A held mermaid.js delays the load event, so such tests wait for DOMContentLoaded.
+  await page.goto(new URL(href, page.url()).href + hash, { waitUntil });
 }
 
 /** Locator for an element by its exact id (IDs contain dots, e.g. `v-handoff.enqueue`). */

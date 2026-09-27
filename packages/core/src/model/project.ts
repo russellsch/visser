@@ -284,7 +284,8 @@ function renderMermaid(ctx: Context, record: TargetRecord, node: MNode, figure: 
     return out;
   }
   for (const e of figure.elements) {
-    const lines = [idLine(e.id), `${e.kind.replace('mermaid-', 'Mermaid ')} ${e.label}${e.name !== e.label ? ` (name: ${e.name})` : ''}`];
+    const marks = `${e.initial ? ' (initial)' : ''}${e.terminal ? ' (terminal)' : ''}`;
+    const lines = [idLine(e.id), `${e.kind.replace('mermaid-', 'Mermaid ')} ${e.label}${marks}${e.name !== e.label ? ` (name: ${e.name})` : ''}`];
     if (e.members && e.members.length > 0) lines.push(`members: ${e.members.join(', ')}`);
     out.push(lines.join('\n'));
   }

@@ -1,0 +1,452 @@
+{
+ "mermaid-flowchart": {
+  "url": "http://127.0.0.1:4511/d/338508ba-1093-4c58-b8f8-bc45c01054bb/9040dd875aa8d07a39d2c8df464c293627519d413ba12e784e4e97a462fd649d/9fcf817d5c8ec9c619c36cff2e8b04f3cf3c009a1ee7d0e8db0621302cdd6d77/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "w1440": {
+   "renderMs": 391,
+   "figures": [
+    {
+     "id": "x-cdn_path",
+     "type": "flowchart",
+     "instances": 9,
+     "missing": [],
+     "drawn": 13,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-cdn_path",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 1440,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w390": {
+   "renderMs": 376,
+   "figures": [
+    {
+     "id": "x-cdn_path",
+     "type": "flowchart",
+     "instances": 9,
+     "missing": [],
+     "drawn": 13,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-cdn_path",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 390,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w320": {
+   "renderMs": 373,
+   "figures": [
+    {
+     "id": "x-cdn_path",
+     "type": "flowchart",
+     "instances": 9,
+     "missing": [],
+     "drawn": 13,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-cdn_path",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 320,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "inspector": {
+   "asideOpen": true,
+   "openId": "x-originsite",
+   "expected": "originsite"
+  },
+  "refmode": {
+   "panel": "mermaid-group: Origin siteCopy referenceCopy reference with selected textOpen detailSelect: mermaid-group — Origin sitem",
+   "selected": "originsite",
+   "copied": "originsite",
+   "expected": "originsite"
+  },
+  "nojs": [
+   {
+    "srcVisible": true,
+    "lists": 9,
+    "emptyViewportHidden": true
+   }
+  ]
+ },
+ "mermaid-state": {
+  "url": "http://127.0.0.1:4512/d/fc51c531-4784-4722-893c-9368c8965549/5506c0501e29e212b54761121fc91214f4087457bf688e90d11cd68e75f41791/74f49111df917bb6afacbe22d3b8c282cdd8beaed38b3716ff5d8128c5413553/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "w1440": {
+   "renderMs": 368,
+   "figures": [
+    {
+     "id": "x-pay_lifecycle",
+     "type": "state",
+     "instances": 12,
+     "missing": [],
+     "drawn": 18,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-pay_lifecycle",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 1440,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w390": {
+   "renderMs": 385,
+   "figures": [
+    {
+     "id": "x-pay_lifecycle",
+     "type": "state",
+     "instances": 12,
+     "missing": [],
+     "drawn": 18,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-pay_lifecycle",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 390,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w320": {
+   "renderMs": 396,
+   "figures": [
+    {
+     "id": "x-pay_lifecycle",
+     "type": "state",
+     "instances": 12,
+     "missing": [],
+     "drawn": 18,
+     "minPx": 16,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-pay_lifecycle",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 320,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "inspector": {
+   "asideOpen": false,
+   "openId": null,
+   "expected": "pay_lifecycle"
+  },
+  "refmode": {
+   "panel": "mermaid: The capture check keeps an oversized capture from failing the paymentCopy referenceCopy reference with selected",
+   "selected": "pay_lifecycle",
+   "copied": "pay_lifecycle",
+   "expected": "pay_lifecycle"
+  },
+  "nojs": [
+   {
+    "srcVisible": true,
+    "lists": 12,
+    "emptyViewportHidden": true
+   }
+  ]
+ },
+ "mermaid-sequence": {
+  "url": "http://127.0.0.1:4513/d/64c930f4-6228-4ef3-887c-869c7f9484b4/be99e4e24222ce522bd31bb28312599aaaf039e3dea938ef2fb6705b540f0fc0/8749656ca27b5c0486da6baa35dd3d4e3af62e1c93927bf2059043d3e1974aeb/index.html",
+  "pageCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "metaCsp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'",
+  "csp:document.md": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:build.json": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "csp:/": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "mermaidJs": {
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "cache": "public, max-age=31536000, immutable",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'"
+  },
+  "sriMatches": true,
+  "w1440": {
+   "renderMs": 265,
+   "figures": [
+    {
+     "id": "x-tok_refresh",
+     "type": "sequence",
+     "instances": 9,
+     "missing": [],
+     "drawn": 9,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-tok_refresh",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 1440,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w390": {
+   "renderMs": 271,
+   "figures": [
+    {
+     "id": "x-tok_refresh",
+     "type": "sequence",
+     "instances": 9,
+     "missing": [],
+     "drawn": 9,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-tok_refresh",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 390,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "w320": {
+   "renderMs": 259,
+   "figures": [
+    {
+     "id": "x-tok_refresh",
+     "type": "sequence",
+     "instances": 9,
+     "missing": [],
+     "drawn": 9,
+     "minPx": 14,
+     "vpTabindex": "0",
+     "vpRole": "region",
+     "svgLabelledby": "ex-t-tok_refresh",
+     "sourceVisible": false,
+     "notice": null
+    }
+   ],
+   "reflow": true,
+   "scrollWidth": 320,
+   "bodyChildren": [
+    "nav",
+    "main#ex-doc"
+   ],
+   "toggleInfo": {
+    "pressed": "true",
+    "text": "Hide source",
+    "focus": true,
+    "srcVisible": true
+   },
+   "print": [
+    {
+     "svgVisible": true,
+     "srcVisible": false,
+     "listsVisible": true
+    }
+   ],
+   "errors": [],
+   "off": []
+  },
+  "inspector": {
+   "asideOpen": true,
+   "openId": "x-reportsapi",
+   "expected": "reportsapi"
+  },
+  "refmode": {
+   "panel": "mermaid-participant: Reports APICopy referenceCopy reference with selected textOpen detailSelect: mermaid-participant — ",
+   "selected": "reportsapi",
+   "copied": "reportsapi",
+   "expected": "reportsapi"
+  },
+  "nojs": [
+   {
+    "srcVisible": true,
+    "lists": 9,
+    "emptyViewportHidden": true
+   }
+  ]
+ }
+}

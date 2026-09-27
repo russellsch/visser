@@ -65,7 +65,7 @@ describe('Mermaid rejected content (§9.12) @R11', () => {
   it('allows only literal fill, stroke, colour, and font declarations', () => {
     expect(codesOf('flowchart LR\n a --> b\n classDef hot fill:#f96,stroke:#333,stroke-width:2px,font-weight:bold\n style b stroke-dasharray:5 5,color:white\n linkStyle 0 interpolate basis stroke:red')).toEqual([]);
     for (const decl of ['classDef x position:fixed', 'style a transform:scale(2)', 'linkStyle 0 display:none', 'style a fill:url(https://x)', 'classDef y opacity:0', 'style a font-size:2px']) {
-      expect(codesOf(`flowchart LR\n a --> b\n ${decl}`), decl).toEqual(['E_UNSAFE_CONTENT']);
+      expect([...new Set(codesOf(`flowchart LR\n a --> b\n ${decl}`))], decl).toEqual(['E_UNSAFE_CONTENT']);
     }
   });
 
