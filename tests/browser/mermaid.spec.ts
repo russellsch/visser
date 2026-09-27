@@ -8,8 +8,8 @@ import { join } from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
-import { EXAMPLE_PORTS, MERMAID_EXAMPLES, type ExampleName } from './examples.ts';
-import { byId, copiedTexts, installClipboardSpy, isNarrow, openSnapshot, showMap, test } from './support.ts';
+import { MERMAID_EXAMPLES, type ExampleName } from './examples.ts';
+import { byId, copiedTexts, installClipboardSpy, isExportSite, isNarrow, isPrimaryDesktop, openSnapshot, showMap, snapshotUrl, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const cli = join(root, 'dist/release/bin/explain.cjs');
@@ -30,14 +30,6 @@ async function waitForDrawing(page: Page, figure: string): Promise<void> {
   await expect(renderArea(page, figure).locator('svg').first()).toBeAttached({ timeout: 20_000 });
 }
 
-/** Absolute URL of an example's snapshot page. */
-async function snapshotUrl(page: Page, example: ExampleName): Promise<string> {
-  const index = `http://127.0.0.1:${EXAMPLE_PORTS[example]}/`;
-  const html = await (await page.request.get(index)).text();
-  const href = /href="([^"]+)"/.exec(html)?.[1];
-  if (!href) throw new Error(`no snapshot link at ${index}`);
-  return new URL(href, index).href;
-}
 
 function resolveInRepo(example: ExampleName, packetYaml: string) {
   const repo = mkdtempSync(join(tmpdir(), 'explain-mermaid-'));
@@ -50,7 +42,7 @@ function resolveInRepo(example: ExampleName, packetYaml: string) {
   return spawnSync(process.execPath, [cli, 'refs', 'resolve', '--packet', packetPath, '--json'], { cwd: repo, encoding: 'utf8' });
 }
 
-const desktopOnly = (name: string) => test.skip(name !== 'chromium-1440', 'runs once, on the desktop project');
+const desktopOnly = (name: string) => test.skip(!isPrimaryDesktop(name), 'runs once, on the desktop project');
 
 test.describe('Mermaid rendering and mapping', () => {
   test('@R03 @R04 drawn nodes carry data-ex-target and open their detail', async ({ page, offOrigin: _ }, info) => {
@@ -245,10 +237,16 @@ test.describe('Mermaid asset loading and CSP', () => {
     for (const [example, relaxed] of [['mermaid-flowchart', true], ['mermaid-er', true], ['bounded-queue', false]] as const) {
       const response = await page.goto(await snapshotUrl(page, example));
       const header = response!.headers()['content-security-policy'] ?? '';
-      expect(styleSrc(header).includes("'unsafe-inline'"), `${example} header style-src`).toBe(relaxed);
-      expect(scriptSrc(header).trim(), `${example} header script-src`).toBe("'self'");
+      if (isExportSite()) {
+        // A static host sends no CSP header; the meta element carries the policy.
+        expect(header, `${example} static host header`).toBe('');
+      } else {
+        expect(styleSrc(header).includes("'unsafe-inline'"), `${example} header style-src`).toBe(relaxed);
+        expect(scriptSrc(header).trim(), `${example} header script-src`).toBe("'self'");
+      }
       const meta = (await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')) ?? '';
       expect(styleSrc(meta).includes("'unsafe-inline'"), `${example} meta style-src`).toBe(relaxed);
+      expect(scriptSrc(meta).trim(), `${example} meta script-src`).toBe("'self'");
     }
   });
 });

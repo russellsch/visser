@@ -2,7 +2,7 @@
 //   [--allow-layout-fallback]` (§13.1, §17.1). No source mutation, no network.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { loadBundle } from '../../../core/src/model/bundle.ts';
+import { loadBundle, type LoadedBundle } from '../../../core/src/model/bundle.ts';
 import { CompileError, compileDocument, workerLayout, type CompileResult } from '../../../core/src/compiler/index.ts';
 import { createHash } from 'node:crypto';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
@@ -36,6 +36,59 @@ export function copyAssets(releaseDir: string, assetDir: string, names: string[]
     const tmp = join(assetDir, `.${name}.${process.pid}.tmp`);
     writeFileSync(tmp, bytes);
     renameSync(tmp, dest);
+  }
+}
+
+export type CompileRequest = {
+  audience: 'private' | 'public';
+  includeSource: boolean;
+  layoutFallback: boolean;
+  nodeVersion: string;
+};
+
+/**
+ * Compile a loaded bundle with a resolved toolkit: asset digests and the
+ * Mermaid SRI value come from the toolkit's verified release, and workers
+ * come only from the running CLI's own release (§12.4). Shared by `build`
+ * and `export`.
+ */
+export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitSelection, request: CompileRequest): Promise<CompileResult> {
+  const releaseDir = toolkit.release.dir;
+  const assetSha = (name: string) => createHash('sha256').update(readFileSync(join(releaseDir, 'browser', name))).digest('hex');
+  const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
+  // SRI value for the lazily loaded Mermaid asset (§9.12).
+  const integrity = existsSync(mermaidPath)
+    ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
+    : undefined;
+  // Workers come only from the running CLI's own release (§12.4 "Whose code
+  // runs"); in source mode there is none, and layout runs in process.
+  const workerPath = toolkit.workerRelease ? join(toolkit.workerRelease, 'workers', 'layout.cjs') : undefined;
+  try {
+    return await compileDocument(
+      bundle,
+      {
+        version: toolkit.release.version,
+        sha256: toolkit.release.sha256,
+        assets: {
+          'reader.js': assetSha('reader.js'),
+          'reader.css': assetSha('reader.css'),
+          ...(existsSync(mermaidPath) ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
+        },
+        ...(integrity ? { integrity } : {}),
+      },
+      {
+        audience: request.audience,
+        includeSource: request.includeSource,
+        layoutFallback: request.layoutFallback,
+        ...(workerPath && existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
+        nodeVersion: request.nodeVersion,
+        ...(toolkit.development ? { development: true } : {}),
+      },
+    );
+  } catch (error) {
+    if (!(error instanceof CompileError)) throw error;
+    printDiagnostics(error.diagnostics, false);
+    throw new CliError('E_BUILD', 'build stopped: compilation failed', exitCodeFor(error.diagnostics));
   }
 }
 
@@ -75,43 +128,13 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   for (const warning of toolkit.warnings) process.stderr.write(`warning ${warning}\n`);
 
   const releaseDir = toolkit.release.dir;
-  const assetSha = (name: string) => createHash('sha256').update(readFileSync(join(releaseDir, 'browser', name))).digest('hex');
   const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
-  // SRI value for the lazily loaded Mermaid asset (§9.12).
-  const integrity = existsSync(mermaidPath)
-    ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
-    : undefined;
-  // Workers come only from the running CLI's own release (§12.4 "Whose code
-  // runs"); in source mode there is none, and layout runs in process.
-  const workerPath = toolkit.workerRelease ? join(toolkit.workerRelease, 'workers', 'layout.cjs') : undefined;
-  let result: CompileResult;
-  try {
-    result = await compileDocument(
-      bundle,
-      {
-        version: toolkit.release.version,
-        sha256: toolkit.release.sha256,
-        assets: {
-          'reader.js': assetSha('reader.js'),
-          'reader.css': assetSha('reader.css'),
-          ...(existsSync(mermaidPath) ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
-        },
-        ...(integrity ? { integrity } : {}),
-      },
-      {
-        audience: 'private',
-        includeSource: false,
-        layoutFallback: args.flags.has('allow-layout-fallback'),
-        ...(workerPath && existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
-        nodeVersion: process.version,
-        ...(toolkit.development ? { development: true } : {}),
-      },
-    );
-  } catch (error) {
-    if (!(error instanceof CompileError)) throw error;
-    printDiagnostics(error.diagnostics, false);
-    throw new CliError('E_BUILD', 'build stopped: compilation failed', exitCodeFor(error.diagnostics));
-  }
+  const result = await compileWithToolkit(bundle, toolkit, {
+    audience: 'private',
+    includeSource: false,
+    layoutFallback: args.flags.has('allow-layout-fallback'),
+    nodeVersion: process.version,
+  });
   printDiagnostics(result.diagnostics.filter((d) => d.severity === 'warning'), false);
 
   const outDir = resolve(stringFlag(args, 'out') ?? join(repoRootFor(bundle.root), '.explain', 'output'));

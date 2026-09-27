@@ -473,7 +473,8 @@ The toolkit sets all Mermaid configuration. These are `E_UNSAFE_CONTENT`:
 `url(`; the `img:` and `icon:` shape attributes; and `classDef`, `style`, or
 `linkStyle` declarations other than `fill`, `stroke`, `stroke-width`,
 `stroke-dasharray`, `color`, `font-weight`, and `font-style` with literal values.
-An entity code such as `#quot;` is `E_SEMANTIC`; write the character. Composite
+A `%%` comment must be on its own line; `%%` later in a line (outside
+quotes) is `E_UNSAFE_CONTENT`. An entity code such as `#quot;` is `E_SEMANTIC`; write the character. Composite
 states (`state X { … }`) are `E_SEMANTIC`; split the diagram.
 
 ````markdown explain-invalid E_UNSAFE_CONTENT
@@ -492,6 +493,15 @@ flowchart LR
 %%{init: {"theme": "dark"}}%%
 flowchart LR
   OrderClient --> OrderApi
+```
+{% /mermaid %}
+````
+
+````markdown explain-invalid E_UNSAFE_CONTENT
+{% mermaid id="order_flow" title="Where an order waits" question="Which step can block the client?" %}
+```mermaid
+flowchart LR
+  OrderClient --> OrderApi %% the API host
 ```
 {% /mermaid %}
 ````

@@ -165,3 +165,15 @@ Two Claude Opus 5.5 reviews read the Phase 4 plan against the implemented code a
 Accepted: wrappers call only the user shim, and no repository shim is ever executed (a trust check inside a repository shim runs too late); repository toolchains need user trust; the resolved toolkit's own CLI runs, so all code comes from one trusted release; strict release verification (schema path grammar, regular files, exact file set); a small ustar reader that rejects instead of sanitizing; reproducible `release:pack`; the format guide and license notices in the release; GitHub acquisition rules and a test CA seam; defined `upgrade` with a guarded lock write and downgrade refusal; `doctor` that never executes repository code and checks wrapper text; the development-build mark and `check --release`; the export contract (collection index, report, Mermaid comment removal, public-export refusal of development builds, Node major version only, declared-file `--include-source`); the offline test mechanism; schemas for the new JSON outputs; the corrected bootstrap command.
 
 Scope: `vendor` and `content import` are deferred beyond v1; catalogue guides, templates, and `catalogue list|show` move to Phase 5; Phase 4 splits into 4a (release, installation, trust), 4b (export), and 4c (network and lifecycle).
+
+## Revision 1.18 — Phases 4a and 4b implemented
+
+Phase 4a added the strict archive reader, reproducible packing, `install`, `trust toolkit`, the §12.4 resolution with the trust gate, the user shim, `doctor`, `skill show`, and `check --release`. Phase 4b added `export --format site`, Mermaid comment removal, and the offline test. The spec now records what the implementation decided:
+
+- `install --scope user --default` writes the user default pointer, which the shim reads.
+- A refused development build is `E_USAGE`.
+- `%%` inside a Mermaid line is `E_UNSAFE_CONTENT`, because diagram types treat it differently.
+- Export report warnings and the rule that `file` and `web` sources always need `--allow-private-content` in a public export.
+- `--include-source` keeps Mermaid comments in the labelled source bundle.
+- The placement of `definition` and `detail`, which the code already enforced.
+- The known limit between shim verification and execution.

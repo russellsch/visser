@@ -40,7 +40,8 @@
     },
     "nodeVersion": {
       "type": "string",
-      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+"
+      "description": "The full Node version, or only the major version (for example v24) in a public export (\u00a713.5).",
+      "pattern": "^v[0-9]+($|\\.[0-9]+\\.[0-9]+)"
     },
     "development": {
       "description": "Present and true only for a --dev-toolkit build whose toolkit differs from the lock (\u00a712.4); public exports and check --release refuse it.",

@@ -21,6 +21,8 @@ import doctorSchema from '../../../../schemas/explain-doctor-1.schema.json' with
 import skillSchema from '../../../../schemas/explain-skill-1.schema.json' with { type: 'json' };
 import installSchema from '../../../../schemas/explain-install-1.schema.json' with { type: 'json' };
 import trustSchema from '../../../../schemas/explain-trust-1.schema.json' with { type: 'json' };
+import exportSchema from '../../../../schemas/explain-export-1.schema.json' with { type: 'json' };
+import collectionSchema from '../../../../schemas/explain-collection-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -51,6 +53,8 @@ export const validators = {
   skill: compile(skillSchema),
   install: compile(installSchema),
   trust: compile(trustSchema),
+  export: compile(exportSchema),
+  collection: compile(collectionSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;

@@ -4,6 +4,7 @@
 import type { ParsedSource, TargetId, TargetRecord } from '../types.ts';
 import { buildTargetRecords, inlineText, type MNode, type SemanticRelationship } from './targets.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
+import { stripMermaidComments } from '../mermaid/rules.ts';
 
 const idLine = (id: TargetId) => `<!-- ex:target ${id} -->`;
 
@@ -277,7 +278,14 @@ function renderMermaid(ctx: Context, record: TargetRecord, node: MNode, figure: 
   const out: string[] = [`**mermaid (${figure?.declaredType || 'diagram'}): ${attr(node, 'title') ?? record.label}**`];
   const question = attr(node, 'question');
   if (question) out.push(`Question: ${question}`);
-  const body = bodyOf(ctx, node); // interpretation, then the fenced Mermaid source
+  // Interpretation, then the fenced Mermaid source without whole-line `%%` comments (§13.5).
+  const shown = {
+    ...node,
+    children: node.children.map((c) => c.type === 'fence'
+      ? { ...c, attributes: { ...c.attributes, content: stripMermaidComments(String(c.attributes['content'] ?? '')) } }
+      : c),
+  } as MNode;
+  const body = bodyOf(ctx, shown);
   if (body) out.push(body);
   if (!figure || !figure.parsed) {
     out.push('Figure-level Mermaid diagram: its elements are not individually inspectable; the source above is the text form.');

@@ -1,0 +1,56 @@
+# Example GitHub Pages publication for an Explain export (ARCHITECTURE.md §13.5).
+#
+# Disabled by default, in two ways:
+#   1. The file name ends in `.example`, so GitHub does not run it. To enable
+#      it, copy it to .github/workflows/publish.yml in your own repository.
+#   2. It runs only when a person starts it (workflow_dispatch); a push never
+#      publishes anything.
+#
+# It publishes a folder that you exported, reviewed, and committed yourself:
+#
+#   explain export --collection docs/explanations/collection.json \
+#     --format site --audience public --out site
+#
+# It does not build documents, install the toolkit, or read any secret.
+#
+# Every action is pinned to a full commit SHA. These SHAs were written without
+# network access and are NOT verified: check each one against the action's
+# release tag before you enable the workflow.
+name: Publish Explain site
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        # pin: verify before enabling (actions/checkout v4.2.2)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Configure GitHub Pages
+        # pin: verify before enabling (actions/configure-pages v5.0.0)
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+      - name: Upload the exported site
+        # pin: verify before enabling (actions/upload-pages-artifact v3.0.1)
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        # pin: verify before enabling (actions/deploy-pages v4.0.5)
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

@@ -75,6 +75,15 @@
       "note": "Committed capture ignores a dirty working tree; working-tree captures are labelled and compared as working-tree matches; example and link-only sources; unavailable origins and hostile repositories (replace refs, partial clones, gitfiles, alternates) fail closed."
     },
     {
+      "id": "R08",
+      "phase": 4,
+      "status": "covered",
+      "tags": [
+        "@R08"
+      ],
+      "note": "scripts/check-offline.mjs proves network isolation under unshare -rn, then runs init, check, build, both exports, and serve over loopback."
+    },
+    {
       "id": "R09",
       "phase": 4,
       "status": "covered",
@@ -86,11 +95,11 @@
     {
       "id": "R10",
       "phase": 4,
-      "status": "partial",
+      "status": "covered",
       "tags": [
         "@R10"
       ],
-      "note": "Reproducible release archive and a strict ustar reader that rejects hostile archives. GitHub --from-release and project-subpath export are Phases 4b and 4c."
+      "note": "Reproducible release archive, strict ustar reader, site export with relative URLs, and the browser journeys against a /explain-demo/ subpath export on a static server. GitHub --from-release is Phase 4c."
     },
     {
       "id": "R11",
@@ -163,6 +172,15 @@
         "@R19"
       ],
       "note": "ids assign, guarded replace, retire, and capture keep every other target ID and body hash; frontmatter edits keep every other key."
+    },
+    {
+      "id": "R20",
+      "phase": 4,
+      "status": "covered",
+      "tags": [
+        "@R20"
+      ],
+      "note": "Public export refuses private documents, unlisted source repositories, and development builds; Mermaid comments are removed from pages and document.md."
     },
     {
       "id": "T01",

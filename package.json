@@ -17,8 +17,9 @@
     "test": "vitest run",
     "test:contracts": "node scripts/check-contracts.mjs",
     "test:browser": "playwright test",
-    "test:offline": "node -e \"console.error('E_UNSUPPORTED: offline test starts in Phase 1'); process.exit(3)\"",
-    "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 1'); process.exit(3)\"",
+    "test:clean-machine": "node scripts/clean-machine.mjs",
+    "test:offline": "node scripts/check-offline.mjs",
+    "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 5'); process.exit(3)\"",
     "release:pack": "node scripts/release.mjs"
   },
   "devDependencies": {

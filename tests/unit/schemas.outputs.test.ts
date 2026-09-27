@@ -69,6 +69,16 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
     alreadyInstalled: false, trusted: true, shim: '/home/u/.explain/bin/explain.cjs', invocation: 'node /home/u/.explain/bin/explain.cjs',
   },
   trust: { schema: 'explain-trust/1', digest: SHA, trusted: true, changed: true, source: 'trust toolkit', addedAt: '2026-09-27T00:00:00Z' },
+  export: {
+    schema: 'explain-export/1', format: 'site', audience: 'public', out: '/tmp/site', includeSource: false, allowPrivateContent: true,
+    collection: { title: 'Notes', path: 'index.html' },
+    documents: [{ docId: DOC, title: 'Q', visibility: 'public', path: `d/${DOC}/${SHA}/${SHA}/index.html`, sourceRevision: SHA, buildId: SHA, toolkitSha256: SHA, mermaid: false }],
+    sources: [{ docId: DOC, id: 'src_a', kind: 'git', repository: 'https://example.com/a.git', publicRepository: true }],
+    mermaidPages: [],
+    assetPacks: [{ toolkitSha256: SHA, path: `_explain/assets/${SHA}`, files: ['reader.css', 'reader.js'] }],
+    warnings: [{ code: 'W_STATIC_HOST_SRI', message: 'a host that rewrites JavaScript breaks SRI' }],
+  },
+  collection: { schema: 'explain-collection/1', title: 'Notes', documents: [{ path: 'queue/index.md' }] },
 };
 
 describe('schemas for --json outputs and metadata files (§5.4)', () => {
@@ -84,6 +94,13 @@ describe('schemas for --json outputs and metadata files (§5.4)', () => {
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: true, currentRevision: SHA, diagnostics: [diagnostic] }).ok).toBe(true);
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: true }).ok).toBe(false);
     expect(validateAgainst('refresh', { schema: 'explain-refresh/1', refused: false }).ok).toBe(false);
+  });
+
+  it('export: a leading-slash site path and an unknown asset file are rejected', () => {
+    const exp = samples.export as Record<string, unknown>;
+    const doc = (exp['documents'] as Array<Record<string, unknown>>)[0]!;
+    expect(validateAgainst('export', { ...exp, documents: [{ ...doc, path: `/d/${DOC}/index.html` }] }).ok).toBe(false);
+    expect(validateAgainst('export', { ...exp, assetPacks: [{ toolkitSha256: SHA, path: 'x', files: ['evil.js'] }] }).ok).toBe(false);
   });
 
   it('trustStore: a key that is not a digest is rejected', () => {

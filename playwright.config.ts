@@ -22,16 +22,31 @@ const JS_ONLY = { grepInvert: /@nojs/ };
 const NOJS_ONLY = { grep: /@nojs/, use: { ...desktop(1440, 1000), javaScriptEnabled: false } };
 const narrow = (width: number, height: number) => ({ viewport: { width, height }, isMobile: true, hasTouch: true });
 
+// The exported static site (R10, §13.5): tests/browser/export-site.mjs exports
+// every example, and tests/browser/static-server.mjs serves it under a project
+// prefix like GitHub Pages. Projects with metadata.site 'export' read it.
+const EXPORT_PORT = 4340;
+const exportURL = `http://127.0.0.1:${EXPORT_PORT}`;
+const EXPORT_SPEC = /export\.spec\.ts$/;
+const JOURNEY_SPECS = /(journeys|mermaid|coverage)\.spec\.ts$/;
+const exportSite = { metadata: { site: 'export' } };
+
 const perCommit: Project[] = [
-  { name: 'chromium-1440', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000) } },
-  { name: 'chromium-320', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...narrow(320, 720) } },
-  { name: 'chromium-nojs', ...NOJS_ONLY, use: { ...devices['Desktop Chrome'], ...NOJS_ONLY.use } },
+  { name: 'chromium-1440', ...JS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000) } },
+  { name: 'chromium-320', ...JS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...narrow(320, 720) } },
+  { name: 'chromium-nojs', ...NOJS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...NOJS_ONLY.use } },
+  // The export-specific checks run on every commit; the full journeys run on the export in the full tier.
+  { name: 'export-1440', ...JS_ONLY, ...exportSite, testMatch: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000), baseURL: exportURL } },
+  { name: 'export-nojs', ...NOJS_ONLY, ...exportSite, testMatch: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...NOJS_ONLY.use, baseURL: exportURL } },
 ];
 
 const fullMatrix: Project[] = [
-  { name: 'chromium-1024', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1024, 768) } },
-  { name: 'chromium-390', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...narrow(390, 844) } },
-  { name: 'chromium-reduced-motion', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000), contextOptions: { reducedMotion: 'reduce' } } },
+  { name: 'chromium-1024', ...JS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...desktop(1024, 768) } },
+  { name: 'chromium-390', ...JS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...narrow(390, 844) } },
+  { name: 'chromium-reduced-motion', ...JS_ONLY, testIgnore: EXPORT_SPEC, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000), contextOptions: { reducedMotion: 'reduce' } } },
+  { name: 'export-journeys-1440', ...JS_ONLY, ...exportSite, testMatch: JOURNEY_SPECS, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000), baseURL: exportURL } },
+  { name: 'export-journeys-320', ...JS_ONLY, ...exportSite, testMatch: JOURNEY_SPECS, use: { ...devices['Desktop Chrome'], ...narrow(320, 720), baseURL: exportURL } },
+  { name: 'export-journeys-nojs', ...NOJS_ONLY, ...exportSite, testMatch: JOURNEY_SPECS, use: { ...devices['Desktop Chrome'], ...NOJS_ONLY.use, baseURL: exportURL } },
 ];
 
 const realServers = EXAMPLES.map((name) => ({
@@ -40,6 +55,13 @@ const realServers = EXAMPLES.map((name) => ({
   reuseExistingServer: false,
   timeout: 60_000,
 }));
+
+const exportServer = {
+  command: `node tests/browser/export-site.mjs && node tests/browser/static-server.mjs --dir reports/export-site/site --prefix /explain-demo/ --port ${EXPORT_PORT}`,
+  url: `${exportURL}/explain-demo/`,
+  reuseExistingServer: false,
+  timeout: 120_000,
+};
 
 export default defineConfig({
   testDir: 'tests/browser',
@@ -62,7 +84,7 @@ export default defineConfig({
   projects: full ? [...perCommit, ...fullMatrix] : perCommit,
   webServer:
     target === 'real'
-      ? realServers
+      ? [...realServers, exportServer]
       : {
           command: 'node tests/browser/fixture-server.mjs --port 4312',
           url: `${baseURL}/contract.html`,

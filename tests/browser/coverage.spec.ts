@@ -8,7 +8,7 @@ import { expect, type Page } from '@playwright/test';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
 import { EXAMPLES } from './examples.ts';
-import { byId, copiedTexts, installClipboardSpy, openSnapshot, test } from './support.ts';
+import { byId, copiedTexts, installClipboardSpy, isPrimaryDesktop, openSnapshot, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 
@@ -71,7 +71,7 @@ for (const example of EXAMPLES) {
 }
 
 test('@T13 a cross-block selection is explicit, never silently truncated', async ({ page, offOrigin: _ }, info) => {
-  test.skip(info.project.name !== 'chromium-1440', 'the per-block reference button is a desktop affordance');
+  test.skip(!isPrimaryDesktop(info.project.name), 'the per-block reference button is a desktop affordance');
   await installClipboardSpy(page);
   await openSnapshot(page);
   // Select from inside the first paragraph into the second one.

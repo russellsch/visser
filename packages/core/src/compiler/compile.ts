@@ -11,6 +11,7 @@ import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, 
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
 import { graphSvg } from './svg.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
+import { stripMermaidComments } from '../mermaid/rules.ts';
 
 export type Toolkit = {
   version: string;
@@ -716,7 +717,8 @@ class Renderer {
     const question = attrString(node, 'question') ?? '';
     const title = attrString(node, 'title') ?? this.label(id);
     const interpretation = this.blocks({ ...node, children: node.children.filter((c) => c.type !== 'fence') });
-    const source = h('pre', { class: 'ex-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(figure.source, id)));
+    // Whole-line `%%` comments never reach the page; the runtime renders from this text (§13.5).
+    const source = h('pre', { class: 'ex-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(stripMermaidComments(figure.source), id)));
     const arrow = (text: string) => h('span', { [DOM.attr.generated]: true }, text);
     let lists: Child = null;
     if (figure.parsed) {

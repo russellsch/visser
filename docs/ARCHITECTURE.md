@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.17, 27 September 2026 (Phase 4 plan reviewed against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.18, 27 September 2026 (Phases 4a and 4b implemented; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -448,6 +448,8 @@ Allowed content: CommonMark prose, ordinary tables through the pinned tokenizer 
 | `detail-link` | `ref` | Link to an existing detail; does not duplicate it. |
 
 The source position of `definition` and `source` blocks does not change where they render (§10.1); introduce a term in prose where the reader first needs it, with `term`. All blocks requiring IDs must meet the same ID grammar. Inline references point to doc-wide IDs. `focus` may refer to any addressable object, not only graph nodes. A broken target is a build error.
+
+Placement (revision 1.18, as implemented): `definition` is allowed only at the top level. `detail` is allowed at the top level or inside a component, an entity, a `definition`, or another `detail`. Other placements are `E_SYNTAX`.
 
 ### 6.7 Graph example
 
@@ -936,6 +938,7 @@ flowchart LR
 **Rejected content** (build time, `E_UNSAFE_CONTENT`), each with a fixture:
 
 - `%%{` anywhere in the source, in any letter case: Mermaid applies `init` and `initialize` directives in every position, including after the header and indented.
+- `%%` that does not start its line, outside quotes (revision 1.18): Mermaid diagram types treat it differently (a state lexer skips the rest of the line, a flowchart fails to parse, a sequence message keeps it as text), so a comment inside a line cannot be removed safely. Whole-line comments stay allowed and are removed from output (§13.5).
 - A source whose first line after one BOM and CRLF normalization is `---` (frontmatter configuration applies and can change the theme).
 - `click`, `href`, `call`, `callback`, `link`, and `links` statements: under strict mode `click a href "…"` still produced a working external link, and `link`/`links` create links in class and sequence diagrams. A node with one of these names followed by an arrow is still allowed.
 - HTML tags in labels, except `<br>`, `<br/>`, and `<br />`: an `<a href>` label rendered a working external link, and an `<img>` label an external image. Only real stereotypes (`<<[A-Za-z0-9_ -]+>>`, such as `<<choice>>` and `<<interface>>`) are exempt; `<<a href='…'>>` is a tag. Markdown-string labels (`` "`…`" ``) did not produce links and stay allowed.
@@ -1306,9 +1309,11 @@ Config precedence for operational preferences: explicit CLI option > nearest wor
 4. If the digest is absent, fail with `E_TOOLKIT_MISSING` and an explicit install command. For a `local-dir` or `archive` origin, there is no command to print; the diagnostic states that only a copy of the release tree with the same digest can satisfy the lock.
 5. Never select “latest,” satisfy a lock with a merely compatible version, or use mutable GitHub `main` content during build.
 
-**Development override:** during toolkit development each rebuild changes the digest. `--dev-toolkit PATH` accepts a toolkit whose digest differs from the lock, emits a warning diagnostic, records the actual digest in `build.json`, and marks the output as a development build with `development: true` in `build.json`. `check --release` and `export --audience public` reject development builds.
+**Development override:** during toolkit development each rebuild changes the digest. `--dev-toolkit PATH` accepts a toolkit whose digest differs from the lock, emits a warning diagnostic, records the actual digest in `build.json`, and marks the output as a development build with `development: true` in `build.json`. `check --release` and `export --audience public` reject development builds with `E_USAGE` (exit 2).
 
-Installation updates a default pointer only when requested. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
+**Known limit (revision 1.18):** the user shim verifies the resolved release and then executes it. A local process that can write the user's toolchain directory between these two steps can change what runs. Such a process already runs as the user, so v1 accepts this limit.
+
+Installation updates a default pointer only when requested: `install --scope user --default` writes `${EXPLAIN_HOME}/default`, one digest line. The user shim reads it for commands without a document; it never picks an installed toolkit by itself. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
 
 ### 12.5 GitHub acquisition
 
@@ -1349,7 +1354,7 @@ These locations are documented by the respective products at the research date.[
 
 Both wrappers use the same location-independent dispatcher contract: always call the **user** shim (`${EXPLAIN_HOME:-$HOME/.explain}/bin/explain.cjs`), which the user installed. A repository shim is never executed by a wrapper or by `doctor`: it is code chosen by whoever controls the repository, and a trust check inside it would run too late. The user shim resolves the document's locked toolkit by §12.4 (repository toolchains only when trusted) or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the resolved toolkit for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
 
-`explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository; it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
+`explain skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository (an untrusted toolchain that no lock uses is reported, not an error); it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
 
 User-folder installation on one host is not implied to exist in a separate remote/cloud machine. Commit repository wrappers and locks, and perform an explicit install in that environment. Local remote-control use may share the host filesystem; independent environments do not.
 
@@ -1441,6 +1446,7 @@ Private origin repositories do not make exported excerpts private. An ordinary p
 - `--include-source` copies only declared bundle files, with the same rules as `fork`.
 - The public-repository allowlist is `publicRepositories` in user config, never repository config.
 - The report states the static-host limits: `frame-ancestors` cannot be set by a meta element, and a host that rewrites JavaScript breaks SRI (Mermaid pages then show their failure notice).
+- As implemented (revision 1.18): a `file` or `web` source has no repository, so it can never be on the allowlist and always needs `--allow-private-content` in a public export. Report warnings are `W_PRIVATE_ORIGIN` (a listed source is not on the allowlist), `W_STATIC_HOST_FRAMING`, and `W_STATIC_HOST_SRI` (always present). `--include-source` copies `index.md` unchanged, so whole-line Mermaid comments remain in the labelled source bundle. `--out` must be new or empty; the site is staged and moved into place with one rename.
 
 ### 13.6 Why not remote CDN JavaScript by default?
 
@@ -1593,6 +1599,8 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_USAGE` | Invalid command-line usage; exit 2. |
 | `E_BUILD` | Build stopped because the source or compilation failed; the exit code follows the underlying diagnostics. |
 | `E_PORT_BUSY` | The requested `serve` port is in use; exit 3. |
+| `W_PRIVATE_ORIGIN` | Export report: a listed source's repository is not in `publicRepositories`. |
+| `W_STATIC_HOST_FRAMING`, `W_STATIC_HOST_SRI` | Export report: a static host cannot set `frame-ancestors` by meta, and a host that rewrites JavaScript breaks SRI. |
 | `W_DEV_TOOLKIT` | `--dev-toolkit` accepted a toolkit that differs from the lock, or a missing lock. |
 | `W_UNDECLARED_FILE` | A file in the bundle folder is not a declared dependency and is not read. |
 | `W_QUOTE_NOT_FOUND` | A packet quote is not in the current target text. |

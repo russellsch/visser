@@ -27,6 +27,22 @@ export function normalizeMermaidSource(source: string): string {
   return source.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
 }
 
+// A whole-line Mermaid comment: `%%` after optional indentation. Mermaid's own
+// preprocessor removes these lines for every diagram type before parsing
+// (cleanupComments in mermaid 12), so they never change the rendering.
+const COMMENT_LINE = /^[ \t]*%%/;
+
+/**
+ * Remove whole-line `%%` comments from Mermaid source before it is shown or
+ * embedded (§13.5 export contract). Comments do not affect rendering, but they
+ * can hold private notes such as internal hostnames. The document source and
+ * every identity hash are unchanged: only generated output is filtered.
+ * Directive lines (`%%{`) are rejected earlier by checkMermaidSource.
+ */
+export function stripMermaidComments(source: string): string {
+  return normalizeMermaidSource(source).split('\n').filter((line) => !COMMENT_LINE.test(line)).join('\n');
+}
+
 /** The first keyword of the diagram, e.g. `flowchart`, `stateDiagram-v2`, `erDiagram`. */
 export function declaredTypeOf(source: string): string {
   for (const raw of normalizeMermaidSource(source).split('\n')) {
@@ -149,6 +165,13 @@ export function checkMermaidSource(source: string): MermaidIssue[] {
       issues.push({ code: 'E_SEMANTIC', message: `Mermaid entity code \`${entity[0]}\` is garbled by the renderer; write the character directly`, line: lineNo });
     }
     const unquoted = withoutQuotes(line);
+    // `%%` inside a line has no single meaning: the state lexer skips it as a
+    // comment, flowchart rejects it, and sequence keeps it as message text. A
+    // skipped tail would stay visible in generated output, so only whole-line
+    // comments are allowed (they are removed from output).
+    if (!COMMENT_LINE.test(line) && unquoted.includes('%%')) {
+      issues.push({ code: 'E_UNSAFE_CONTENT', message: '`%%` is allowed only at the start of a line (a whole-line comment); inside a line its meaning differs by diagram type', line: lineNo });
+    }
     if (/url\s*\(/i.test(unquoted)) {
       issues.push({ code: 'E_UNSAFE_CONTENT', message: '`url(…)` is not allowed in Mermaid source; it fetches off-origin content', line: lineNo });
     }
