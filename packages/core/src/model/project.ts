@@ -141,7 +141,8 @@ function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
       const actor = attr(node, 'actor');
       lines.push(`Event ${child.label} (${attr(node, 'kind') ?? 'event'}; actor: ${actor ? labelOf(ctx, actor) : '?'})`);
       const after = ctx.relationships.filter((r) => r.kind === 'order' && r.to === child.id).map((r) => r.from);
-      lines.push(`after: ${after.length > 0 ? after.join(', ') : '(none)'}`);
+      // Labels as on the page, each with its ID so a reader can find the target.
+      lines.push(`after: ${after.length > 0 ? after.map((id) => `${labelOf(ctx, id)} (${id})`).join(', ') : '(none)'}`);
       const message = ctx.relationships.find((r) => r.kind === 'message' && r.id === child.id);
       if (message) lines.push(`${labelOf(ctx, message.from)} --[message; ${message.label}]--> ${labelOf(ctx, message.to)}`);
       lines.push(...attrLines(node, ['time', 'duration', 'branch']));

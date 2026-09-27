@@ -1,12 +1,12 @@
 // `check --verify-origins` (§8.5): states, comparison, and no fetching.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
-import { captureFile, captureGit, sourceBlock, verifyOrigins } from '../../packages/core/src/provenance/index.ts';
-import { makeFixture, type Fixture } from './capture.fixtures.ts';
+import { captureFile, captureGit, documentRepository, sourceBlock, verifyOrigins } from '../../packages/core/src/provenance/index.ts';
+import { frontmatter, makeFixture, type Fixture } from './capture.fixtures.ts';
 
 let fx: Fixture;
 beforeEach(() => { fx = makeFixture(); });
@@ -42,6 +42,36 @@ describe('check --verify-origins @R07', () => {
     expect(missing.diagnostics.map((d) => [d.code, d.severity])).toEqual([['W_ORIGIN_UNAVAILABLE', 'warning']]);
     const unmapped = verify(doc, {});
     expect(unmapped.origins[0]!.reason).toContain('--repo-map app=PATH');
+  });
+
+  it('gives one W_ORIGIN_UNAVAILABLE for each unmapped repository, naming its sources', () => {
+    const repo = fx.repo('r');
+    const doc = fx.doc('d');
+    for (const [id, lines] of [['src_a', '1:1'], ['src_b', '2:2'], ['src_c', '1:3']] as const) {
+      captureGit({ repo, file: 'a.txt', lines, doc, id, title: id, repositoryLabel: 'app', capturedAt: AT });
+    }
+    const out = verify(doc, {});
+    expect(out.origins.map((o) => o.state)).toEqual(['origin-unavailable', 'origin-unavailable', 'origin-unavailable']);
+    expect(out.diagnostics).toHaveLength(1);
+    expect(out.diagnostics[0]).toMatchObject({ code: 'W_ORIGIN_UNAVAILABLE', severity: 'warning' });
+    expect(out.diagnostics[0]!.message).toContain('src_a, src_b, src_c');
+    expect(out.diagnostics[0]!.message).toContain('--repo-map app=PATH');
+  });
+
+  it('check --verify-origins uses the clone that holds the document when its remote matches, without --repo-map', () => {
+    const repo = fx.repo('app', { 'a.txt': 'line1\nline2\nline3\n' });
+    fx.git(repo, 'remote', 'add', 'origin', 'https://github.com/acme/app.git');
+    const bundle = join(repo, 'docs', 'explanations', 'notes');
+    mkdirSync(bundle, { recursive: true });
+    const doc = join(bundle, 'index.md');
+    writeFileSync(doc, `${frontmatter()}\n<!-- ex:id intro -->\nIntro paragraph.\n`);
+    captureGit({ repo, file: 'a.txt', lines: '1:2', doc, id: 'src_a', title: 'A', capturedAt: AT });
+    const recorded = loadBundle(doc).parsed.targets.find((t) => t.id === 'src_a')!.attributes['repository'];
+    expect(documentRepository(bundle)).toEqual([recorded, repo]);
+    const cli = join(new URL('../..', import.meta.url).pathname, 'dist/release/bin/explain.cjs');
+    const r = spawnSync(process.execPath, [cli, 'check', doc, '--verify-origins', '--json'], { encoding: 'utf8', env: { ...process.env, EXPLAIN_HOME: join(fx.root, 'home') } });
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).origins).toEqual([{ id: 'src_a', kind: 'git', state: 'origin-matched' }]);
   });
 
   it('reports a mismatch as E_ORIGIN_MISMATCH when the stored excerpt differs from the commit', () => {

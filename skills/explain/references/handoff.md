@@ -56,8 +56,9 @@ explain refs refresh --packet ref.yaml --expected-current REV --acknowledge-stal
 packet and never changes the document.
 
 - If `targetBodyUnchanged` is true, use the new packet.
-- If the target body changed, refresh exits 5 with `E_REF_STALE` and prints
-  the current text. Show that text to the user. Add
+- If the target body changed, refresh exits 5 with `E_REF_STALE`, writes no
+  packet, and prints the current text on stderr. Check the exit code before
+  you use `ref2.yaml`. Show the current text to the user. Add
   `--acknowledge-body-change` only if the instruction clearly still applies.
   Otherwise stop this edit and ask.
 

@@ -129,7 +129,9 @@ async function refresh(args: ParsedArgs): Promise<number> {
     if (json) {
       printJson('refresh', { schema: 'explain-refresh/1', refused: true, ...(error.resolution.targetBodyUnchanged !== undefined ? { targetBodyUnchanged: error.resolution.targetBodyUnchanged } : {}), ...(error.resolution.currentRevision !== undefined ? { currentRevision: error.resolution.currentRevision } : {}), ...(error.currentText !== undefined ? { currentText: error.currentText } : {}), diagnostics });
     } else {
-      if (error.currentText !== undefined) process.stdout.write(`--- current target text ---\n${error.currentText}`);
+      // stdout carries only packets (`refs refresh … > ref2.yaml`), so the text a
+      // refusal asks the agent to show the user goes to stderr.
+      if (error.currentText !== undefined) process.stderr.write(`--- current target text ---\n${error.currentText}`);
       printDiagnostics(diagnostics, false);
     }
     return EXIT.conflict;

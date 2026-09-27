@@ -55,7 +55,7 @@ describe('replace keeps its own ID checks under the guarded write (review B1) @T
   it('the message for another candidate error names its line', () => {
     const r = replace('p_limits', (span) => span.replace('fairness guarantee.', 'fairness guarantee. {% cite ref="src_missing" /%}'));
     expect(r.code).toBe('E_REF_BROKEN');
-    expect(r.message).toMatch(/\(line \d+\)/);
+    expect(r.message).toMatch(/\(line \d+ of the replacement\)/);
   });
 });
 

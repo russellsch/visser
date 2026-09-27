@@ -130,3 +130,19 @@ with no error.
   - "An existing snapshot folder is never overwritten". `packages/cli/src/commands/build.ts:179-195` replaces a snapshot when its development mark differs, because a development build and a normal build can share a build ID. The sentence had no citation.
   - The trust limits did not say that a trusted extension can load Node modules from outside its digest.
 - Both are fixed in the document. An uncited claim about behaviour is the most likely place for an error; the skill could ask for a citation on each claim about what the code does.
+
+## Status after the fixes (revision 1.22)
+
+| Problem | Status |
+|---|---|
+| P1 | Fixed: `SKILL.md` covers documents in the toolkit's own repository. |
+| P2 | Fixed: a trace renders a figure; the page prints "Ordering, not duration." once; `trace.md` says so. |
+| P3 | Fixed: a new source goes after the last source. |
+| P4 | Fixed: `--verify-origins` uses the document's own clone and warns once per repository. |
+| P5 | Fixed: a refused refresh prints the current text on stderr; `handoff.md` matches the code. |
+| P6 | Fixed: the missing-lock message no longer advises `init`. |
+| P7 | Fixed: the message names the marker the replacement needs. |
+| P8 | Fixed: `check --review` prints the prompt count. |
+| P9 | Partly fixed: the narrow list layout and the trace projection labels. The page length at wide widths remains. |
+| P10 | Skill changed: a citation for each claim about code, and a reread step. `check` still cannot check facts. |
+| Snapshot replacement | Fixed: the development mark is part of the build ID. |

@@ -38,7 +38,7 @@ const ELEMENT_ATTRS: Record<string, readonly string[]> = {
   svg: ['xmlns', 'viewBox', 'width', 'height', 'focusable', 'preserveAspectRatio'],
   g: ['transform'], defs: [],
   marker: ['viewBox', 'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'markerUnits'],
-  rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width'],
+  rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray'],
   path: ['d', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
   polygon: ['points', 'fill', 'stroke'],
   text: ['x', 'y', 'text-anchor', 'dominant-baseline', 'fill', 'font-size'],

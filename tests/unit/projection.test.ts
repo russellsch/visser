@@ -26,7 +26,8 @@ describe('semantic Markdown projection (§7.6) @R01 @R14', () => {
     expect(text).toContain('Ordering, not duration.');
     for (const r of model.relationships.filter((r) => r.kind === 'order')) {
       const block = text.slice(text.indexOf(`<!-- ex:target ${r.to} -->`));
-      expect(block.split('\n').find((l) => l.startsWith('after:'))).toContain(r.from);
+      // Label and ID, as the page shows the label (P9).
+      expect(block.split('\n').find((l) => l.startsWith('after:'))).toContain(`${model.targets.get(r.from)!.label} (${r.from})`);
     }
   });
 

@@ -37,6 +37,11 @@ trust. Never run a script from a repository's `.explain/` directory.
 2. If a command reports `E_TOOLKIT_MISSING` or `E_TOOLKIT_UNTRUSTED`, stop and
    tell the user the digest and the install or trust command. Do not install
    or trust anything yourself. `explain doctor` shows the state.
+   Exception: a document inside the Explain toolkit's own repository has no
+   lock, because every rebuild changes the toolkit digest. Run each command
+   with `--dev-toolkit dist/release` (for example `explain check DOC
+   --dev-toolkit dist/release`). Such a build is a development build:
+   `check --release` and public exports refuse it, so never publish it.
 3. Always read `references/format.md` before writing or editing source.
 4. Read `references/handoff.md` before any change that starts from a reference
    packet.
@@ -90,6 +95,8 @@ trust. Never run a script from a repository's `.explain/` directory.
    `detail` next to its owner. Reuse canonical entities with `entity` instead
    of copying their facts into several views. Use `cite` for the evidence of a
    claim; an excerpt establishes what it contains, not every claim attached to it.
+   Cite every claim about what code does. An uncited claim about behaviour is
+   the most likely place for an error.
 8. **Validate.** Run `explain ids assign DOC` only to insert missing IDs; it
    keeps existing IDs. Then run `explain check DOC`. Fix broken references and
    evidence hashes; never suppress a diagnostic. On `E_SYNTAX` or
@@ -108,7 +115,9 @@ trust. Never run a script from a repository's `.explain/` directory.
     repetition, unsupported jargon, empty sections, forced symmetry, and boxes
     that add no explanation. Keep a caveat that changes the conclusion in the
     main sentence.
-12. **Deliver.** Give the source path, the reading URL or path, the snapshot IDs
+12. **Deliver.** First reread each cited excerpt next to its sentence, and
+    remove or fix any sentence that the excerpt does not support. The checks
+    prove structure and evidence hashes, not the truth of a sentence. Give the source path, the reading URL or path, the snapshot IDs
     that `build` prints, and any unverified assumption. State which checks you
     ran. Do not imply that a snapshot stays synchronized with the codebase.
 

@@ -23,7 +23,7 @@ export function selectForSkill(args: ParsedArgs, opts: SkillOptions): Resolved &
     if (!existsSync(path)) throw new CliError('E_SOURCE_UNAVAILABLE', `cannot read ${doc}`, EXIT.unavailable);
     const bundleRoot = lstatSync(path).isDirectory() ? path : dirname(path);
     const lock = readLock(bundleRoot);
-    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; run \`explain init\``, EXIT.unavailable);
+    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --toolkit-dir DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
     const found = resolveDigest({ digest: lock.sha256, repoRoot: findRepositoryRoot(bundleRoot), toolkitDir, ownRelease: own, env, origin: lock.origin, version: lock.version });
     return { ...found, document: path };
   }

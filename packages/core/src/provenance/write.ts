@@ -131,7 +131,8 @@ function writeAsset(bundleRoot: string, rel: string, bytes: Uint8Array): void {
 }
 
 /**
- * Insert (or with `recapture`, replace) a `source` block under the §11.9
+ * Insert (or with `recapture`, replace) a `source` block. A new block goes
+ * after the last top-level source block, or at the end of the document under the §11.9
  * guarded write. The candidate must be a valid document whose target set is
  * the old set plus the new ID, so captured text cannot add targets.
  */
@@ -169,12 +170,14 @@ export function writeSource(opts: WriteSourceOptions): WriteSourceResult {
         candidateText = bytes.subarray(0, existing.span.startByte).toString('utf8') + block + bytes.subarray(existing.span.endByte).toString('utf8');
         replaced = true;
       } else {
+        // After the last top-level source, so the file lists sources in capture order.
         const sources = [...bundle.model.targets.values()].filter((t) => t.kind === 'source' && t.parentId === undefined);
-        const firstSource = sources.sort((a, b) => a.span.startByte - b.span.startByte)[0];
+        const lastSource = sources.sort((a, b) => a.span.endByte - b.span.endByte).at(-1);
         const bytes = Buffer.from(original);
-        if (firstSource) {
-          const at = firstSource.span.startByte;
-          candidateText = bytes.subarray(0, at).toString('utf8') + block + newline + bytes.subarray(at).toString('utf8');
+        if (lastSource) {
+          const at = lastSource.span.endByte;
+          const head = bytes.subarray(0, at).toString('utf8');
+          candidateText = head + (head.endsWith('\n') ? '' : newline) + newline + block + bytes.subarray(at).toString('utf8');
         } else {
           const base = text.endsWith('\n') ? text : text + newline;
           candidateText = base + newline + block;

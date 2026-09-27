@@ -15,6 +15,8 @@
 - The point is which transitions are allowed in every run. Use `state`.
 - The run is a loop with no fixed count. Show a finite iteration, or use `state`.
 - You have no evidence for the order. Do not draw one.
+- The run is a straight line: each step has exactly one prerequisite and no
+  branch. A numbered list says the same with less. Use `prose`.
 
 ## Misleading example
 
@@ -23,7 +25,8 @@ observed sequence" when the source only shows that each event needs its
 prerequisites.
 
 **Prefer:** state prerequisites with `after`. Say in prose which events may
-happen in either order. An ordinal trace shows **Ordering, not duration**.
+happen in either order. The page itself prints "Ordering, not duration." under
+an ordinal trace; do not repeat that sentence in your text.
 
 ## Tags and attributes
 
@@ -51,9 +54,11 @@ happen in either order. An ordinal trace shows **Ordering, not duration**.
 
 ## Narrow screens and text
 
-On a narrow screen events become cards grouped by actor and order layer,
-with their `after` lists and branch conditions. The text projection lists each
-event with its prerequisites.
+The page shows each event with its order layer, actor, kind, prerequisites
+(`after`), and branch, and it lists the actors and the branch conditions. On a
+narrow screen the events become cards grouped by actor and order layer. The
+text projection lists each event with its prerequisites. Write the trace so
+that this list alone answers the `question`.
 
 ## Template
 

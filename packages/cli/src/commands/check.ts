@@ -14,13 +14,13 @@ import { dirname, resolve } from 'node:path';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { loadBundle } from '../../../core/src/model/bundle.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
-import { parseRepoMapEntry, userRepositoryMap, verifyOrigins, type OriginResult } from '../../../core/src/provenance/index.ts';
+import { documentRepository, parseRepoMapEntry, userRepositoryMap, verifyOrigins, type OriginResult } from '../../../core/src/provenance/index.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
 import { reviewDocument } from '../../../core/src/review/index.ts';
 import { loadDocument } from './load.ts';
 import { resolveForDocument } from '../toolkit.ts';
 
-function repositoryMap(args: ParsedArgs): Map<string, string> {
+function repositoryMap(args: ParsedArgs, bundleRoot: string): Map<string, string> {
   const map = userRepositoryMap();
   // --repo-map may repeat: one LABEL=PATH per repository.
   for (const entry of args.all.get('repo-map') ?? []) {
@@ -33,6 +33,10 @@ function repositoryMap(args: ParsedArgs): Map<string, string> {
       throw error;
     }
   }
+  // The clone that holds the document verifies its own repository's sources,
+  // unless the user config or --repo-map names another clone for it.
+  const own = documentRepository(bundleRoot);
+  if (own && !map.has(own[0])) map.set(own[0], own[1]);
   return map;
 }
 
@@ -63,16 +67,19 @@ export async function runCheck(args: ParsedArgs): Promise<number> {
   let origins: OriginResult[] | undefined;
   const all: Diagnostic[] = [...diagnostics];
   if (verify && !diagnostics.some((d) => d.severity === 'error')) {
-    const result = verifyOrigins(bundle, repositoryMap(args));
+    const result = verifyOrigins(bundle, repositoryMap(args, dirname(resolve(args.positional[0]!))));
     origins = result.origins;
     all.push(...result.diagnostics);
   }
   const code = exitCodeFor(all);
   // Review prompts come after the exit code is fixed, so they cannot change it.
+  let prompts: number | undefined;
   if (review && code === EXIT.ok) {
     // A prompt that repeats a warning check already gave (same code, same target) adds nothing.
     const seen = new Set(all.map((d) => `${d.code} ${d.targetId ?? ''}`));
-    all.push(...reviewDocument(bundle).filter((d) => !seen.has(`${d.code} ${d.targetId ?? ''}`)));
+    const added = reviewDocument(bundle).filter((d) => !seen.has(`${d.code} ${d.targetId ?? ''}`));
+    prompts = added.length;
+    all.push(...added);
   }
   if (json) {
     printJson('check', { schema: 'explain-check/1', ok: code === EXIT.ok, targetCount: targets.size, diagnostics: all, ...(origins ? { origins } : {}) });
@@ -82,6 +89,8 @@ export async function runCheck(args: ParsedArgs): Promise<number> {
       for (const o of origins) process.stdout.write(`${o.id}: ${o.state}${o.reason ? ` (${o.reason})` : ''}\n`);
     }
     if (code === EXIT.ok) process.stdout.write(`ok: ${targets.size} targets\n`);
+    // Say that the review ran, even when it found nothing.
+    if (review) process.stdout.write(prompts === undefined ? 'review: not run, because the document has errors\n' : `review: ${prompts} prompt${prompts === 1 ? '' : 's'}\n`);
   }
   return code;
 }

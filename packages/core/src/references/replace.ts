@@ -73,7 +73,19 @@ function validateCandidate(before: LoadedBundle, after: LoadedBundle, targetId: 
     const retention = errors.find((d) => d.code === 'E_ID_DUPLICATE');
     if (retention) fail('E_ID_RETENTION', `the replacement repeats target ID ${retention.targetId ?? ''}: ${retention.message}`);
     const first = errors[0]!;
-    fail(first.code, `the document would be invalid after replacement: ${first.message}${first.startLine ? ` (line ${first.startLine})` : ''}`);
+    // Lines of the candidate document that came from the replacement file.
+    const raw = after.parsed.rawBytes;
+    const lineAt = (byte: number) => 1 + raw.subarray(0, byte).reduce((n, b) => n + (b === 0x0a ? 1 : 0), 0);
+    const firstLine = lineAt(region.start);
+    const lastLine = lineAt(Math.max(region.start, region.end - 1));
+    const inside = first.startLine !== undefined && first.startLine >= firstLine && first.startLine <= lastLine;
+    const record = before.model.targets.get(targetId);
+    const oldSpan = record ? new TextDecoder().decode(before.parsed.rawBytes.subarray(record.span.startByte, record.span.endByte)) : '';
+    if (first.code === 'E_ID_MISSING' && inside && oldSpan.startsWith(`<!-- ex:id ${targetId} -->`)) {
+      fail('E_ID_MISSING', `the replacement must start with \`<!-- ex:id ${targetId} -->\`, and every other block in it needs its own marker: ${first.message.replace(/\s*\(line \d+\)$/, '')}`);
+    }
+    const where = first.startLine === undefined ? '' : inside ? ` (line ${first.startLine - firstLine + 1} of the replacement)` : ` (line ${first.startLine} of the document)`;
+    fail(first.code, `the document would be invalid after replacement: ${first.message.replace(/\s*\(line \d+\)$/, '')}${where}`);
   }
   const inRegion = (t: TargetRecord) => t.span.startByte >= region.start && t.span.endByte <= region.end;
   const retained = after.model.targets.get(targetId);

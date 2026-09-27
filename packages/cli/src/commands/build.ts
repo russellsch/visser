@@ -115,14 +115,6 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
   }
 }
 
-function developmentMark(snapshotDir: string): boolean {
-  try {
-    return (JSON.parse(readFileSync(join(snapshotDir, 'build.json'), 'utf8')) as { development?: boolean }).development === true;
-  } catch {
-    return false;
-  }
-}
-
 /** Nearest ancestor with .git or .explain, else the document folder. */
 export function repoRootFor(start: string): string {
   let dir = resolve(start);
@@ -174,12 +166,10 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   }
   copyAssets(releaseDir, assetDir, needed);
 
-  // Immutable snapshot: publish atomically; an existing snapshot is left
-  // untouched. Exception: the lock is not part of the source revision, so a
-  // development build and a release build can share a build ID; the snapshot
-  // is replaced when its development mark differs from this build (§12.4).
-  const stale = existsSync(finalDir) && developmentMark(finalDir) !== (result.manifest.development === true);
-  if (!existsSync(finalDir) || stale) {
+  // Immutable snapshot: publish atomically; an existing snapshot is never
+  // replaced. The development mark is part of the build ID (§7.4), so a
+  // development build and a normal build never share a folder.
+  if (!existsSync(finalDir)) {
     mkdirSync(dirname(finalDir), { recursive: true });
     const tmp = mkdtempSync(join(dirname(finalDir), '.tmp-'));
     try {
@@ -188,13 +178,13 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
         mkdirSync(dirname(join(tmp, rel)), { recursive: true });
         writeFileSync(join(tmp, rel), file.bytes);
       }
-      if (stale) {
-        const old = mkdtempSync(join(dirname(finalDir), '.old-'));
-        renameSync(finalDir, join(old, 'snapshot'));
+      try {
         renameSync(tmp, finalDir);
-        rmSync(old, { recursive: true, force: true });
-      } else {
-        renameSync(tmp, finalDir);
+      } catch (error) {
+        // A concurrent build of the same ID published first; its bytes are the same build.
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOTEMPTY' && code !== 'EEXIST') throw error;
+        rmSync(tmp, { recursive: true, force: true });
       }
     } catch (error) {
       rmSync(tmp, { recursive: true, force: true });

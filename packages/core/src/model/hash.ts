@@ -242,6 +242,13 @@ export type EffectiveRenderOptions = {
   audience: 'private' | 'public';
   includeSource: boolean;
   layoutFallback: boolean;
+  /**
+   * Present, and true, only for a development build (§12.4). A development build
+   * and a normal build of the same source and toolkit then get different IDs, so
+   * an existing snapshot folder is never replaced. Absent otherwise, so normal
+   * build IDs do not change.
+   */
+  development?: true;
 };
 
 export type BuildInput = {
@@ -283,10 +290,10 @@ export function buildIdFromInput(input: {
   return { canonical, buildId: sha256Hex(Buffer.from(canonical, 'utf8')) };
 }
 
-/** §7.4 buildId with the exact `{audience, includeSource, layoutFallback}` options. */
+/** §7.4 buildId with the exact `{audience, includeSource, layoutFallback}` options, plus `development: true` for a development build. */
 export function buildId(input: BuildInput) {
   const o = input.effectiveRenderOptions as Record<string, unknown>;
-  const keys = Object.keys(o).sort();
+  const keys = Object.keys(o).filter((k) => !(k === 'development' && o[k] === true)).sort();
   if (
     keys.join(',') !== 'audience,includeSource,layoutFallback' ||
     (o.audience !== 'private' && o.audience !== 'public') ||
@@ -296,7 +303,7 @@ export function buildId(input: BuildInput) {
     throw new HashError(
       'E_SYNTAX',
       'E_RENDER_OPTIONS',
-      'effectiveRenderOptions must be exactly {audience, includeSource, layoutFallback}',
+      'effectiveRenderOptions must be exactly {audience, includeSource, layoutFallback}, plus development: true for a development build',
     );
   }
   return buildIdFromInput(input);

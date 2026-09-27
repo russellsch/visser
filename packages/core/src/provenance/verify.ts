@@ -2,12 +2,13 @@
 // never show these states; they appear only in `check` output.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { Diagnostic } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
 import type { MNode } from '../model/targets.ts';
 import { HashError, sha256Hex } from '../model/hash.ts';
-import { openRepository, readBlobAt, readWorkingTreeFile, resolveCommit } from './git.ts';
+import { configValue, openRepository, readBlobAt, readWorkingTreeFile, resolveCommit } from './git.ts';
+import { identityProblem, portableRemote } from './identity.ts';
 import { excerptText, extractExcerpt } from './text.ts';
 
 export type OriginState =
@@ -56,6 +57,30 @@ export function parseRepoMapEntry(entry: string): [string, string] {
   return [entry.slice(0, at), entry.slice(at + 1)];
 }
 
+/**
+ * The Git repository that holds the document, as a repository-map entry: its
+ * portable `remote.origin.url` and its working tree. A source that records
+ * the same repository can then be verified without `--repo-map`. The
+ * repository is opened with the same checks as `capture git`; any problem
+ * means "no entry", never an error.
+ */
+export function documentRepository(bundleRoot: string): [string, string] | undefined {
+  for (let dir = bundleRoot; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) {
+      try {
+        const repo = openRepository(dir);
+        const remote = configValue(repo, 'remote.origin.url');
+        const label = remote === undefined ? undefined : portableRemote(remote);
+        if (label === undefined || identityProblem(label)) return undefined;
+        return [label, repo.toplevel];
+      } catch {
+        return undefined;
+      }
+    }
+    if (dirname(dir) === dir) return undefined;
+  }
+}
+
 function fenceText(bundle: LoadedBundle, id: string): string | undefined {
   const node = bundle.model.nodes.get(id) as MNode | undefined;
   const fence = node?.children.find((c) => c.type === 'fence');
@@ -72,6 +97,8 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
   const origins: OriginResult[] = [];
   const diagnostics: Diagnostic[] = [];
   const path = 'index.md';
+  // One warning for each unmapped repository, not one for each of its sources.
+  const unmapped = new Map<string, { ids: string[]; startLine: number }>();
   for (const target of bundle.parsed.targets) {
     if (target.tagName !== 'source') continue;
     const a = target.attributes;
@@ -99,7 +126,13 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
     if (!repository) { push('origin-unavailable', 'no repository is recorded'); continue; }
     if (!file || start === undefined || end === undefined) { push('origin-unavailable', 'file, start, and end are needed'); continue; }
     const local = repoMap.get(repository);
-    if (!local) { push('origin-unavailable', `no local clone is mapped for ${repository}; pass --repo-map ${repository}=PATH`); continue; }
+    if (!local) {
+      origins.push({ id, kind, state: 'origin-unavailable', reason: `no local clone is mapped for ${repository}; pass --repo-map ${repository}=PATH` });
+      const group = unmapped.get(repository) ?? { ids: [], startLine: target.startLine };
+      group.ids.push(id);
+      unmapped.set(repository, group);
+      continue;
+    }
 
     try {
       const repo = openRepository(local);
@@ -158,6 +191,14 @@ export function verifyOrigins(bundle: LoadedBundle, repoMap: RepositoryMap, now:
       }
       push('origin-unavailable', reasonOf(error));
     }
+  }
+  for (const [repository, group] of unmapped) {
+    diagnostics.push({
+      code: 'W_ORIGIN_UNAVAILABLE', severity: 'warning', path,
+      message: `no local clone is mapped for ${repository}, so ${group.ids.length} source(s) could not be verified: ${group.ids.join(', ')}; pass --repo-map ${repository}=PATH`,
+      startLine: group.startLine,
+      targetId: group.ids[0]!,
+    });
   }
   return { origins, diagnostics };
 }

@@ -84,6 +84,24 @@ describe('guarded replace (§11.9)', () => {
       .toThrow(expect.objectContaining({ code: 'E_ID_RETENTION' }));
   });
 
+  it('names the marker when a replacement drops it, and never cites a document line for replacement text', () => {
+    const { repo, doc } = tempRepo();
+    const packet = readerPacket(repo, doc, 'p_limits');
+    const current = resolveReference(packet, { repoRoot: repo }).result;
+    const bare = current.current!.sourceText.replace(/^<!-- ex:id p_limits -->\r?\n/, '');
+    expect(bare).not.toContain('ex:id');
+    let error: unknown;
+    try {
+      replaceTarget(packet, new TextEncoder().encode(bare), current.currentRevision!, { repoRoot: repo });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toMatchObject({ code: 'E_ID_MISSING' });
+    const message = (error as Error).message;
+    expect(message).toContain('the replacement must start with `<!-- ex:id p_limits -->`');
+    expect(message).not.toMatch(/\(line \d+\)/);
+  });
+
   it('accepts a split into the retained block and a new sibling', () => {
     const { repo, doc } = tempRepo();
     const packet = readerPacket(repo, doc, 'p_limits');

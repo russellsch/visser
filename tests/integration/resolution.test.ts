@@ -177,34 +177,39 @@ describe('whose code runs (§12.4)', () => {
     expect(existsSync(sentinel)).toBe(false);
   });
 
-  it('--dev-toolkit marks build.json development: true; a locked build has no mark and replaces a development snapshot', () => {
+  it('--dev-toolkit marks build.json development: true; a locked build gets its own build ID and never replaces the development snapshot', () => {
     const fx = fixture();
     const { repo, doc } = repoWithDocument(fx, 'repo', 'e'.repeat(64));
     const dev = run(fx, cli, ['build', doc, '--dev-toolkit', release]);
     expect(dev.status, dev.stderr).toBe(0);
     expect(dev.stderr).toContain('W_DEV_TOOLKIT');
-    const buildJson = () => {
-      const docs = join(repo, '.explain', 'output', 'd');
+    const docs = join(repo, '.explain', 'output', 'd');
+    const builds = () => {
       const [docId] = readdirSync(docs);
       const [rev] = readdirSync(join(docs, docId!));
-      const [buildId] = readdirSync(join(docs, docId!, rev!));
-      return JSON.parse(readFileSync(join(docs, docId!, rev!, buildId!, 'build.json'), 'utf8'));
+      const dir = join(docs, docId!, rev!);
+      return readdirSync(dir).map((id) => ({ id, path: join(dir, id, 'build.json'), json: JSON.parse(readFileSync(join(dir, id, 'build.json'), 'utf8')) }));
     };
-    const devJson = buildJson();
-    expect(devJson.development).toBe(true);
-    expect(validateAgainst('build', devJson)).toEqual({ ok: true });
+    const [devBuild] = builds();
+    expect(devBuild!.json.development).toBe(true);
+    expect(validateAgainst('build', devBuild!.json)).toEqual({ ok: true });
+    const devBytes = readFileSync(devBuild!.path);
 
-    // Pin the lock to the toolkit that built it: same build ID, and the
-    // snapshot loses its development mark.
+    // Pin the lock to the toolkit that built it: same source and toolkit, but
+    // the development mark is part of the build ID, so a second folder appears.
     const lockPath = join(doc, '..', 'explain.lock.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
     lock.toolkit.sha256 = D;
     writeFileSync(lockPath, JSON.stringify(lock));
     const locked = run(fx, cli, ['build', doc]);
     expect(locked.status, locked.stderr).toBe(0);
-    const lockedJson = buildJson();
-    expect(lockedJson.buildId).toBe(devJson.buildId);
-    expect(lockedJson.development).toBeUndefined();
+    const all = builds();
+    expect(all).toHaveLength(2);
+    const lockedBuild = all.find((b) => b.id !== devBuild!.id)!;
+    expect(lockedBuild.json.development).toBeUndefined();
+    expect(lockedBuild.json.buildId).not.toBe(devBuild!.json.buildId);
+    // The development snapshot is untouched.
+    expect(readFileSync(devBuild!.path).equals(devBytes)).toBe(true);
   });
 
   it('--dev-toolkit with a toolkit other than the running CLI is refused (E_USAGE)', () => {

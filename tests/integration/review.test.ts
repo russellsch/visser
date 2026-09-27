@@ -71,6 +71,16 @@ describe('@R16 check --review', () => {
     expect(density).toHaveLength(1);
   });
 
+  it('text mode says that the review ran and how many prompts it gave, or that it did not run', () => {
+    const good = run('check', fixture('vague-wording', 'good'), '--review');
+    expect(good.status, good.stderr).toBe(0);
+    expect(good.stdout).toContain('review: 0 prompts');
+    const bad = run('check', fixture('vague-wording', 'bad'), '--review');
+    expect(bad.stdout).toMatch(/review: [1-9]\d* prompts?\n/);
+    const plain = run('check', fixture('vague-wording', 'good'));
+    expect(plain.stdout).not.toContain('review:');
+  });
+
   it('--review is a boolean flag: it may come before the document', () => {
     const before = run('check', '--review', fixture('vague-wording', 'bad'));
     const after = run('check', fixture('vague-wording', 'bad'), '--review');

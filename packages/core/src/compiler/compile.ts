@@ -9,7 +9,7 @@ import { buildId as computeBuildId, canonicalJSON, HashError, normalizedTextSha2
 import { DOM } from './dom-contract.ts';
 import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
-import { graphSvg } from './svg.ts';
+import { graphSvg, traceSvg } from './svg.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
 import type { ExtensionBinding } from '../extensions/registry.ts';
@@ -668,7 +668,44 @@ class Renderer {
       ? h('ul', { class: 'ex-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
           h('a', { href: `#${DOM.canonicalId(b.id)}`, id: DOM.listInstanceId(id, b.id), [DOM.attr.target]: b.id, [DOM.attr.interactive]: true }, this.label(b.id)))))
       : null;
-    return this.figureShell(id, node, 'ex-trace', [scaleNote, actorList, branchList, eventList, byActor]);
+    // Wide screens: lifelines and event rows (§9.4). The lists stay the complete
+    // form and the narrow-screen and no-map view, as for graphs. Above the graph
+    // caps the figure is left out; the lists are always present.
+    const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && events.some((e) => e.id === r.to));
+    const drawable = events.length > 0 && events.length <= GRAPH_MAX_NODES && orders.length <= GRAPH_MAX_EDGES;
+    const svg = drawable
+      ? traceSvg({
+          figureId: id,
+          title: attrString(node, 'title') ?? this.label(id),
+          actors: actors.map((a) => ({ id: a.id, label: this.label(a.id) })),
+          events: events.map((e) => {
+            const en = this.nodes.get(e.id)!;
+            const branch = attrString(en, 'branch');
+            const time = en.attributes['time'];
+            const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
+            return {
+              id: e.id,
+              actor: attrString(en, 'actor') ?? '',
+              label: this.label(e.id),
+              kind: kindOf(e),
+              layer: layerOf(e.id, new Set()),
+              meta: [
+                `[${kindOf(e)}]${message ? ` \u2192 ${this.label(message.to)}` : ''}`,
+                ...(branch ? [`branch: ${this.label(branch)}`] : []),
+                ...(scale === 'time' && time !== undefined ? [`at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`] : []),
+              ],
+            };
+          }),
+          orders: orders.map((r) => ({ id: r.id, from: r.from, to: r.to })),
+          messages: this.bundle.model.relationships.filter((r) => r.kind === 'message' && events.some((e) => e.id === r.id)).map((r) => ({ event: r.id, to: r.to })),
+          labelOf: (x) => this.label(x),
+        })
+      : null;
+    return this.figureShell(id, node, 'ex-trace', [
+      scaleNote,
+      svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      h('div', { class: 'ex-lists' }, actorList, branchList, eventList, byActor),
+    ], svg !== null);
   }
 
   /** Captured text of a source target: its fenced body, or a declared text asset. */
@@ -1018,7 +1055,10 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   let buildId: string;
   try {
-    buildId = computeBuildId({ sourceRevision: bundle.sourceRevision, toolkitSha256: toolkit.sha256, extensionDigests: executed.map((e) => e.sha256), effectiveRenderOptions }).buildId;
+    // The development mark is part of the build identity, so a development
+    // build never shares a snapshot folder with a normal build (§7.4, §12.4).
+    const idOptions = options.development ? { ...effectiveRenderOptions, development: true as const } : effectiveRenderOptions;
+    buildId = computeBuildId({ sourceRevision: bundle.sourceRevision, toolkitSha256: toolkit.sha256, extensionDigests: executed.map((e) => e.sha256), effectiveRenderOptions: idOptions }).buildId;
   } catch (error) {
     if (error instanceof HashError) throw new CompileError([{ code: error.code, severity: 'error', message: error.message }]);
     throw error;

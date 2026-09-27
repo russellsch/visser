@@ -177,8 +177,10 @@ describe('build failures', () => {
     await expect(compileDocument(loadBundle(examplePath), TOOLKIT, { ...OPTIONS, layout: failing })).rejects.toSatisfy((e: unknown) => e instanceof CompileError && e.diagnostics.some((d) => d.code === 'E_LAYOUT_TIMEOUT'));
     const fallback = await compileDocument(loadBundle(examplePath), TOOLKIT, { ...OPTIONS, layoutFallback: true, layout: failing });
     const page = new TextDecoder().decode(fallback.files.find((f) => f.path.endsWith('index.html'))!.bytes);
-    expect(page).not.toContain('<svg');
+    // The graph has no SVG; the trace figure needs no layout engine and stays.
+    expect(page).not.toContain('id="v-handoff.enqueue"');
     expect(page).toContain('id="l-handoff.enqueue"');
+    expect(page).toContain('id="v-full_queue_trace.');
     expect(fallback.buildId).not.toBe(result.buildId);
   });
 });

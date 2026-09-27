@@ -242,7 +242,7 @@ export function resolveForDocument(bundleRoot: string, toolkitDir: string | unde
     selection = { release, development: locked !== release.sha256, warnings, source: 'dev-toolkit' };
   } else {
     if (!locked) {
-      throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; run \`explain init\` or pass --dev-toolkit`, EXIT.unavailable);
+      throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --dev-toolkit DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
     }
     const found = resolveDigest({
       digest: locked,

@@ -76,7 +76,7 @@ function collectionDigest(file: string): { digest: string; repoRoot: string | un
   for (const index of documents) {
     const bundleRoot = dirname(index);
     const lock = readLock(bundleRoot);
-    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; run \`explain init\` or pass --dev-toolkit`, EXIT.unavailable);
+    if (!lock) throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --dev-toolkit DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
     digests.set(lock.sha256, [...(digests.get(lock.sha256) ?? []), bundleRoot]);
   }
   if (digests.size === 0) throw new CliError('E_USAGE', `the collection ${file} names no documents`, EXIT.invalid);
@@ -115,7 +115,7 @@ export function selectToolkit(argv: string[], env: NodeJS.ProcessEnv = process.e
   if (bundleRoot) {
     const lock = readLock(bundleRoot);
     if (!lock) {
-      throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; run \`explain init\` or pass --dev-toolkit`, EXIT.unavailable);
+      throw new CliError('E_TOOLKIT_MISSING', `no explain.lock.json in ${bundleRoot}; restore explain.lock.json from version control, or pass --dev-toolkit DIR (\`explain init\` is only for a new document)`, EXIT.unavailable);
     }
     return resolveDigest({ digest: lock.sha256, repoRoot: findRepositoryRoot(bundleRoot), toolkitDir, env, origin: lock.origin, version: lock.version }).release;
   }

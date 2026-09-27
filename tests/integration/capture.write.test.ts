@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HashError } from '../../packages/core/src/model/hash.ts';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { captureFile, captureGit } from '../../packages/core/src/provenance/index.ts';
+import { compileDocument } from '../../packages/core/src/compiler/index.ts';
 import { DOC_ID, makeFixture, type Fixture } from './capture.fixtures.ts';
 
 let fx: Fixture;
@@ -31,19 +32,32 @@ function errorsOf(doc: string) {
 }
 
 describe('writing a captured source @R07 @R19', () => {
-  it('places a new source before the first existing source and keeps every other byte', () => {
+  it('places a new source after the last existing source, so the file keeps capture order, and keeps every other byte', async () => {
     const repo = fx.repo('r');
-    const doc = fx.doc('d', '<!-- ex:id intro -->\nIntro.\n');
+    const doc = fx.doc('d', '<!-- ex:id intro -->\nIntro.\n\n<!-- ex:id outro -->\nOutro.\n');
     captureGit({ repo, file: 'a.txt', lines: '1:1', doc, id: 'src_first', title: 'First', repositoryLabel: 'app', capturedAt: AT });
-    const before = readFileSync(doc, 'utf8');
     captureGit({ repo, file: 'a.txt', lines: '2:3', doc, id: 'src_second', title: 'Second', repositoryLabel: 'app', capturedAt: AT });
+    const before = readFileSync(doc, 'utf8');
+    captureGit({ repo, file: 'a.txt', lines: '1:2', doc, id: 'src_third', title: 'Third', repositoryLabel: 'app', capturedAt: AT });
     const after = readFileSync(doc, 'utf8');
-    expect(after.indexOf('id="src_second"')).toBeLessThan(after.indexOf('id="src_first"'));
-    // Everything before the insertion point is unchanged, and the old block survives intact.
-    const insertAt = before.indexOf('{% source id="src_first"');
-    expect(after.slice(0, insertAt)).toBe(before.slice(0, insertAt));
-    expect(after.endsWith(before.slice(insertAt))).toBe(true);
+    const at = (id: string) => after.indexOf(`id="${id}"`);
+    expect(at('src_first')).toBeLessThan(at('src_second'));
+    expect(at('src_second')).toBeLessThan(at('src_third'));
+    // Everything up to the end of the last old source is unchanged, and so is everything after it.
+    const endOfSecond = before.indexOf('{% /source %}', before.indexOf('id="src_second"')) + '{% /source %}\n'.length;
+    expect(after.slice(0, endOfSecond)).toBe(before.slice(0, endOfSecond));
+    expect(after.endsWith(before.slice(endOfSecond))).toBe(true);
     expect(errorsOf(doc)).toEqual([]);
+    // Recapture keeps the position.
+    captureGit({ repo, file: 'a.txt', lines: '1:3', doc, id: 'src_second', title: 'Second again', repositoryLabel: 'app', capturedAt: AT, recapture: true });
+    const again = readFileSync(doc, 'utf8');
+    expect(again.indexOf('id="src_first"')).toBeLessThan(again.indexOf('id="src_second"'));
+    expect(again.indexOf('id="src_second"')).toBeLessThan(again.indexOf('id="src_third"'));
+    // Citations in reading order are numbered 1, 2, 3 on the page.
+    writeFileSync(doc, again.replace('Intro.', 'Intro {% cite ref="src_first" /%} {% cite ref="src_second" /%} {% cite ref="src_third" /%}.'));
+    const page = await compileDocument(loadBundle(doc), { version: '0.0.0', sha256: 'a'.repeat(64) }, { audience: 'private', includeSource: false, layoutFallback: false, nodeVersion: 'v24.21.0' });
+    const html = new TextDecoder().decode(page.files.find((f) => f.path.endsWith('/index.html'))!.bytes);
+    expect([...html.matchAll(/class="ex-cite"[^>]*>\[(\d+)\]/g)].map((m) => m[1])).toEqual(['1', '2', '3']);
   });
 
   it('accepts a capture that resolves an existing citation', () => {

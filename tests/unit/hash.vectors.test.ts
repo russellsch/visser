@@ -186,4 +186,12 @@ describe('buildId @T14', () => {
     expect(() => buildId({ ...base, effectiveRenderOptions: missing })).toThrow(/exactly/);
     expect(() => buildId({ ...base, effectiveRenderOptions: extra })).toThrow(/exactly/);
   });
+
+  it('a development build has a different ID; a normal build ID is unchanged by the rule', () => {
+    const normal = buildId(base).buildId;
+    const dev = buildId({ ...base, effectiveRenderOptions: { ...base.effectiveRenderOptions, development: true } }).buildId;
+    expect(dev).not.toBe(normal);
+    // Only `development: true` is accepted; `false` would give normal builds two IDs.
+    expect(() => buildId({ ...base, effectiveRenderOptions: { ...base.effectiveRenderOptions, development: false } as any })).toThrow(/exactly/);
+  });
 });
