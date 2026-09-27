@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.13, 27 September 2026 (Phase 2b implemented and code-reviewed). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.14, 27 September 2026 (Phase 3 plan reviewed against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -658,17 +658,24 @@ explain capture git \
 
 The repository may be untrusted. The Git spike (`spikes/git-hardening/`, Git 2.43) tested this procedure against hostile fixture repositories:
 
-1. Run every Git command with an argument array, `shell: false`, and `--no-pager -c core.fsmonitor= -c core.hooksPath=/dev/null`.
-2. Build Git's environment from an allowlist (`PATH`, `HOME`, locale), never inherited, so a parent `GIT_DIR`, `GIT_WORK_TREE`, `GIT_CONFIG_*`, `GIT_EXEC_PATH`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, or `GIT_NAMESPACE` cannot redirect the read. Set `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`.
+1. Run every Git command with an argument array, `shell: false`, `-C <toplevel>`, and `--no-pager -c core.fsmonitor= -c core.hooksPath=/dev/null -c protocol.allow=never`. The last flag stops a partial clone from fetching a missing object from a promisor remote during the read; Git 2.43 ignores `GIT_NO_LAZY_FETCH`. A missing object is then `E_SOURCE_UNAVAILABLE`.
+2. Build Git's environment from an allowlist (`PATH`, `HOME`, locale), never inherited, so a parent `GIT_DIR`, `GIT_WORK_TREE`, `GIT_CONFIG_*`, `GIT_EXEC_PATH`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, or `GIT_NAMESPACE` cannot redirect the read. Set `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_REPLACE_OBJECTS=1`, and `GIT_GRAFT_FILE=/dev/null`: without the last two, a repository's `refs/replace` or grafts silently substitute other bytes for the requested object (the Phase 3 review read `"FORGED by replace"` through the otherwise hardened procedure).
 3. Resolve `git rev-parse --absolute-git-dir` and `--show-toplevel`. Reject with `E_PATH_ESCAPE` if the realpath of the toplevel differs from the realpath of `--repo`, or if the git dir is outside it; a `.git` gitfile can otherwise redirect the capture to another repository while the metadata names the requested one. A linked worktree or submodule needs explicit `--allow-external-gitdir`, and the actual git dir is recorded.
 4. If `objects/info/alternates` exists in the git dir, refuse with `E_PATH_ESCAPE` unless `--allow-alternates` is passed, and record the alternate paths; otherwise a capture can read another repository's objects.
-5. Reject a `--rev` that begins with `-`. Resolve it to a full commit with `git rev-parse --verify --end-of-options '<rev>^{commit}'`, then resolve `<commit>:<path>` to an object ID the same way.
+5. Reject a `--rev` that begins with `-`. Resolve it to a full commit with `git rev-parse --verify --end-of-options '<rev>^{commit}'`, then resolve `<commit>:<path>` to an object ID the same way. `--file` must be a §7.4 bundle-style path relative to the toplevel: NFC, no empty, `.`, or `..` segment, and no leading `/`, `:`, or `-`, and no backslash (Git resolves `./` and `../` in `<rev>:<path>` against the working directory). `--lines` must match `^[1-9][0-9]{0,8}:[1-9][0-9]{0,8}$` with `start ≤ end ≤` the line count; anything else is `E_USAGE`.
 6. Confirm the object is a blob with `cat-file -t`. A blob with mode `120000` (a committed symlink) is rejected for text capture.
-7. Read the bytes with `git cat-file blob --end-of-options <oid>`. This runs no textconv or filter; `git show`, `cat-file --textconv`, and `cat-file --filters` can run repository-configured drivers. Commit-specific extraction never reads current checkout text.[S06]
+7. Check the size with `cat-file -s` against the §2.3 limits (`E_LIMIT`), then read the bytes with `git cat-file blob --end-of-options <oid>`. This runs no textconv or filter; `git show`, `cat-file --textconv`, and `cat-file --filters` can run repository-configured drivers. Commit-specific extraction never reads current checkout text.[S06]
+8. Recompute the Git object hash of the returned bytes (`blob <length>\0<bytes>`, SHA-1 or SHA-256 by the repository's object format) and require that it equals the requested object ID; a mismatch is `E_INTEGRITY`. This is a second defence against object substitution.
 
 Never run a command that refreshes the index: the spike showed `git status` still runs a repository clean filter even with the step 1 flags. Never pass `-c safe.directory=*`; Git's dubious-ownership refusal surfaces as `E_SOURCE_UNAVAILABLE` (exit 3). Working-tree capture reads the file directly under §15.4 path rules.
 
-Support SHA-1 and SHA-256 repository object formats by asking Git for the resolved object, not assuming every commit is exactly 40 characters. Reject binary/invalid UTF-8 content for text capture. Line numbers are 1-based inclusive in the original file; preserve indentation. Record optional symbol names as hints, not as the primary identity.
+Support SHA-1 and SHA-256 repository object formats by asking Git for the resolved object, not assuming every commit is exactly 40 characters. Line numbers are 1-based inclusive and count LF-terminated lines of the raw blob; preserve indentation. Record optional symbol names as hints, not as the primary identity.
+
+**Captured text rules** (each `E_SEMANTIC` unless stated): invalid UTF-8; NUL or other C0 control bytes except TAB, LF, and CRLF ("binary"); a lone CR in the captured range, because CR→LF normalization (§7.4) would add a line and break `start`/`end` ("normalize line endings first"); a Git LFS pointer (`version https://git-lfs.github.com/spec/v1`) is `E_SOURCE_UNAVAILABLE` ("content is not in Git"). The excerpt is stored LF-normalized with exactly one terminal LF, which capture adds when the file's last line has none, and `excerptSha256` hashes that form.
+
+**Repository identity:** `repository` records a portable identity, never a local path: the credential-stripped `remote.origin.url` if one exists, otherwise a label given with `--repository-label`. An absolute path or a URL with credentials in `repository` is `E_UNSAFE_CONTENT` in `check`, because pages and exports print the value. `check --verify-origins` finds a local clone through a user-local mapping (`--repo-map LABEL=PATH`, or `repositories` in user config), never a committed one.
+
+**Writing the source block:** every capture is a guarded single-file write with the §11.9 lock, symlink refusal, whole-document validation in memory, raw-hash recheck, and atomic rename. A new `source` block goes before the first existing `source` block, or at the end of the document. Attribute values are written with JSON string encoding. The fence is a backtick run one longer than the longest run in the excerpt (minimum three), so captured text cannot close the block; the review showed a plain three-backtick fence letting captured text inject a paragraph and a second `source` tag. `language` comes from an extension map or `--language`. An existing `--id` is `E_ID_DUPLICATE` unless `--recapture` is given; `--recapture` replaces that source's span, keeps its ID, and reports `annotated` line ranges that no longer fit as `E_SEMANTIC`.
 
 Capture a minimal excerpt. Do not clone or copy the entire codebase into the document. An excerpt can be incomplete evidence even when its bytes are authentic; attach an explanatory note about scope.
 
@@ -682,7 +689,7 @@ A permalink does not guarantee perpetual access: repositories can disappear, per
 
 Capturing current local content requires `capture file` or explicit `capture git --working-tree`. It records the base commit if available, the actual captured text hash, and the fact that content is uncommitted. Do not create commits, stage files, or change a user's worktree to improve citation appearance.
 
-The browser's code inspector is a **snapshot reference frame**: excerpt, origin, revision, line range, annotation, and wider-context link. It is not a live source browser. Captured excerpts are read-only to the authoring skill by default. A correction uses a deliberate recapture command, not editing the excerpt while leaving its metadata intact.
+The browser's code inspector is a **snapshot reference frame**: excerpt, origin, revision, line range, annotation, and wider-context link. It is not a live source browser. Captured excerpts are read-only to the authoring skill by default. A correction uses `capture … --recapture`, not editing the excerpt while leaving its metadata intact.
 
 ### 8.5 Verification states
 
@@ -693,7 +700,11 @@ Generated verification state is one of:
 - `origin-unavailable`: content is captured, but origin verification could not run.
 - `link-only`: there is no captured evidence.
 
-Use these exact ideas in UI language. Do not shorten them to “true” or “verified claim.” Ordinary offline build checks capture consistency only. `explain check --verify-origins` is explicit, reads local Git objects, and does not fetch missing objects without a separate authorized fetch.
+Use these exact ideas in UI language. Do not shorten them to “true” or “verified claim.” Ordinary offline build checks capture consistency only. `explain check --verify-origins` is explicit, reads local Git objects with the §8.2 procedure, and never fetches (`protocol.allow=never`).
+
+**Where the states appear (v1):** rendered pages show only `capture-consistent` or `link-only`, recomputed at every build, so no stale verification result reaches a reader. `check --verify-origins` reports `origin-matched`, `origin-unavailable`, or a mismatch for each source in its output and JSON. Showing origin states on pages would need an explicit `build --verify-origins` option in `effectiveRenderOptions`; that is deferred.
+
+**Comparison:** a `git` source is `origin-matched` when the normalized lines `start..end` of the blob at the recorded `commit` (with one terminal LF) equal the stored excerpt, and, if `originFileSha256` is present, the whole blob's raw bytes hash to it. A `working-tree` source is compared with the current file and reported as "matched the working tree at TIME", never as `origin-matched`, because the file can change afterwards; a missing file is `origin-unavailable`.
 
 For root-cause documents, causal edges have authored `basis="observed" | "inferred" | "hypothesis" | "stipulated"` plus supporting sources where available. Temporal order alone is not converted into a causal edge.
 
@@ -1180,7 +1191,11 @@ A stale packet must first be deliberately refreshed with `refs refresh --packet 
 
 ### 11.11 Retire, delete, and merge
 
-`refs retire --packet request.yaml --reason TEXT [--replacement TARGET_ID] --expected-revision REV` is the deliberate deletion operation. It requires `exact` resolution, removes the whole target span, and adds one `retiredTargets` entry for the target and for each nested target in that span. It writes both changes in one guarded single-file write with the same lock and recheck steps as `refs replace`. It rejects the operation with `E_REF_BROKEN` (exit 2) if a live target still refers to a removed ID, and lists those referrers. `--replacement` must name a live target outside the removed span; nested entries get no replacement. It also rejects the operation if an existing `retiredTargets` entry names a removed ID as its replacement, so chains cannot form. The frontmatter change is a minimal text insertion into the existing `retiredTargets` mapping (or a new mapping at the end of the frontmatter); retire never reserializes the whole frontmatter. The inserted entry uses two-space indentation, `ID:` then `reason: "<JSON-escaped text>"` and optional `replacement: ID`. Retire removes the span plus one adjacent separating blank line, so the result has no double blank line. Merge uses `refs replace` on the retained target and then `refs retire` on the other targets. Because each write changes the source revision, the agent gets a current packet for the next step with `refs show`.
+`refs retire --packet request.yaml --reason TEXT [--replacement TARGET_ID] --expected-revision REV` is the deliberate deletion operation. It requires `exact` resolution, removes the whole target span, and adds one `retiredTargets` entry for the target and for each nested target in that span. It writes both changes in one guarded single-file write with the same lock and recheck steps as `refs replace`. It rejects the operation with `E_REF_BROKEN` (exit 2) if a live target still refers to a removed ID, and lists those referrers. `--replacement` must name a live target outside the removed span; nested entries get no replacement. It also rejects the operation if an existing `retiredTargets` entry names a removed ID as its replacement, so chains cannot form. The frontmatter change is a minimal text insertion into the existing `retiredTargets` mapping (or a new mapping at the end of the frontmatter); retire never reserializes the whole frontmatter. Insertion is allowed only into a top-level block mapping with two-space indentation; any other shape (flow style such as `{}`, other indentation) is refused with `E_SEMANTIC` ("rewrite `retiredTargets` in block style"), because an appended entry would not parse. The resulting frontmatter must parse, validate against the schema, and keep every other key unchanged before the rename. `--reason` is at most 200 characters on one line with no control characters. The inserted entry uses two-space indentation, `ID:` then `reason: "<JSON-escaped text>"` and optional `replacement: ID`. Retire removes the span plus one adjacent separating blank line, so the result has no double blank line. Merge uses `refs replace` on the retained target and then `refs retire` on the other targets.
+
+**Nested targets that cannot be retired alone:** a target inside a Mermaid fence cannot be retired on its own span (§9.12), and a figure replacement that drops it fails with `E_ID_RETENTION`. `refs replace --retire ID --reason TEXT` (repeatable) therefore drops the listed nested IDs and writes their `retiredTargets` entries in the same guarded write. It applies only to IDs nested in the old span and absent from the replacement.
+
+**Validation:** `check` enforces the §11.7 rules with `E_SEMANTIC`: no ID is both live and retired; a replacement names a live target; no replacement names a retired target (no chains or cycles). Because each write changes the source revision, the agent gets a current packet for the next step with `refs show`.
 
 ### 11.12 Current packets for other targets
 
@@ -1331,6 +1346,8 @@ User-folder installation on one host is not implied to exist in a separate remot
 ### 12.8 Shared authoring content
 
 Catalogue guides, templates, and examples are read directly from the installed pack and may also be browsed at their pinned GitHub revision. They are common authoring resources, not document-specific facts.
+
+**Deferred to Phase 4** (revision 1.14): the Phase 3 reviews found this command under-specified (input kinds, network behaviour, fragment grammar, ID prefixing, provenance kind). It stays `E_UNSUPPORTED` until Phase 4 specifies it. The v1 narrowing: import reads only a local file inside the repository or a file in the installed toolkit pack, never a URL; the fragment must parse as top-level restricted-profile blocks with no frontmatter and pass the full validator; every ID becomes `PREFIX_ID`, and a collision is `E_ID_DUPLICATE`; import writes one `source` block (`kind="file"`) and an `imports` entry `{idPrefix, origin, sha256}` through the guarded write.
 
 Reusable definitions or explanation fragments can be imported through `explain content import`. The command materializes a selected text fragment into the document, records acquisition origin/hash in `imports`, and also puts any reader-visible provenance in a canonical `source` block within the document. The lock is not an alternative source of explanatory facts. The command requires an explicit ID prefix or resolves no collisions at all. Subsequent builds use that local captured text. Updates are deliberate; no shared glossary edit silently changes old snapshots.
 
@@ -1627,24 +1644,24 @@ The command names below are normative v1 interfaces. They may share implementati
 |---|---|
 | `init PATH` | Create source bundle, UUID, real toolkit lock; `--kind`, `--title`; do not overwrite existing content. |
 | `ids assign DOC` | Insert missing ordinary-block IDs; `--check` reports without writing. |
-| `check DOC` | Validate source/IDs/semantics/capture consistency; `--json`, `--verify-origins` (local only). |
+| `check DOC` | Validate source/IDs/semantics/capture consistency; `--json`, `--verify-origins` (local only, never fetches) with `--repo-map LABEL=PATH`. |
 | `build DOC` | Immutable build; `--out`, `--allow-layout-fallback`, `--toolkit-dir`, `--dev-toolkit`; no source mutation/network. |
 | `serve DOC` | Build and serve snapshot; `--port`, `--host`, `--public-origin`, `--base-path`, `--cache-private`, `--toolkit-dir`. |
 | `export DOC_OR_COLLECTION` | `--out`, `--format site|markdown`, `--include-source`, `--audience private|public`, `--allow-private-content`. |
-| `capture git` | Exact committed or explicitly working-tree excerpt; arguments in §8. |
+| `capture git` | Exact committed or explicitly working-tree excerpt; `--repo`, `--rev`, `--file`, `--lines`, `--doc`, `--id`, optional `--working-tree`, `--repository-label`, `--language`, `--recapture` (§8.2). Guarded write. |
 | `capture file` | Capture selected UTF-8 text or raster image with origin label; explicit source/destination; `--kind file|web|supplied|example` (default `file`) with the §8.1 metadata for that kind; computes `excerptSha256`. |
 | `refs resolve` | Resolve packet read-only; `--packet`, optional `--doc`, `--json`. |
 | `refs show` | Print a current packet for a live target, read-only; `DOC TARGET_ID`, optional `--quote`, `--json`. |
 | `refs refresh` | Acknowledge/reissue stale packet; `--expected-current`, `--acknowledge-stale`; `--acknowledge-body-change` when the body changed. |
-| `refs replace` | Guarded complete-target replacement; `--packet`, `--replacement`, `--expected-revision`. |
+| `refs replace` | Guarded complete-target replacement; `--packet`, `--replacement`, `--expected-revision`, repeatable `--retire ID --reason TEXT` for dropped nested IDs (§11.11). |
 | `refs retire` | Guarded deletion that records `retiredTargets`; `--packet`, `--reason`, optional `--replacement`, `--expected-revision`. |
-| `fork DOC DEST` | New document identity, retained internal IDs/provenance; no overwrite. |
+| `fork DOC DEST` | New document identity, retained internal IDs/provenance. Copies only declared bundle files and `explain.lock.json` (regular files, no symlinks), rewrites only the frontmatter `docId` with the §11.11 text-edit rules, keeps `retiredTargets`, and writes through a temporary directory renamed into place. `DEST` must not exist, must not be inside the source bundle, and must be inside a document root. |
 | `catalogue list|show NAME` | Print available patterns or a selected guide/schema/example. |
 | `skill show` | Print pinned core skill and local guide locations for `--doc` or current workspace. |
 | `install` | Explicit exact release installation; `--scope user|repo`, `--from-dir`, `--archive`, or `--from-release`; integrity options. |
 | `upgrade DOC` | Explicit lock update; produces reviewable diff and rebuild, not silent source migration. |
 | `vendor` | Copy a selected exact release under repo for offline use; no Git actions. |
-| `content import` | Materialize selected shared text with origin; no automatic updates. |
+| `content import` | Deferred to Phase 4 (§12.8); `E_UNSUPPORTED` until then. |
 | `extension inspect|trust` | Show metadata without execution, or explicitly trust an exact extension digest. |
 | `doctor` | Report Node, release resolution, adapter paths, missing locks, port availability, and trust state. |
 
@@ -1721,13 +1738,24 @@ Deliver: one example for each parsed type and one figure-level example (ER or cl
 
 ### 17.6 Phase 3 — source integrity and guarded editing
 
-Implement capture/verify commands, `refs retire`, fork, `content import`, hardening of refresh, locks, and replacement from Phase 1, dependent-target reporting, and conflict tests. Preserve working-tree status and source/evidence distinction.
+Already done in Phases 1–2 (do not rework): the §11.9 lock, symlink refusal, raw-hash recheck, `beforeRename` seam, refresh acknowledgements, `refs show`, `deleted` resolution, the §8.1/§8.6 source-tag rules, and the excerpt-hash check.
 
-Deliver: exact Git extraction fixtures, preserved ID edits, stale/conflict refusals, and explicit handling of unavailable origins. No network should be needed for build or read.
+**Rule for every command in this phase:** any command that writes source (`capture`, `refs retire`, `refs replace --retire`, `fork`) uses the §11.9 guarded write: the edit lock, symlink refusal, whole-document validation in memory, raw-hash recheck, and atomic rename (fork: a new directory renamed into place).
+
+Work order:
+
+1. Port `spikes/git-hardening/capture.mjs` to `packages/core/src/provenance/git.ts` with the revision 1.14 additions (§8.2 steps 1, 2, 5, 7, 8 and the captured-text rules), and port `attack.mjs` plus the Phase 3 review fixtures (replace refs, partial clone with a fresh clone per case, lone CR, missing final newline, NUL, LFS pointer, oversize, the `--file`/`--lines` input table) to `tests/integration/capture.hostile.test.ts`. The repository-identity rule.
+2. `capture git` and `capture file` (every `--kind`) as guarded writes, with fence selection, JSON attribute encoding, placement, and `--recapture`. Test that excerpts containing three- and five-backtick runs keep the same target set.
+3. `check --verify-origins` with the §8.5 comparison and reporting, `--repo-map`, and the working-tree label.
+4. Retirement validation in `check`, then `refs retire` (with the frontmatter-shape rules and the five YAML shapes as tests) and `refs replace --retire` (tested on a Mermaid figure).
+5. `fork`.
+6. `content import` moves to Phase 4.
+
+Deliver and exit check: `npm run build`, `typecheck`, `npm test`, the full Chromium tier, and `node scripts/check-contracts.mjs` all exit 0 with traceability entries covering R07, R19, T06, T07, T16, and T17; the hostile and correctness Git fixtures pass when run from `dist/release`; an end-to-end run of `capture git`, `check --verify-origins` (origin-matched), a changed origin, and `check --verify-origins` again (mismatch reported) passes; the retire and merge flow passes on the bounded-queue example and on a Mermaid figure; `npm audit` reports 0 vulnerabilities. No network is needed for build or read.
 
 ### 17.7 Phase 4 — distribution and static exports
 
-Implement release packing, exact digest verification, repo/user installation, `doctor`, `upgrade`, `skill show`, `catalogue list|show`, skill dispatchers, shared asset mapping, offline vendor flow, collection export, GitHub Pages subpaths, and public-export reporting. Add hostile archive and server confinement tests.
+Implement release packing, exact digest verification, repo/user installation, `doctor`, `upgrade`, `skill show`, `catalogue list|show`, `content import` (specified per §12.8 first), skill dispatchers, shared asset mapping, offline vendor flow, collection export, GitHub Pages subpaths, and public-export reporting. Add hostile archive and server confinement tests.
 
 Deliver: two source repositories using one user release, a repo-local installation, and a portable export readable on a clean machine with no Node installation.
 

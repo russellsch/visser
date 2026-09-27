@@ -1,0 +1,14 @@
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+const R = new URL('./tmp/repo', import.meta.url).pathname;
+const env = (x = {}) => ({ PATH: process.env.PATH, HOME: process.env.HOME, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', ...x });
+const g = (args, x) => { const r = spawnSync('git', ['--no-pager', '-C', R, '-c', 'core.fsmonitor=', '-c', 'core.hooksPath=/dev/null', ...args], { env: env(x) }); return { s: r.status, out: r.stdout.toString(), err: r.stderr.toString().trim() }; };
+const C = g(['rev-parse', 'HEAD']).out.trim();
+const oid = g(['rev-parse', '--verify', '--end-of-options', `${C}:a.txt`]).out.trim();
+console.log('replace refs:', g(['for-each-ref', 'refs/replace']).out.trim().split('\n').length);
+const blob = g(['cat-file', 'blob', '--end-of-options', oid]);
+console.log('spike procedure bytes :', JSON.stringify(blob.out));
+const gitHash = (s) => { const b = Buffer.from(s); return createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex'); };
+console.log('requested oid         :', oid, ' hash(returned bytes)=', gitHash(blob.out), gitHash(blob.out) === oid ? 'MATCH' : 'MISMATCH');
+console.log('GIT_NO_REPLACE_OBJECTS:', JSON.stringify(g(['cat-file', 'blob', '--end-of-options', oid], { GIT_NO_REPLACE_OBJECTS: '1' }).out));
+console.log('--no-replace-objects  :', JSON.stringify(spawnSync('git', ['--no-pager', '--no-replace-objects', '-C', R, 'cat-file', 'blob', oid], { env: env() }).stdout.toString()));

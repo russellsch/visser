@@ -128,3 +128,16 @@ Two Claude Opus 5.5 reviews read the Phase 2b plan and ran experiments in `spike
 Two Claude Opus 5.5 code reviews tested the implemented Phase 2b. The author reran the evidence before accepting: 11 rule bypasses that produced external links or off-origin requests, and a state-transition misalignment with notes.
 
 Fixes: statement splitting at `;`, a strict stereotype pattern, a keyword lookahead that no longer skips names starting with `o`/`x`/`*`, quote-aware `@{…}` scanning, `url(` rejection, opaque-only colours, rejection of entity codes; transitions from `getData()`; initial and terminal flags; `flowchart-elk` as a flowchart; fail-closed SRI (`E_INTEGRITY`); figure-type notice text; non-interactive derived arrows with a reference-mode note; a lifeline halo; 14 px cardinality labels; five test-weakness fixes; and new tests for two figures on a page, a single-figure failure, and prefix names. A class-diagram example (`examples/mermaid-class/`) closes the last example gap. After the fixes, the bypass scripts give 0 harmful accepted cases out of 31.
+
+## Revision 1.14 — Phase 3 plan review
+
+Two Claude Opus 5.5 reviews read the Phase 3 plan against the implemented code and ran experiments with Git 2.43 and the real parsers. The author reran the key evidence (a `refs/replace` object returning forged bytes through the hardened procedure; a partial clone fetching from its promisor remote; the absence of any retirement validation; `repository` rendered verbatim) before accepting findings.
+
+Accepted (§8.2, §8.4, §8.5, §11.11, §12.8, §17.1, §17.6):
+
+- **Git:** `GIT_NO_REPLACE_OBJECTS=1`, `GIT_GRAFT_FILE=/dev/null`, `-c protocol.allow=never`, `-C <toplevel>`, an object-hash recheck (`E_INTEGRITY`), strict `--file`/`--lines` grammars, size limits, LFS-pointer rejection, and rejection of lone CR, NUL, and control bytes. The excerpt always has one terminal LF.
+- **Provenance:** `repository` is a portable identity, never a local path; `--verify-origins` uses a user-local repository map and a defined comparison; pages show only `capture-consistent` or `link-only`; working-tree matches are labelled with their time.
+- **Writes:** every source-writing command uses the §11.9 guarded write; capture uses a fence longer than any backtick run (the review showed a plain fence letting captured text inject a paragraph and a second source), JSON attribute encoding, defined placement, and `--recapture`.
+- **Retire:** frontmatter insertion only into a two-space block mapping, validation before rename, `check` enforcement of the §11.7 rules, and `refs replace --retire` for nested IDs that cannot be retired alone (a Mermaid node was otherwise undeletable).
+- **Scope:** `content import` is deferred to Phase 4 with a v1 narrowing; `fork` copies only declared files and writes through a temporary directory.
+- **Plan:** a work order that reuses the Phase 1 lock code and the spike's capture code, and a concrete exit check.
