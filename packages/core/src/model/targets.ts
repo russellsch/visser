@@ -29,8 +29,10 @@ export type TargetModel = {
   diagnostics: Diagnostic[];
 };
 
-// Attributes whose values name document-local IDs (§7.1 `dependencies`).
-const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'option', 'criterion'];
+// Attributes whose values name document-local IDs (§7.1 `dependencies`). The
+// spec list is extended with the other ID-valued attributes of §9 (evidence,
+// group, parent, branch, exclusiveWith), so they are checked and reported too.
+const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'option', 'criterion', 'evidence', 'group', 'parent', 'branch', 'exclusiveWith'];
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
 const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).

@@ -6,6 +6,7 @@ import type { Diagnostic, ParsedSource } from '../types.ts';
 import { parseSource } from '../syntax/index.ts';
 import { validateAgainst } from './schemas.ts';
 import { buildTargetRecords, type MNode, type TargetModel } from './targets.ts';
+import { validateDocument } from './validate.ts';
 import { type BundleFile, HashError, sourceRevision, type SourceManifest } from './hash.ts';
 
 export type LoadedBundle = {
@@ -80,6 +81,7 @@ export function loadBundle(indexPath: string): LoadedBundle {
     }
     files.push({ path, kind: IMAGE_EXTENSIONS.test(path) ? 'binary' : 'text', content: new Uint8Array(readFileSync(full)) });
   }
+  diagnostics.push(...validateDocument(parsed, model, new Map(files.filter((f) => f.kind === 'binary').map((f) => [f.path, f.content]))));
   const declared = new Set(files.map((f) => f.path));
   for (const extra of listBundleFiles(root)) {
     if (!declared.has(extra)) {

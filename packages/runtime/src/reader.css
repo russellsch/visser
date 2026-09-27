@@ -66,6 +66,8 @@ pre { overflow-x: auto; padding: 0.75rem; background: var(--ex-panel); border-ra
 body.ex-has-inspector #ex-doc { margin-left: max(1rem, calc(50% - 37ch - 14rem)); }
 
 .ex-snapshot { color: var(--ex-muted); font-size: 0.875rem; border-bottom: 1px solid var(--ex-rule); margin-bottom: 1rem; }
+.ex-meta { margin: 0 0 0.5rem; }
+.ex-meta code { font-size: 0.8125rem; }
 
 /* Anchored and scrolled-to content must not sit under the sticky toolbar. */
 html { scroll-padding-top: 3.5rem; }
@@ -79,6 +81,28 @@ html { scroll-padding-top: 3.5rem; }
 
 .ex-rel-list { padding-left: 1.25rem; }
 .ex-rel-list li { margin: 0.25rem 0; }
+.ex-rel-kind, .ex-role, .ex-value-status, .ex-units, .ex-event-kind, .ex-event-layer { color: var(--ex-muted); font-size: 0.875em; }
+
+/* Figure views: the toggle appears only on narrow screens with JavaScript. */
+.ex-view-bar { display: none; margin: 0.5rem 0; }
+
+/* Compare: a semantic table on wide screens, criterion cards on narrow screens. */
+.ex-compare-cards { display: none; }
+.ex-compare-table td { vertical-align: top; }
+.ex-cell-body > :first-child { margin-top: 0.25rem; }
+.ex-cell-body > :last-child { margin-bottom: 0; }
+.ex-not-provided { color: var(--ex-muted); font-style: italic; }
+.ex-compare-card { border: 1px solid var(--ex-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.75rem 0; }
+.ex-compare-criterion { font-weight: 600; margin: 0 0 0.25rem; }
+.ex-compare-card dt { font-weight: 600; margin-top: 0.5rem; }
+.ex-compare-card dd { margin: 0 0 0 0.75rem; }
+
+/* Trace: order layers are partial-order depth, not time. */
+.ex-event-layer { margin-right: 0.25rem; }
+
+.ex-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.125rem 0.75rem; margin: 0.5rem 0; font-size: 0.875rem; }
+.ex-facts dt { color: var(--ex-muted); }
+.ex-facts dd { margin: 0; }
 
 table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
 th, td { border: 1px solid var(--ex-rule); padding: 0.25rem 0.5rem; text-align: left; }
@@ -196,21 +220,45 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
 }
 .ex-refpanel[hidden] { display: none; }
 .ex-refpanel__title { margin: 0 0 0.5rem; }
+.ex-refpanel__note { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--ex-muted); }
 .ex-refpanel__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .ex-refpanel__parent select { font: inherit; font-size: 0.875rem; min-height: 2.25rem; max-width: 100%; }
 .ex-copy-fallback { margin-top: 0.75rem; }
 .ex-copy-fallback__label { display: block; font-size: 0.875rem; margin-bottom: 0.25rem; }
 .ex-copy-fallback__text { width: 100%; font-family: var(--ex-mono); font-size: 0.875rem; }
 
+/* Wide screens: a figure wider than the text column breaks out of the column,
+   centred on it, up to the window width, instead of being clipped (§9.3: do not
+   shrink labels as the only way to fit). */
+@media (min-width: 900px) {
+  .ex-figure .ex-viewport {
+    width: max-content;
+    max-width: calc(100vw - 4rem);
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 /* ------------------------------------------------------------ narrow screens */
 
 @media (max-width: 899px) {
   .ex-refbtn { display: none; }
   .ex-btn, .ex-toolbar button, .ex-refpanel__parent select { min-height: 2.75rem; min-width: 2.75rem; }
-  .ex-rel-list a, .ex-detail > summary, .ex-term, .ex-cite {
+  .ex-rel-list a, .ex-detail > summary {
     display: inline-block; min-height: 2.75rem; padding: 0.625rem 0;
     vertical-align: top; /* keep list markers on the first line of a wrapped link */
   }
+  /* Inline term and citation links keep the line spacing; a 44px hit area sits around them. */
+  .ex-cite, .ex-term { position: relative; }
+  .ex-cite::after, .ex-term::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2.75rem; height: 2.75rem; transform: translate(-50%, -50%); }
+  .ex-js .ex-figure[data-ex-views] .ex-view-bar { display: flex; }
+  .ex-figure.ex-view-list .ex-viewport { display: none; }
+  .ex-figure.ex-view-map .ex-lists { display: none; }
+  .ex-compare-table { display: none; }
+  .ex-compare-cards { display: block; }
+  .ex-trace-events { list-style: none; padding-left: 0; }
+  .ex-event { border: 1px solid var(--ex-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+  .ex-event-layer { display: block; }
   /* The toolbar wraps to two rows on narrow screens. */
   html { scroll-padding-top: 7rem; }
   body.ex-has-inspector #ex-doc { margin-left: auto; }
@@ -227,5 +275,9 @@ body.ex-refmode [data-ex-target] { cursor: crosshair; }
   #ex-doc { max-width: none; padding: 0; }
   details::details-content { content-visibility: visible; display: block; }
   .ex-viewport { overflow: visible; }
+  .ex-view-bar { display: none !important; }
+  .ex-figure.ex-view-list .ex-viewport, .ex-figure.ex-view-map .ex-lists { display: block !important; }
+  .ex-compare-table { display: table !important; }
+  .ex-compare-cards { display: none !important; }
   a { color: inherit; }
 }

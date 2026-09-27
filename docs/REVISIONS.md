@@ -79,3 +79,12 @@ Implementation choices that are not spec changes: TypeScript 5.9.3 rather than 7
 - The DOM contract lives in `packages/core/src/compiler/dom-contract.ts`. Phase 1 added instance names that the contract comment does not list yet: `l-FIGURE.ID` list instances for nodes and actors, and `v-FIGURE.ANN.LINE` annotation markers. The runtime treats any `[data-ex-target]` element as an instance.
 - `refs resolve` exits 2 for `deleted`, `missing`, and `ambiguous`; §15.6 has no separate code for them.
 - The Phase 1 inspection report and open visual defects are in `docs/validation/phase1-review.md`.
+
+## Revision 1.9 — Phase 2 amendments
+
+- §15.6 adds `E_SEMANTIC` for violations of the §9 family rules.
+- §18.4: by user decision, v1 browser testing covers Chromium only. Firefox and WebKit are out of scope, not run, and never reported as passed.
+- DOM contract additions (`packages/core/src/compiler/dom-contract.ts`): `data-ex-views="map list"` on figures with a map, the `.ex-lists` container, compare instances `v-FIG.ID`, `l-FIG.ID`, and `l-FIG.CRITERION.OPTION`, and the title-first order (h1 block, then a compact snapshot line).
+- The §7.1 `dependencies` rule also covers `evidence`, `group`, `parent`, `branch`, and `exclusiveWith`, so broken references in them are reported.
+- The contract gate now fails when any test in any report failed (§18.8 "zero failures"), not only when a tag lacks a passing test.
+- The Phase 2 inspection report and open visual items are in `docs/validation/phase2-review.md`.

@@ -150,7 +150,8 @@ for (const path of [junitPath, ...(browserPresent ? [browserPath] : [])]) {
     const name = decode(/\bname="([^"]*)"/.exec(attrs)?.[1] ?? '');
     const classname = decode(/\bclassname="([^"]*)"/.exec(attrs)?.[1] ?? '');
     const passed = !/<(failure|error|skipped)\b/.test(body);
-    cases.push({ text: `${classname} ${name}`, passed });
+    const failed = /<(failure|error)\b/.test(body);
+    cases.push({ text: `${classname} ${name}`, passed, failed });
   }
   suiteNames.push(...[...junit.matchAll(/<testsuite\b[^>]*\bname="([^"]*)"/g)].map((m) => decode(m[1])));
 }
@@ -168,6 +169,11 @@ for (const e of traceability.entries) {
 const counts = traceability.entries.reduce((acc, e) => ((acc[e.status] = (acc[e.status] ?? 0) + 1), acc), {});
 console.log(`traceability: ${traceability.entries.length} entries (${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ')}); report has ${cases.length} testcases`);
 for (const m of missing) console.log(`  UNPROVEN ${m}`);
+// §18.8: a gate passes only with zero failures in every report, not merely one
+// passing test per tag.
+const failures = cases.filter((c) => c.failed);
+for (const f of failures) console.log(`  FAILED ${f.text}`);
+if (failures.length > 0) failed = true;
 if (missing.length > 0 && !browserPresent) {
   console.error('not run: reports/playwright-junit.xml is missing; browser-tagged entries cannot be proven');
   process.exit(3);

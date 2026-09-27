@@ -39,7 +39,7 @@ const ELEMENT_ATTRS: Record<string, readonly string[]> = {
   g: ['transform'], defs: [],
   marker: ['viewBox', 'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'markerUnits'],
   rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width'],
-  path: ['d', 'fill', 'stroke', 'stroke-width', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
+  path: ['d', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
   polygon: ['points', 'fill', 'stroke'],
   text: ['x', 'y', 'text-anchor', 'dominant-baseline', 'fill', 'font-size'],
   tspan: ['x', 'y', 'dy'],

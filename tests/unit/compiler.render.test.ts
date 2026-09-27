@@ -67,13 +67,18 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
 
   it('marks ordinal traces and generated citation text', () => {
     expect(html).toMatch(/<p class="ex-trace-scale" data-ex-generated="">Ordering, not duration\.<\/p>/);
+    // Order layers are partial-order depth, marked generated so quotes skip them.
+    expect(html).toContain('<span class="ex-event-layer" data-ex-generated="">Order layer 1 </span>');
+    expect(html).toContain('<span class="ex-event-layer" data-ex-generated="">Order layer 4 </span>');
     expect(html).toMatch(/<a class="ex-cite" href="#x-src_queue" title="Illustrative bounded queue" data-ex-generated="">\[1\]<\/a>/);
     expect(html).toContain('class="ex-term" href="#x-def_backpressure" data-ex-term="def_backpressure"');
     expect(html).toContain('data-ex-focus="enqueue event_wait event_remove"');
     expect(html).toMatch(/<svg[^>]*role="group" aria-label="[^"]+"/);
     expect(html).not.toContain('role="img"');
     expect(html).toMatch(/id="v-handoff\.enqueue"[^>]*>(?:(?!<\/a>).)*class="ex-hit"(?:(?!<\/a>).)*put waits while full/s);
-    expect(html).toContain('<dl class="ex-meta" data-ex-generated="">');
+    // Defect 3 (phase1-review.md): one compact snapshot line after the title.
+    expect(html).toContain('<p class="ex-meta" data-ex-generated="">Snapshot captured ');
+    expect(html.indexOf('id="x-overview"')).toBeLessThan(html.indexOf('class="ex-meta"'));
     const listItem = html.slice(html.indexOf('id="l-handoff.enqueue"'));
     expect(listItem.slice(0, listItem.indexOf('</a>'))).toMatch(/<span data-ex-generated=""> \u2192 <\/span>/);
   });

@@ -13,12 +13,12 @@
     },
     {
       "id": "R01",
-      "phase": 0,
-      "status": "partial",
+      "phase": 2,
+      "status": "covered",
       "tags": [
         "@R01"
       ],
-      "note": "Markdown projection is complete for Appendix A families. The no-JavaScript reading test is Phase 1."
+      "note": "Markdown projection for every family, and no-JavaScript reading of every example (chromium-nojs)."
     },
     {
       "id": "R02",
@@ -31,12 +31,12 @@
     },
     {
       "id": "R03",
-      "phase": 1,
-      "status": "partial",
+      "phase": 2,
+      "status": "covered",
       "tags": [
         "@R03"
       ],
-      "note": "Targets for all Appendix A kinds; browser reference selection for the graph relationship. Per-kind browser references for every \u00a718.4 kind are Phase 2."
+      "note": "Every target kind across the examples (32 kinds, including figure) is selected in reference mode and resolves exact through the CLI."
     },
     {
       "id": "R04",
@@ -55,6 +55,15 @@
         "@R05"
       ],
       "note": "Definition tooltip on hover/focus and tap-to-open. Real touch-device review is a human gate."
+    },
+    {
+      "id": "R06",
+      "phase": 2,
+      "status": "covered",
+      "tags": [
+        "@R06"
+      ],
+      "note": "Narrow and no-JS views carry the same target and relationship sets as the model for every example, including order, branch, and exclusivity data."
     },
     {
       "id": "R11",
@@ -85,12 +94,12 @@
     },
     {
       "id": "R14",
-      "phase": 0,
-      "status": "partial",
+      "phase": 2,
+      "status": "covered",
       "tags": [
         "@R14"
       ],
-      "note": "Markdown projection is generated from the model with full target and relationship coverage. HTML and reference-map derivation are Phase 1."
+      "note": "Desktop HTML, narrow view, no-JS view, and the Markdown projection derive the same target and relationship tuples."
     },
     {
       "id": "R17",
@@ -118,6 +127,15 @@
         "@R19"
       ],
       "note": "ids assign preserves existing IDs and other bytes. Guarded-edit preservation (T15) is Phase 1."
+    },
+    {
+      "id": "T01",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T01"
+      ],
+      "note": "Renamed heading keeps its ID; old packet is stale."
     },
     {
       "id": "T02",
@@ -156,6 +174,15 @@
       "note": "Duplicate IDs fail with E_ID_DUPLICATE (fixtures/negative/E_ID_DUPLICATE). Resolver-level rejection is Phase 1."
     },
     {
+      "id": "T08",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T08"
+      ],
+      "note": "A renamed document folder resolves by doc ID."
+    },
+    {
       "id": "T09",
       "phase": 1,
       "status": "covered",
@@ -174,6 +201,33 @@
       "note": "Packet agreement checks and resolver-level invalid for a wrong body at the current revision."
     },
     {
+      "id": "T11",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T11"
+      ],
+      "note": "A forged sourceHint cannot choose a file."
+    },
+    {
+      "id": "T12",
+      "phase": 2,
+      "status": "covered",
+      "tags": [
+        "@T12"
+      ],
+      "note": "One canonical element per target; instances carry data-ex-target without duplicate HTML IDs."
+    },
+    {
+      "id": "T13",
+      "phase": 2,
+      "status": "covered",
+      "tags": [
+        "@T13"
+      ],
+      "note": "A cross-block selection is refused explicitly, never silently truncated."
+    },
+    {
       "id": "T14",
       "phase": 0,
       "status": "covered",
@@ -181,6 +235,42 @@
         "@T14"
       ],
       "note": "Same source with a different toolkit gives a different build ID."
+    },
+    {
+      "id": "T15",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T15"
+      ],
+      "note": "A guarded replace changes only the target and its ancestors."
+    },
+    {
+      "id": "T18",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T18"
+      ],
+      "note": "Dropping a nested ID is rejected with E_ID_RETENTION."
+    },
+    {
+      "id": "T19",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T19"
+      ],
+      "note": "Refresh after a body change needs --acknowledge-body-change."
+    },
+    {
+      "id": "T20",
+      "phase": 1,
+      "status": "covered",
+      "tags": [
+        "@T20"
+      ],
+      "note": "An external write before rename gives E_WRITE_CONFLICT."
     }
   ]
 }

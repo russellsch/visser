@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.8, 27 September 2026. Revisions 1.7 and 1.8 add the Phase 0 and Phase 1 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.9, 27 September 2026. Revisions 1.7–1.9 add the Phase 0–2 amendments listed in `REVISIONS.md`; 1.6 was an editorial consolidation of 1.5. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -1485,6 +1485,7 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_PRIVATE_EXPORT` | Public export contains material requiring explicit approval. |
 | `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. |
 | `W_UNSAFE_TEXT` | Bidirectional control characters rendered as visible escapes. |
+| `E_SEMANTIC` | A family validation rule in §9 is violated (for example two initial states, a dependency cycle, or two cells for one option and criterion); exit 2. |
 | `E_USAGE` | Invalid command-line usage; exit 2. |
 | `E_BUILD` | Build stopped because the source or compilation failed; the exit code follows the underlying diagnostics. |
 | `E_PORT_BUSY` | The requested `serve` port is in use; exit 3. |
@@ -1718,6 +1719,8 @@ Create a temporary Git repository in the test suite; commit a source file, captu
 Use real commits created by the tests, not invented production SHAs. Cover spaces/non-ASCII paths (including an NFD file name and a path character beyond U+FFFF), detached HEAD, missing objects, empty excerpt, invalid line range, binary input, CRLF, line-number display, and permission-denied origin. Test local repository support for alternate Git object formats when the installed Git supports it.
 
 ### 18.4 Browser matrix
+
+**Browser scope (user decision, 27 September 2026):** v1 browser testing covers Chromium only. The Firefox and WebKit projects below are out of scope; they are not run and never reported as passed.
 
 Playwright projects form an **applicable** matrix, not a full cross product (Firefox has no `isMobile`, and keyboard-only at 320 px or touch at 1440 px add little):
 

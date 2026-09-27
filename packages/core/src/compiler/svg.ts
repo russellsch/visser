@@ -10,9 +10,14 @@ export type SvgInput = {
   title: string;
   layout: GraphLayout;
   labelOf: (id: string) => string;
-  roleOf: (id: string) => string | undefined;
+  roleOf: (id: string) => string | undefined; // architecture role: a class name and part of the aria-label
+  noteOf?: (id: string) => string | undefined; // other families: descriptive text for the aria-label only
   kindOf: (id: string) => string | undefined;
   relationship: (id: string) => { from: string; to: string } | undefined;
+  // Optional per-family decoration: extra node classes (e.g. initial, terminal)
+  // and an edge line pattern (cause basis). Patterns always accompany text.
+  nodeClassOf?: (id: string) => string | undefined;
+  dashOf?: (id: string) => string | undefined;
 };
 
 const MARGIN = 8;
@@ -48,16 +53,23 @@ export function graphSvg(input: SvgInput): HNode {
       const label = input.labelOf(e.id);
       const aria = rel ? `${input.labelOf(rel.from)}, ${label}, ${input.labelOf(rel.to)}` : label;
       const d = pathData(e.points);
+      const dash = input.dashOf?.(e.id);
       return h('a', { class: `ex-edge ex-kind-${kind}`, href: `#${DOM.canonicalId(e.id)}`, id: DOM.svgInstanceId(figureId, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true, 'aria-label': aria },
         e.points.length > 1 ? h('path', { class: 'ex-hit', d, fill: 'none', stroke: 'transparent', 'stroke-width': '16', 'stroke-linecap': 'round' }) : null,
-        e.points.length > 1 ? h('path', { class: 'ex-line', d, fill: 'none', stroke: '#444444', 'stroke-width': '1.5', 'marker-end': `url(#${marker})` }) : null,
+        e.points.length > 1 ? h('path', { class: 'ex-line', d, fill: 'none', stroke: '#444444', 'stroke-width': '1.5', 'stroke-dasharray': dash, 'marker-end': `url(#${marker})` }) : null,
         e.label ? h('rect', { class: 'ex-edge-label-bg', x: n(e.label.x + MARGIN), y: n(e.label.y + MARGIN), width: n(e.label.width), height: n(e.label.height), rx: '3', ry: '3', fill: '#ffffff' }) : null,
         e.label ? textLines(e.label.lines, e.label.x + MARGIN + e.label.width / 2, e.label.y + MARGIN, 'ex-edge-label') : null);
     }),
     layout.nodes.map((node) => {
       const role = input.roleOf(node.id);
-      return h('a', { class: `ex-node${role ? ` ex-role-${role}` : ''}`, href: `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.interactive]: true, 'aria-label': role ? `${input.labelOf(node.id)} (${role})` : input.labelOf(node.id) },
+      const extraClass = input.nodeClassOf?.(node.id);
+      const terminal = extraClass?.includes('ex-terminal');
+      const note = role ?? input.noteOf?.(node.id);
+      const roleClass = role && /^[a-z][a-z-]*$/.test(role) ? ` ex-role-${role}` : '';
+      return h('a', { class: `ex-node${roleClass}${extraClass ? ` ${extraClass}` : ''}`, href: `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.interactive]: true, 'aria-label': note ? `${input.labelOf(node.id)} (${note})` : input.labelOf(node.id) },
         h('rect', { x: n(node.x + MARGIN), y: n(node.y + MARGIN), width: n(node.width), height: n(node.height), rx: '6', ry: '6', fill: '#ffffff', stroke: '#2f3a4a', 'stroke-width': '1.5' }),
+        // A terminal state gets a second inner border; the text mark says the same.
+        terminal ? h('rect', { x: n(node.x + MARGIN + 3), y: n(node.y + MARGIN + 3), width: n(node.width - 6), height: n(node.height - 6), rx: '4', ry: '4', fill: 'none', stroke: '#2f3a4a', 'stroke-width': '1' }) : null,
         textLines(node.lines, node.x + MARGIN + node.width / 2, node.y + MARGIN + 8, 'ex-node-label'));
     }));
 }

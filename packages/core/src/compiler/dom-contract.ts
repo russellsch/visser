@@ -15,8 +15,10 @@
 //       <button id="ex-btn-about">About this snapshot</button>
 //     </nav>
 //     <main id="ex-doc" data-ex-doc=UUID data-ex-rev=SHA data-ex-build=SHA>
-//       <header class="ex-snapshot"> title (if not an h1 block) + snapshot metadata </header>
-//       canonical top-level blocks, in source order (see CANONICAL below)
+//       the first block when it is an h1 (it is the page title, §10.1)
+//       <header class="ex-snapshot"> generated h1 (only if no h1 block) + one
+//         compact <p class="ex-meta" data-ex-generated> snapshot line </header>
+//       remaining canonical top-level blocks, in source order (see CANONICAL below)
 //       <section id="ex-appendix" aria-label="Details and evidence">
 //         canonical <details> for every inspectable target
 //       </section>
@@ -40,8 +42,18 @@
 //   data-ex-rel=RELATIONSHIP_ID (edge ID, or EVENT~after~PREREQ for order).
 //
 // Figures: SVG sits in <div class="ex-viewport" data-ex-viewport> (may scroll
-//   horizontally); the relationship or event list follows as <ol class="ex-rel-list">.
-//   Ordinal traces show the text "Ordering, not duration." (emitted by the renderer).
+//   horizontally); the element and relationship lists follow inside
+//   <div class="ex-lists"> (<ul class="ex-node-list">, <ol class="ex-rel-list">).
+//   A figure with a map carries data-ex-views="map list"; on narrow screens the
+//   runtime shows the lists by default and adds a "Show map" toggle
+//   (.ex-view-toggle, aria-pressed). Without JavaScript both views are present.
+//   Ordinal traces show the text "Ordering, not duration." (emitted by the renderer)
+//   and each event an "Order layer N" label (longest `after` chain; not time).
+//   Compare figures hold a <table class="ex-compare-table"> (instances v-FIG.ID)
+//   and narrow-screen cards <div class="ex-compare-cards"> (instances l-FIG.ID;
+//   option instances inside a criterion card are l-FIG.CRITERION.OPTION).
+//   Other instance names: l-FIG.ID for node, actor, branch, and annotation list
+//   entries; v-FIG.ANN.LINE for annotation markers in code.
 //
 // Inline: term  -> <a class="ex-term" href="#x-DEF" data-ex-term=DEF>text</a>
 //         cite  -> <a class="ex-cite" href="#x-SRC" data-ex-generated>[source]</a>
@@ -83,6 +95,7 @@ export const DOM = {
     term: 'data-ex-term',
     focus: 'data-ex-focus',
     placeholder: 'data-ex-placeholder',
+    views: 'data-ex-views',
   },
   canonicalId: (id: string) => `x-${id}`,
   svgInstanceId: (figure: string, id: string) => `v-${figure}.${id}`,

@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
-import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, openSnapshot, test } from './support.ts';
+import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, openSnapshot, showMap, test } from './support.ts';
 
 const APPENDIX = 'ex-appendix';
 
@@ -29,6 +29,7 @@ async function expectDetailHome(page: import('@playwright/test').Page, targetId:
 test.describe('inspection', () => {
   test('@R04 inspect edge from the SVG instance with the keyboard; Escape returns focus', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
+    await showMap(page, 'handoff');
     const instance = byId(page, 'v-handoff.enqueue');
     await instance.focus();
     const scrollBefore = await page.evaluate(() => window.scrollY);
@@ -82,6 +83,7 @@ test.describe('reference mode', () => {
     await openSnapshot(page);
     await page.locator('#ex-btn-refmode').click();
     await expect(page.locator('#ex-btn-refmode')).toHaveAttribute('aria-pressed', 'true');
+    await showMap(page, 'handoff');
     // Click the edge label: the centre of an edge's bounding box can be empty canvas.
     await byId(page, 'v-handoff.enqueue').locator('text').click();
     const panel = page.locator('#ex-refpanel');
@@ -103,6 +105,24 @@ test.describe('reference mode', () => {
       sourceRevision: await root.getAttribute('data-ex-rev'),
       bodySha256: await byId(page, 'x-enqueue').getAttribute('data-ex-body'),
     });
+  });
+
+  test('@R03 a deselected quote does not reach a later packet', async ({ page, offOrigin: _ }) => {
+    test.skip(isNarrow(page), 'per-block reference buttons are a desktop affordance');
+    await openSnapshot(page);
+    const paragraph = byId(page, 'x-p_takeaway').locator('p');
+    await paragraph.evaluate((p) => {
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+    });
+    // Deselect outside reference mode, as a reader who changed their mind.
+    await page.evaluate(() => window.getSelection()!.removeAllRanges());
+    await byId(page, 'x-p_takeaway').hover();
+    await byId(page, 'x-p_takeaway').locator('.ex-refbtn').click();
+    const panel = page.locator('#ex-refpanel');
+    await expect(panel.getByRole('button', { name: 'Copy reference with selected text' })).toBeDisabled();
   });
 
   test('@R03 copy reference with selected text excludes generated citation text', async ({ page, offOrigin: _ }) => {
@@ -148,7 +168,8 @@ test.describe('reference mode', () => {
   test('ordinary links still work outside reference mode', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
     await page.locator('a.ex-focus').click();
-    await expect(page.locator('.ex-focused').first()).toBeVisible();
+    // On narrow screens the map is hidden; a highlighted list instance must be visible.
+    await expect(page.locator('.ex-focused').filter({ visible: true }).first()).toBeVisible();
     await expect(page.locator('#ex-refpanel')).toHaveCount(0);
   });
 });

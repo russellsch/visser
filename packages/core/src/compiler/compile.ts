@@ -71,7 +71,21 @@ const CSP = [
 ].join('; ');
 
 const ENTITY_KINDS = new Set(['definition', 'source', 'detail']);
-const COMPONENTS = new Set(['graph', 'trace', 'annotated']);
+const COMPONENTS = new Set(['graph', 'trace', 'annotated', 'transform', 'compare']);
+
+// Graph-like families share one kernel (§9.1): graph modes plus transform.
+type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform';
+const GRAPH_MODES = new Set<GraphFamily>(['architecture', 'state', 'cause', 'plan']);
+
+// Causal basis is shown as text and as a line pattern, never by color alone (§9.7).
+const BASIS_DASH: Record<string, string | undefined> = { observed: undefined, inferred: '6 4', hypothesis: '2 4', stipulated: '10 3 2 3' };
+
+const NODE_LIST_LABEL: Record<GraphFamily, string> = {
+  architecture: 'Elements', state: 'States', cause: 'Factors', plan: 'Tasks', transform: 'Stages',
+};
+const REL_LIST_LABEL: Record<GraphFamily, string> = {
+  architecture: 'Relationships', state: 'Transitions', cause: 'Causal links', plan: 'Dependencies', transform: 'Conversions',
+};
 const TEXT_MEDIA: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
 
 const encoder = new TextEncoder();
@@ -263,10 +277,10 @@ class Renderer {
 
   // --- Components ----------------------------------------------------------
 
-  figureShell(id: string, node: MNode, kindClass: string, content: Child[]): HNode {
+  figureShell(id: string, node: MNode, kindClass: string, content: Child[], hasMap = false): HNode {
     const question = attrString(node, 'question') ?? '';
     const title = attrString(node, 'title') ?? this.label(id);
-    return h('figure', { class: `ex-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `ex-q-${id}` },
+    return h('figure', { class: `ex-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `ex-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
       h('figcaption', {}, this.safeText(title, id)),
       h('p', { id: `ex-q-${id}`, class: 'ex-sr' }, this.safeText(question, id)),
       this.blocks(node),
@@ -282,7 +296,77 @@ class Renderer {
     return this.bundle.model.relationships.find((r) => r.id === id);
   }
 
+  familyOf(id: string, node: MNode): GraphFamily {
+    if (this.targets.get(id)?.kind === 'transform') return 'transform';
+    const mode = attrString(node, 'mode') ?? 'architecture';
+    return GRAPH_MODES.has(mode as GraphFamily) ? (mode as GraphFamily) : 'architecture';
+  }
+
+  /** Secondary lines shown inside a node box and after it in the list. */
+  nodeNotes(family: GraphFamily, nodeId: string): string[] {
+    const n = this.nodes.get(nodeId)!;
+    const a = (k: string) => attrString(n, k);
+    switch (family) {
+      case 'state': {
+        const notes: string[] = [];
+        if (n.attributes['initial'] === true) notes.push('initial');
+        if (n.attributes['terminal'] === true) notes.push('terminal');
+        return notes;
+      }
+      case 'cause': return a('basis') ? [a('basis')!] : [];
+      case 'plan': return [`status: ${a('status') ?? 'proposed'}`, ...(a('owner') ? [`owner: ${a('owner')}`] : [])];
+      case 'transform': {
+        const shape = n.attributes['shape'];
+        const shapeText = Array.isArray(shape) ? shape.map(String).join(' × ') : typeof shape === 'string' ? shape : undefined;
+        return [a('representation'), shapeText ? `shape: ${shapeText}` : undefined, a('units') ? `units: ${a('units')}` : undefined, a('location') ? `location: ${a('location')}` : undefined]
+          .filter((x): x is string => x !== undefined);
+      }
+      default: return a('role') ? [a('role')!] : [];
+    }
+  }
+
+  /** Text on a relationship arrow. Material facts (guard, basis, loss) stay in the main visual. */
+  edgeLabel(family: GraphFamily, edgeId: string): string {
+    const n = this.nodes.get(edgeId)!;
+    const label = this.label(edgeId);
+    const a = (k: string) => attrString(n, k);
+    switch (family) {
+      case 'state': {
+        const head = a('event') ?? label;
+        const guard = a('guard');
+        return guard ? `${head} [${guard}]` : head;
+      }
+      case 'cause': return `${label} (${a('basis') ?? 'unstated basis'})`;
+      case 'plan': {
+        const kind = a('kind');
+        return kind && kind !== 'finish-start' ? `${label} (${kind})` : label;
+      }
+      case 'transform': return a('loss') ? `${label}; loss: ${a('loss')}` : label;
+      default: return label;
+    }
+  }
+
+  /** Extra relationship facts for the list view (generated text). */
+  edgeNotes(family: GraphFamily, edgeId: string): string[] {
+    const n = this.nodes.get(edgeId)!;
+    const a = (k: string) => attrString(n, k);
+    const r = this.relationship(edgeId);
+    const notes: string[] = [r?.kind ?? 'relationship'];
+    if (r?.basis) notes.push(`basis: ${r.basis}`);
+    if (family === 'state') {
+      if (a('event')) notes.push(`event: ${a('event')}`);
+      if (a('guard')) notes.push(`guard: ${a('guard')}`);
+      if (a('action')) notes.push(`action: ${a('action')}`);
+    }
+    if (family === 'transform') {
+      if (a('loss')) notes.push(`loss: ${a('loss')}`);
+      if (a('condition')) notes.push(`condition: ${a('condition')}`);
+    }
+    return notes;
+  }
+
   async graph(id: string, node: MNode): Promise<HNode> {
+    const family = this.familyOf(id, node);
     const children = this.childTargets(id);
     const edges = children.filter((c) => this.relationship(c.id) !== undefined);
     const groups = children.filter((c) => c.kind === 'group');
@@ -292,6 +376,7 @@ class Renderer {
     } else if (nodes.length > GRAPH_WARN_NODES) {
       this.warn('W_VISUAL_DENSITY', `graph ${id} has ${nodes.length} visible nodes`, id);
     }
+    const notes = new Map(nodes.map((n) => [n.id, this.nodeNotes(family, n.id)]));
     const input: GraphInput = {
       id,
       groups: groups.map((g) => {
@@ -300,11 +385,13 @@ class Renderer {
       }),
       nodes: nodes.map((n) => {
         const group = attrString(this.nodes.get(n.id)!, 'group');
-        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}) };
+        // Architecture roles stay in the list and aria-label only (unchanged Phase 1 layout).
+        const extra = family === 'architecture' ? [] : notes.get(n.id)!.map((x) => this.safeText(family === 'state' ? `(${x})` : x, n.id));
+        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra } : {}) };
       }),
       edges: edges.map((e) => {
         const r = this.relationship(e.id)!;
-        return { id: e.id, from: r.from, to: r.to, label: this.label(e.id) };
+        return { id: e.id, from: r.from, to: r.to, label: this.safeText(this.edgeLabel(family, e.id), e.id) };
       }),
     };
 
@@ -319,28 +406,97 @@ class Renderer {
       }
     }
 
-    const roles = new Map(nodes.map((n) => [n.id, attrString(this.nodes.get(n.id)!, 'role')]));
+    const roles = new Map(nodes.map((n) => [n.id, family === 'architecture' ? attrString(this.nodes.get(n.id)!, 'role') : undefined]));
     const kinds = new Map(edges.map((e) => [e.id, this.relationship(e.id)!.kind]));
-    const svg = layout ? graphSvg({ figureId: id, title: attrString(node, 'title') ?? this.label(id), layout, labelOf: (x) => this.label(x), roleOf: (x) => roles.get(x), kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x) }) : null;
+    const nodeClass = (x: string): string | undefined => {
+      if (family !== 'state') return undefined;
+      const n = this.nodes.get(x)!;
+      const classes = [n.attributes['initial'] === true ? 'ex-initial' : '', n.attributes['terminal'] === true ? 'ex-terminal' : ''].filter(Boolean);
+      return classes.length > 0 ? classes.join(' ') : undefined;
+    };
+    // Observed links are solid; a missing or unknown basis is dotted.
+    const dash = (x: string): string | undefined => {
+      if (family !== 'cause') return undefined;
+      const basis = this.relationship(x)?.basis;
+      return basis !== undefined && basis in BASIS_DASH ? BASIS_DASH[basis] : '1 3';
+    };
+    const svg = layout
+      ? graphSvg({
+          figureId: id, title: attrString(node, 'title') ?? this.label(id), layout,
+          labelOf: (x) => this.label(x), roleOf: (x) => roles.get(x), noteOf: (x) => notes.get(x)?.join(', ') || undefined,
+          kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x), nodeClassOf: nodeClass, dashOf: dash,
+        })
+      : null;
 
-    const relList = h('ol', { class: 'ex-rel-list', 'aria-label': 'Relationships' },
+    const relList = h('ol', { class: 'ex-rel-list', 'aria-label': REL_LIST_LABEL[family] },
       edges.map((e) => {
         const r = this.relationship(e.id)!;
         return h('li', {},
           h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true },
-            this.label(r.from), h('span', { [DOM.attr.generated]: true }, ' \u2192 '), this.label(e.id), h('span', { [DOM.attr.generated]: true }, ' \u2192 '), this.label(r.to)),
-          h('span', { class: 'ex-rel-kind', [DOM.attr.generated]: true }, ` (${r.kind}${r.basis ? `; ${r.basis}` : ''})`));
+            this.label(r.from), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(e.id), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(r.to)),
+          h('span', { class: 'ex-rel-kind', [DOM.attr.generated]: true }, ` (${this.edgeNotes(family, e.id).map((x) => this.safeText(x, e.id)).join('; ')})`));
       }));
-    const nodeList = h('ul', { class: 'ex-node-list', 'aria-label': 'Elements' },
-      [...groups, ...nodes].map((n) => h('li', {},
-        h('a', { href: `#${DOM.canonicalId(n.id)}`, id: DOM.listInstanceId(id, n.id), [DOM.attr.target]: n.id, [DOM.attr.interactive]: true }, this.label(n.id)),
-        roles.get(n.id) ? h('span', { class: 'ex-role', [DOM.attr.generated]: true }, ` (${roles.get(n.id)})`) : null)));
+    const nodeList = h('ul', { class: 'ex-node-list', 'aria-label': NODE_LIST_LABEL[family] },
+      [...groups, ...nodes].map((n) => {
+        const note = family === 'architecture' ? (roles.get(n.id) ? [roles.get(n.id)!] : []) : (notes.get(n.id) ?? []);
+        return h('li', {},
+          h('a', { href: `#${DOM.canonicalId(n.id)}`, id: DOM.listInstanceId(id, n.id), [DOM.attr.target]: n.id, [DOM.attr.interactive]: true }, this.label(n.id)),
+          note.length > 0 ? h('span', { class: 'ex-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
+      }));
 
-    return this.figureShell(id, node, 'ex-graph', [
+    return this.figureShell(id, node, `ex-graph ex-family-${family}`, [
       svg ? h('div', { class: 'ex-viewport', [DOM.attr.viewport]: true }, svg) : null,
-      nodeList,
-      relList,
-    ]);
+      h('div', { class: 'ex-lists' }, nodeList, relList),
+    ], svg !== null);
+  }
+
+  compare(id: string, node: MNode): HNode {
+    const children = this.childTargets(id);
+    const options = children.filter((c) => c.kind === 'option');
+    const criteria = children.filter((c) => c.kind === 'criterion');
+    const cells = children.filter((c) => c.kind === 'cell');
+    const cellFor = (o: string, c: string) => cells.find((x) => {
+      const n = this.nodes.get(x.id)!;
+      return attrString(n, 'option') === o && attrString(n, 'criterion') === c;
+    });
+    const link = (target: string, instanceId: string, content: Child) =>
+      h('a', { href: `#${DOM.canonicalId(target)}`, id: instanceId, [DOM.attr.target]: target, [DOM.attr.interactive]: true }, content);
+    const criterionLabel = (c: TargetRecord, instanceId: string): Child => {
+      const units = attrString(this.nodes.get(c.id)!, 'units');
+      return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'ex-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
+    };
+    const cellContent = (cell: TargetRecord | undefined, instanceId: string): Child => {
+      if (!cell) return h('span', { class: 'ex-not-provided', [DOM.attr.generated]: true }, 'Not provided');
+      const n = this.nodes.get(cell.id)!;
+      const value = n.attributes['value'];
+      const status = attrString(n, 'valueStatus');
+      return [
+        link(cell.id, instanceId, value !== undefined ? this.safeText(String(value), cell.id) : h('span', { [DOM.attr.generated]: true }, 'Details')),
+        status ? h('span', { class: 'ex-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
+        h('div', { class: 'ex-cell-body' }, this.blocks(n)),
+      ];
+    };
+    const table = h('table', { class: 'ex-compare-table' },
+      h('thead', {}, h('tr', {},
+        h('th', { scope: 'col' }, h('span', { [DOM.attr.generated]: true }, 'Criterion')),
+        options.map((o) => h('th', { scope: 'col' }, link(o.id, DOM.svgInstanceId(id, o.id), this.label(o.id)))))),
+      h('tbody', {}, criteria.map((c) => h('tr', {},
+        h('th', { scope: 'row' }, criterionLabel(c, DOM.svgInstanceId(id, c.id))),
+        options.map((o) => {
+          const cell = cellFor(o.id, c.id);
+          return h('td', {}, cellContent(cell, cell ? DOM.svgInstanceId(id, cell.id) : ''));
+        })))));
+    // Narrow screens: criteria as rows, every option stacked inside each criterion (§9.8).
+    const cards = h('div', { class: 'ex-compare-cards' }, criteria.map((c) => h('section', { class: 'ex-compare-card', 'aria-label': this.label(c.id) },
+      h('p', { class: 'ex-compare-criterion' }, criterionLabel(c, DOM.listInstanceId(id, c.id))),
+      h('dl', {}, options.map((o) => {
+        const cell = cellFor(o.id, c.id);
+        return [
+          h('dt', {}, link(o.id, DOM.listInstanceId(id, `${c.id}.${o.id}`), this.label(o.id))),
+          h('dd', {}, cellContent(cell, cell ? DOM.listInstanceId(id, cell.id) : '')),
+        ];
+      })))));
+    return this.figureShell(id, node, 'ex-compare', [table, cards]);
   }
 
   trace(id: string, node: MNode): HNode {
@@ -360,6 +516,18 @@ class Renderer {
           h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
           entity ? h('span', { class: 'ex-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
       }));
+    // Order layer: the longest `after` chain before an event. Events in one layer
+    // have no ordering constraint between them; the number is not a timestamp.
+    const layer = new Map<string, number>();
+    const layerOf = (eventId: string, seen: Set<string>): number => {
+      if (layer.has(eventId)) return layer.get(eventId)!;
+      if (seen.has(eventId)) return 1;
+      seen.add(eventId);
+      const prereqs = this.bundle.model.relationships.filter((r) => r.kind === 'order' && r.to === eventId).map((r) => r.from);
+      const value = prereqs.length === 0 ? 1 : 1 + Math.max(...prereqs.map((p) => layerOf(p, seen)));
+      layer.set(eventId, value);
+      return value;
+    };
     const eventList = h('ol', { class: 'ex-trace-events', 'aria-label': 'Events in authored order' },
       events.map((e) => {
         const en = this.nodes.get(e.id)!;
@@ -368,10 +536,14 @@ class Renderer {
         const branch = attrString(en, 'branch');
         const time = en.attributes['time'];
         const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && r.to === e.id);
+        // An event with `to` is also a message relationship whose ID is the event ID (§9.2).
+        const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
         return h('li', { class: `ex-event ex-kind-${kind}` },
-          h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.interactive]: true },
+          h('span', { class: 'ex-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
+          h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: message ? e.id : undefined, [DOM.attr.interactive]: true },
             actor ? h('span', { class: 'ex-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
-            this.label(e.id)),
+            this.label(e.id),
+            message ? h('span', { class: 'ex-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
           h('span', { class: 'ex-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
           scale === 'time' && time !== undefined ? h('span', { class: 'ex-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
           branch ? h('span', { class: 'ex-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
@@ -511,9 +683,19 @@ class Renderer {
         h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))));
     }
     switch (record.kind) {
-      case 'node': case 'state': case 'factor': case 'task': case 'stage': {
-        const role = attrString(node, 'role') ?? attrString(node, 'basis') ?? attrString(node, 'status');
-        if (role) specifics.push(h('p', { class: 'ex-role', [DOM.attr.generated]: true }, role));
+      case 'node': case 'state': case 'factor': case 'task': case 'stage':
+      case 'transition': case 'causal-link': case 'conversion': case 'dependency':
+      case 'option': case 'criterion': case 'cell': {
+        const keys = DETAIL_FACTS[record.kind] ?? [];
+        const facts: Array<[string, string]> = [];
+        for (const key of keys) {
+          const v = node.attributes[key];
+          if (v === undefined || v === false) continue;
+          const text = Array.isArray(v) ? v.map(String).join(key === 'shape' ? ' \u00d7 ' : ', ') : v === true ? 'yes' : String(v);
+          facts.push([key, this.safeText(text, record.id)]);
+        }
+        if (record.kind === 'task' && node.attributes['status'] === undefined) facts.push(['status', 'proposed']);
+        if (facts.length > 0) specifics.push(h('dl', { class: 'ex-facts', [DOM.attr.generated]: true }, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
         break;
       }
       case 'actor': {
@@ -556,11 +738,12 @@ class Renderer {
       }
       const record = this.targets.get(id)!;
       if (ENTITY_KINDS.has(record.kind)) continue; // canonical form lives in the appendix
-      if (record.kind === 'graph') out.push(await this.graph(id, child));
+      if (record.kind === 'graph' || record.kind === 'transform') out.push(await this.graph(id, child));
       else if (record.kind === 'trace') out.push(this.trace(id, child));
       else if (record.kind === 'annotated') out.push(this.annotated(id, child));
+      else if (record.kind === 'compare') out.push(this.compare(id, child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
-        this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} rendering arrives in Phase 2; showing its text only`, id);
+        this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
         out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.blocks(child)));
       } else {
         out.push(h('div', { class: 'ex-block', ...this.canonical(id) }, this.block(child)));
@@ -575,6 +758,22 @@ class Renderer {
       h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), details);
   }
 }
+
+// Authored facts shown in each family's inspector detail (§9.3–9.10).
+const DETAIL_FACTS: Record<string, readonly string[]> = {
+  node: ['role', 'entity'],
+  state: ['initial', 'terminal'],
+  transition: ['event', 'guard', 'action', 'basis'],
+  factor: ['basis'],
+  'causal-link': ['basis'],
+  task: ['status', 'owner', 'output', 'acceptance', 'risk'],
+  dependency: ['kind'],
+  stage: ['representation', 'shape', 'units', 'location', 'ownership'],
+  conversion: ['loss', 'condition'],
+  option: [],
+  criterion: ['units'],
+  cell: ['value', 'valueStatus'],
+};
 
 function tableAlign(node: MNode): string | undefined {
   const a = node.attributes['align'];
@@ -623,13 +822,16 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const assetBase = `../../../../_explain/assets/${toolkit.sha256}`;
     const jsSha = toolkit.assets?.['reader.js'];
     const cssSha = toolkit.assets?.['reader.css'];
-    const meta: Array<[string, Child]> = [
-      ['Document', h('code', {}, docId)],
-      ['Source revision', h('code', { title: sourceRevision }, abbreviate(sourceRevision))],
-      ['Build', h('code', { title: buildId }, abbreviate(buildId))],
-      ['Captured', typeof fm['capturedAt'] === 'string' ? fm['capturedAt'] : 'unknown'],
-      ['Visibility', typeof fm['visibility'] === 'string' ? fm['visibility'] : 'private'],
-    ];
+    const capturedAt = typeof fm['capturedAt'] === 'string' ? fm['capturedAt'] : 'unknown';
+    const visibility = typeof fm['visibility'] === 'string' ? fm['visibility'] : 'private';
+    // One compact line after the title (§10.1); full identifiers are in
+    // "About this snapshot" and in the root data attributes.
+    const snapshotLine = h('p', { class: 'ex-meta', [DOM.attr.generated]: true },
+      `Snapshot captured ${capturedAt} \u00b7 revision `, h('code', { title: sourceRevision }, abbreviate(sourceRevision)),
+      ' \u00b7 build ', h('code', { title: buildId }, abbreviate(buildId)), ` \u00b7 ${visibility}`);
+    const [firstBlock, ...restBlocks] = mainContent;
+    const titleBlocks: Child[] = firstIsH1 ? [firstBlock] : [];
+    const bodyBlocks: Child[] = firstIsH1 ? restBlocks : mainContent;
     const doc = h('html', { lang: 'en' },
       h('head', {},
         h('meta', { charset: 'utf-8' }),
@@ -647,10 +849,11 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
           h('button', { type: 'button', id: DOM.buttons.expand }, 'Expand details'),
           h('button', { type: 'button', id: DOM.buttons.about }, 'About this snapshot')),
         h('main', { id: DOM.root, [DOM.attr.doc]: docId, [DOM.attr.rev]: sourceRevision, [DOM.attr.build]: buildId },
+          titleBlocks,
           h('header', { class: 'ex-snapshot' },
             firstIsH1 ? null : h('h1', {}, r.safeText(title)),
-            h('dl', { class: 'ex-meta', [DOM.attr.generated]: true }, meta.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))),
-          mainContent,
+            snapshotLine),
+          bodyBlocks,
           appendix)));
     page = '<!doctype html>\n' + render(doc) + '\n';
   } catch (error) {

@@ -1,6 +1,7 @@
 // Reader runtime (§10). Enhances the static snapshot: the page stays complete and
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
+import { figureView, VIEW_CLASS } from './views.ts';
 import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE_CONTEXT_MAX, QUOTE_EXACT_MAX } from './packet.ts';
 
 const A = DOM.attr;
@@ -24,6 +25,8 @@ const state = {
   refmode: false,
   selected: undefined as string | undefined,
   lastSelection: undefined as { targetId: string; exact: string; prefix: string; suffix: string } | undefined,
+  // The last non-empty selection crossed a block boundary (§11.3: v1 asks for one block).
+  crossBlock: false,
   expanded: false,
   printOpened: [] as HTMLDetailsElement[],
 };
@@ -288,14 +291,37 @@ function rangeText(range: Range): string {
 
 function recordSelection(): void {
   const selection = window.getSelection();
-  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+  const clear = () => {
+    state.lastSelection = undefined;
+    state.crossBlock = false;
+  };
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    // In reference mode, clicking a block collapses the text selection before the
+    // copy, so keep the quote. Elsewhere a collapsed selection means the reader
+    // deselected the text, and an old quote must not reach a later packet.
+    if (!state.refmode) clear();
+    return;
+  }
   const range = selection.getRangeAt(0);
   const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
   const owner = start?.closest<HTMLElement>(`[${A.target}]`);
   const targetId = owner?.getAttribute(A.target);
-  if (!owner || !targetId || !owner.contains(range.endContainer)) return;
+  if (!owner || !targetId) {
+    clear();
+    return;
+  }
+  if (!owner.contains(range.endContainer)) {
+    // Never quote across blocks, and never silently keep only the first block.
+    state.lastSelection = undefined;
+    state.crossBlock = true;
+    return;
+  }
   const exact = rangeText(range);
-  if (!normalizeWhitespace(exact, true)) return;
+  if (!normalizeWhitespace(exact, true)) {
+    clear();
+    return;
+  }
+  state.crossBlock = false;
   const before = document.createRange();
   before.selectNodeContents(owner);
   before.setEnd(range.startContainer, range.startOffset);
@@ -411,6 +437,9 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
   const withText = button('Copy reference with selected text', 'ex-btn', () => void copyReference(targetId, true));
   withText.disabled = state.lastSelection?.targetId !== targetId;
   actions.append(copy, withText);
+  const note = state.crossBlock && withText.disabled
+    ? el('p', 'ex-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
+    : undefined;
   if (node instanceof HTMLDetailsElement) {
     actions.append(button('Open detail', 'ex-btn', () => openInspector(targetId, copy)));
   }
@@ -434,7 +463,7 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
   actions.append(button('Close', 'ex-btn', () => closePanel()));
   const status = el('p', 'ex-status');
   status.setAttribute('role', 'status');
-  p.append(heading, actions, status);
+  p.append(heading, actions, ...(note ? [note] : []), status);
   p.hidden = false;
   if (focusPanel) copy.focus();
 }
@@ -453,7 +482,44 @@ function setRefmode(on: boolean): void {
 }
 
 function isChrome(node: Element): boolean {
-  return Boolean(node.closest(`.${DOM.toolbar}, #ex-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .ex-tooltip, .ex-refbtn`));
+  return Boolean(node.closest(`.${DOM.toolbar}, #ex-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .ex-tooltip, .ex-refbtn, .ex-view-bar`));
+}
+
+// ---------------------------------------------------------------- figure views
+
+const mapChosen = new WeakSet<Element>();
+
+function applyViews(): void {
+  const narrow = isNarrow();
+  for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
+    const view = figureView(narrow, mapChosen.has(figure));
+    for (const cls of Object.values(VIEW_CLASS)) if (cls) figure.classList.remove(cls);
+    const cls = VIEW_CLASS[view];
+    if (cls) figure.classList.add(cls);
+    const toggle = figure.querySelector<HTMLButtonElement>('.ex-view-toggle');
+    if (toggle) toggle.setAttribute('aria-pressed', String(view === 'map'));
+  }
+}
+
+function addViewToggles(): void {
+  for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
+    const bar = el('div', 'ex-view-bar');
+    bar.setAttribute(A.generated, '');
+    const toggle = button('Show map', 'ex-btn ex-view-toggle', () => {
+      if (mapChosen.has(figure)) mapChosen.delete(figure);
+      else mapChosen.add(figure);
+      applyViews();
+    });
+    toggle.setAttribute('aria-pressed', 'false');
+    const label = figure.getAttribute(A.label);
+    if (label) toggle.setAttribute('aria-label', `Show map: ${label}`);
+    bar.append(toggle);
+    const viewport = figure.querySelector(`[${A.viewport}]`);
+    if (viewport) viewport.before(bar);
+    else figure.append(bar);
+  }
+  applyViews();
+  window.matchMedia(`(max-width: ${DOM.narrowMaxWidth}px)`).addEventListener('change', applyViews);
 }
 
 function addReferenceButtons(): void {
@@ -593,6 +659,7 @@ function init(): void {
   byId(DOM.buttons.about)?.addEventListener('click', toggleAbout);
 
   addReferenceButtons();
+  addViewToggles();
 
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKeydown);

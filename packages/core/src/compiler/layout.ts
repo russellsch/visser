@@ -51,8 +51,8 @@ export function wrapText(text: string, maxWidth: number): string[] {
   return lines.length > 0 ? lines : [''];
 }
 
-function box(text: string, maxWidth: number, padX: number, padY: number) {
-  const lines = wrapText(text, maxWidth);
+function box(text: string, maxWidth: number, padX: number, padY: number, extra: string[] = []) {
+  const lines = [...wrapText(text, maxWidth), ...extra.flatMap((line) => wrapText(line, maxWidth))];
   const width = Math.max(...lines.map(textWidth));
   return { lines, width: Math.ceil(width + 2 * padX), height: lines.length * LINE_HEIGHT + 2 * padY };
 }
@@ -61,7 +61,8 @@ function box(text: string, maxWidth: number, padX: number, padY: number) {
 
 export type GraphInput = {
   id: string;
-  nodes: Array<{ id: string; label: string; group?: string }>;
+  // `extra` adds secondary lines under the label (state marks, stage representation, task status).
+  nodes: Array<{ id: string; label: string; group?: string; extra?: string[] }>;
   groups: Array<{ id: string; label: string; parent?: string }>;
   edges: Array<{ id: string; from: string; to: string; label: string }>;
 };
@@ -112,7 +113,7 @@ export function toElkGraph(graph: GraphInput): { root: ElkNode; lines: Map<strin
     });
   }
   for (const n of graph.nodes) {
-    const b = box(n.label, NODE_LABEL_WIDTH, 12, 8);
+    const b = box(n.label, NODE_LABEL_WIDTH, 12, 8, n.extra);
     lines.set(n.id, b.lines);
     elkNodes.set(n.id, { id: n.id, width: b.width, height: b.height });
   }

@@ -4,43 +4,42 @@
 // bundled runtime; 'real' serves the built bounded-queue snapshot through
 // `explain serve`. Switch with EXPLAIN_BROWSER_TARGET or DEFAULT_TARGET below.
 //
-// Tiers: the default (per-commit) tier runs Chromium at 1440 and 320 plus a
-// no-JavaScript project. EXPLAIN_BROWSER_TIER=full adds the applicable matrix
-// (Firefox and WebKit need their browser binaries installed first).
+// Tiers (Chromium only, by decision of 27 September 2026): the default
+// per-commit tier runs Chromium at 1440 and 320 plus a no-JavaScript project.
+// EXPLAIN_BROWSER_TIER=full adds 1024, 390, and reduced motion.
 import { defineConfig, devices, type Project } from '@playwright/test';
+import { EXAMPLE_PORTS, EXAMPLES } from './tests/browser/examples.ts';
 
 const DEFAULT_TARGET: 'fixture' | 'real' = 'real';
 const target = (process.env['EXPLAIN_BROWSER_TARGET'] as 'fixture' | 'real' | undefined) ?? DEFAULT_TARGET;
 const full = process.env['EXPLAIN_BROWSER_TIER'] === 'full';
 
-const port = target === 'real' ? 4311 : 4312;
+const port = target === 'real' ? EXAMPLE_PORTS['bounded-queue'] : 4312;
 const baseURL = `http://127.0.0.1:${port}`;
 
 const desktop = (width: number, height: number) => ({ viewport: { width, height } });
 const JS_ONLY = { grepInvert: /@nojs/ };
 const NOJS_ONLY = { grep: /@nojs/, use: { ...desktop(1440, 1000), javaScriptEnabled: false } };
+const narrow = (width: number, height: number) => ({ viewport: { width, height }, isMobile: true, hasTouch: true });
 
 const perCommit: Project[] = [
   { name: 'chromium-1440', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000) } },
-  { name: 'chromium-320', ...JS_ONLY, use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 720 }, isMobile: true, hasTouch: true } },
+  { name: 'chromium-320', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...narrow(320, 720) } },
   { name: 'chromium-nojs', ...NOJS_ONLY, use: { ...devices['Desktop Chrome'], ...NOJS_ONLY.use } },
 ];
 
 const fullMatrix: Project[] = [
-  ...(['firefox', 'webkit'] as const).flatMap((engine) => {
-    const device = engine === 'firefox' ? devices['Desktop Firefox'] : devices['Desktop Safari'];
-    return [
-      { name: `${engine}-1440`, ...JS_ONLY, use: { ...device, ...desktop(1440, 1000) } },
-      { name: `${engine}-1024`, ...JS_ONLY, use: { ...device, ...desktop(1024, 768) } },
-      { name: `${engine}-nojs`, ...NOJS_ONLY, use: { ...device, ...NOJS_ONLY.use } },
-    ];
-  }),
   { name: 'chromium-1024', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1024, 768) } },
-  { name: 'chromium-390', ...JS_ONLY, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-  { name: 'webkit-390', ...JS_ONLY, use: { ...devices['Desktop Safari'], viewport: { width: 390, height: 844 }, hasTouch: true } },
-  { name: 'webkit-320', ...JS_ONLY, use: { ...devices['Desktop Safari'], viewport: { width: 320, height: 720 }, hasTouch: true } },
+  { name: 'chromium-390', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...narrow(390, 844) } },
   { name: 'chromium-reduced-motion', ...JS_ONLY, use: { ...devices['Desktop Chrome'], ...desktop(1440, 1000), contextOptions: { reducedMotion: 'reduce' } } },
 ];
+
+const realServers = EXAMPLES.map((name) => ({
+  command: `node dist/release/bin/explain.cjs serve examples/${name}/index.md --port ${EXAMPLE_PORTS[name]} --dev-toolkit dist/release`,
+  url: `http://127.0.0.1:${EXAMPLE_PORTS[name]}/`,
+  reuseExistingServer: false,
+  timeout: 60_000,
+}));
 
 export default defineConfig({
   testDir: 'tests/browser',
@@ -63,12 +62,7 @@ export default defineConfig({
   projects: full ? [...perCommit, ...fullMatrix] : perCommit,
   webServer:
     target === 'real'
-      ? {
-          command: 'node dist/release/bin/explain.cjs serve examples/bounded-queue/index.md --port 4311 --dev-toolkit dist/release',
-          url: `${baseURL}/`,
-          reuseExistingServer: false,
-          timeout: 60_000,
-        }
+      ? realServers
       : {
           command: 'node tests/browser/fixture-server.mjs --port 4312',
           url: `${baseURL}/contract.html`,

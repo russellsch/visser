@@ -97,6 +97,159 @@ function childTargets(ctx: Context, parentId: string): TargetRecord[] {
   return [...ctx.targets.values()].filter((t) => t.parentId === parentId);
 }
 
+function relationshipLine(ctx: Context, id: string): string | undefined {
+  const rel = ctx.relationships.find((r) => r.id === id);
+  if (!rel) return undefined;
+  return `${labelOf(ctx, rel.from)} --[${rel.kind}; ${rel.label}]--> ${labelOf(ctx, rel.to)}${rel.basis ? ` (basis: ${rel.basis})` : ''}`;
+}
+
+/** Optional attribute lines such as `guard: …`, in a fixed order; absent values are not invented. */
+function attrLines(node: MNode, names: string[]): string[] {
+  const out: string[] = [];
+  for (const name of names) {
+    const value = node.attributes[name];
+    if (value === undefined) continue;
+    out.push(`${name}: ${Array.isArray(value) ? value.join(' × ') : String(value)}`);
+  }
+  return out;
+}
+
+/** Lines for one child entity or relationship of a component (§7.6, §9.3–9.10). */
+function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
+  const lines: string[] = [];
+  const cap = (s: string) => `${s[0]!.toUpperCase()}${s.slice(1)}`;
+  switch (child.kind) {
+    case 'edge':
+    case 'causal-link':
+    case 'conversion':
+    case 'dependency': {
+      const line = relationshipLine(ctx, child.id);
+      if (line) lines.push(line);
+      if (child.kind === 'conversion') lines.push(...attrLines(node, ['loss', 'condition']));
+      break;
+    }
+    case 'transition': {
+      const line = relationshipLine(ctx, child.id);
+      if (line) lines.push(line);
+      lines.push(...attrLines(node, ['event', 'guard', 'action']));
+      break;
+    }
+    case 'event': {
+      const actor = attr(node, 'actor');
+      lines.push(`Event ${child.label} (${attr(node, 'kind') ?? 'event'}; actor: ${actor ? labelOf(ctx, actor) : '?'})`);
+      const after = ctx.relationships.filter((r) => r.kind === 'order' && r.to === child.id).map((r) => r.from);
+      lines.push(`after: ${after.length > 0 ? after.join(', ') : '(none)'}`);
+      const message = ctx.relationships.find((r) => r.kind === 'message' && r.id === child.id);
+      if (message) lines.push(`${labelOf(ctx, message.from)} --[message; ${message.label}]--> ${labelOf(ctx, message.to)}`);
+      lines.push(...attrLines(node, ['time', 'duration', 'branch']));
+      break;
+    }
+    case 'branch': {
+      lines.push(`Branch ${child.label}`);
+      lines.push(...attrLines(node, ['condition']));
+      const excl = node.attributes['exclusiveWith'];
+      if (Array.isArray(excl) && excl.length > 0) lines.push(`exclusive with: ${excl.join(', ')}`);
+      break;
+    }
+    case 'annotation': {
+      const range = node.attributes['lines'];
+      const region = node.attributes['region'];
+      lines.push(`Annotation ${child.label}${Array.isArray(range) ? ` (lines ${range.join('–')})` : ''}${Array.isArray(region) ? ` (region ${region.join(', ')})` : ''}`);
+      break;
+    }
+    case 'state': {
+      const flags = [node.attributes['initial'] === true ? 'initial' : '', node.attributes['terminal'] === true ? 'terminal' : ''].filter(Boolean);
+      lines.push(`State ${child.label}${flags.length > 0 ? ` (${flags.join(', ')})` : ''}`);
+      const outgoing = ctx.relationships.filter((r) => r.kind === 'transition' && r.from === child.id);
+      lines.push(`outgoing: ${outgoing.length > 0 ? outgoing.map((r) => r.id).join(', ') : '(none)'}`);
+      break;
+    }
+    case 'stage': {
+      lines.push(`Stage ${child.label}`);
+      lines.push(...attrLines(node, ['representation', 'shape', 'units', 'location', 'ownership']));
+      const incoming = ctx.relationships.filter((r) => r.kind === 'conversion' && r.to === child.id);
+      if (incoming.length > 1) lines.push(`inputs: ${incoming.map((r) => r.id).join(', ')} (merge)`);
+      break;
+    }
+    case 'factor': {
+      lines.push(`Factor ${child.label} (basis: ${attr(node, 'basis') ?? '?'})`);
+      break;
+    }
+    case 'task': {
+      lines.push(`Task ${child.label} (status: ${attr(node, 'status') ?? 'proposed'})`);
+      lines.push(...attrLines(node, ['owner', 'output', 'acceptance', 'risk']));
+      const prereqs = ctx.relationships.filter((r) => r.to === child.id && ['finish-start', 'input', 'decision'].includes(r.kind) && ctx.targets.get(r.id)?.kind === 'dependency');
+      lines.push(`prerequisites: ${prereqs.length > 0 ? prereqs.map((r) => `${r.from} (${r.kind})`).join(', ') : '(none)'}`);
+      break;
+    }
+    case 'group': {
+      lines.push(`Group ${child.label}${attr(node, 'parent') ? ` (inside: ${attr(node, 'parent')})` : ''}`);
+      break;
+    }
+    default: {
+      const role = attr(node, 'role');
+      const entity = attr(node, 'entity');
+      const group = attr(node, 'group');
+      lines.push(`${cap(child.kind)} ${child.label}${role ? ` (${role})` : ''}${entity ? ` (entity: ${entity})` : ''}${group ? ` (group: ${group})` : ''}`);
+    }
+  }
+  return lines;
+}
+
+/** One child block: ID line, lines, body, evidence, then nested detail targets. */
+function childBlock(ctx: Context, child: TargetRecord): string {
+  const node = ctx.nodes.get(child.id)!;
+  const parts = [idLine(child.id), ...childLines(ctx, child, node)];
+  const body = bodyOf(ctx, node);
+  if (body) parts.push(body);
+  const evidence = evidenceLine(ctx, child.id);
+  if (evidence) parts.push(evidence);
+  const nested = childTargets(ctx, child.id).map((d) => childBlock(ctx, d));
+  return [parts.join('\n'), ...nested].join('\n\n');
+}
+
+/** Compare: options, then criteria rows listing every option; missing cells are "Not provided" (§9.8). */
+function compareBlocks(ctx: Context, record: TargetRecord): string[] {
+  const kids = childTargets(ctx, record.id);
+  const options = kids.filter((k) => k.kind === 'option');
+  const criteria = kids.filter((k) => k.kind === 'criterion');
+  const cells = kids.filter((k) => k.kind === 'cell');
+  const out: string[] = options.map((o) => childBlock(ctx, o));
+  for (const c of criteria) {
+    const cnode = ctx.nodes.get(c.id)!;
+    const head = [idLine(c.id), `Criterion ${c.label}${attr(cnode, 'units') ? ` (units: ${attr(cnode, 'units')})` : ''}`];
+    const cbody = bodyOf(ctx, cnode);
+    if (cbody) head.push(cbody);
+    const rows: string[] = [head.join('\n')];
+    for (const o of options) {
+      const cell = cells.find((k) => {
+        const n = ctx.nodes.get(k.id)!;
+        return attr(n, 'option') === o.id && attr(n, 'criterion') === c.id;
+      });
+      if (!cell) {
+        rows.push(`- ${o.label}: Not provided`);
+        continue;
+      }
+      const n = ctx.nodes.get(cell.id)!;
+      const value = n.attributes['value'];
+      const status = attr(n, 'valueStatus');
+      const text = [value !== undefined ? String(value) : '', status ? `(${status})` : ''].filter(Boolean).join(' ');
+      const body = bodyOf(ctx, n);
+      const detail = [text, body.replace(/\s*\n+\s*/g, ' ')].filter((x) => x !== '').join(' — ');
+      rows.push([idLine(cell.id), `- ${o.label}: ${detail || 'Not provided'}`].join('\n'));
+    }
+    out.push(rows.join('\n'));
+  }
+  // Cells whose option or criterion is missing still keep their ID line.
+  const placed = new Set(cells.filter((k) => {
+    const n = ctx.nodes.get(k.id)!;
+    return options.some((o) => o.id === attr(n, 'option')) && criteria.some((c) => c.id === attr(n, 'criterion'));
+  }).map((k) => k.id));
+  for (const k of cells) if (!placed.has(k.id)) out.push(childBlock(ctx, k));
+  for (const k of kids) if (!['option', 'criterion', 'cell'].includes(k.kind)) out.push(childBlock(ctx, k));
+  return out;
+}
+
 function renderComponent(ctx: Context, record: TargetRecord, node: MNode): string[] {
   const out: string[] = [];
   const title = attr(node, 'title') ?? record.label;
@@ -104,50 +257,16 @@ function renderComponent(ctx: Context, record: TargetRecord, node: MNode): strin
   out.push(`**${record.kind}${mode ? ` (${mode})` : ''}: ${title}**`);
   const question = attr(node, 'question');
   if (question) out.push(`Question: ${question}`);
-  if (record.kind === 'trace' && (attr(node, 'scale') ?? 'ordinal') === 'ordinal') out.push('Ordering, not duration.');
+  if (record.kind === 'trace') {
+    const scale = attr(node, 'scale') ?? 'ordinal';
+    out.push(scale === 'ordinal' ? 'Ordering, not duration.' : `Time scale: ${attr(node, 'timeUnit') ?? '?'}.`);
+  }
+  if (mode === 'plan') out.push('Tasks are listed in source order; only the stated prerequisites order them.');
   const body = bodyOf(ctx, node);
   if (body) out.push(body);
   if (record.kind === 'annotated') out.push(`Source: ${attr(node, 'source') ?? '?'}`);
-
-  for (const child of childTargets(ctx, record.id)) {
-    const childNode = ctx.nodes.get(child.id)!;
-    const childBody = bodyOf(ctx, childNode);
-    const lines: string[] = [idLine(child.id)];
-    switch (child.kind) {
-      case 'edge':
-      case 'transition':
-      case 'causal-link':
-      case 'conversion':
-      case 'dependency': {
-        const rel = ctx.relationships.find((r) => r.id === child.id);
-        if (rel) lines.push(`${labelOf(ctx, rel.from)} --[${rel.kind}; ${rel.label}]--> ${labelOf(ctx, rel.to)}${rel.basis ? ` (basis: ${rel.basis})` : ''}`);
-        break;
-      }
-      case 'event': {
-        const actor = attr(childNode, 'actor');
-        lines.push(`Event ${child.label} (${attr(childNode, 'kind') ?? 'event'}; actor: ${actor ? labelOf(ctx, actor) : '?'})`);
-        const after = ctx.relationships.filter((r) => r.kind === 'order' && r.to === child.id).map((r) => r.from);
-        lines.push(`after: ${after.length > 0 ? after.join(', ') : '(none)'}`);
-        const branch = attr(childNode, 'branch');
-        if (branch) lines.push(`branch: ${branch}`);
-        break;
-      }
-      case 'annotation': {
-        const range = childNode.attributes['lines'];
-        lines.push(`Annotation ${child.label}${Array.isArray(range) ? ` (lines ${range.join('–')})` : ''}`);
-        break;
-      }
-      default: {
-        const role = attr(childNode, 'role');
-        const entity = attr(childNode, 'entity');
-        lines.push(`${child.kind[0]!.toUpperCase()}${child.kind.slice(1)} ${child.label}${role ? ` (${role})` : ''}${entity ? ` (entity: ${entity})` : ''}`);
-      }
-    }
-    if (childBody) lines.push(childBody);
-    const evidence = evidenceLine(ctx, child.id);
-    if (evidence) lines.push(evidence);
-    out.push(lines.join('\n'));
-  }
+  if (record.kind === 'compare') return [...out, ...compareBlocks(ctx, record)];
+  for (const child of childTargets(ctx, record.id)) out.push(childBlock(ctx, child));
   return out;
 }
 
