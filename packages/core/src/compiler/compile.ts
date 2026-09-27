@@ -29,6 +29,7 @@ export type CompileOptions = {
   layoutFallback: boolean;
   layout?: LayoutFunction;
   nodeVersion?: string; // recorded in build.json when given (§7.5)
+  development?: boolean; // --dev-toolkit accepted a toolkit other than the lock's (§12.4)
 };
 
 export type OutputFile = { path: string; bytes: Uint8Array; mediaType: string };
@@ -42,6 +43,7 @@ export type BuildManifest = {
   toolkitSha256: string;
   effectiveRenderOptions: { audience: 'private' | 'public'; includeSource: boolean; layoutFallback: boolean };
   nodeVersion?: string;
+  development?: true;
   sourceFiles: Array<{ path: string; sha256: string }>;
   outputFiles: Array<{ path: string; sha256: string; mediaType: string }>;
   assets: Array<{ packSha256: string; path: string; sha256?: string }>;
@@ -1047,6 +1049,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     toolkitSha256: toolkit.sha256,
     effectiveRenderOptions,
     ...(options.nodeVersion ? { nodeVersion: options.nodeVersion } : {}),
+    ...(options.development ? { development: true as const } : {}),
     sourceFiles: bundle.manifest.files.map((f) => ({ path: f.path, sha256: f.sha256 })),
     outputFiles: files.map((f) => ({ path: f.path.slice(directory.length + 1), sha256: sha256Hex(f.bytes), mediaType: f.mediaType })),
     assets: ['reader.css', 'reader.js', ...(r.usesMermaid ? ['mermaid.js'] : [])].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),

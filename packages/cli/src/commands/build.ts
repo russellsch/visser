@@ -39,6 +39,14 @@ export function copyAssets(releaseDir: string, assetDir: string, names: string[]
   }
 }
 
+function developmentMark(snapshotDir: string): boolean {
+  try {
+    return (JSON.parse(readFileSync(join(snapshotDir, 'build.json'), 'utf8')) as { development?: boolean }).development === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Nearest ancestor with .git or .explain, else the document folder. */
 export function repoRootFor(start: string): string {
   let dir = resolve(start);
@@ -73,7 +81,9 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   const integrity = existsSync(mermaidPath)
     ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
     : undefined;
-  const workerPath = join(releaseDir, 'workers', 'layout.cjs');
+  // Workers come only from the running CLI's own release (§12.4 "Whose code
+  // runs"); in source mode there is none, and layout runs in process.
+  const workerPath = toolkit.workerRelease ? join(toolkit.workerRelease, 'workers', 'layout.cjs') : undefined;
   let result: CompileResult;
   try {
     result = await compileDocument(
@@ -92,8 +102,9 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
         audience: 'private',
         includeSource: false,
         layoutFallback: args.flags.has('allow-layout-fallback'),
-        ...(existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
+        ...(workerPath && existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
         nodeVersion: process.version,
+        ...(toolkit.development ? { development: true } : {}),
       },
     );
   } catch (error) {
@@ -116,8 +127,12 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   }
   copyAssets(releaseDir, assetDir, needed);
 
-  // Immutable snapshot: publish atomically; an existing snapshot is left untouched.
-  if (!existsSync(finalDir)) {
+  // Immutable snapshot: publish atomically; an existing snapshot is left
+  // untouched. Exception: the lock is not part of the source revision, so a
+  // development build and a release build can share a build ID; the snapshot
+  // is replaced when its development mark differs from this build (§12.4).
+  const stale = existsSync(finalDir) && developmentMark(finalDir) !== (result.manifest.development === true);
+  if (!existsSync(finalDir) || stale) {
     mkdirSync(dirname(finalDir), { recursive: true });
     const tmp = mkdtempSync(join(dirname(finalDir), '.tmp-'));
     try {
@@ -126,7 +141,14 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
         mkdirSync(dirname(join(tmp, rel)), { recursive: true });
         writeFileSync(join(tmp, rel), file.bytes);
       }
-      renameSync(tmp, finalDir);
+      if (stale) {
+        const old = mkdtempSync(join(dirname(finalDir), '.old-'));
+        renameSync(finalDir, join(old, 'snapshot'));
+        renameSync(tmp, finalDir);
+        rmSync(old, { recursive: true, force: true });
+      } else {
+        renameSync(tmp, finalDir);
+      }
     } catch (error) {
       rmSync(tmp, { recursive: true, force: true });
       throw error;

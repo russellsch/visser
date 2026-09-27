@@ -10,12 +10,15 @@ import { runServe } from './commands/serve.ts';
 import { runRefs } from './commands/refs.ts';
 import { runCapture } from './commands/capture.ts';
 import { runFork } from './commands/fork.ts';
+import { runInstall } from './commands/install.ts';
+import { runTrust } from './commands/trust.ts';
+import { runDoctor } from './commands/doctor.ts';
+import { runSkill } from './commands/skill.ts';
 import { CliError, EXIT, parseArgs, printDiagnostics } from './cli-util.ts';
 
 const DEFERRED = new Map<string, string>([
-  ['catalogue', 'Phase 4'], ['skill', 'Phase 4'], ['install', 'Phase 4'],
-  ['upgrade', 'Phase 4'], ['vendor', 'Phase 4'], ['content', 'Phase 4'], ['extension', 'Phase 5'],
-  ['doctor', 'Phase 4'],
+  ['catalogue', 'Phase 5'], ['upgrade', 'Phase 4c'],
+  ['vendor', 'after v1'], ['content', 'after v1'], ['extension', 'Phase 5'],
 ]);
 
 export async function main(argv: string[]): Promise<number> {
@@ -41,10 +44,18 @@ export async function main(argv: string[]): Promise<number> {
         return await runCapture(parseArgs(rest));
       case 'fork':
         return await runFork(parseArgs(rest));
+      case 'install':
+        return await runInstall(parseArgs(rest));
+      case 'trust':
+        return await runTrust(parseArgs(rest));
+      case 'doctor':
+        return await runDoctor(parseArgs(rest));
+      case 'skill':
+        return await runSkill(parseArgs(rest));
       case undefined:
       case '--help':
       case '-h':
-        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs|capture|fork> ...\n');
+        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs|capture|fork|install|trust toolkit|doctor|skill show> ...\n');
         return command === undefined ? EXIT.invalid : EXIT.ok;
       default: {
         const phase = DEFERRED.get(command);

@@ -19,7 +19,7 @@
     "test:browser": "playwright test",
     "test:offline": "node -e \"console.error('E_UNSUPPORTED: offline test starts in Phase 1'); process.exit(3)\"",
     "test:budgets": "node -e \"console.error('E_UNSUPPORTED: budget test starts in Phase 1'); process.exit(3)\"",
-    "release:pack": "node -e \"console.error('E_UNSUPPORTED: release packing starts in Phase 4'); process.exit(3)\""
+    "release:pack": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

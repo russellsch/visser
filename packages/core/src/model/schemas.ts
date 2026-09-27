@@ -17,6 +17,10 @@ import refreshSchema from '../../../../schemas/explain-refresh-1.schema.json' wi
 import buildSchema from '../../../../schemas/explain-build-1.schema.json' with { type: 'json' };
 import releaseSchema from '../../../../schemas/explain-release-1.schema.json' with { type: 'json' };
 import trustStoreSchema from '../../../../schemas/explain-trust-store-1.schema.json' with { type: 'json' };
+import doctorSchema from '../../../../schemas/explain-doctor-1.schema.json' with { type: 'json' };
+import skillSchema from '../../../../schemas/explain-skill-1.schema.json' with { type: 'json' };
+import installSchema from '../../../../schemas/explain-install-1.schema.json' with { type: 'json' };
+import trustSchema from '../../../../schemas/explain-trust-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -43,6 +47,10 @@ export const validators = {
   build: compile(buildSchema),
   release: compile(releaseSchema),
   trustStore: compile(trustStoreSchema),
+  doctor: compile(doctorSchema),
+  skill: compile(skillSchema),
+  install: compile(installSchema),
+  trust: compile(trustSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;

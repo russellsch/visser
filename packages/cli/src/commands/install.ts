@@ -1,0 +1,64 @@
+// `explain install --from-dir DIR | --archive FILE [--sha256 DIGEST] --scope user|repo [--root DIR] [--json]`
+// (§12.1, §12.2, §12.6, §17.1). Verifies and activates an exact release, and
+// records its digest in the user trust store. `--from-release` is Phase 4c.
+// Exit: integrity failures are 4, a missing source is 3, a race is 5.
+import { resolve } from 'node:path';
+import { HashError } from '../../../core/src/model/hash.ts';
+import { installRelease } from '../../../core/src/distribution/index.ts';
+import { findRepoRoot } from '../../../core/src/references/registry.ts';
+import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
+
+const USAGE = 'usage: explain install --from-dir DIR | --archive FILE [--sha256 ARCHIVE_DIGEST] --scope user|repo [--default] [--root DIR] [--json]';
+
+export async function runInstall(args: ParsedArgs): Promise<number> {
+  const json = args.flags.get('json') === true;
+  if (args.flags.has('from-release')) {
+    throw new CliError('E_UNSUPPORTED', '`install --from-release` is not implemented yet (planned for Phase 4c); use --archive or --from-dir', EXIT.unavailable);
+  }
+  if (args.positional.length > 0) throw new CliError('E_USAGE', USAGE, EXIT.invalid);
+  const scope = stringFlag(args, 'scope');
+  if (scope !== 'user' && scope !== 'repo') throw new CliError('E_USAGE', `--scope must be user or repo\n${USAGE}`, EXIT.invalid);
+  const setDefault = args.flags.get('default');
+  if (setDefault !== undefined && setDefault !== true) throw new CliError('E_USAGE', `--default takes no value\n${USAGE}`, EXIT.invalid);
+  if (setDefault === true && scope !== 'user') throw new CliError('E_USAGE', `--default needs --scope user\n${USAGE}`, EXIT.invalid);
+  const fromDir = stringFlag(args, 'from-dir');
+  const archive = stringFlag(args, 'archive');
+  const sha256 = stringFlag(args, 'sha256');
+  if ((fromDir === undefined) === (archive === undefined)) throw new CliError('E_USAGE', `pass exactly one of --from-dir or --archive\n${USAGE}`, EXIT.invalid);
+  const root = scope === 'repo' ? (stringFlag(args, 'root') ?? findRepoRoot(process.cwd())) : undefined;
+  if (scope === 'repo' && !root) {
+    throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .explain) found; pass --root DIR', EXIT.unavailable);
+  }
+  try {
+    const result = await installRelease({
+      scope,
+      ...(setDefault === true ? { setDefault: true } : {}),
+      ...(fromDir !== undefined ? { fromDir: resolve(fromDir) } : {}),
+      ...(archive !== undefined ? { archive: resolve(archive) } : {}),
+      ...(sha256 !== undefined ? { archiveSha256: sha256 } : {}),
+      ...(root !== undefined ? { repoRoot: resolve(root) } : {}),
+    });
+    if (json) {
+      printJson('install', result);
+    } else {
+      const lines = [
+        `${result.alreadyInstalled ? 'already installed' : 'installed'} toolkit ${result.version} (${result.scope} scope)`,
+        `  toolkit digest: ${result.toolkitSha256}`,
+        ...(result.archiveSha256 ? [`  archive digest: ${result.archiveSha256}`] : []),
+        `  path: ${result.path}`,
+        '  trusted in the user trust store',
+        ...(result.shim ? [`  user shim: ${result.shim}`] : []),
+        ...(result.default ? ['  set as the user default toolkit'] : []),
+        `run: ${result.invocation}`,
+        'PATH and shell startup files were not changed.',
+      ];
+      process.stdout.write(lines.join('\n') + '\n');
+    }
+    return EXIT.ok;
+  } catch (error) {
+    if (!(error instanceof HashError)) throw error;
+    const diagnostic = { code: error.code, severity: 'error' as const, message: error.message };
+    printDiagnostics([diagnostic], json);
+    return exitCodeFor([diagnostic]);
+  }
+}

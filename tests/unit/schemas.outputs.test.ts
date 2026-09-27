@@ -44,6 +44,31 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
   refresh: { schema: 'explain-refresh/1', refused: false, packet, yaml: 'schema: explain-ref/1\n', targetBodyUnchanged: true },
   release: { schema: 'explain-release/1', version: '0.0.0', files: [{ path: 'bin/explain.cjs', sha256: SHA }] },
   trustStore: { schema: 'explain-trust-store/1', toolkits: { [SHA]: { source: 'install --from-dir dist/release', addedAt: '2026-09-27T00:00:00Z' } } },
+  doctor: {
+    schema: 'explain-doctor/1', ok: false, node: { version: 'v24.21.0', supported: true }, explainHome: '/home/u/.explain',
+    userShim: { path: '/home/u/.explain/bin/explain.cjs', present: true, sha256: SHA, matchesToolkit: true },
+    defaultToolkit: { state: 'none', message: 'no /home/u/.explain/default' },
+    toolchains: [
+      { scope: 'user', path: `/home/u/.explain/toolchains/${SHA}`, name: SHA, state: 'verified', trusted: true, version: '0.0.0' },
+      { scope: 'repository', path: `/r/.explain/toolchains/${SHA}`, name: SHA, state: 'untrusted', trusted: false },
+    ],
+    trust: [{ sha256: SHA, source: 'install --from-dir dist/release', addedAt: '2026-09-27T00:00:00Z' }],
+    document: { path: '/r/docs/a', lockSha256: SHA, resolution: { state: 'error', code: 'E_TOOLKIT_UNTRUSTED', message: 'untrusted' } },
+    workspace: { root: '/r', resolution: { state: 'resolved', sha256: SHA, version: '0.0.0', source: 'user', dir: `/home/u/.explain/toolchains/${SHA}` } },
+    wrappers: [{ host: 'claude-code', scope: 'repository', path: '/r/.claude/skills/explain/SKILL.md', sha256: SHA, state: 'no-canonical' }],
+    conflicts: [], port: { host: '127.0.0.1', port: 4310, available: true }, diagnostics: [],
+  },
+  skill: {
+    schema: 'explain-skill/1', toolkit: { sha256: SHA, version: '0.0.0', dir: '/home/u/.explain/toolchains/x', source: 'user' },
+    document: '/r/docs/a/index.md', skill: { path: '/home/u/.explain/toolchains/x/skills/explain/SKILL.md', text: '# Explain\n' },
+    guides: ['/home/u/.explain/toolchains/x/skills/explain/references/format.md'],
+  },
+  install: {
+    schema: 'explain-install/1', scope: 'user', version: '0.0.0', toolkitSha256: SHA, archiveSha256: SHA,
+    origin: { kind: 'archive', archiveSha256: SHA }, path: `/home/u/.explain/toolchains/${SHA}`,
+    alreadyInstalled: false, trusted: true, shim: '/home/u/.explain/bin/explain.cjs', invocation: 'node /home/u/.explain/bin/explain.cjs',
+  },
+  trust: { schema: 'explain-trust/1', digest: SHA, trusted: true, changed: true, source: 'trust toolkit', addedAt: '2026-09-27T00:00:00Z' },
 };
 
 describe('schemas for --json outputs and metadata files (§5.4)', () => {
@@ -63,6 +88,12 @@ describe('schemas for --json outputs and metadata files (§5.4)', () => {
 
   it('trustStore: a key that is not a digest is rejected', () => {
     expect(validateAgainst('trustStore', { schema: 'explain-trust-store/1', toolkits: { 'not-a-digest': { source: 'x', addedAt: '2026-09-27T00:00:00Z' } } }).ok).toBe(false);
+  });
+
+  it('install: an archive origin needs its digest, and trusted is always true', () => {
+    expect(validateAgainst('install', { ...samples.install, origin: { kind: 'archive' } }).ok).toBe(false);
+    expect(validateAgainst('install', { ...samples.install, trusted: false }).ok).toBe(false);
+    expect(validateAgainst('install', { ...samples.install, origin: { kind: 'local-dir', archiveSha256: SHA } }).ok).toBe(false);
   });
 
   it('check: an unknown origin state is rejected', () => {

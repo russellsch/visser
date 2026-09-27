@@ -30,7 +30,7 @@ export type ParsedArgs = {
 
 // Parse `--name value`, `--name=value`, and boolean `--name` flags.
 // `booleans` lists flags that never take a value.
-const BOOLEAN_FLAGS = new Set(['json', 'check', 'help']);
+const BOOLEAN_FLAGS = new Set(['json', 'check', 'help', 'release', 'default']);
 
 export function parseArgs(args: string[]): ParsedArgs {
   const positional: string[] = [];

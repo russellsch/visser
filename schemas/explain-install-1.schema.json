@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-install-1.schema.json",
+  "title": "explain install --json (§12.1, §12.2, §17.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "scope", "version", "toolkitSha256", "origin", "path", "alreadyInstalled", "trusted", "invocation"],
+  "properties": {
+    "schema": { "const": "explain-install/1" },
+    "scope": { "enum": ["user", "repo"] },
+    "version": { "type": "string", "minLength": 1 },
+    "toolkitSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "origin": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "local-dir" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "archiveSha256"],
+          "properties": {
+            "kind": { "const": "archive" },
+            "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      ]
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "alreadyInstalled": { "type": "boolean" },
+    "trusted": { "const": true },
+    "shim": { "type": "string", "minLength": 1 },
+    "default": { "const": true },
+    "invocation": { "type": "string", "minLength": 1 }
+  }
+}

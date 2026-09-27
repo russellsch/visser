@@ -75,6 +75,24 @@
       "note": "Committed capture ignores a dirty working tree; working-tree captures are labelled and compared as working-tree matches; example and link-only sources; unavailable origins and hostile repositories (replace refs, partial clones, gitfiles, alternates) fail closed."
     },
     {
+      "id": "R09",
+      "phase": 4,
+      "status": "covered",
+      "tags": [
+        "@R09"
+      ],
+      "note": "User and repository scopes; two repositories resolve one user installation through the shim; trust gate for repository toolchains; strict release verification."
+    },
+    {
+      "id": "R10",
+      "phase": 4,
+      "status": "partial",
+      "tags": [
+        "@R10"
+      ],
+      "note": "Reproducible release archive and a strict ustar reader that rejects hostile archives. GitHub --from-release and project-subpath export are Phases 4b and 4c."
+    },
+    {
       "id": "R11",
       "phase": 0,
       "status": "partial",
@@ -109,6 +127,15 @@
         "@R14"
       ],
       "note": "Desktop HTML, narrow view, no-JS view, and the Markdown projection derive the same target and relationship tuples."
+    },
+    {
+      "id": "R16",
+      "phase": 4,
+      "status": "partial",
+      "tags": [
+        "@R16"
+      ],
+      "note": "references/format.md snippets compile as stated. Catalogue guides, editorial fixtures, and the human trial are Phase 5."
     },
     {
       "id": "R17",
