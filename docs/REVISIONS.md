@@ -177,3 +177,12 @@ Phase 4a added the strict archive reader, reproducible packing, `install`, `trus
 - `--include-source` keeps Mermaid comments in the labelled source bundle.
 - The placement of `definition` and `detail`, which the code already enforced.
 - The known limit between shim verification and execution.
+
+## Revision 1.19 — Phase 4c implemented
+
+Phase 4c added `install --from-release` and `upgrade`. The spec now records these decisions:
+
+- The default download hosts, the `node:https` client, the test seams, the refusal of a version mismatch, and the error codes for acquisition.
+- `E_DOWNGRADE` for a refused downgrade.
+- The user shim runs the target toolkit's CLI for `upgrade`, because an older pinned toolkit may have no `upgrade` command.
+- `upgrade` writes `origin: local-dir` and keeps the new lock if the rebuild fails.

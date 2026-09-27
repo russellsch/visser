@@ -14,10 +14,11 @@ import { runInstall } from './commands/install.ts';
 import { runTrust } from './commands/trust.ts';
 import { runDoctor } from './commands/doctor.ts';
 import { runSkill } from './commands/skill.ts';
+import { runUpgrade } from './commands/upgrade.ts';
 import { CliError, EXIT, parseArgs, printDiagnostics } from './cli-util.ts';
 
 const DEFERRED = new Map<string, string>([
-  ['catalogue', 'Phase 5'], ['upgrade', 'Phase 4c'],
+  ['catalogue', 'Phase 5'],
   ['vendor', 'after v1'], ['content', 'after v1'], ['extension', 'Phase 5'],
 ]);
 
@@ -52,10 +53,12 @@ export async function main(argv: string[]): Promise<number> {
         return await runDoctor(parseArgs(rest));
       case 'skill':
         return await runSkill(parseArgs(rest));
+      case 'upgrade':
+        return await runUpgrade(parseArgs(rest));
       case undefined:
       case '--help':
       case '-h':
-        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs|capture|fork|install|trust toolkit|doctor|skill show> ...\n');
+        process.stdout.write('usage: explain <init|ids assign|check|build|serve|export|refs|capture|fork|install|trust toolkit|doctor|skill show|upgrade> ...\n');
         return command === undefined ? EXIT.invalid : EXIT.ok;
       default: {
         const phase = DEFERRED.get(command);

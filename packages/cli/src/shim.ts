@@ -56,6 +56,12 @@ export function selectToolkit(argv: string[], env: NodeJS.ProcessEnv = process.e
   if (devToolkit) return verifyRelease(resolve(devToolkit));
 
   const bundleRoot = command === 'init' ? undefined : documentOf(command, args);
+  // `upgrade DOC --to DIGEST` runs the TARGET toolkit's CLI, through the same
+  // trust gate: an older pinned toolkit may not have `upgrade` at all.
+  const to = command === 'upgrade' ? stringFlag(args, 'to') : undefined;
+  if (bundleRoot && to && /^[0-9a-f]{64}$/.test(to)) {
+    return resolveDigest({ digest: to, repoRoot: findRepositoryRoot(bundleRoot), toolkitDir, env }).release;
+  }
   if (bundleRoot) {
     const lock = readLock(bundleRoot);
     if (!lock) {

@@ -67,7 +67,7 @@ describe('Phase 0 CLI against the built release', () => {
   });
 
   it('deferred commands exit 3 with E_UNSUPPORTED instead of succeeding', () => {
-    for (const command of ['content', 'vendor', 'upgrade', 'catalogue', 'extension']) {
+    for (const command of ['content', 'vendor', 'catalogue', 'extension']) {
       const result = run(command, '--json');
       expect(result.status).toBe(3);
       expect(result.stdout).toContain('E_UNSUPPORTED');

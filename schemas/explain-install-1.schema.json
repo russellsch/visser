@@ -27,6 +27,17 @@
             "kind": { "const": "archive" },
             "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repository", "version", "archiveSha256"],
+          "properties": {
+            "kind": { "const": "github-release" },
+            "repository": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+            "version": { "type": "string", "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+            "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
         }
       ]
     },

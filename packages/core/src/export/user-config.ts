@@ -26,3 +26,28 @@ export function publicRepositories(env: NodeJS.ProcessEnv = process.env): Set<st
   for (const entry of list) if (typeof entry === 'string' && entry !== '') out.add(entry);
   return out;
 }
+
+/**
+ * Extra hosts that a release download may reach (§12.5): `distributionHosts`
+ * in the user config. Each entry is a URL host (a hostname, with `:PORT` when
+ * the port is not 443). Repository config is never read for it. A missing or
+ * malformed config gives an empty set.
+ */
+export function distributionHosts(env: NodeJS.ProcessEnv = process.env): Set<string> {
+  const home = env['EXPLAIN_HOME'] ?? join(env['HOME'] ?? homedir(), '.explain');
+  const path = join(home, 'config.json');
+  const out = new Set<string>();
+  if (!existsSync(path)) return out;
+  let config: unknown;
+  try {
+    config = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return out;
+  }
+  const list = (config as { distributionHosts?: unknown } | null)?.distributionHosts;
+  if (!Array.isArray(list)) return out;
+  for (const entry of list) {
+    if (typeof entry === 'string' && /^[A-Za-z0-9.-]+(?::[0-9]{1,5})?$/.test(entry)) out.add(entry.toLowerCase());
+  }
+  return out;
+}

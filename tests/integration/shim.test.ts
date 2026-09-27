@@ -72,6 +72,31 @@ describe('user shim dispatch', () => {
     expect(readMarker(marker).file).toBe(join(repoCopy, 'bin', 'explain.cjs'));
   });
 
+  it('upgrade DOC --to DIGEST runs the TARGET toolkit\'s CLI, through the trust gate', () => {
+    const { fx, marker, built, M } = markerSetup();
+    installUser(fx, built);
+    const targetMarker = join(fx.root, 'target-marker.json');
+    const targetBuilt = join(fx.root, 'target-toolkit');
+    const T = markerToolkit(targetBuilt, targetMarker, 9);
+    expect(T).not.toBe(M);
+    const { repo, doc } = repoWithDocument(fx, 'repo', M);
+
+    // An untrusted repository copy of the target: nothing runs.
+    const repoCopy = join(repo, '.explain', 'toolchains', T);
+    cpSync(targetBuilt, repoCopy, { recursive: true });
+    const refused = run(fx, fx.shim, ['upgrade', doc, '--to', T, '--json']);
+    expect(refused.status).toBe(4);
+    expect(refused.stdout).toContain('E_TOOLKIT_UNTRUSTED');
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(targetMarker)).toBe(false);
+
+    addTrust(T, 'test', fx.env, now);
+    const r = run(fx, fx.shim, ['upgrade', doc, '--to', T]);
+    expect(r.status, r.stderr).toBe(9);
+    expect(readMarker(targetMarker).file).toBe(join(repoCopy, 'bin', 'explain.cjs'));
+    expect(existsSync(marker)).toBe(false);
+  });
+
   it('verifies the release before running it: an unlisted file is E_INTEGRITY and nothing runs', () => {
     const { fx, marker, built, M } = markerSetup();
     installUser(fx, built);

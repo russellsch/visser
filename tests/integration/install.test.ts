@@ -190,14 +190,15 @@ describe('the install and trust commands', () => {
     expect(out.join('')).toMatch(/already installed[\s\S]*PATH and shell startup files were not changed/);
   });
 
-  it('install exit codes: usage 2, missing source 3, integrity 4, --from-release unsupported 3', async () => {
+  it('install exit codes: usage 2, missing source 3, integrity 4', async () => {
     await expect(runInstall(parseArgs(['--from-dir', release]))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
     await expect(runInstall(parseArgs(['--from-dir', release, '--archive', 'x', '--scope', 'user']))).rejects.toMatchObject({ exitCode: 2 });
     expect(await runInstall(parseArgs(['--archive', join(box, 'absent.tar.gz'), '--scope', 'user']))).toBe(3);
     writeFileSync(join(release, 'extra'), 'x');
     expect(await runInstall(parseArgs(['--from-dir', release, '--scope', 'user', '--json']))).toBe(4);
     expect(JSON.parse(out.join('')).diagnostics[0].code).toBe('E_INTEGRITY');
-    await expect(runInstall(parseArgs(['--from-release', 'o/r', '--scope', 'user']))).rejects.toMatchObject({ code: 'E_UNSUPPORTED', exitCode: 3 });
+    // --from-release needs --version and --sha256 (install.release.test.ts covers the download).
+    await expect(runInstall(parseArgs(['--from-release', 'o/r', '--scope', 'user']))).rejects.toMatchObject({ code: 'E_USAGE', exitCode: 2 });
   });
 
   it('trust toolkit adds and revokes a digest, and gates a repository toolchain', async () => {

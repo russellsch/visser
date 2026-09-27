@@ -23,6 +23,7 @@ import installSchema from '../../../../schemas/explain-install-1.schema.json' wi
 import trustSchema from '../../../../schemas/explain-trust-1.schema.json' with { type: 'json' };
 import exportSchema from '../../../../schemas/explain-export-1.schema.json' with { type: 'json' };
 import collectionSchema from '../../../../schemas/explain-collection-1.schema.json' with { type: 'json' };
+import upgradeSchema from '../../../../schemas/explain-upgrade-1.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: true, allErrors: true });
 
@@ -55,6 +56,7 @@ export const validators = {
   trust: compile(trustSchema),
   export: compile(exportSchema),
   collection: compile(collectionSchema),
+  upgrade: compile(upgradeSchema),
 } as const;
 
 export type SchemaName = keyof typeof validators;

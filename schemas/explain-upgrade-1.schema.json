@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://explain.invalid/schemas/explain-upgrade-1.schema.json",
+  "title": "explain upgrade --json (§12.3, §17.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "doc", "from", "to", "changed", "downgrade", "dryRun"],
+  "properties": {
+    "schema": { "const": "explain-upgrade/1" },
+    "doc": { "type": "string", "minLength": 1 },
+    "from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "to": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "version"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "changed": { "type": "boolean" },
+    "downgrade": { "type": "boolean" },
+    "dryRun": { "type": "boolean" },
+    "diff": { "type": "string" },
+    "rebuilt": { "type": "boolean" },
+    "rebuildError": { "type": "string" }
+  }
+}

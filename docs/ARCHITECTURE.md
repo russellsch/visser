@@ -1,7 +1,7 @@
 # Explain: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.18, 27 September 2026 (Phases 4a and 4b implemented; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.19, 27 September 2026 (Phase 4 implemented: 4a, 4b, and 4c; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Explain`; executable: `explain`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -1321,6 +1321,8 @@ Support `install --from-release OWNER/REPO --version VERSION --sha256 ARCHIVE_DI
 
 Acquisition rules: `OWNER/REPO` matches `^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$` and the version has a strict grammar, both URL-encoded; requests use `https:` only, `redirect: 'manual'`, at most three hops, and only allowed hosts (`api.github.com`, the GitHub release-asset hosts named at implementation, and `distributionHosts` from user config, never repository config); the download streams with a 64 MiB cap; the archive digest is checked before any extraction; tokens never appear in logs, diagnostics, `--json` output, or locks. Tests use a local HTTPS server through an explicit test CA option.
 
+As implemented (revision 1.19): requests use `node:https`, because `fetch` cannot add a CA. The default hosts are `api.github.com`, `objects.githubusercontent.com`, and `release-assets.githubusercontent.com`; `github.com` is not needed, because the installer downloads through the asset API URL. The token goes only to the API host. Messages show a URL without its query string. A release whose `release.json` version differs from `--version` is refused. Policy refusals (scheme, host, hop count, size, certificate, digest, version) are `E_INTEGRITY` (exit 4); network and HTTP errors are `E_SOURCE_UNAVAILABLE` (exit 3); a missing release or asset is `E_TOOLKIT_MISSING` (exit 3). The test seams are `EXPLAIN_TEST_API_BASE` and `EXPLAIN_TEST_CA_FILE`; each prints a warning when set, and the CA seam adds a root, never disables verification.
+
 An archive and checksum fetched from the same compromised origin do not establish independent authenticity. V1 relies on an explicitly trusted release origin and pinned digest; signature/attestation verification can be added later. Display the origin and digest during install. No tokens go into committed locks or generated documents.
 
 Private toolkit releases can be downloaded using credentials supplied to the installer process or an explicitly configured local credential helper. Credentials are never copied to the browser, asset URLs, diagnostic logs, or source packets.
@@ -1599,6 +1601,7 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_USAGE` | Invalid command-line usage; exit 2. |
 | `E_BUILD` | Build stopped because the source or compilation failed; the exit code follows the underlying diagnostics. |
 | `E_PORT_BUSY` | The requested `serve` port is in use; exit 3. |
+| `E_DOWNGRADE` | `upgrade` target version is lower than the current one; pass `--allow-downgrade`; exit 2. |
 | `W_PRIVATE_ORIGIN` | Export report: a listed source's repository is not in `publicRepositories`. |
 | `W_STATIC_HOST_FRAMING`, `W_STATIC_HOST_SRI` | Export report: a static host cannot set `frame-ancestors` by meta, and a host that rewrites JavaScript breaks SRI. |
 | `W_DEV_TOOLKIT` | `--dev-toolkit` accepted a toolkit that differs from the lock, or a missing lock. |
@@ -1690,7 +1693,7 @@ The command names below are normative v1 interfaces. They may share implementati
 | `skill show` | Print pinned core skill and local guide locations for `--doc` or current workspace. |
 | `install` | Explicit exact release installation; `--scope user|repo`, `--from-dir`, `--archive`, or `--from-release`; integrity options; records the digest in the user trust store. |
 | `trust toolkit DIGEST` | Trust an exact toolkit digest in user scope (for a repository toolchain); `--revoke`. |
-| `upgrade DOC --to DIGEST` | Resolve and verify the target toolkit, run its `check` on the document, write `explain.lock.json` with a guarded write (edit lock, raw-hash recheck, schema validation, atomic rename), print the lock diff, and rebuild. The version comes from the pack's `release.json`, never from the lock; a lower version needs `--allow-downgrade`. Old snapshots stay. |
+| `upgrade DOC --to DIGEST` | Resolve and verify the target toolkit, run its `check` on the document, write `explain.lock.json` with a guarded write (edit lock, raw-hash recheck, schema validation, atomic rename), print the lock diff, and rebuild. The version comes from the pack's `release.json`, never from the lock; a lower version needs `--allow-downgrade` (else `E_DOWNGRADE`). The user shim runs the target toolkit's CLI for `upgrade`, through the trust gate. The new lock records `origin: local-dir`, because the installed copy is found by digest. A rebuild failure keeps the new lock and exits with the build's code. `--dry-run` writes nothing. Old snapshots stay. |
 | `vendor` | Deferred beyond v1 (§12.2); `E_UNSUPPORTED`. |
 | `content import` | Deferred beyond v1 (§12.8); `E_UNSUPPORTED`. |
 | `extension inspect|trust` | Show metadata without execution, or explicitly trust an exact extension digest. |

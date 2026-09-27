@@ -99,7 +99,7 @@
       "tags": [
         "@R10"
       ],
-      "note": "Reproducible release archive, strict ustar reader, site export with relative URLs, and the browser journeys against a /explain-demo/ subpath export on a static server. GitHub --from-release is Phase 4c."
+      "note": "Reproducible release archive, strict ustar reader, install --from-release against local HTTPS servers with a test CA, site export with relative URLs, and the browser journeys against a /explain-demo/ subpath export on a static server. Real GitHub hosts are not tested (no network)."
     },
     {
       "id": "R11",

@@ -4,8 +4,11 @@
 // rename to toolchains/DIGEST/. Both scopes record the digest in the user trust
 // store. It never edits shell startup files or PATH.
 import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeSync } from 'node:fs';
+import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { distributionHosts } from '../export/user-config.ts';
+import { downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, REPOSITORY_PATTERN, resolveReleaseAsset, VERSION_PATTERN } from './fetch.ts';
 import { HashError } from '../model/hash.ts';
 import { verifyReleaseDir, type VerifiedRelease } from './release.ts';
 import { addTrust, explainHome } from './trust.ts';
@@ -28,7 +31,14 @@ export type InstallOptions = {
   limits?: ArchiveLimits;
   /** Test seam: runs after the exclusive claim of toolchains/DIGEST, before the rename. */
   afterClaim?: (target: string) => void;
+  /** Set by installFromRelease: the origin to report and to record as the trust source. */
+  release?: { repository: string; version: string };
 };
+
+export type InstallOrigin =
+  | { kind: 'local-dir' }
+  | { kind: 'archive'; archiveSha256: string }
+  | { kind: 'github-release'; repository: string; version: string; archiveSha256: string };
 
 export type InstallResult = {
   schema: 'explain-install/1';
@@ -36,7 +46,7 @@ export type InstallResult = {
   version: string;
   toolkitSha256: string;
   archiveSha256?: string;
-  origin: { kind: 'local-dir' } | { kind: 'archive'; archiveSha256: string };
+  origin: InstallOrigin;
   path: string;
   alreadyInstalled: boolean;
   trusted: true;
@@ -134,7 +144,8 @@ function writeDefaultPointer(home: string, digest: string): void {
 }
 
 function trustSource(opts: InstallOptions): string {
-  const what = opts.fromDir !== undefined ? `install --from-dir ${resolve(opts.fromDir)}` : `install --archive ${resolve(opts.archive!)}`;
+  // A release install records the repository and version, never a URL or a token.
+  const what = opts.release !== undefined ? `install --from-release ${opts.release.repository}@${opts.release.version}` : opts.fromDir !== undefined ? `install --from-dir ${resolve(opts.fromDir)}` : `install --archive ${resolve(opts.archive!)}`;
   const text = `${what} --scope ${opts.scope}`;
   return text.length <= 500 ? text : `${text.slice(0, 497)}...`;
 }
@@ -200,6 +211,9 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     }
     // The staged tree must equal its manifest exactly (§12.1).
     staged = verifyReleaseDir(staging);
+    if (opts.release !== undefined && staged.version !== opts.release.version.replace(/^v/, '')) {
+      fail('E_INTEGRITY', `the release ${opts.release.repository}@${opts.release.version} contains toolkit version ${staged.version}; nothing was installed`);
+    }
     target = join(base, staged.sha256);
     let exists = false;
     try {
@@ -252,7 +266,9 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     version: staged.version,
     toolkitSha256: staged.sha256,
     ...(archiveSha256 !== undefined ? { archiveSha256 } : {}),
-    origin: archiveSha256 !== undefined ? { kind: 'archive', archiveSha256 } : { kind: 'local-dir' },
+    origin: opts.release !== undefined && archiveSha256 !== undefined
+      ? { kind: 'github-release', repository: opts.release.repository, version: opts.release.version, archiveSha256 }
+      : archiveSha256 !== undefined ? { kind: 'archive', archiveSha256 } : { kind: 'local-dir' },
     path: target,
     alreadyInstalled,
     trusted: true,
@@ -260,4 +276,74 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     ...(opts.setDefault ? { default: true as const } : {}),
     invocation: `node ${invocation}`,
   };
+}
+
+export type ReleaseInstallOptions = Omit<InstallOptions, 'fromDir' | 'archive' | 'archiveSha256' | 'release'> & {
+  repository: string;
+  version: string;
+  /** Required: the expected archive digest, checked before any extraction. */
+  archiveSha256: string;
+  /**
+   * Test seams. `apiBase` replaces https://api.github.com and becomes the
+   * token host; `extraCa` adds CA certificates to Node's roots (verification
+   * stays on). The CLI sets them only from EXPLAIN_TEST_API_BASE and
+   * EXPLAIN_TEST_CA_FILE.
+   */
+  apiBase?: string;
+  extraCa?: string[];
+  maxDownloadBytes?: number;
+};
+
+/**
+ * `install --from-release OWNER/REPO --version V --sha256 D` (§12.5): resolve
+ * the asset through the release API, download it under the fetch policy into a
+ * private temporary file, check the digest, then install it as an archive.
+ */
+export async function installFromRelease(opts: ReleaseInstallOptions): Promise<InstallResult> {
+  const env = opts.env ?? process.env;
+  if (!REPOSITORY_PATTERN.test(opts.repository)) fail('E_USAGE', '--from-release must be OWNER/REPO (letters, digits, and - . _)');
+  if (!VERSION_PATTERN.test(opts.version)) fail('E_USAGE', '--version must be a version such as 1.2.3 or v1.2.3-rc.1');
+  if (!/^[0-9a-f]{64}$/.test(opts.archiveSha256)) fail('E_USAGE', '--sha256 must be 64 lowercase hex characters');
+  const apiBase = opts.apiBase ?? GITHUB_API_BASE;
+  let apiHost: string;
+  try {
+    const url = new URL(apiBase);
+    if (url.protocol !== 'https:') fail('E_INTEGRITY', 'the release API must use https:');
+    apiHost = url.host;
+  } catch (error) {
+    if (error instanceof HashError) throw error;
+    fail('E_USAGE', 'the release API base is not a URL');
+  }
+  const maxBytes = opts.maxDownloadBytes ?? MAX_DOWNLOAD_BYTES;
+  const policy: FetchPolicy = {
+    allowedHosts: new Set([apiHost, ...(opts.apiBase === undefined ? GITHUB_ASSET_HOSTS : []), ...distributionHosts(env)]),
+    tokenHost: apiHost,
+    token: githubToken(env),
+    extraCa: opts.extraCa,
+    maxBytes,
+  };
+  const asset = await resolveReleaseAsset(apiBase, opts.repository, opts.version, policy);
+  if (asset.size !== undefined && asset.size > maxBytes) fail('E_INTEGRITY', `refused: the asset ${asset.name} is larger than ${maxBytes} bytes`);
+  const dir = mkdtempSync(join(tmpdir(), 'explain-download-'));
+  try {
+    const file = join(dir, asset.name);
+    const downloaded = await downloadAsset(asset.url, file, policy);
+    if (downloaded.sha256 !== opts.archiveSha256) {
+      fail('E_INTEGRITY', `the downloaded archive digest is ${downloaded.sha256}, but --sha256 expects ${opts.archiveSha256}; nothing was extracted`);
+    }
+    return await installRelease({
+      scope: opts.scope,
+      archive: file,
+      archiveSha256: opts.archiveSha256,
+      release: { repository: opts.repository, version: opts.version },
+      env,
+      ...(opts.setDefault !== undefined ? { setDefault: opts.setDefault } : {}),
+      ...(opts.repoRoot !== undefined ? { repoRoot: opts.repoRoot } : {}),
+      ...(opts.now !== undefined ? { now: opts.now } : {}),
+      ...(opts.limits !== undefined ? { limits: opts.limits } : {}),
+      ...(opts.afterClaim !== undefined ? { afterClaim: opts.afterClaim } : {}),
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }

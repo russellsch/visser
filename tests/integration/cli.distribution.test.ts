@@ -2,11 +2,12 @@
 // new command through the built CLI and through the installed user shim. Each
 // test uses its own EXPLAIN_HOME; nothing touches the real ~/.explain.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
+import { toolkitCopy } from './resolution.fixtures.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
@@ -63,6 +64,36 @@ describe('Phase 4a commands through the built CLI and the user shim', () => {
     const again = run(env, cli, 'install', '--from-dir', release, '--scope', 'user', '--json');
     expect(again.status, again.stderr).toBe(0);
     expect(JSON.parse(again.stdout).alreadyInstalled).toBe(true);
+  });
+
+  it('@R09 upgrade through the shim moves a document to a second installed toolkit and rebuilds', () => {
+    const env = home();
+    expect(run(env, cli, 'install', '--from-dir', release, '--scope', 'user', '--default').status).toBe(0);
+    const shim = join(env.EXPLAIN_HOME!, 'bin/explain.cjs');
+    const repo = mkdtempSync(join(tmpdir(), 'explain-repo-'));
+    mkdirSync(join(repo, '.git'));
+    const doc = join(repo, 'docs', 'notes');
+    expect(run(env, shim, 'init', doc, '--kind', 'teaching', '--title', 'Notes').status).toBe(0);
+    const lockPath = join(doc, 'explain.lock.json');
+    const before = JSON.parse(readFileSync(lockPath, 'utf8')).toolkit.sha256 as string;
+
+    const second = join(mkdtempSync(join(tmpdir(), 'explain-b-')), 'release');
+    const B = toolkitCopy(second, (dir) => appendFileSync(join(dir, 'browser', 'reader.css'), '\n/* b */\n'));
+    expect(B).not.toBe(before);
+    expect(run(env, cli, 'install', '--from-dir', second, '--scope', 'user').status).toBe(0);
+
+    const dry = run(env, shim, 'upgrade', join(doc, 'index.md'), '--to', B, '--dry-run', '--json');
+    expect(dry.status, dry.stderr).toBe(0);
+    expect(JSON.parse(readFileSync(lockPath, 'utf8')).toolkit.sha256).toBe(before);
+
+    const up = run(env, shim, 'upgrade', join(doc, 'index.md'), '--to', B, '--json');
+    expect(up.status, up.stderr).toBe(0);
+    const report = JSON.parse(up.stdout);
+    expect(validateAgainst('upgrade', report)).toEqual({ ok: true });
+    expect(report.changed).toBe(true);
+    expect(report.rebuilt).toBe(true);
+    expect(JSON.parse(readFileSync(lockPath, 'utf8')).toolkit.sha256).toBe(B);
+    expect(run(env, shim, 'check', join(doc, 'index.md'), '--release').status).toBe(0);
   });
 
   it('the shim without a default or a document stops with E_TOOLKIT_MISSING and guidance', () => {

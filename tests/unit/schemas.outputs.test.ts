@@ -79,6 +79,7 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
     warnings: [{ code: 'W_STATIC_HOST_SRI', message: 'a host that rewrites JavaScript breaks SRI' }],
   },
   collection: { schema: 'explain-collection/1', title: 'Notes', documents: [{ path: 'queue/index.md' }] },
+  upgrade: { schema: 'explain-upgrade/1', doc: '/tmp/x/index.md', from: { sha256: SHA, version: '0.1.0' }, to: { sha256: 'b'.repeat(64), version: '0.2.0' }, changed: true, downgrade: false, dryRun: false, diff: '--- a/explain.lock.json\n', rebuilt: true },
 };
 
 describe('schemas for --json outputs and metadata files (§5.4)', () => {
@@ -111,6 +112,12 @@ describe('schemas for --json outputs and metadata files (§5.4)', () => {
     expect(validateAgainst('install', { ...samples.install, origin: { kind: 'archive' } }).ok).toBe(false);
     expect(validateAgainst('install', { ...samples.install, trusted: false }).ok).toBe(false);
     expect(validateAgainst('install', { ...samples.install, origin: { kind: 'local-dir', archiveSha256: SHA } }).ok).toBe(false);
+    // A github-release origin names the repository and version; it never holds a URL (which could carry a token).
+    const release = { kind: 'github-release', repository: 'octo/explain', version: 'v1.2.3', archiveSha256: SHA };
+    expect(validateAgainst('install', { ...samples.install, origin: release })).toEqual({ ok: true });
+    expect(validateAgainst('install', { ...samples.install, origin: { ...release, url: 'https://x.invalid/a?token=t' } }).ok).toBe(false);
+    expect(validateAgainst('install', { ...samples.install, origin: { ...release, repository: '../x' } }).ok).toBe(false);
+    expect(validateAgainst('install', { ...samples.install, origin: { ...release, version: 'latest' } }).ok).toBe(false);
   });
 
   it('check: an unknown origin state is rejected', () => {
