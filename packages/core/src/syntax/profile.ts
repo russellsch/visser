@@ -17,6 +17,10 @@ export const BLOCK_TAGS: ReadonlySet<string> = new Set([
   'transform', 'stage', 'conversion',
   'compare', 'option', 'criterion', 'cell',
   'annotated', 'annotation',
+  'domain', 'concept', 'relation',
+  // Components of docs/IMPROVEMENTS.md §14: a note, a self-check, a measure
+  // with its readings, a tree with its entries, and a steps walkthrough.
+  'note', 'self-check', 'measure', 'reading', 'tree', 'entry', 'steps', 'step',
   'mermaid',
   // A trusted extension component and its parts (§14).
   'extension', 'part',

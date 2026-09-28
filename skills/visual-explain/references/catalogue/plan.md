@@ -2,16 +2,19 @@
 
 **Question:** What depends on what, and what makes each step complete?
 
+**Confused with:** `state` (states of one object, not steps) and a numbered list (steps in one straight line).
+
 ## Use it when
 
-- Steps depend on each other, and some can run in parallel.
+- Steps depend on each other, and two or more steps can run in parallel.
 - Each step needs a stated output and an acceptance check.
 - A risk belongs to one step, for example an irreversible drop.
 
 ## Do not use it when
 
 - The steps run strictly one after another. A numbered list is enough.
-- You need dates or percentages. v1 has no scheduling; do not invent them.
+- You need bar lengths, durations, or percentages. A `due` date is text on
+  the task, never a bar. Do not invent a date.
 - The steps are states of one object. Use `state`.
 
 ## Misleading example
@@ -20,18 +23,19 @@
 waits for the previous one, with invented dates and "60% complete".
 
 **Prefer:** dependencies only where one step truly needs another, a `status`
-from the source, and an `acceptance` that says how to know the step is done.
+from the source, and an `acceptance` that says how to know that the step is complete.
 
 ## Tags and attributes
 
 | Tag | Required | Optional |
 |---|---|---|
 | `graph` | `id`, `title`, `question`, `mode` | — |
-| `task` | `id`, `label` | `owner`, `status`, `output`, `acceptance`, `risk` |
-| `dependency` | `id`, `from`, `to`, `label` | `kind` |
+| `task` | `id`, `label` | `owner`, `status`, `output`, `acceptance`, `risk`, `due`, `evidence` |
+| `dependency` | `id`, `from`, `to`, `label` | `kind`, `quantity`, `evidence` |
 
 - `status`: `proposed`, `ready`, `blocked`, `complete`, `unknown`. The default is `proposed`.
 - `kind`: `finish-start` (the default), `input`, `decision`.
+- `due`: an ISO 8601 date, `due="2026-10-03"`. It shows under the label.
 
 ## Rules
 
@@ -40,6 +44,12 @@ from the source, and an `acceptance` that says how to know the step is done.
 - The dependency graph must not form a cycle.
 - The `label` describes the dependency. It never sets its kind.
 - Keep resource conflicts out of the dependencies; explain them in prose.
+- `evidence=["src_calendar"]` names `source` targets: the source that shows
+  this task, such as the source of its `due` date. A `cite` supports one
+  sentence in the body.
+- A `due` date needs `evidence` on its task.
+- `quantity="3 days"` on a `dependency` shows after its label. Name the
+  source of the number in `evidence` on the dependency.
 
 ## Narrow screens and text
 
@@ -72,4 +82,8 @@ Blocked until dual writes and the backfill are both complete.
 ## Diagnostics
 
 - `E_SEMANTIC`: the dependencies are cyclic. Remove the dependency that is not real.
-- `E_SYNTAX`: an unknown `status` or `kind`. Use a listed value.
+- `E_SYNTAX`: an unknown `status` or `kind`, or a `due` that is not
+  `YYYY-MM-DD`. Use a listed value or an ISO 8601 date.
+- `E_REF_BROKEN`: `evidence` names something that is not a `source`.
+- `W_EVIDENCE_GAP` (`check --review`): a `due` date or a `quantity` with no
+  `evidence`. Name the source.

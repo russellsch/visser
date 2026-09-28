@@ -35,10 +35,19 @@ export type TargetModel = {
 // spec list is extended with the other ID-valued attributes of §9 (evidence,
 // group, parent, branch, exclusiveWith), so they are checked and reported too.
 const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'option', 'criterion', 'evidence', 'group', 'parent', 'branch', 'exclusiveWith'];
+// Reference attributes of one tag only. A domain `concept` names its
+// `definition` (docs/IMPROVEMENTS.md §5.3). A `step` names the parts it is
+// about in `targets`, and an `annotated` names its earlier source in `before`
+// (§14.1, §14.7). An extension `part` accepts open attributes, so on it these
+// names are text, not references (phase 4 review D9).
+const TAG_REF_ATTRIBUTES: Readonly<Record<string, readonly string[]>> = { concept: ['definition'], step: ['targets'], annotated: ['before'] };
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
 const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).
-const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid', 'extension']);
+const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
+// A walkthrough and its steps render in their figure, not in the appendix
+// (docs/IMPROVEMENTS.md §14.1): the steps list is their canonical element.
+const IN_FIGURE_ONLY = new Set(['steps', 'step']);
 
 const LABEL_LIMIT = 80;
 
@@ -92,7 +101,7 @@ export function inlineText(node: MNode, isTarget: (n: MNode) => boolean): string
 /** IDs referenced by a node's own attributes and inline tags, excluding child targets. */
 function referencedIds(node: MNode, isTarget: (n: MNode) => boolean): string[] {
   const found: string[] = [];
-  for (const name of REF_ATTRIBUTES) found.push(...idsIn(node.attributes[name]));
+  for (const name of [...REF_ATTRIBUTES, ...(TAG_REF_ATTRIBUTES[node.tag ?? ''] ?? [])]) found.push(...idsIn(node.attributes[name]));
   const visit = (n: MNode) => {
     if (n !== node && isTarget(n)) return;
     if (n.type === 'tag' && n.tag && INLINE_REF_TAGS.has(n.tag)) {
@@ -152,7 +161,8 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
   // Pass 1: explicit labels (labels may inherit through `entity`, which may point later).
   const explicitLabel = (t: ParsedTarget): string | undefined => {
     const a = t.attributes;
-    for (const key of ['label', 'title', 'term']) if (typeof a[key] === 'string') return a[key] as string;
+    // A self-check is named by its question (docs/IMPROVEMENTS.md §14.3).
+    for (const key of ['label', 'title', 'term', 'question']) if (typeof a[key] === 'string') return a[key] as string;
     return undefined;
   };
 
@@ -204,7 +214,7 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
       bodySha256: bodySha256(parsed.rawBytes.subarray(t.startByte, t.endByte)),
       dependencies: referencedIds(node, isTarget),
       plainText,
-      inspectable: isEntity || (t.parentId !== undefined && !COMPONENT_ROOTS.has(kind)),
+      inspectable: !IN_FIGURE_ONLY.has(kind) && (isEntity || (t.parentId !== undefined && !COMPONENT_ROOTS.has(kind))),
     };
     if (t.parentId) {
       record.parentId = t.parentId;
@@ -235,17 +245,7 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
   }
 
   // Relationships (§9.2 kind table).
-  const evidenceOf = (record: TargetRecord): TargetId[] => {
-    const node = nodes.get(record.id)!;
-    const ids = new Set<string>(idsIn(node.attributes['evidence']));
-    const visit = (n: MNode) => {
-      if (n !== node && isTarget(n)) return;
-      if (n.type === 'tag' && n.tag === 'cite') for (const id of idsIn(n.attributes['ref'])) ids.add(id);
-      for (const child of n.children) visit(child);
-    };
-    visit(node);
-    return [...ids].sort();
-  };
+  const evidenceOf = (record: TargetRecord): TargetId[] => evidenceIdsOf(nodes.get(record.id)!, isTarget);
   for (const t of parsed.targets) {
     const record = targets.get(t.id);
     if (!record) continue;
@@ -254,7 +254,8 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
     const to = typeof a['to'] === 'string' ? a['to'] : undefined;
     const basis = typeof a['basis'] === 'string' ? { basis: a['basis'] } : {};
     const fixedKind: Record<string, string> = { transition: 'transition', 'causal-link': 'causal', conversion: 'conversion' };
-    if (t.tagName === 'edge' && from && to) {
+    // An architecture edge and a domain relation emit their own `kind` (§9.2).
+    if ((t.tagName === 'edge' || t.tagName === 'relation') && from && to) {
       relationships.push({ id: t.id, from, to, kind: String(a['kind']), label: record.label, ...basis, evidenceIds: evidenceOf(record) });
     } else if (t.tagName && fixedKind[t.tagName] && from && to) {
       relationships.push({ id: t.id, from, to, kind: fixedKind[t.tagName]!, label: record.label, ...basis, evidenceIds: evidenceOf(record) });
@@ -269,6 +270,23 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
   }
 
   return { targets, nodes, relationships, diagnostics, mermaid };
+}
+
+/**
+ * §9.2 `evidenceIds` of one target: the sorted, deduplicated union of its
+ * `evidence` attribute and every `cite ref` in its body (not in child
+ * targets). A relationship and a part (a node, event, state, stage, or task,
+ * docs/IMPROVEMENTS.md §4.4) use the same rule.
+ */
+export function evidenceIdsOf(node: MNode, isTarget: (n: MNode) => boolean): TargetId[] {
+  const ids = new Set<string>(idsIn(node.attributes['evidence']));
+  const visit = (n: MNode) => {
+    if (n !== node && isTarget(n)) return;
+    if (n.type === 'tag' && n.tag === 'cite') for (const id of idsIn(n.attributes['ref'])) ids.add(id);
+    for (const child of n.children) visit(child);
+  };
+  visit(node);
+  return [...ids].sort();
 }
 
 /** The single ```mermaid fence of a `mermaid` figure, if the body has exactly one. */

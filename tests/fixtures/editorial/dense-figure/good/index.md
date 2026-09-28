@@ -44,23 +44,23 @@ Handles one step.
 Handles one step.
 {% /node %}
 
-{% edge id="call_1" from="svc_1" to="svc_2" kind="call" label="calls service 2 for the next step" %}
+{% edge id="call_1" from="svc_1" to="svc_2" kind="call" label="calls service 2 next" %}
 One call per request.
 {% /edge %}
 
-{% edge id="call_2" from="svc_2" to="svc_3" kind="call" label="calls service 3 for the next step" %}
+{% edge id="call_2" from="svc_2" to="svc_3" kind="call" label="calls service 3 next" %}
 One call per request.
 {% /edge %}
 
-{% edge id="call_3" from="svc_3" to="svc_4" kind="call" label="calls service 4 for the next step" %}
+{% edge id="call_3" from="svc_3" to="svc_4" kind="call" label="calls service 4 next" %}
 One call per request.
 {% /edge %}
 
-{% edge id="call_4" from="svc_4" to="svc_5" kind="call" label="calls service 5 for the next step" %}
+{% edge id="call_4" from="svc_4" to="svc_5" kind="call" label="calls service 5 next" %}
 One call per request.
 {% /edge %}
 
-{% edge id="call_5" from="svc_5" to="svc_6" kind="call" label="calls service 6 for the next step" %}
+{% edge id="call_5" from="svc_5" to="svc_6" kind="call" label="calls service 6 next" %}
 One call per request.
 {% /edge %}
 {% /graph %}

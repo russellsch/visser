@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "light",
+    "callouts": [
+      {
+        "text": "11a → e → be",
+        "keys": [
+          "1",
+          "1"
+        ],
+        "color": "rgb(29, 31, 35)",
+        "background": "rgb(255, 255, 255)"
+      },
+      {
+        "text": "22a → e2 → be2",
+        "keys": [
+          "2",
+          "2"
+        ],
+        "color": "rgb(29, 31, 35)",
+        "background": "rgb(255, 255, 255)"
+      }
+    ],
+    "viewBox": "0 0 833 316"
+  },
+  {
+    "mode": "dark",
+    "callouts": [
+      {
+        "text": "11a → e → be",
+        "keys": [
+          "1",
+          "1"
+        ],
+        "color": "rgb(230, 232, 235)",
+        "background": "rgb(22, 24, 28)"
+      },
+      {
+        "text": "22a → e2 → be2",
+        "keys": [
+          "2",
+          "2"
+        ],
+        "color": "rgb(230, 232, 235)",
+        "background": "rgb(22, 24, 28)"
+      }
+    ],
+    "viewBox": "0 0 833 316"
+  },
+  {
+    "mode": "forced",
+    "callouts": [
+      {
+        "text": "11a → e → be",
+        "keys": [
+          "1",
+          "1"
+        ],
+        "color": "rgb(0, 0, 0)",
+        "background": "rgb(255, 255, 255)"
+      },
+      {
+        "text": "22a → e2 → be2",
+        "keys": [
+          "2",
+          "2"
+        ],
+        "color": "rgb(0, 0, 0)",
+        "background": "rgb(255, 255, 255)"
+      }
+    ],
+    "viewBox": "0 0 833 316"
+  }
+]

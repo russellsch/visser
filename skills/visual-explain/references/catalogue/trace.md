@@ -2,21 +2,20 @@
 
 **Question:** What happens in a concrete execution, including waits and partial order?
 
+**Confused with:** `state` (all runs, not one run), `architecture` (who calls whom, with no order), and `cause` (a mechanism; timing alone is not a cause).
+
 ## Use it when
 
-- The reader must follow one concrete run: who calls whom, who waits, and what
-  must happen before what.
-- Two events have no order between them, and that matters. A trace shows it;
-  a numbered list hides it.
-- A run can branch into outcomes that exclude each other.
+- Follow one run: calls, waits, and prerequisites.
+- Show events that can happen in either order.
+- Show mutually exclusive outcomes.
 
 ## Do not use it when
 
-- The point is which transitions are allowed in every run. Use `state`.
+- The point is which transitions the system allows in every run. Use `state`.
 - The run is a loop with no fixed count. Show a finite iteration, or use `state`.
 - You have no evidence for the order. Do not draw one.
-- The run is a straight line: each step has exactly one prerequisite and no
-  branch. A numbered list says the same with less. Use `prose`.
+- The run is a straight line with no branch. Use a numbered list in `prose`.
 
 ## Misleading example
 
@@ -34,31 +33,38 @@ an ordinal trace; do not repeat that sentence in your text.
 |---|---|---|
 | `trace` | `id`, `title`, `question` | `timeUnit`, `scale` |
 | `actor` | `id` | `label`, `entity` |
-| `event` | `id`, `actor`, `label`, `kind` | `to`, `after`, `time`, `duration`, `branch` |
+| `event` | `id`, `label`, `kind` | `actor`, `to`, `after`, `time`, `duration`, `branch`, `evidence` |
 | `branch` | `id`, `label`, `condition` | `exclusiveWith` |
 
 - `scale`: `ordinal` (the default) or `time`.
-- `kind`: `call`, `return`, `send`, `receive`, `compute`, `wait`, `state-change`, `failure`.
+- `kind`: `call`, `return`, `send`, `receive`, `compute`, `wait`, `state-change`, `failure`, `observation`.
 
 ## Rules
 
 - `actor`, `event`, and `branch` go directly inside the `trace`.
-- `event actor` and `event to` name actors; `event branch` names a branch;
-  `after` names events. All must be in the same trace.
+- `event actor` and `event to` name actors, `event branch` names a branch,
+  and `after` names events, all in the same trace.
 - An actor needs `label` or `entity`. `entity` names an architecture `node`.
 - `after` means all listed events happen first. The `after` graph must not
   form a cycle.
 - `after` must not join events from branches that exclude each other.
+- `evidence=["src_handler"]` names `source` targets: the code that shows
+  this event. A `cite` supports one sentence in the body.
 - An ordinal trace rejects `time` and `duration`. A `time` trace needs
-  `timeUnit` and a numeric `time` on every event.
+  `timeUnit` and a numeric `time` on every event. A time cannot precede an
+  `after` prerequisite. Equal times are valid; `after` orders occurrences,
+  not the ends of their durations.
+- `actor` is optional only in a `time` trace with no actors: one implicit lane.
+- An `observation` is a log line, an alert, or a metric reading, with
+  `evidence` and a `time` on a `time` scale. A `factor` or a `causal-link`
+  can name it. Timing does not establish direction.
+- On a time scale, the events of one lane and one layer stack in `time` order.
+  Vertical position shows order layers, not proportional elapsed time.
 
 ## Narrow screens and text
 
-The page shows each event with its order layer, actor, kind, prerequisites
-(`after`), and branch, and it lists the actors and the branch conditions. On a
-narrow screen the events become cards grouped by actor and order layer. The
-text projection lists each event with its prerequisites. Write the trace so
-that this list alone answers the `question`.
+Narrow screens show event cards grouped by actor. Cards and text retain order
+layers, kinds, prerequisites, and branches. This list must answer the `question`.
 
 ## Template
 
@@ -90,5 +96,8 @@ Can happen before or after the reply; the trace does not order these two.
 ## Diagnostics
 
 - `E_SEMANTIC`: `after` is cyclic, joins exclusive branches, or an ordinal
-  trace has `time`. Fix the order or the scale.
-- `E_REF_BROKEN`: `actor`, `to`, `after`, or `branch` names an ID outside this trace.
+  trace has `time` or an observation. Fix the order or the scale.
+- `E_REF_BROKEN`: `actor`, `to`, `after`, or `branch` names an ID outside this
+  trace, or `evidence` names something that is not a `source`.
+- `E_SYNTAX`: an event has no `actor`, but the trace needs one.
+- `W_EVIDENCE_GAP` (`check --review`): an observation has no `evidence`.

@@ -1,7 +1,8 @@
 # Visser: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.24, 27 September 2026 (the tool is renamed from Explain to Visser; fixes from the first real authoring run in 1.22; review fixes for Phases 4 and 5 in 1.21; Phase 5 implemented in 1.20; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.29, 28 September 2026 (final improvements review and real-document dogfood). See `REVISIONS.md` for the specification and implementation history.
+>
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Visser`; executable: `visser`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -626,6 +627,8 @@ Screenshot pixels may differ across operating-system fonts and browsers. Byte-id
 
 For each component, the projection must enumerate meaningful objects and relationships. A graph edge becomes, for example, `Producer --[blocking call; waits when full]--> Bounded queue`, followed by its detail and evidence. A concurrent trace describes partial order rather than fabricating a single execution order: events appear in authored order, each with an explicit `after:` line, its branch, and any excluded branches, so the text order does not read as an observed order.
 
+A part with an `evidence` attribute (§9.2) gets one line for each of its sources after its body, with the title and the ID, such as `Evidence: Order API handler (src_accept_order)`; a relationship keeps one `Evidence: ID, ID` line.
+
 Projection tests compare target IDs, evidence references, and relationship tuples between IR and exported text. These checks establish content coverage, not philosophical equivalence or factual correctness.
 
 ## 8. Source capture and provenance
@@ -781,11 +784,12 @@ interface ComponentDefinition<T> {
 
 `SemanticRelationship` minimally contains `id`, `from`, `to`, `kind`, `label`, `basis?`, and `evidenceIds`. Relationships are not inferred from coordinates.
 
-`evidenceIds` is the sorted, deduplicated union of an explicit `evidence` attribute (where the family has one) and every `cite ref` in the target's body. Relationship `kind` comes from each family as follows:
+`evidenceIds` is the sorted, deduplicated union of an explicit `evidence` attribute (where the family has one) and every `cite ref` in the target's body. Since revision 1.25, a part (`node`, `event`, `state`, `stage`, `task`) has the same optional `evidence` attribute and the same union rule (IMPROVEMENTS.md §4.4). `evidence` names the source that shows the part (for a node or an event, the code; for a task, the source of its `due` date; for a state or a stage, the code that defines it); `cite` supports one sentence in the body. The inspector lists the `evidence` sources first, then the cited ones, and for a part with `evidence` it shows the Evidence section before the body; a `causal-link` is a relationship and keeps its Evidence section last. A link-only source is allowed in `evidence`, and the inspector shows the same notice as the appendix. Relationship `kind` comes from each family as follows:
 
 | Family / child | Emitted `kind` |
 |---|---|
 | architecture `edge` | its `kind` attribute |
+| domain `relation` | its `kind` attribute (`is-a`, `has`, `uses`, `produces`, `identifies`) |
 | state `transition` | `transition` |
 | cause `causal-link` | `causal` |
 | transform `conversion` | `conversion` |
@@ -793,7 +797,7 @@ interface ComponentDefinition<T> {
 | trace `event` with `to` | `message` (relationship ID = event ID) |
 | trace `after` entry | `order`, from prerequisite to event, with derived ID `EVENT~after~PREREQ`; not a target and not referenceable (a reference resolves to the owning event) |
 
-A relationship from an entity target uses that target's ID; `~` is outside the ID grammar, so derived IDs cannot collide with authored IDs. Compare cells, annotations, nodes, states, stages, factors, and tasks are targets, not relationships. Every generated visual instance maps back to a source-owned target.
+A relationship from an entity target uses that target's ID; `~` is outside the ID grammar, so derived IDs cannot collide with authored IDs. Compare cells, annotations, nodes, states, stages, factors, tasks, domain concepts, measure readings, tree entries, and walkthrough steps are targets, not relationships; the components of §9.14 to §9.18 emit no relationship. A `causal-link` `evidence` can also name a trace event with `kind="observation"` (§9.4); its `evidenceIds` then hold the event ID, and the inspector shows the observation and its sources. Every generated visual instance maps back to a source-owned target.
 
 ### 9.3 Architecture map — `graph mode="architecture"`
 
@@ -803,9 +807,9 @@ Child tags:
 
 | Tag | Attributes | Constraints |
 |---|---|---|
-| `group` | `id`, `label`, optional `parent` | Defines a boundary; one parent maximum; group nesting acyclic. |
-| `node` | `id`, `label` (optional when `entity` is present; then inherited), `role`, optional `group`, optional `entity` | `role`: `process`, `storage`, `external`, `interface`, `decision`, or `concept`. Body is detail. |
-| `edge` | `id`, `from`, `to`, `kind`, `label`; optional `basis` | Endpoints must resolve to nodes in the figure. Body explains relationship. |
+| `group` | `id`, `label`, optional `parent`, optional `collapsed` | Defines a boundary; one parent maximum; group nesting acyclic. `collapsed=true` (revision 1.27, IMPROVEMENTS.md §14.9): with JavaScript the group starts folded into one box with a count at the centre of its dashed boundary; without JavaScript and in print it is unfolded. |
+| `node` | `id`, `label` (optional when `entity` is present; then inherited), `role`, optional `group`, optional `entity`, optional `evidence` | `role`: `process`, `storage`, `external`, `interface`, `decision`, or `concept`. Body is detail. |
+| `edge` | `id`, `from`, `to`, `kind`, `label`; optional `basis`, `quantity`, `evidence` | Endpoints must resolve to nodes in the figure. Body explains relationship. `quantity` is text such as "1,200 req/s" that shows muted after the label; `evidence` names the `source` targets for it (revision 1.27, IMPROVEMENTS.md §14.9). |
 
 Allowed edge kinds: `call`, `blocking-call`, `data`, `control`, `owns`, `depends-on`, `contains`, `feedback`. Add future kinds by schema version, not arbitrary unlabeled arrows. Label is mandatory and must describe the relationship rather than merely saying “connects.”
 
@@ -826,12 +830,12 @@ Required attributes: `id`, `title`, `question`; optional `timeUnit` and `scale="
 Children:
 
 - `actor`: `id`, `label` (optional when `entity` is present; then inherited), optional `entity` linking to a canonical component.
-- `event`: `id`, `actor`, `label`, `kind`, optional `to`, `after` array, `time`, `duration`, `branch`.
+- `event`: `id`, `label`, `kind`, optional `actor`, `to`, `after` array, `time`, `duration`, `branch`, `evidence` array. `actor` is required except in a `scale="time"` trace with no actors, which has one implicit lane (revision 1.27).
 - `branch`: `id`, `label`, `condition`; optional `exclusiveWith` array of branch IDs.
 
-`event.kind`: `call`, `return`, `send`, `receive`, `compute`, `wait`, `state-change`, `failure`. An event body contains detail and evidence. `event.to` names an actor ID; `event.branch` names a branch ID. `after` names causal/order prerequisites, not visual row indices, and means that all listed prerequisites occur. The validator rejects an `after` set that contains events from branches that exclude each other; v1 cannot express a join after exclusive branches, so use separate traces or a state figure. The prerequisite graph must be acyclic within a concrete trace. Loops are shown as a finite labelled iteration or explained by a state diagram, not represented as cycles in `after`.
+`event.kind`: `call`, `return`, `send`, `receive`, `compute`, `wait`, `state-change`, `failure`, `observation`. An observation (revision 1.27, IMPROVEMENTS.md §14.6) is a log line, an alert, or a metric reading, with `evidence`; it has the evidence mark (a small page) and no hue, and `check --review` gives `W_EVIDENCE_GAP` for one with no `evidence`. An observation needs `scale="time"` (`E_SEMANTIC` in an ordinal trace, revision 1.28). On a time scale, the events of one lane and one order layer stack in `time` order; events at one time keep the authored order. Timing does not establish direction. An event body contains detail and evidence. `event.to` names an actor ID; `event.branch` names a branch ID. `after` names causal/order prerequisites, not visual row indices, and means that all listed prerequisites occur. The validator rejects an `after` set that contains events from branches that exclude each other; v1 cannot express a join after exclusive branches, so use separate traces or a state figure. The prerequisite graph must be acyclic within a concrete trace. Loops are shown as a finite labelled iteration or explained by a state diagram, not represented as cycles in `after`.
 
-Time-scaled traces require a declared unit and numeric times. Ordinal traces reject `time` and `duration`. The renderer, not the author, emits the visible statement **Ordering, not duration** for ordinal traces. Events without ordering constraints may be concurrent; a chosen topological display order must not be described as observed sequence. A shared branch label does not imply parallelism unless stated.
+Time-scaled traces require a declared unit and numeric times. A dependent event cannot have a time before an `after` prerequisite (`E_SEMANTIC`). Equal times are valid: recorded times may have limited precision. `after` orders event occurrences, not the ends of their durations. The vertical axis shows order layers, not proportional elapsed time; the renderer states **Event times in UNIT; vertical position shows order layer.** Ordinal traces reject `time` and `duration`. The renderer, not the author, emits the visible statement **Ordering, not duration** for ordinal traces. Events without ordering constraints may be concurrent; a chosen topological display order must not be described as observed sequence. A shared branch label does not imply parallelism unless stated.
 
 Desktop: lifelines and event rows; mobile: event cards grouped by actor/order layer, preserving `after` and branch descriptions. A step selector highlights existing events and relevant map targets; it is navigation, not a simulation. No execution engine is implemented.
 
@@ -839,7 +843,7 @@ Desktop: lifelines and event rows; mobile: event cards grouped by actor/order la
 
 **Question:** What states are possible, and which events and guards permit transitions?
 
-`state`: `id`, `label`, optional `initial=false`, `terminal=false`; body explains invariants. `transition`: `id`, `from`, `to`, `event`, `label`, optional `guard`, `action`, `basis`.
+`state`: `id`, `label`, optional `initial=false`, `terminal=false`, `evidence`; body explains invariants. `transition`: `id`, `from`, `to`, `event`, `label`, optional `guard`, `action`, `basis`.
 
 Require at most one initial state unless the document explicitly declares multiple independent regions; v1 does not support statechart regions, so independent machines use separate figures. Cycles and self-transitions are valid. A terminal state with outgoing transitions is an error. Missing guards are not invented.
 
@@ -851,7 +855,7 @@ As implemented (revision 1.24): an arrow shows the transition's `label` and its 
 
 **Question:** How do information, representation, dimensions, or ownership change?
 
-`stage`: `id`, `label`, `representation`, optional `shape`, `units`, `location`, `ownership`; detail in body. `conversion`: `id`, `from`, `to`, `label`, optional `loss`, `condition`; detail in body.
+`stage`: `id`, `label`, `representation`, optional `shape`, `units`, `location`, `ownership`, `evidence`; detail in body. `conversion`: `id`, `from`, `to`, `label`, optional `loss`, `condition`, `quantity`, `evidence` (the `quantity` of §9.3 and its sources); detail in body.
 
 `shape` is a string or a list of named dimensions; it is not executed. Units are authored descriptive data. A pipeline can branch or merge through explicit conversions. A merge is several conversions with the same `to`; the renderer gives each incoming conversion its own port so two values are not conflated, and the stage detail explains how they combine. `loss` must be displayed in the main visual when material to the explanation, not hidden only in the inspector.
 
@@ -863,7 +867,7 @@ As implemented (revision 1.24): narrow screens show each stage and each conversi
 
 **Question:** What mechanism links conditions to an outcome, and how strong is the support?
 
-`factor`: `id`, `label`, `basis`; detail in body. `causal-link`: `id`, `from`, `to`, `label`, `basis`, optional `evidence` ID array. Basis: `observed`, `inferred`, `hypothesis`, or `stipulated`.
+`factor`: `id`, `label`, `basis`, optional `evidence` ID array; detail in body. `causal-link`: `id`, `from`, `to`, `label`, `basis`, optional `evidence` ID array. Basis: `observed`, `inferred`, `hypothesis`, or `stipulated`. The `evidence` of a factor or a causal link names `source` targets or trace events with `kind="observation"` (§9.4, revision 1.28); `check --review` counts it as support for an observed factor.
 
 Observed timestamps do not justify causal direction. The skill preserves the established investigation's claims and uncertainty. Unsupported or competing explanations are labelled, not removed to make the diagram neat. Edges styled by basis also carry text labels or line patterns; color alone is insufficient.
 
@@ -887,9 +891,9 @@ As implemented (revision 1.24): each cell is a target and keeps its own inspecti
 
 **Question:** What depends on what, and what makes each step complete?
 
-`task`: `id`, `label`, optional `owner`, `status`, `output`, `acceptance`, `risk`; detail body can contain richer criteria. `dependency`: `id`, `from`, `to`, `label`, optional `kind="finish-start" | "input" | "decision"` (default `finish-start`: `from` must finish before `to` begins). `label` is free descriptive text and never defines the type.
+`task`: `id`, `label`, optional `owner`, `status`, `output`, `acceptance`, `risk`, `due` (an ISO 8601 date, `YYYY-MM-DD`), `evidence`; detail body can contain richer criteria. `dependency`: `id`, `from`, `to`, `label`, optional `kind="finish-start" | "input" | "decision"` (default `finish-start`: `from` must finish before `to` begins), optional `quantity` and `evidence` (§9.3). `label` is free descriptive text and never defines the type.
 
-The task dependency graph must be acyclic. Separate resource conflicts from logical dependencies. Status is `proposed | ready | blocked | complete | unknown`; the default is `proposed`. No dates or percentage completion are invented. Acceptance criteria are explained in prose when too complex for an attribute.
+The task dependency graph must be acyclic. Separate resource conflicts from logical dependencies. Status is `proposed | ready | blocked | complete | unknown`; the default is `proposed`. No dates or percentage completion are invented. A `due` date shows as muted text under the task label, in the list, and in the inspector, never as a bar length; `check --review` gives `W_EVIDENCE_GAP` for a `due` with no `evidence` on its task (revision 1.25). Acceptance criteria are explained in prose when too complex for an attribute.
 
 Mobile/text view presents tasks with prerequisite lists and outputs; it must not imply an unconditional linear plan. Initial release does not implement scheduling, Gantt calculations, or task-system synchronization.
 
@@ -900,6 +904,8 @@ Mobile/text view presents tasks with prerequisite lists and outputs; it must not
 Required attributes: `id`, `title`, `question`, and `source` reference. `annotation`: `id`, `label`, and either `lines=[start,end]` for captured text or `region=[x,y,width,height]` for an image, with normalized coordinates in `[0,1]`. Body is explanation with citations/links.
 
 `lines` requires a captured text source; `region` requires a captured raster `asset`; a `link-only` source is an error. Line numbers are original-file numbers when the source has `start`, otherwise excerpt rows counted from 1. For Git excerpts, line ranges use original-file line numbers, not renumbered excerpt rows. A source that begins at line 120 must not label its first line as source line 1. Region coordinates refer to the image's natural orientation and do not change with viewport size.
+
+Before and after (revision 1.27, IMPROVEMENTS.md §14.7): an optional `before` names a second captured text source, and an `annotation` takes `side="before" | "after"` (default `after`) with `lines` in that source's numbering. The build computes a line diff (the longest common subsequence of lines, `model/diff.ts`), so the output is deterministic. On a window 900 px or wider the two sources sit side by side, with gap rows that keep equal lines in line; below that they stack. A removed line has a "−" sign and an added line a "+" sign; the tint is the second cue. The text projection names both sources, prints the diff as a `diff` fence, and gives each annotation its side. Above 80 lines on one side the validator gives `W_VISUAL_DENSITY`, and above 2,000 lines on one side `E_LIMIT` (revision 1.28). The diff strips the common prefix and suffix before it compares, and its table is a flat `Uint32Array`, so the memory stays bounded; the build computes the diff once and the page and the projection share it. Every fence of the projection is one backtick longer than the longest run of backticks in its content, so no excerpt line closes it. The sign of a changed line is `aria-hidden`, and a visually hidden word ("removed:", "added:") names the change. Each line of an annotated excerpt has a fixed marker column, so the code starts in one column.
 
 Desktop: artifact with annotations beside it; mobile: annotated spans/regions with an ordered annotation list. The image's explanatory text and each meaningful region description must exist in source. Code is syntax-highlighted at build time; unknown languages remain escaped plain code. Inline formulas are ordinary text/code in v1; a specialized mathematical typesetter is deferred.
 
@@ -970,6 +976,71 @@ Theme and configuration come only from the toolkit, so a document cannot change 
 
 **Security (verified by the spike and the Phase 2b review).** With `securityLevel: 'strict'`, `click` callbacks did not run, `javascript:` links lost their href, and `onerror` attributes and `<script>` in labels were removed. Plain `<a href>` and `<img src>` label HTML, and `click … href`, survived, which is why the build rejects them. No request left the origin for any tested type, including icon packs and KaTeX labels, which render without fetching. An `init` directive or frontmatter that sets `securityLevel: loose` did not loosen it, but frontmatter `config` did change the theme, so the build-time rejection of directives and frontmatter configuration is still required.
 
+### 9.13 Domain model — `domain`
+
+**Question:** Which things does this document talk about, what does each mean, and how do they relate?
+
+**Status:** added in revision 1.26 (IMPROVEMENTS.md §5). It replaces the explanatory use of Mermaid ER and class diagrams: its parts are targets, so a reader can inspect a concept and a relation.
+
+Child tags:
+
+| Tag | Attributes | Constraints |
+|---|---|---|
+| `concept` | `id`, `label`, `definition`; optional `category`, `attributes`, `entity` | `definition` names a `definition` block (`E_REF_BROKEN`). One definition has one owner: a second concept that names it is `E_SEMANTIC`. `category`: `thing`, `actor`, `event`, `value`, or `rule`. `attributes` is a list of short strings. `entity` follows the §9.3 canonical-entity rule. |
+| `relation` | `id`, `from`, `to`, `kind`, `label`; optional `cardinality` | Endpoints are concepts in the same figure. `kind`: `is-a`, `has`, `uses`, `produces`, or `identifies`. `cardinality` is a string, such as `1..*`. |
+
+A concept always names a definition, also when the reader profile knows the term, because a box on the map is a term worth one sentence. The concept takes the first sentence of its definition as its hover text and its glossary line. A `node role="concept"` is a concept placed in an architecture map; `entity` links the two, and the inspector of the concept lists the parts that share its entity ("Appears in").
+
+Terms: the label of a concept is an alias of its definition for the term auto-link (§10.4) when it differs from the term. The canonical detail of an owned definition carries `data-vs-concept=CONCEPT`. A click on a term of that definition opens the concept in the inspector (its definition body, its relations, and where it appears); the hover bubble stays the definition's first sentence.
+
+Rendering: the graph kernel, with ELK layered as for the architecture map. The map is left to right. It goes top to bottom if it is wider than 1100 px and top to bottom is narrower, as for the other families, or if top to bottom costs less height with the glossary counted. The cost on a 1200 px window: with G = 40 + 44 × concepts as the glossary height, a map up to 792 px wide costs max(height, G), because the glossary sits beside it; a wider map costs height + 12 + G, because the glossary goes under it (`domainCost` in `layout.ts`). A tie keeps left to right. A concept box shows its label, and its `attributes` as one muted line under it; this is the one exception to the label-only rule for this family. The hue follows `category`, with a shape cue: thing slate (radius 6), actor teal pill, event amber chamfer, value green with a double outline and no fill, rule violet dotted outline. The double outline stays in forced colours, where a box with no fill and a plain box look the same. A relation `kind` is a line pattern and a line end: `is-a` a hollow triangle at `to`, `has` a filled diamond at `from` (the owner) and no arrowhead, `uses` dashed, `produces` solid with an arrow, `identifies` dotted. The `cardinality` follows the relation label after a middle dot ("contains · 1..*"), so the layout reserves its space, and the relation's aria-label carries the kind and the cardinality. The legend has a chip for each category and each relation kind that the figure uses.
+
+The map and a glossary table share one row: term (the concept's list instance) with its category word in muted text, the first sentence of its definition, and a "Read more" link into the inspector. The build computes the first sentence once; the definition's canonical detail carries it in `data-vs-summary`, and the term bubble shows the same text. On a window of 1200 px or more the row is centred on the text column and is never wider than the window minus 4rem: the map at its natural width, and the glossary 20 to 40rem wide. The glossary goes beside the map only if it gets 30rem or more there, else it goes under the map at up to 40rem. The view bar is before the row, in the text column. On a narrow screen the glossary comes first and the map is behind **Show map**. The relation list is behind the view toggle, as for the other graph families; without JavaScript and in print, all three show.
+
+Text projection: the glossary first, one line per concept ("Order: first sentence", then its category and attributes), then each relation as a sentence, "Order has Invoice line (1..*): label".
+
+Review: `W_JARGON` suggests a `domain` figure at 3 or more undefined terms when the document has none, and `W_MERMAID` names `domain` for `erDiagram` and `classDiagram`. No document kind requires a domain; the skill suggests it, the agent decides, and a user request overrides.
+
+### 9.14 Walkthrough — `steps`
+
+**Question:** In what order does the reader look at the parts of this figure, and what happens at each one?
+
+**Status:** added in revision 1.27 (IMPROVEMENTS.md §14.1), with §9.15 to §9.18.
+
+A `steps` tag goes directly inside a `graph` (any mode), `trace`, `transform`, `compare`, `annotated`, or `domain`; one figure has one `steps` (`E_SEMANTIC`). Each `step` has `id`, `label`, and `targets`, a list of parts of the same figure (`E_REF_BROKEN` for an ID outside it or for the figure itself); its body is text with citations. Above 8 steps the validator gives `W_VISUAL_DENSITY`. A step order is a reading order, not a claim about execution order; only a `trace` has `after`.
+
+`steps` and `step` are targets but not inspectable: their canonical elements are the `<section class="vs-steps">` and its `<li class="vs-step">` items at the end of the figure, with a link to each part. That list is the view without JavaScript, in print, and on a narrow screen. With JavaScript on a wide screen, the runtime adds a step bar ("1 of 4 · label", **Previous**, **Next**, the arrow keys in the bar). The bar starts at an overview that marks nothing; at a step, the step's targets get `vs-near` and the other parts `vs-dim` (§10.2, the hover neighbourhood classes), and the step text shows beside the bar. In a `graph` of any mode and in a `domain`, the list says "Reading order, not execution order." (revision 1.28). A step cannot name a `detail`: it is not drawn (`E_REF_BROKEN`). The runtime keeps one mark state for each figure (the hovered and the focused node, the active step, the pressed filter chips, the folded groups) and one for the cross-figure highlight, and computes every `vs-near` and `vs-dim` from it after each change: the neighbourhood of a hovered or focused node wins over a step, and a step wins over the filter, which comes back at the overview. The text projection is the numbered list with the targets of each step.
+
+### 9.15 Note — `note`
+
+**Question:** What must the reader not miss here?
+
+A top-level block with `id` and `kind`: `limit`, `assumption`, or `warning`; there is no free kind. The body is one or two sentences. The page shows a 4 px left rule in the category hue (limit slate, assumption amber, warning rose) and the kind word as an eyebrow; the word is the paired cue, and there is no icon. The text projection is "Limit: …". A note with no body is `E_SYNTAX` (revision 1.28). The caveat rule stays: a caveat that changes the conclusion is in the main sentence, and a note can repeat it but never replaces it. `check --review` gives `W_NOTE_DENSITY` above one note for each 300 main-path words; a document can always have one note. In a `kind: decision` record, only the `limit` and `warning` notes count, because the guide asks for one assumption note for each assumption.
+
+### 9.16 Self-check — `self-check`
+
+**Question:** Can the reader predict or explain this without the page?
+
+A top-level block with `id` and `question`; the body is the answer, with citations. The question is the target's label. A self-check with no answer is `E_SYNTAX` (revision 1.28). The page shows the question and a native `details` with the summary "Show answer"; print opens it, and **Expand details** does not, so the reader answers first. The text projection gives the question, then "Answer:" and the answer. The guide allows the four task types of the comprehension trial: reconstruct, predict, explain with evidence, and name a limit. `check --review` gives `W_SELF_CHECK` for a self-check outside a `kind: teaching` document.
+
+### 9.17 Measure — `measure`
+
+**Question:** How large is it, and how did it change?
+
+Required attributes: `id`, `title`, `question`, and `unit`. Children are 1 to 12 `reading` tags (`E_LIMIT` above 12) with `id`, `label`, `value` (a number, 0 or more), `valueStatus` (`measured`, `estimated`, or `illustrative`), and optional `evidence` and `display` (the text of the value, such as "0.50", revision 1.28). A number with no `display` prints in plain decimal form, with no exponent. A reading is an inspectable part; a reading with `evidence` shows its excerpt first.
+
+The page draws one horizontal ink bar for each reading, from zero, in authored order, with the value and the unit after it. A reading that is not `measured` is an outline with a hatch, and its value text names its status. The axis shows zero and the maximum only. There are no lines, pies, or second series. A table of reading, value, status, and evidence is the list view, the narrow-screen view, and the text projection (the ID line of a reading is in its first cell). `check --review` gives `W_EVIDENCE_GAP` for a reading with no `evidence`.
+
+### 9.18 Code map — `tree`
+
+**Question:** Where is what, and who owns it?
+
+Required attributes: `id`, `title`, `question`. An `entry` goes inside the `tree` or inside another `entry`, with `id`, `path` (text; nothing checks that it exists), `label`, and optional `role` (the architecture roles of §9.3) and `evidence`. An entry is an inspectable part; a click on it opens the inspector with its evidence first.
+
+The page shows an indented list: the path in mono, the label, and the role cue (the role swatch of §9.3 and the role word). The children of an entry are in a native `details` under the entry line, with the summary "N entries"; the top two levels start open. The entry link is outside the summary, so no link is inside another control (revision 1.28). An entry with `evidence` has a small "evidence" mark. The text projection is an indented list. Above 40 entries the validator gives `W_VISUAL_DENSITY`.
+
+`trace` and `annotated` gain two extensions in the same revision: observations on a time scale (§9.4) and a before-and-after view (§9.10). A decision record is a guide, not a component: `references/catalogue/decision.md` gives the fixed shape of a `kind: decision` document.
+
 ## 10. Reader interface and accessibility
 
 ### 10.1 Default page
@@ -991,6 +1062,8 @@ Deep links: with JavaScript, the runtime opens the target detail on load and on 
 Desktop inspector: nonmodal `<aside>` with labelled heading, close button, back control, and source/reference actions. Narrow-screen inspector: native `<dialog>` enhanced as a full-width detail view; pressing Escape or Back returns focus/scroll to the originating element. Test `showModal()` support; static anchors remain fallback if unavailable. Only the current detail is moved into the active presentation.
 
 Nested inspection replaces the visible detail and pushes its ID on a bounded history stack (maximum 20), not another modal. Browser history updates only on explicit navigation, not on hover or every scroll highlight.
+
+Figure interactions (revision 1.27, IMPROVEMENTS.md §14.9; the markup is in `dom-contract.ts`). Each item of a part's Appears-in section carries `data-vs-entity`; a hover or focus on a node, an actor, or a concept marks those parts in other figures with `vs-near`. A legend chip and each SVG node and edge carry `data-vs-filter` tokens; with JavaScript a chip is a toggle button (`aria-pressed`) that dims the parts with none of the pressed tokens. For each `group collapsed=true` the SVG holds a hidden fold box (`data-vs-fold`, `data-vs-fold-hide`), a Fold control (`data-vs-fold-toggle`), and proxy edges (`data-vs-proxy-for`, `-from`, `-to`, `-ends`) in the static HTML; the runtime only sets `hidden`. The fold box and the control follow their group's element; the control is at least 44 × 24 px; each proxy has its own point on the face of the fold box. A folded group keeps its boundary, dashed and with no label. A fold box takes the `vs-near` or `vs-dim` state of the parts that it hides, and a `focus` link to a hidden part unfolds its group first. Print shows every group unfolded and no chip pressed.
 
 ### 10.3 Canonical DOM identity
 
@@ -1417,6 +1490,8 @@ One site copies each required toolkit/extension asset pack once. Local serving m
 
 Generated HTML contains all main prose, figure SVG, relation/event alternatives, inspection bodies, definitions, and captured evidence. The JavaScript runtime enhances this DOM. It does not fetch a document AST or call an API before the explanation becomes readable.
 
+Depth is one click away; the main view carries the path (IMPROVEMENTS.md §2.2). With the runtime, a wide screen shows the drawing and puts the text lists behind a "Show as list" toggle, and the appendix hides the row of a part with no body and no evidence (the inspector still shows that part). These are runtime changes only. Without JavaScript and in print, the text lists and every appendix row stay visible, so the static HTML stays complete. A generated count counts what the reader sees: the static "Parts of 'TITLE' (N)" counts every row, and the runtime changes N to the rows that show.
+
 No per-document script is generated. A runtime failure leaves meaningful HTML and ordinary links. All user-specific content is escaped; generated SVG uses a safe element/attribute allowlist.
 
 ### 13.3 Local command
@@ -1628,7 +1703,9 @@ Use stable diagnostic codes and source locations. Required codes:
 | `E_LAYOUT_LIMIT`, `E_LAYOUT_TIMEOUT` | Graph exceeds declared resource bounds. |
 | `E_WRITE_CONFLICT` | Lock/revision/raw file changed before guarded write. |
 | `E_PRIVATE_EXPORT` | Public export contains material requiring explicit approval. |
-| `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. `check --review` adds them only when the document has no errors, and they never change the exit code (revision 1.20). The rules are in `packages/core/src/review/index.ts`: vague intensifiers and undefined repeated acronyms; more than 25 nodes, empty edge labels, or an architecture map that claims an order; `observed` claims without evidence, chronology labels on causal links, uncited certainty, and a caveat placed only in a detail. |
+| `W_JARGON`, `W_VISUAL_DENSITY`, `W_EVIDENCE_GAP` | Editorial review prompts, not claims of objective correctness. `check --review` adds them only when the document has no errors, and they never change the exit code (revision 1.20). The rules are in `packages/core/src/review/index.ts`: vague intensifiers and undefined repeated acronyms; more than 25 nodes, empty edge labels, or an architecture map that claims an order; `observed` claims without evidence, chronology labels on causal links, uncited certainty, a caveat placed only in a detail, a task `due` with no `evidence`, a relationship `quantity` with no `evidence`, and (in a `root-cause` document) a count for each figure of the parts with no `evidence` and no `cite`. A collapsed group counts as one node in the node count (revision 1.28). |
+| `W_NOTE_DENSITY`, `W_SELF_CHECK` | Added by IMPROVEMENTS.md §14.2 and §14.3 (revision 1.27), in `review/components.ts`, with the same rules as `W_JARGON`: more than one `note` for each 300 main-path words (one note is always allowed), and a `self-check` outside a `kind: teaching` document. The same file adds `W_EVIDENCE_GAP` for a measure `reading` or a trace `observation` with no `evidence`. |
+| `W_SENTENCE_LENGTH`, `W_PASSIVE`, `W_CONTRACTION`, `W_VAGUE_QUANTITY`, `W_SYNONYM`, `W_READER`, `W_LENGTH`, `W_FIGURE_COUNT`, `W_LATE_FIGURE`, `W_LABEL_LENGTH`, `W_DUPLICATE`, `W_HEADING`, `W_MERMAID`, `W_TERM_UNUSED`, `W_TERM_COLLISION` | Added by IMPROVEMENTS.md §6.2, §11.3, §12.4, and §13.6. Editorial review prompts with the same rules as `W_JARGON`: `check --review` only, warnings, no exit-code change. Each message gives the measured value and the budget. Prose rules (`review/prose.ts`), shape and budget rules by `kind` (`review/shape.ts`), and term rules (`review/terms.ts`). `W_JARGON` also counts an acronym or a `reader.new` item used 2 or more times with no definition. |
 | `W_UNSAFE_TEXT` | Bidirectional control characters rendered as visible escapes. |
 | `E_ORIGIN_MISMATCH` | `check --verify-origins`: a captured excerpt differs from its origin; exit 2. |
 | `W_ORIGIN_UNAVAILABLE` | `check --verify-origins`: the origin could not be read (missing object, repository, or file); a warning, so the exit stays 0. |
@@ -1660,15 +1737,21 @@ No particular model API is required. The skill is ordinary instruction text plus
 
 ### 16.2 Authoring workflow
 
-1. **Establish the explanatory task.** Identify what the reader must be able to reconstruct, predict, compare, or decide. Use the experienced-engineer baseline and supplied overrides. Do not start a long interview when material is sufficient.
-2. **Read established material.** Locate enough source to explain mechanisms and interfaces; preserve the distinction between supplied conclusions and independently established facts. Mark important gaps or contradictions. Do not silently perform a separate root-cause investigation.
-3. **Sketch the mental model.** Privately select the main path, a concrete execution/example, important constraints, and likely follow-up questions. Do not force the sketch into the published headings.
-4. **Select representations.** Prefer prose/table/example when sufficient. Read only relevant catalogue guides. Select visuals for a specific question, not for variety.
-5. **Capture evidence.** Use the CLI for exact Git excerpts and metadata; do not hand-invent SHA values or line ranges. Retain minimum useful context. Examples are labelled examples.
-6. **Author declaratively.** Keep main qualifications visible. Put inspectable detail near its semantic owner. Define unfamiliar terms, label edges, assign stable IDs, and reuse canonical entities rather than duplicate facts.
-7. **Validate and inspect.** Run source, relationship, provenance-consistency, projection, and build checks. Inspect wide and narrow views when the available tools permit it. Correct unreadable figures rather than shrinking their labels indefinitely.
-8. **Edit for comprehension.** Remove repetition, vague intensifiers, unexplained jargon, obligatory symmetrical sections, and claims not supported by the supplied material. Check that essential caveats are not hidden behind clicks.
-9. **Deliver the snapshot.** Provide the reading URL/path, source path, snapshot IDs, and any unverified assumptions. Do not publish, install untrusted extensions, enable public access, or change application code without authorization.
+Revision 1.25 replaced the workflow below (IMPROVEMENTS.md §6.2, §7, §11, §12, §13.6, §13.7). `skills/visual-explain/SKILL.md` gives the full text. `references/operations.md` gives the shim, the lock, a missing or untrusted toolkit, and `--dev-toolkit` inside the Visser repository.
+
+1. **Establish the task and the reader.** Identify what the reader must explain, predict, compare, or decide. Ask only if an open choice changes the document. Write `reader.profile`, `knows`, `new`, and 2 to 5 testable `mustUnderstand` items in the frontmatter.
+2. **Read established material.** Keep implementation evidence, observations, inferences, hypotheses, and examples apart. If two sources disagree and it matters, keep both. Do not start a separate root-cause investigation.
+3. **Give the outline.** Give the outline in the reply before writing: one row for each section, with its question, its representation, and its word budget. The main path states each main claim, each mechanism, and each caveat that changes a decision. Do not ask for approval.
+4. **Select representations by question.** Each section answers one question. If a catalogue component answers it, the section opens with that figure. Otherwise write prose. Remove a figure with no question, and a figure whose question prose answers as well. Mermaid is an escape hatch, not a catalogue answer.
+5. **Create the bundle.** Run `visser init PATH --kind KIND --title TITLE`, with `--must-understand TEXT` for each item. Never write `docId` or the lock by hand.
+6. **Capture evidence.** Use the capture commands. Never type an `excerptSha256`, a commit, or a line range. Keep working-tree captures labelled. Capture illustrative code with `--kind example`.
+7. **Author declaratively.** A node label has at most 4 words, and an edge label at most 5. A part body gives the reason for its part; the prose does not repeat it. Define each unfamiliar term once in a `definition`; the build links every use, `aliases` add plurals and short forms, and a `term` tag is only for a different phrasing. Reuse canonical entities. Cite each claim about what code does. Put `evidence` on a part to name the source that shows it; a `cite` supports one sentence in the body.
+8. **Keep to the budget.** The budget counts main-path words and figures by `kind` (`BUDGETS` in `review/shape.ts`). At most 120 main-path words come before the first figure. Over budget: move depth into a `detail` or a part body, or split the document. Never drop a caveat.
+9. **Validate.** Run `ids assign` only to insert missing IDs, then `check`. Fix broken references and hashes. Never suppress a diagnostic. On `E_SYNTAX` or `E_SPAN_UNPROVEN`, change only the named block.
+10. **Review.** Run `check --review`. Then test the main path: for each `mustUnderstand` item, name the main-path target that answers it. If a subagent is available, give it only the Markdown export and the `mustUnderstand` items as questions. A wrong or missing answer is a finding.
+11. **Build and inspect.** If a browser or a screenshot tool is available, inspect each figure at 1440 px. A label that wraps to 3 lines, two labels that overlap, a figure taller than 700 px, or a node with more than 6 edges is a finding. Split the figure or shorten the labels; do not shrink the text. Check a narrow view. Never claim an inspection that did not occur.
+12. **Edit for comprehension.** Remove stock phrases, repetition, unsupported jargon, topic headings, a `compare` with a winner, a trace of a straight line, and sections that exist for symmetry.
+13. **Deliver.** Read each cited excerpt again next to its sentence. A claim that a change does or does not change a result needs a test on a copy, if possible. Give the source path, the reading location, the snapshot IDs, the checks that ran, and each unverified assumption. Do not publish, install or trust a toolkit or an extension, enable public access, or change application code without authorization.
 
 For a reference-based edit, begin with resolution and revision checks in §11 and follow the shortest subset of this workflow consistent with the requested change.
 
@@ -2301,7 +2384,7 @@ class BoundedQueue:
 
 ## Appendix B: initial skill instructions
 
-This is the canonical skill text; the implementation materializes it as `skills/visual-explain/SKILL.md`. Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
+This is the initial skill text. The implementation materialized it as `skills/visual-explain/SKILL.md`. Since revision 1.25, that file is the canonical text, and §16.2 summarizes its workflow. If this draft and `SKILL.md` differ, `SKILL.md` wins. For example, `references/operations.md` now replaces "Load the correct toolkit". Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
 
 ````markdown
 ---

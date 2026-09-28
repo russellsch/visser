@@ -2,6 +2,8 @@
 
 **Question:** What states are possible, and which events and guards permit transitions?
 
+**Confused with:** `trace` (one run) and `plan` (steps, not states).
+
 ## Use it when
 
 - An object has a lifecycle, and the reader must know which moves are allowed.
@@ -29,7 +31,7 @@ verification.
 | Tag | Required | Optional |
 |---|---|---|
 | `graph` | `id`, `title`, `question`, `mode` | — |
-| `state` | `id`, `label` | `initial`, `terminal` |
+| `state` | `id`, `label` | `initial`, `terminal`, `evidence` |
 | `transition` | `id`, `from`, `to`, `event`, `label` | `guard`, `action`, `basis` |
 
 - `initial` and `terminal` are booleans: `initial=true`.
@@ -42,6 +44,8 @@ verification.
 - At most one state is `initial`.
 - A `terminal` state has no outgoing transition.
 - Cycles and self-transitions are allowed.
+- `evidence=["src_states"]` names `source` targets: the code that defines
+  this state. A `cite` supports one sentence in the body.
 - Do not invent a guard that the source does not state.
 
 ## Narrow screens and text
@@ -83,4 +87,5 @@ The guard makes close graceful.
 - `E_SEMANTIC`: two initial states, or a transition leaves a terminal state.
   Split the figure or remove the transition.
 - `E_SYNTAX`: `initial="true"` in quotes. Write `initial=true`.
-- `E_REF_BROKEN`: `from` or `to` is not a state in this figure.
+- `E_REF_BROKEN`: `from` or `to` is not a state in this figure, or `evidence`
+  names something that is not a `source`.

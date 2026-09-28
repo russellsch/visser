@@ -2,8 +2,12 @@
 // prose only: inline code, fences, and citation markers are not prose.
 import type { MNode } from '../model/targets.ts';
 
-/** The prose of `node` without its child targets, inline code, fences, or citation markers. */
-export function proseOf(node: MNode, isTarget: (n: MNode) => boolean): string {
+/**
+ * The prose of `node` without its child targets, inline code, fences, or
+ * citation markers. With `code`, each inline code span becomes that one word,
+ * so that a word count still counts it (the reader reads it).
+ */
+export function proseOf(node: MNode, isTarget: (n: MNode) => boolean, code = ' '): string {
   const parts: string[] = [];
   const visit = (n: MNode) => {
     if (n !== node && isTarget(n)) return;
@@ -12,6 +16,8 @@ export function proseOf(node: MNode, isTarget: (n: MNode) => boolean): string {
         parts.push(String(n.attributes['content'] ?? ''));
         return;
       case 'code':
+        parts.push(code === ' ' ? ' ' : ` ${code} `);
+        return;
       case 'fence':
         parts.push(' ');
         return;
@@ -56,4 +62,19 @@ export function visibleAttributes(node: MNode): string[] {
   return ['title', 'label', 'question', 'summary', 'term']
     .map((key) => node.attributes[key])
     .filter((v): v is string => typeof v === 'string');
+}
+
+/** The words of a text: whitespace-separated tokens that contain a letter or a digit. */
+export function wordsOf(text: string): string[] {
+  return text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+}
+
+/** Text with quoted material ("...", “...”) removed: the prose rules do not apply to a quotation. */
+export function withoutQuotes(text: string): string {
+  return text.replace(/"[^"\n]*"|“[^”\n]*”/g, ' ');
+}
+
+/** A number with a thousands separator, the same on every machine. */
+export function formatCount(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }

@@ -29,7 +29,7 @@ marks what this service owns.
 Everything inside is deployed and owned together.
 {% /group %}
 
-{% node id="n_api" group="g_service" label="Order API" role="interface" %}
+{% node id="n_api" group="g_service" label="Order API" role="interface" evidence=["src_accept_order"] %}
 Validates the request and answers the client.
 {% /node %}
 
@@ -41,7 +41,7 @@ Holds each order with its payment state.
 Holds one charge request per order.
 {% /node %}
 
-{% node id="n_worker" group="g_service" label="Charge worker" role="process" %}
+{% node id="n_worker" group="g_service" label="Charge worker" role="process" evidence=["src_charge_next"] %}
 Takes charge requests and calls the payment provider.
 {% /node %}
 
@@ -64,6 +64,20 @@ A retry with the same key cannot charge twice.
 {% /edge %}
 
 {% edge id="e_update" from="n_worker" to="n_store" kind="call" label="mark paid or failed" /%}
+
+{% steps id="walk_components" %}
+{% step id="wk_accept" label="The API accepts the order" targets=["n_api", "e_insert", "e_enqueue", "n_store", "n_queue"] %}
+The API writes the order and the charge request, then answers the client. {% cite ref="src_accept_order" /%}
+{% /step %}
+
+{% step id="wk_charge" label="The worker charges the card" targets=["n_worker", "e_take", "e_charge", "n_provider"] %}
+The worker uses the order ID as the idempotency key. {% cite ref="src_charge_next" /%}
+{% /step %}
+
+{% step id="wk_record" label="The worker records the result" targets=["n_worker", "e_update", "n_store"] %}
+Only this write changes the payment state of the order.
+{% /step %}
+{% /steps %}
 {% /graph %}
 
 <!-- vs:id p_trace -->
@@ -129,3 +143,28 @@ One.
 One per submission.
 {% /cell %}
 {% /compare %}
+
+{% source id="src_accept_order" kind="example" title="Order API handler" language="typescript" excerptSha256="b6d5a5a97faba890883dc27f629bd596beb81bb7cbd1d90c79d1b5aaadb40eb7" %}
+```typescript
+// Illustrative: one transaction stores the order and its charge request.
+export async function acceptOrder(db: Db, request: OrderRequest): Promise<Reply> {
+  const order = validate(request);
+  await db.transaction(async (tx) => {
+    await tx.insert('orders', { ...order, payment: 'pending' });
+    await tx.insert('charge_queue', { orderId: order.id, amount: order.amount });
+  });
+  return { status: 202, body: { orderId: order.id } };
+}
+```
+{% /source %}
+
+{% source id="src_charge_next" kind="example" title="Charge worker loop" language="typescript" excerptSha256="aee9013c8867a011964205e8801bd0781d02088d8791d679d44799668b59c647" %}
+```typescript
+// Illustrative: the order ID is the idempotency key of the charge.
+export async function chargeNext(queue: Queue, provider: Provider, db: Db): Promise<void> {
+  const request = await queue.take();
+  const result = await provider.charge(request.amount, { idempotencyKey: request.orderId });
+  await db.update('orders', request.orderId, { payment: result.ok ? 'paid' : 'failed' });
+}
+```
+{% /source %}

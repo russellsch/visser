@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
-import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, openSnapshot, showMap, test } from './support.ts';
+import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, openSnapshot, showList, showMap, test } from './support.ts';
 
 const APPENDIX = 'vs-appendix';
 
@@ -48,6 +48,7 @@ test.describe('inspection', () => {
 
   test('@R04 inspect edge from the relationship list; close returns it to the appendix', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
+    await showList(page, 'handoff');
     const item = byId(page, 'l-handoff.enqueue');
     await item.click();
     await expectInspectorOpen(page, 'enqueue');
@@ -66,17 +67,92 @@ test.describe('inspection', () => {
   test('@R05 definition tooltip shows the first sentence and Escape dismisses it', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'hover tooltip is a pointer affordance; tap opens the definition');
     await openSnapshot(page);
-    await page.locator('a.vs-term').hover();
+    await page.locator('#vs-doc a.vs-term').first().hover();
     const tip = page.locator('#vs-tooltip');
-    await expect(tip).toHaveText('A mechanism that makes upstream work wait or slow down when a downstream resource cannot accept more work.');
+    // The bubble holds the first sentence and an "Open definition" link (IMPROVEMENTS.md §13.4).
+    await expect(tip.locator('.vs-tooltip__text')).toHaveText('A mechanism that makes upstream work wait or slow down when a downstream resource cannot accept more work.');
+    await expect(tip.locator('a.vs-tooltip__open')).toHaveText('Open definition');
     await page.keyboard.press('Escape');
     await expect(tip).toHaveCount(0);
   });
 
   test('@R05 tapping or clicking a term opens the persistent definition', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
-    await page.locator('a.vs-term').click();
+    await page.locator('#vs-doc a.vs-term').first().click();
     await expectInspectorOpen(page, 'def_backpressure');
+  });
+});
+
+test.describe('appendix and inspector (dogfood-3 F3, F4)', () => {
+  test('the appendix is grouped with Sources first, and each source row shows its origin', async ({ page, offOrigin: _ }) => {
+    await openSnapshot(page);
+    // IMPROVEMENTS.md §4.5: Sources and Definitions first and open, then one
+    // collapsed "Parts of 'TITLE' (N)" group per figure.
+    const headings = await page.locator(`#${APPENDIX} .vs-appendix-group > summary > h3`).allTextContents();
+    expect(headings[0]).toBe('Sources');
+    expect(headings[1]).toBe('Definitions');
+    expect(headings.some((t) => /^Parts of '.+' \(\d+\)$/.test(t))).toBe(true);
+    await expect(page.locator(`#${APPENDIX} details.vs-appendix-open`).first()).toHaveAttribute('open', '');
+    await expect(page.locator(`#${APPENDIX} details.vs-appendix-parts`).first()).not.toHaveAttribute('open', '');
+    const source = byId(page, 'x-src_queue');
+    expect(await source.evaluate((d) => d.closest('.vs-appendix-group')?.querySelector('h3')?.textContent)).toBe('Sources');
+    await expect(source.locator(':scope > summary .vs-source-origin-summary')).toHaveCount(1);
+  });
+
+  test('the filter hides rows and empty groups, announces the count, and Escape clears it', async ({ page, offOrigin: _ }) => {
+    await openSnapshot(page);
+    const input = page.getByLabel('Filter details and evidence');
+    const status = page.locator('#vs-appendix-filter-status');
+    // A part with no body and no evidence has no row (IMPROVEMENTS.md §4.5).
+    const rows = page.locator(`#${APPENDIX} .vs-appendix-group > details.vs-detail:not(.vs-detail-bare)`);
+    const total = await rows.count();
+    await expect(status).toHaveText(`${total} of ${total} shown`);
+    await input.fill('zzzz-no-such-row');
+    await expect(status).toHaveText(`0 of ${total} shown`);
+    await expect(page.locator(`#${APPENDIX} .vs-appendix-group:not([hidden])`)).toHaveCount(0);
+    await input.fill('queue');
+    const shown = await rows.evaluateAll((els) => els.filter((e) => !(e as HTMLElement).hidden).length);
+    expect(shown).toBeGreaterThan(0);
+    expect(shown).toBeLessThan(total);
+    await expect(status).toHaveText(`${shown} of ${total} shown`);
+    await input.press('Escape');
+    await expect(input).toHaveValue('');
+    await expect(status).toHaveText(`${total} of ${total} shown`);
+  });
+
+  test('a source opened in the inspector shows the excerpt first, then the origin, then Provenance, with no repeated summary', async ({ page, offOrigin: _ }) => {
+    await openSnapshot(page, '', 'bounded-queue');
+    await page.locator('#vs-doc a.vs-cite[href="#x-src_queue"]').first().click();
+    const host = isNarrow(page) ? page.locator('dialog#vs-inspector-dialog') : page.locator('aside#vs-inspector');
+    const detail = host.locator('details[id="x-src_queue"][open]');
+    await expect(detail).toBeVisible();
+    await expect(detail.locator(':scope > summary')).toBeHidden();
+    const order = await detail.evaluate((d) => {
+      const at = (sel: string) => {
+        const e = d.querySelector(sel);
+        return e ? Array.from(d.querySelectorAll('*')).indexOf(e) : -1;
+      };
+      return { code: at('pre'), origin: at('.vs-source-origin'), provenance: at('details.vs-provenance') };
+    });
+    expect(order.code).toBeGreaterThanOrEqual(0);
+    expect(order.code).toBeLessThan(order.origin);
+    expect(order.origin).toBeLessThan(order.provenance);
+    await expect(detail.locator('details.vs-provenance')).not.toHaveAttribute('open', '');
+  });
+
+  test('on a wide screen the open inspector does not cover the text column', async ({ page, offOrigin: _ }) => {
+    test.skip(isNarrow(page), 'narrow screens use a full-screen dialog');
+    await openSnapshot(page);
+    await page.locator('#vs-doc a.vs-cite[href="#x-src_queue"]').first().click();
+    const aside = page.locator('aside#vs-inspector');
+    await expect(aside).toBeVisible();
+    const docRight = await page.locator('#vs-doc').evaluate((d) => d.getBoundingClientRect().right);
+    const asideLeft = await aside.evaluate((a) => a.getBoundingClientRect().left);
+    const docLeft = await page.locator('#vs-doc').evaluate((d) => d.getBoundingClientRect().left);
+    expect(docLeft).toBeGreaterThanOrEqual(0);
+    // The text column may be narrower than 74ch when the window is small; then
+    // it only has to start inside the window.
+    if (docLeft > 16) expect(docRight).toBeLessThanOrEqual(asideLeft);
   });
 });
 
@@ -155,6 +231,7 @@ test.describe('reference mode', () => {
       await denyClipboard(page, mode);
       await openSnapshot(page);
       await page.locator('#vs-btn-refmode').click();
+      await showList(page, 'handoff');
       await byId(page, 'l-handoff.enqueue').click();
       await page.locator('#vs-refpanel').getByRole('button', { name: 'Copy reference', exact: true }).click();
       const area = page.locator('textarea#vs-copy-fallback');
@@ -229,6 +306,7 @@ test.describe('layout and print', () => {
   test('beforeprint returns a moved detail to its placeholder', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
     const idsBefore = await page.evaluate(() => Array.from(document.querySelectorAll('[id^="x-"]')).map((n) => n.id).sort());
+    await showList(page, 'handoff');
     await byId(page, 'l-handoff.enqueue').click();
     await expectInspectorOpen(page, 'enqueue');
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
@@ -244,11 +322,15 @@ test.describe('layout and print', () => {
     await expect(byId(page, 'x-producer').locator('p:not([data-vs-generated])')).toBeVisible();
   });
 
-  test('Expand details opens every detail', async ({ page, offOrigin: _ }) => {
+  test('Expand details opens every detail but a self-check answer (phase 6a review C11)', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
     await page.locator('#vs-btn-expand').click();
-    const closed = await page.locator('details:not([open])').count();
-    expect(closed).toBe(0);
+    // The reader answers a self-check first; print still opens the answer.
+    expect(await page.locator('details:not([open]):not(.vs-self-check-answer)').count()).toBe(0);
+    await expect(page.locator('details.vs-self-check-answer')).toHaveCount(1);
+    await expect(page.locator('details.vs-self-check-answer')).not.toHaveAttribute('open', '');
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await expect(page.locator('details.vs-self-check-answer')).toHaveAttribute('open', '');
   });
 });
 
@@ -264,6 +346,7 @@ test.describe('accessibility', () => {
 
   test('axe: no serious or critical violations with the inspector open', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
+    await showList(page, 'handoff');
     await byId(page, 'l-handoff.enqueue').click();
     await expectInspectorOpen(page, 'enqueue');
     const result = await new AxeBuilder({ page }).withTags(tags).analyze();

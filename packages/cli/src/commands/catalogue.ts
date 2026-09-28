@@ -1,21 +1,33 @@
 // `visser catalogue list [--json]` and
 // `visser catalogue show NAME [--part guide|template|schema] [--json]` (§9.1, §17.1).
 // Reads the guides of the resolved toolkit (the same selection as `skill show`:
-// --doc, --toolkit-dir, the workspace or user default, then the running
-// release). The attribute rules in `--part schema` come from the validator of
+// --dev-toolkit, --doc, --toolkit-dir, the workspace or user default, then the
+// running release). The attribute rules in `--part schema` come from the validator of
 // the running CLI, which is the resolved toolkit's own CLI (§12.7). Read-only.
 import { findPattern, listCatalogue, patternSchema, PATTERNS, readPatternGuide, guideTemplate } from '../../../core/src/catalogue/index.ts';
 import { CliError, EXIT, type ParsedArgs, printJson, stringFlag } from '../cli-util.ts';
 import { selectForSkill, type SkillOptions } from './skill.ts';
 
 const USAGE = [
-  'usage: visser catalogue list [--doc PATH] [--toolkit-dir DIR] [--json]',
-  '       visser catalogue show NAME [--part guide|template|schema] [--doc PATH] [--toolkit-dir DIR] [--json]',
+  'usage: visser catalogue list [--doc PATH] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]',
+  '       visser catalogue show NAME [--part guide|template|schema] [--doc PATH] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]',
   `names: ${PATTERNS.map((p) => p.name).join(', ')}`,
 ].join('\n');
 
 const PARTS = ['guide', 'template', 'schema'] as const;
 type Part = (typeof PARTS)[number];
+
+/**
+ * The text form of `catalogue list`: one line per pattern with its question.
+ * An escape hatch (`mermaid`) comes last, under a rule, with its title, so
+ * that a reader does not take it for a catalogue answer (IMPROVEMENTS.md §6.2).
+ */
+function listText(entries: ReturnType<typeof listCatalogue>): string {
+  const hatch = (name: string) => findPattern(name)?.escapeHatch === true;
+  const main = entries.filter((e) => !hatch(e.name)).map((e) => `${e.name.padEnd(13)} ${e.question}\n`);
+  const last = entries.filter((e) => hatch(e.name)).map((e) => `${e.name.padEnd(13)} ${e.title.replace(/ — .*$/, '')}: ${e.question}\n`);
+  return [...main, ...(last.length > 0 && main.length > 0 ? [`${'-'.repeat(13)}\n`] : []), ...last].join('');
+}
 
 export async function runCatalogue(args: ParsedArgs, opts: SkillOptions = {}): Promise<number> {
   const [action, name, ...extra] = args.positional;
@@ -37,7 +49,7 @@ export async function runCatalogue(args: ParsedArgs, opts: SkillOptions = {}): P
   if (action === 'list') {
     const entries = listCatalogue(toolkit.dir);
     if (json) printJson('catalogue', { schema: 'visser-catalogue/1', toolkit, entries });
-    else process.stdout.write(entries.map((e) => `${e.name.padEnd(13)} ${e.question}\n`).join('') || 'this toolkit has no catalogue guides\n');
+    else process.stdout.write(listText(entries) || 'this toolkit has no catalogue guides\n');
     return EXIT.ok;
   }
 

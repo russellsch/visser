@@ -222,3 +222,72 @@ Error and warning codes, Markdoc tag names, target ID formats, and the default d
 ## Revision 1.24 — second authoring run and install pressure test
 
 A second authoring run ("The life of a target ID") and an install pressure test (108 checks, `docs/validation/install-pressure-1.md`) found 16 install problems and 11 authoring problems. Install fixes: the shim forwards signals; user-level commands work when the default toolkit is missing; `doctor --doc` reports resolution errors instead of stopping; `~/.visser` no longer makes the home folder a repository, and the root search stops at a folder every user can write; `VISSER_HOME` must be absolute, and a missing home is an error; interrupted installs are cleaned up; the trust lock is taken before activation; `--help` and `--version`; an untrusted repository copy is skipped when the user installed the same digest.
+
+## Revision 1.25 — skill text and review prompts
+
+This revision implements IMPROVEMENTS.md §6.2, §7, §11, §12, §13.6, and §13.7. IMPROVEMENTS.md is a proposal, so this entry records what changed in the specification.
+
+- §16.2 now has 13 steps. The agent writes the reader profile with `mustUnderstand`, gives the outline in the reply, selects a component by question, keeps to a budget by `kind`, and tests the main path against `mustUnderstand`.
+- `SKILL.md` requires Simplified Technical English (ASD-STE 100). `references/prose.md` gives a valid and an invalid snippet for each rule.
+- `references/operations.md` holds the shim, the lock, a missing or untrusted toolkit, and `--dev-toolkit`. Only a document inside the Visser repository uses `--dev-toolkit`. It never gets past `E_TOOLKIT_MISSING` or `E_TOOLKIT_UNTRUSTED`.
+- Mermaid is an escape hatch (§6.2). `catalogue list` prints it last. `W_MERMAID` names the native component. An ER or a class diagram has no native component until `domain` exists.
+- Each catalogue guide has a "Confused with" line (§7).
+- `check --review` adds 15 prompts (§11.3, §12.4, §13.6). Appendix B is now a historical draft; `SKILL.md` wins.
+- `skill show` and `catalogue` read `--dev-toolkit`, as `check` and `build` do.
+- The review in `docs/reviews/skill-prompts-review-1.md` found false positives in `W_PASSIVE`, `W_VAGUE_QUANTITY`, and `W_DUPLICATE`. This revision fixes them. `W_HEADING` does not apply to `kind: reference`.
+- IMPROVEMENTS.md §4.4: `node`, `event`, `state`, `stage`, and `task` take an optional `evidence` array of `source` IDs, as `causal-link` does. A `task` takes an optional `due` date (ISO 8601). A click on a part with `evidence` shows the excerpt first. `W_EVIDENCE_GAP` also covers a `due` with no `evidence`, and counts the parts with no evidence in a `root-cause` document. `W_MERMAID` names `plan`, with the source of each `due` date in `evidence`, for a Gantt chart.
+
+## Revision 1.26 — the `domain` component
+
+This revision implements IMPROVEMENTS.md §5 as §9.13.
+
+- New tags `domain`, `concept`, and `relation`. A concept names its `definition` (one owner per definition); a relation has a `kind` (`is-a`, `has`, `uses`, `produces`, `identifies`) and an optional `cardinality`. A `relation` emits its own `kind` (§9.2).
+- The map and a glossary table show together; on a narrow screen the glossary comes first. The text projection gives the glossary, then each relation as a sentence.
+- A term whose definition a concept owns opens the concept in the inspector. A concept label is an alias of its definition for the auto-link.
+- `W_MERMAID` names `domain` for an ER or a class diagram. `W_JARGON` suggests a `domain` figure at 3 or more undefined terms.
+
+## Revision 1.27 — components for walkthroughs, limits, numbers, and code maps
+
+This revision implements IMPROVEMENTS.md §14.1 to §14.8 as §9.14 to §9.18 and extensions of §9.4 and §9.10.
+
+- New tags `steps` and `step` (§9.14): a walkthrough inside a figure. Its steps name parts of the same figure. Without JavaScript and on a narrow screen it is a numbered list; on a wide screen the runtime adds a step bar that marks the parts of each step. In an architecture map it says "Reading order, not execution order."
+- New tags `note` (§9.15, `kind` is `limit`, `assumption`, or `warning`) and `self-check` (§9.16, a question with its answer in a native `details`).
+- New tags `measure` and `reading` (§9.17): one ink bar for each cited number, hatched when the value is not measured, with a table as the list view and the text form.
+- New tags `tree` and `entry` (§9.18): an indented code map with the architecture role cues.
+- `trace`: `event kind="observation"`, and `actor` is optional in a time-scaled trace with no actors. A `causal-link` can name an observation in `evidence`.
+- `annotated`: `before` and `annotation side`; the build computes a line diff.
+- New review prompts `W_NOTE_DENSITY` and `W_SELF_CHECK`; `W_EVIDENCE_GAP` covers a reading or an observation with no `evidence`; `W_VISUAL_DENSITY` covers more than 8 steps, more than 40 tree entries, and more than 80 diff lines on one side.
+- Catalogue guides for `measure`, `tree`, `steps`, `note`, `self-check`, and `decision` (§14.8, the fixed shape of a `kind: decision` document; it has no tag). A catalogue name can hold a hyphen.
+
+## Revision 1.28 — review of the §14 components and the figure interactions
+
+This revision fixes the findings of `docs/reviews/phase6a-components-review-1.md` and `docs/reviews/phase6b-interactions-review-1.md`.
+
+- `annotated` with `before` (§9.10): a side above 2,000 lines is `E_LIMIT`. The diff strips the common prefix and suffix, keeps its table in one `Uint32Array`, and runs once for each build; the page and the text projection share it. Each fence of the projection is longer than any backtick run in its content. The diff sign is `aria-hidden`, with a visually hidden word. Each annotated code line has a fixed marker column.
+- The runtime has one owner for `vs-near` and `vs-dim` (`packages/runtime/src/marks.ts`). The hovered and the focused node, the active step, the pressed chips, the folded groups, and the cross-figure highlight are state; one function computes every mark from it. A fold box takes the state of the parts that it hides. A `focus` link to a hidden part unfolds its group first.
+- Collapsible groups (§14.9): a folded group keeps its dashed boundary, with no label and the fold box at its centre. This replaces the empty area of revision 1.27 and is the decision that the 6b review asked for (F14); a compact second layout stays later work. Print shows every group unfolded. Each proxy edge has its own point on the fold box. The fold box and the Fold control follow their group in the SVG, under the edges; the control is 44 × 24 px. A collapsed group counts as one node in `W_VISUAL_DENSITY`.
+- The hidden `display="none"` fallback of the 6b review (F15) is not taken: the fold markup stays `hidden` with a rule in `reader.css`, because no product path exports the SVG without its stylesheet.
+- `tree`: the entry link is outside the `summary`; the children are behind a "N entries" toggle under the entry line.
+- `factor` takes `evidence` (a source or an observation), and the observed-factor prompt counts it. An observation in an ordinal trace is `E_SEMANTIC`. On a time scale the events of one slot stack in `time` order. A note needs a body and a self-check an answer (`E_SYNTAX`). A step cannot name a `detail`. `reading` takes `display`, and a number prints with no exponent.
+- In a `kind: decision` record, `W_NOTE_DENSITY` counts only the `limit` and `warning` notes. **Expand details** leaves a self-check answer closed; print still opens it. The walkthrough heading prints.
+- A walkthrough in a `graph` of any mode or in a `domain` says "Reading order, not execution order."
+- The text projection prints relationship evidence as "TITLE (ID)", as for part evidence.
+- The capture inputs of the examples moved to `examples/_sources/NAME/`, outside every bundle root. The bundle format reserves no folder name.
+
+## Revision 1.29 — final review and real-document dogfood
+
+- Time-trace prerequisites cannot occur later than their dependent event. Equal
+  timestamps remain valid. The note distinguishes event times from vertical order
+  layers; duration does not delay an `after` occurrence.
+- Folded-edge label placement considers full text bounds and compatible fold
+  states, including visible nodes, fold boxes, and other labels. Displaced labels
+  have foreground keyed callouts with explicit endpoints; panels and keys retain
+  their proxy fold state and use theme and forced-color tokens.
+- Narrow-screen citations occupy separate 44 px touch boxes. Invisible expanded
+  hit areas no longer intercept adjacent citations or short glossary terms.
+- Reference-root errors name the configured roots and give a valid document path.
+- Both real explanations use the revised authoring workflow and current source
+  captures. The edit instructions use a numbered list, and removed IDs have
+  retirement records. Dogfood evidence is in `docs/validation/dogfood-3.md`.
+- Test fixtures use zlib-stable compressed input, an actually empty executable
+  search path, and server-assigned ports whose ready URL belongs to that child.

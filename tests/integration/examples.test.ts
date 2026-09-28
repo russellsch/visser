@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { compileDocument } from '../../packages/core/src/compiler/index.ts';
-import { projectText } from '../../packages/core/src/model/project.ts';
+import { projectText, RELATION_VERBS } from '../../packages/core/src/model/project.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const examplesDir = join(root, 'examples');
@@ -21,7 +21,7 @@ describe('example bundles (§17.5) @R14', () => {
         if (node.type === 'tag' && node.tag === 'graph' && typeof node.attributes['mode'] === 'string') kinds.add(`graph:${node.attributes['mode']}`);
       }
     }
-    for (const kind of ['graph:architecture', 'graph:state', 'graph:cause', 'graph:plan', 'trace', 'transform', 'compare', 'annotated']) {
+    for (const kind of ['graph:architecture', 'graph:state', 'graph:cause', 'graph:plan', 'trace', 'transform', 'compare', 'annotated', 'domain']) {
       expect(kinds, kind).toContain(kind);
     }
   });
@@ -53,6 +53,11 @@ describe('example bundles (§17.5) @R14', () => {
           }
           const from = bundle.model.targets.get(rel.from)!.label;
           const to = bundle.model.targets.get(rel.to)!.label;
+          // A domain relation reads as a sentence (IMPROVEMENTS.md §5.4).
+          if (bundle.model.targets.get(rel.id)?.kind === 'relation') {
+            expect(text, rel.id).toContain(`${from} ${RELATION_VERBS[rel.kind]} ${to}`);
+            continue;
+          }
           expect(text, rel.id).toContain(`${from} --[${rel.kind}; ${rel.label}]--> ${to}`);
         }
       });

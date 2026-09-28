@@ -34,7 +34,7 @@ Validates the order before it writes anything.
 Commits the order row.
 {% /node %}
 
-{% edge id="e_client_api" from="client" to="api" kind="blocking-call" label="POST /orders waits for the reply" %}
+{% edge id="e_client_api" from="client" to="api" kind="blocking-call" label="POST /orders, waits" %}
 The client holds its connection until the API server replies.
 {% /edge %}
 

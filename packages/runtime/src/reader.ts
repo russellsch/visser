@@ -1,9 +1,10 @@
 // Reader runtime (§10). Enhances the static snapshot: the page stays complete and
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
-import { figureView, VIEW_CLASS } from './views.ts';
+import { figureView, toggleLabel, VIEW_CLASS } from './views.ts';
 import { renderMermaidFigures } from './mermaid.ts';
 import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE_CONTEXT_MAX, QUOTE_EXACT_MAX } from './packet.ts';
+import { figureMarks, markState, registerFigures, updateMarks, words } from './marks.ts';
 
 const A = DOM.attr;
 const HISTORY_MAX = 20;
@@ -21,7 +22,7 @@ type Inspector = {
 const state = {
   current: undefined as Moved | undefined,
   history: [] as string[],
-  origin: undefined as HTMLElement | undefined,
+  origin: undefined as HTMLElement | SVGElement | undefined,
   inspector: undefined as Inspector | undefined,
   refmode: false,
   selected: undefined as string | undefined,
@@ -77,16 +78,20 @@ function ensureInspector(modal: boolean): Inspector {
   title.id = 'vs-inspector-title';
   title.tabIndex = -1;
   const back = button('Back', 'vs-btn vs-inspector__back', () => goBack());
+  const close = button('Close', 'vs-btn vs-inspector__close', () => closeInspector());
+  bar.append(back, title, close);
+  const body = el('div', 'vs-inspector__body');
+  // The Copy reference action comes last, after the body and its sections
+  // (docs/IMPROVEMENTS.md §4.2).
+  const footer = el('div', 'vs-inspector__footer');
   const copy = button('Copy reference', 'vs-btn', () => {
     const id = state.current?.el.getAttribute(A.target);
     if (id) void copyReference(id, false);
   });
-  const close = button('Close', 'vs-btn vs-inspector__close', () => closeInspector());
-  bar.append(back, title, copy, close);
-  const body = el('div', 'vs-inspector__body');
+  footer.append(copy);
   const status = el('p', 'vs-status');
   status.setAttribute('role', 'status');
-  host.append(bar, body, status);
+  host.append(bar, body, footer, status);
   if (modal) {
     const dialog = host as HTMLDialogElement;
     dialog.addEventListener('cancel', (e) => {
@@ -122,6 +127,8 @@ function showDetail(targetId: string, push: boolean): boolean {
     if (state.history.length > HISTORY_MAX) state.history.shift();
   }
   returnCurrent();
+  // A bubble must not stay over the inspector, and Escape must close the inspector next.
+  hideTooltip();
   const inspector = ensureInspector(modal);
   const placeholder = document.createElement('template');
   placeholder.setAttribute(A.placeholder, targetId);
@@ -130,11 +137,19 @@ function showDetail(targetId: string, push: boolean): boolean {
   detail.open = true;
   detail.hidden = false;
   inspector.body.replaceChildren(detail);
+  // A new target starts at the top of the inspector. A part with `evidence`
+  // shows its excerpt first, so the excerpt is visible with no scroll
+  // (docs/IMPROVEMENTS.md §4.4), also after the reader scrolled another part.
+  inspector.host.scrollTop = 0;
   // F4b: the full title is always in the DOM and in `title` (native tooltip
   // when the 2-line clamp truncates it); the clamp itself is CSS (reader.css).
+  // The title is the label and the paired-cue word, such as "Charge queue ·
+  // storage" (docs/IMPROVEMENTS.md §4.2).
   const label = detail.getAttribute(A.label) ?? targetId;
-  inspector.title.textContent = label;
-  inspector.title.title = label;
+  const cue = detail.getAttribute(A.cue);
+  inspector.title.replaceChildren(document.createTextNode(label));
+  if (cue) inspector.title.append(el('span', 'vs-inspector__cue', ` \u00b7 ${cue}`));
+  inspector.title.title = cue ? `${label} \u00b7 ${cue}` : label;
   inspector.back.hidden = state.history.length === 0;
   if (modal) {
     const dialog = inspector.host as HTMLDialogElement;
@@ -150,7 +165,7 @@ function showDetail(targetId: string, push: boolean): boolean {
   return true;
 }
 
-function openInspector(targetId: string, origin: HTMLElement | undefined): boolean {
+function openInspector(targetId: string, origin: HTMLElement | SVGElement | undefined): boolean {
   if (!(canonical(targetId) instanceof HTMLDetailsElement)) return false;
   if (!state.current) {
     state.history = [];
@@ -199,6 +214,12 @@ function onHash(): void {
   if (!hash.startsWith('#x-')) return;
   const targetId = hash.slice(3);
   if (state.current?.el.getAttribute(A.target) === targetId) return;
+  // A part with no body and no evidence has no visible appendix row
+  // (docs/IMPROVEMENTS.md §4.5), so a deep link shows it in the inspector.
+  if (canonical(targetId)?.classList.contains('vs-detail-bare')) {
+    openInspector(targetId, undefined);
+    return;
+  }
   openTarget(targetId);
 }
 
@@ -209,7 +230,14 @@ function allDetails(): HTMLDetailsElement[] {
 function toggleExpand(buttonEl: HTMLButtonElement): void {
   closeInspector(false);
   state.expanded = !state.expanded;
-  for (const d of allDetails()) d.open = state.expanded;
+  // The Sources, Definitions, and Details groups stay open when the reader
+  // collapses the rest. A self-check answer stays as the reader left it: the
+  // reader answers the question first (phase 6a review C11). Print still
+  // opens it (beforePrint).
+  for (const d of allDetails()) {
+    if (d.classList.contains('vs-self-check-answer')) continue;
+    d.open = state.expanded || d.classList.contains('vs-appendix-open');
+  }
   buttonEl.setAttribute('aria-pressed', String(state.expanded));
 }
 
@@ -217,17 +245,38 @@ function beforePrint(): void {
   closeInspector(false);
   state.printOpened = allDetails().filter((d) => !d.open);
   for (const d of state.printOpened) d.open = true;
+  setAppendixCounts(true);
 }
 
 function afterPrint(): void {
   for (const d of state.printOpened) d.open = false;
   state.printOpened = [];
+  setAppendixCounts(false);
+}
+
+// The row counts of the "Parts of" groups: every row, and the rows that show
+// on screen with the runtime. The static HTML counts every row, because
+// without JavaScript and in print every row shows (docs/IMPROVEMENTS.md §4.5).
+const appendixCounts: Array<{ count: Element; all: number; shown: number }> = [];
+
+function initAppendixCounts(): void {
+  for (const group of Array.from(document.querySelectorAll(`.${DOM.appendixGroup}`))) {
+    const count = group.querySelector(':scope > summary .vs-appendix-count');
+    if (!count) continue;
+    const rows = Array.from(group.querySelectorAll(':scope > details.vs-detail'));
+    appendixCounts.push({ count, all: rows.length, shown: rows.filter((r) => !r.classList.contains('vs-detail-bare')).length });
+  }
+  setAppendixCounts(false);
+}
+
+function setAppendixCounts(all: boolean): void {
+  for (const c of appendixCounts) c.count.textContent = `(${all ? c.all : c.shown})`;
 }
 
 // ---------------------------------------------------------------- definitions
 
 let tooltip: HTMLElement | undefined;
-let tooltipOwners: HTMLElement[] = [];
+let tooltipOwners: Element[] = [];
 let tooltipTimer: number | undefined;
 
 function firstSentence(text: string): string {
@@ -236,9 +285,20 @@ function firstSentence(text: string): string {
   return match?.[1] ?? clean;
 }
 
-function definitionText(defId: string): string {
-  const detail = canonical(defId);
+/**
+ * The first sentence of a target's authored body. A figure part keeps its
+ * body in `.vs-detail-text`; other details keep it in their non-generated
+ * children.
+ */
+function bodyText(targetId: string): string {
+  const detail = canonical(targetId);
   if (!detail) return '';
+  // A definition carries its first sentence from the build, the same text
+  // as its glossary row and its Terms line (phase 4 review D6).
+  const summary = detail.getAttribute(A.summary);
+  if (summary) return summary;
+  const text = detail.querySelector('.vs-detail-text');
+  if (text) return firstSentence(text.textContent ?? '');
   const parts: string[] = [];
   for (const child of Array.from(detail.children)) {
     if (child.tagName === 'SUMMARY' || child.hasAttribute(A.generated)) continue;
@@ -247,26 +307,101 @@ function definitionText(defId: string): string {
   return firstSentence(parts.join(' '));
 }
 
-/** Show one tooltip shared by `owners`, positioned after the last one. */
-function showTooltipFor(owners: HTMLElement[], text: string): void {
+/** The height of the sticky toolbar, so a bubble above a word never goes under it. */
+function toolbarBottom(): number {
+  const bar = document.querySelector<HTMLElement>(`.${DOM.toolbar}`);
+  return bar && !bar.hidden ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+}
+
+/**
+ * Place the bubble above the owner when there is room, else below it, with
+ * a 4 px arrow that points at the owner (docs/IMPROVEMENTS.md §13.4). The
+ * bubble never covers the line of the owner. The runtime sets the position
+ * through the CSSOM; the page has no inline style attribute.
+ */
+function placeTooltip(tip: HTMLElement, owner: Element): void {
+  const rects = Array.from(owner.getClientRects());
+  const whole = owner.getBoundingClientRect();
+  const first = rects[0] ?? whole;
+  const last = rects[rects.length - 1] ?? whole;
+  const host = tip.parentElement ?? document.body;
+  const origin = host === document.body ? { left: -window.scrollX, top: -window.scrollY } : (() => {
+    const r = host.getBoundingClientRect();
+    return { left: r.left - host.scrollLeft, top: r.top - host.scrollTop };
+  })();
+  const gap = 8; // the 4 px arrow and 4 px of space
+  const width = tip.offsetWidth;
+  const height = tip.offsetHeight;
+  const above = first.top - height - gap >= toolbarBottom();
+  const anchor = above ? first : last;
+  const centre = anchor.left + anchor.width / 2;
+  const viewport = document.documentElement.clientWidth;
+  const left = Math.min(Math.max(8, centre - width / 2), Math.max(8, viewport - width - 8));
+  const top = above ? first.top - height - gap : last.bottom + gap;
+  tip.classList.toggle('vs-tooltip--above', above);
+  tip.classList.toggle('vs-tooltip--below', !above);
+  tip.style.left = `${Math.round(left - origin.left)}px`;
+  tip.style.top = `${Math.round(top - origin.top)}px`;
+  tip.style.setProperty('--vs-arrow-x', `${Math.round(Math.min(Math.max(centre - left, 10), Math.max(10, width - 10)))}px`);
+}
+
+/**
+ * Show one bubble shared by `owners`, at `anchor` (by default the last
+ * owner). Each owner gets `aria-describedby`, so the focused element has the
+ * description even when the bubble points at a child of it. A term bubble
+ * has an "Open definition" link. The bubble stays open while the pointer is
+ * on it, and Escape closes it (§10.4).
+ */
+function showTooltipFor(owners: Element[], text: string, open?: { targetId: string; label: string }, anchor?: Element): void {
   if (!text) return;
   hideTooltip();
-  const tip = el('span', 'vs-tooltip', text);
+  const tip = el('div', 'vs-tooltip');
   tip.id = 'vs-tooltip';
-  tip.setAttribute('role', 'tooltip');
   tip.setAttribute(A.generated, '');
-  tip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
-  tip.addEventListener('mouseleave', () => scheduleHide());
-  owners[owners.length - 1]?.after(tip);
-  for (const owner of owners) owner.setAttribute('aria-describedby', tip.id);
+  const body = el('span', 'vs-tooltip__text', text);
+  body.id = 'vs-tooltip-text';
+  body.setAttribute('role', 'tooltip');
+  tip.append(body);
+  if (open) {
+    // A pointer shortcut only: the keyboard opens the definition with Enter on the term.
+    const link = el('a', 'vs-tooltip__open', open.label);
+    link.href = `#${DOM.canonicalId(open.targetId)}`;
+    link.tabIndex = -1;
+    link.setAttribute('aria-hidden', 'true');
+    tip.append(' ', link);
+  }
+  tip.addEventListener('pointerenter', () => window.clearTimeout(tooltipTimer));
+  tip.addEventListener('pointerleave', () => scheduleHide());
+  const at = anchor ?? owners[owners.length - 1]!;
+  // Inside the modal inspector the bubble must be in the dialog, which is in the top layer.
+  (at.closest('dialog') ?? document.body).append(tip);
+  placeTooltip(tip, at);
+  for (const o of owners) o.setAttribute('aria-describedby', body.id);
   tooltip = tip;
   tooltipOwners = owners;
 }
 
-function showTooltip(term: HTMLElement): void {
+function showTermTooltip(term: Element): void {
   const defId = term.getAttribute(A.term);
   if (!defId) return;
-  showTooltipFor([term], definitionText(defId));
+  // A definition that a domain concept owns: the link opens the concept, as
+  // a click on the term does (docs/IMPROVEMENTS.md §5.4, phase 4 review D8).
+  const concept = canonical(defId)?.getAttribute(A.concept);
+  const open = concept && canonical(concept) instanceof HTMLDetailsElement
+    ? { targetId: concept, label: 'Open concept' }
+    : { targetId: defId, label: 'Open definition' };
+  showTooltipFor([term], bodyText(defId), open);
+}
+
+/**
+ * An edge in a figure: the first sentence of its body (docs/IMPROVEMENTS.md
+ * §4.7). The bubble points at the edge label, and the focusable edge link
+ * owns the description.
+ */
+function showEdgeTooltip(edge: Element): void {
+  const id = edge.getAttribute(A.target);
+  if (!id) return;
+  showTooltipFor([edge], bodyText(id), undefined, edge.querySelector('.vs-edge-label') ?? edge);
 }
 
 /** A run of adjacent `a.vs-cite` elements, separated only by whitespace text (F10). */
@@ -532,39 +667,337 @@ function isChrome(node: Element): boolean {
 
 // ---------------------------------------------------------------- figure views
 
-const mapChosen = new WeakSet<Element>();
+// The figures whose reader pressed the view toggle. A change of screen width
+// starts again from the default view of the new width.
+let toggled = new WeakSet<Element>();
 
 function applyViews(): void {
   const narrow = isNarrow();
   for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
-    const view = figureView(narrow, mapChosen.has(figure));
+    const view = figureView(narrow, toggled.has(figure));
     for (const cls of Object.values(VIEW_CLASS)) if (cls) figure.classList.remove(cls);
     const cls = VIEW_CLASS[view];
     if (cls) figure.classList.add(cls);
     const toggle = figure.querySelector<HTMLButtonElement>('.vs-view-toggle');
-    if (toggle) toggle.setAttribute('aria-pressed', String(view === 'map'));
+    if (!toggle) continue;
+    const text = toggleLabel(narrow);
+    toggle.textContent = text;
+    toggle.setAttribute('aria-pressed', String(toggled.has(figure)));
+    const label = figure.getAttribute(A.label);
+    if (label) toggle.setAttribute('aria-label', `${text}: ${label}`);
   }
 }
 
+/**
+ * A view bar with one toggle for each figure with a map (docs/IMPROVEMENTS.md
+ * §4.1): "Show as list" on wide screens, "Show map" on narrow screens.
+ */
 function addViewToggles(): void {
   for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
     const bar = el('div', 'vs-view-bar');
     bar.setAttribute(A.generated, '');
-    const toggle = button('Show map', 'vs-btn vs-view-toggle', () => {
-      if (mapChosen.has(figure)) mapChosen.delete(figure);
-      else mapChosen.add(figure);
+    const toggle = button(toggleLabel(isNarrow()), 'vs-btn vs-view-toggle', () => {
+      if (toggled.has(figure)) toggled.delete(figure);
+      else toggled.add(figure);
       applyViews();
     });
     toggle.setAttribute('aria-pressed', 'false');
-    const label = figure.getAttribute(A.label);
-    if (label) toggle.setAttribute('aria-label', `Show map: ${label}`);
     bar.append(toggle);
     const viewport = figure.querySelector(`[${A.viewport}]`);
-    if (viewport) viewport.before(bar);
+    // In a domain figure the bar goes before the row of map and glossary, so
+    // it stays in the text column (phase 4 review D1).
+    if (viewport) (viewport.closest('.vs-domain-body') ?? viewport).before(bar);
     else figure.append(bar);
   }
   applyViews();
-  window.matchMedia(`(max-width: ${DOM.narrowMaxWidth}px)`).addEventListener('change', applyViews);
+  window.matchMedia(`(max-width: ${DOM.narrowMaxWidth}px)`).addEventListener('change', () => {
+    toggled = new WeakSet();
+    applyViews();
+  });
+}
+
+// ---------------------------------------------------------------- neighbourhood (§4.3)
+
+/**
+ * The neighbourhood of a figure node: each adjacent node and edge gets
+ * `vs-near`, and each other node and edge gets `vs-dim`. The adjacency comes
+ * from the Relationships section of the node's detail in the static HTML,
+ * not from the drawing (docs/IMPROVEMENTS.md §4.2, §4.3). The handlers only
+ * record the node under the pointer and the node with focus; marks.ts
+ * computes the marks. They never move focus. When the pointer leaves, the
+ * neighbourhood of the focused node comes back, else the other marks do.
+ */
+function addNeighbourhoods(): void {
+  for (const node of Array.from(document.querySelectorAll(`.vs-viewport svg a.vs-node[${A.target}]`))) {
+    const st = figureMarks(node);
+    if (!st) continue;
+    node.addEventListener('pointerenter', () => {
+      st.hover = node;
+      updateMarks();
+    });
+    node.addEventListener('pointerleave', () => {
+      if (st.hover === node) st.hover = undefined;
+      updateMarks();
+    });
+    node.addEventListener('focus', () => {
+      st.focus = node;
+      updateMarks();
+    });
+    node.addEventListener('blur', () => {
+      if (st.focus === node) st.focus = undefined;
+      updateMarks();
+    });
+  }
+}
+
+// ---------------------------------------------------------------- figure interactions (§14.9)
+
+const ENTITY_PARTS = `.vs-viewport svg a.vs-node[${A.target}], .vs-viewport svg a.vs-lane[${A.target}]`;
+
+/**
+ * Cross-figure highlight: on hover or focus of a node, an actor, or a
+ * concept, each part in another figure that shares its `entity` gets
+ * `vs-near`. The parts come from the Appears-in section of the part's detail
+ * in the static HTML (data-vs-entity). A part inside a folded group is marked
+ * through its fold box (marks.ts).
+ */
+function addEntityLinks(): void {
+  for (const part of Array.from(document.querySelectorAll(ENTITY_PARTS))) {
+    const id = part.getAttribute(A.target)!;
+    if (!canonical(id)?.querySelector(`[${A.entity}]`)) continue;
+    part.addEventListener('pointerenter', () => {
+      markState.entityHover = part;
+      updateMarks();
+    });
+    part.addEventListener('pointerleave', () => {
+      if (markState.entityHover === part) markState.entityHover = undefined;
+      updateMarks();
+    });
+    part.addEventListener('focus', () => {
+      markState.entityFocus = part;
+      updateMarks();
+    });
+    part.addEventListener('blur', () => {
+      if (markState.entityFocus === part) markState.entityFocus = undefined;
+      updateMarks();
+    });
+  }
+}
+
+/**
+ * Filter chips: each legend chip with a filter token becomes a toggle
+ * button. A pressed chip dims each node and edge that has none of the
+ * pressed tokens; several pressed chips mean "any of these". A "Clear"
+ * button shows while a chip is pressed. The pressed tokens are figure state
+ * (marks.ts), so a walkthrough or a hover never loses them. Without
+ * JavaScript the legend stays static.
+ */
+function addFilterChips(): void {
+  for (const legend of Array.from(document.querySelectorAll<HTMLElement>('figure .vs-legend'))) {
+    const figure = legend.closest('figure');
+    const svg = figure?.querySelector('.vs-viewport svg');
+    const chips = Array.from(legend.querySelectorAll<HTMLElement>(`:scope > .vs-legend-chip[${A.filter}]`));
+    const st = svg ? figureMarks(svg) : undefined;
+    if (!figure || !svg || !st || chips.length === 0) continue;
+    const pressed = st.pressed;
+    const toggles: HTMLButtonElement[] = [];
+    const clearItem = el('li', 'vs-legend-clear');
+    clearItem.hidden = true;
+    legend.classList.add('vs-legend-filterable');
+    const update = () => {
+      for (const t of toggles) t.setAttribute('aria-pressed', String(pressed.has(t.getAttribute(A.filter) ?? '')));
+      clearItem.hidden = pressed.size === 0;
+      updateMarks();
+    };
+    for (const chip of chips) {
+      const token = chip.getAttribute(A.filter)!;
+      const toggle = button('', 'vs-legend-toggle', () => {
+        if (pressed.has(token)) pressed.delete(token);
+        else pressed.add(token);
+        update();
+      });
+      toggle.setAttribute(A.filter, token);
+      toggle.setAttribute('aria-pressed', 'false');
+      toggle.append(...Array.from(chip.childNodes));
+      chip.append(toggle);
+      toggles.push(toggle);
+    }
+    const clear = button('Clear', 'vs-btn', () => {
+      pressed.clear();
+      update();
+      toggles[0]?.focus();
+    });
+    const label = figure.getAttribute(A.label);
+    if (label) clear.setAttribute('aria-label', `Clear the filter: ${label}`);
+    clearItem.append(clear);
+    legend.append(clearItem);
+  }
+}
+
+/**
+ * Collapsible groups: show and hide the parts of one figure drawing for the
+ * set of folded groups. The geometry is in the static SVG; this sets and
+ * removes `hidden` only. An edge with an end in a folded group shows the
+ * proxy route for the groups that stand for its two ends. A folded group
+ * keeps its boundary, dashed and with no label, so its area reads as the
+ * place of the group (docs/IMPROVEMENTS.md §14.9, phase 6b review F14). The
+ * boundary is then out of the tab order and the accessibility tree: the
+ * fold box stands for the group.
+ */
+function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
+  const boxes = Array.from(svg.querySelectorAll(`[${A.fold}]`));
+  const hideOf = new Map(boxes.map((b) => [b.getAttribute(A.fold)!, words(b.getAttribute(A.foldHide))]));
+  const hidden = new Set<string>();
+  for (const g of folded) for (const id of hideOf.get(g) ?? []) hidden.add(id);
+  // The folded group that stands for a node: the one that no other folded group hides.
+  const standIn = (id: string) => [...folded].find((g) => !hidden.has(g) && (hideOf.get(g) ?? []).includes(id)) ?? '';
+  const show = (node: Element, on: boolean) => node.toggleAttribute('hidden', !on);
+  for (const box of boxes) {
+    const g = box.getAttribute(A.fold)!;
+    show(box, folded.has(g) && !hidden.has(g));
+  }
+  for (const toggle of Array.from(svg.querySelectorAll(`[${A.foldToggle}]`))) {
+    const g = toggle.getAttribute(A.foldToggle)!;
+    show(toggle, !folded.has(g) && !hidden.has(g));
+  }
+  for (const part of Array.from(svg.querySelectorAll(`a.vs-group[${A.target}]`))) {
+    const id = part.getAttribute(A.target)!;
+    const boundary = folded.has(id) && !hidden.has(id);
+    show(part, !hidden.has(id));
+    part.classList.toggle('vs-folded', boundary);
+    if (boundary) {
+      part.setAttribute('tabindex', '-1');
+      part.setAttribute('aria-hidden', 'true');
+    } else {
+      part.removeAttribute('tabindex');
+      part.removeAttribute('aria-hidden');
+    }
+  }
+  for (const part of Array.from(svg.querySelectorAll(`a.vs-node[${A.target}]`))) {
+    show(part, !hidden.has(part.getAttribute(A.target)!));
+  }
+  const proxies = new Map<string, Element[]>();
+  for (const proxy of Array.from(svg.querySelectorAll(`[${A.proxyFor}]`))) {
+    const id = proxy.getAttribute(A.proxyFor)!;
+    proxies.set(id, [...(proxies.get(id) ?? []), proxy]);
+  }
+  for (const edge of Array.from(svg.querySelectorAll(`a.vs-edge[${A.rel}]:not([${A.proxyFor}])`))) {
+    const id = edge.getAttribute(A.rel)!;
+    const own = proxies.get(id) ?? [];
+    const [from, to] = words(own[0]?.getAttribute(A.proxyEnds) ?? null);
+    const f = from ? standIn(from) : '';
+    const t = to ? standIn(to) : '';
+    show(edge, !hidden.has(id) && f === '' && t === '');
+    for (const proxy of own) {
+      show(proxy, f !== t && proxy.getAttribute(A.proxyFrom) === f && proxy.getAttribute(A.proxyTo) === t);
+    }
+  }
+  updateMarks();
+}
+
+/** Run `action` on a click, and on Enter or Space: the element is a button (role="button"). */
+function onActivate(node: Element, action: () => void): void {
+  node.addEventListener('click', (e) => {
+    e.preventDefault();
+    action();
+  });
+  node.addEventListener('keydown', (e) => {
+    const key = (e as KeyboardEvent).key;
+    if (key !== 'Enter' && key !== ' ') return;
+    e.preventDefault();
+    action();
+  });
+}
+
+/**
+ * Each `group collapsed=true` starts folded. A click on the fold box, or
+ * Enter or Space on it, unfolds the group in place, and the focus moves to
+ * the group's Fold control; the Fold control folds it again, and the focus
+ * moves to the fold box. The text lists do not change.
+ */
+function addFolds(): void {
+  for (const svg of Array.from(document.querySelectorAll('.vs-viewport svg'))) {
+    const boxes = Array.from(svg.querySelectorAll<SVGElement>(`[${A.fold}]`));
+    const st = figureMarks(svg);
+    if (boxes.length === 0 || !st) continue;
+    for (const b of boxes) st.folded.add(b.getAttribute(A.fold)!);
+    const set = (group: string, fold: boolean) => {
+      if (fold) st.folded.add(group);
+      else st.folded.delete(group);
+      applyFolds(svg, st.folded);
+      const next = svg.querySelector<SVGElement>(fold ? `[${A.fold}="${CSS.escape(group)}"]` : `[${A.foldToggle}="${CSS.escape(group)}"]`);
+      if (next && !next.hasAttribute('hidden')) next.focus();
+    };
+    for (const box of boxes) onActivate(box, () => set(box.getAttribute(A.fold)!, false));
+    for (const toggle of Array.from(svg.querySelectorAll(`[${A.foldToggle}]`))) onActivate(toggle, () => set(toggle.getAttribute(A.foldToggle)!, true));
+    applyFolds(svg, st.folded);
+  }
+}
+
+/**
+ * Unfold each folded group that hides one of `ids`, with the groups around
+ * it, so a link to a part never points at a hidden drawing (docs/
+ * IMPROVEMENTS.md §14.9, phase 6b review F7).
+ */
+function revealParts(ids: readonly string[]): void {
+  for (const st of markState.figures.values()) {
+    const svg = st.svg;
+    if (!svg || st.folded.size === 0) continue;
+    let changed = false;
+    for (const box of Array.from(svg.querySelectorAll(`[${A.fold}]`))) {
+      const g = box.getAttribute(A.fold)!;
+      const hides = words(box.getAttribute(A.foldHide));
+      if (st.folded.has(g) && ids.some((id) => hides.includes(id))) {
+        st.folded.delete(g);
+        changed = true;
+      }
+    }
+    if (changed) applyFolds(svg, st.folded);
+  }
+}
+
+// ---------------------------------------------------------------- terms and edges (§13.4, §4.7)
+
+// The type of the last pointer: a touch shows the bubble first (§13.4).
+let lastPointer = 'mouse';
+// True when the bubble of the tapped term was open before the tap. The tap
+// also focuses the term, and focus shows the bubble, so the click cannot
+// read this state itself.
+let bubbleBeforeTap = false;
+
+function isTouch(e: MouseEvent): boolean {
+  const type = (e as PointerEvent).pointerType;
+  return (typeof type === 'string' && type !== '' ? type : e.detail === 0 ? 'keyboard' : lastPointer) === 'touch';
+}
+
+function addTermAndEdgeBubbles(): void {
+  document.addEventListener('pointerdown', (e) => {
+    lastPointer = e.pointerType;
+    const term = e.target instanceof Element ? e.target.closest('.vs-term') : null;
+    bubbleBeforeTap = term !== null && tooltipOwners.includes(term);
+  }, true);
+  // Terms: a link, a quiet span (a later use in one paragraph), or a tspan in a figure label.
+  for (const term of Array.from(document.querySelectorAll(`.vs-term[${A.term}]`))) {
+    term.addEventListener('pointerenter', (e) => {
+      if ((e as PointerEvent).pointerType !== 'touch') showTermTooltip(term);
+    });
+    term.addEventListener('pointerleave', () => scheduleHide());
+    term.addEventListener('focus', () => showTermTooltip(term));
+    term.addEventListener('blur', () => scheduleHide());
+  }
+  // Edges in a figure: the first sentence of the edge body. A trace order
+  // arrow links to its later event, not to itself (its target is not its
+  // relationship), so it has no body of its own and gets no bubble.
+  for (const edge of Array.from(document.querySelectorAll(`.vs-viewport svg a.vs-edge[${A.target}]`))) {
+    const id = edge.getAttribute(A.target)!;
+    if (edge.getAttribute(A.rel) !== id || !bodyText(id)) continue;
+    edge.addEventListener('pointerenter', (e) => {
+      if ((e as PointerEvent).pointerType !== 'touch') showEdgeTooltip(edge);
+    });
+    edge.addEventListener('pointerleave', () => scheduleHide());
+    edge.addEventListener('focus', () => showEdgeTooltip(edge));
+    edge.addEventListener('blur', () => scheduleHide());
+  }
 }
 
 function addReferenceButtons(): void {
@@ -640,8 +1073,9 @@ function toggleAbout(): void {
 
 // ---------------------------------------------------------------- appendix filter (F3c)
 
+/** The appendix rows. A part with no body and no evidence has no visible row (§4.5). */
 function appendixDetails(): HTMLDetailsElement[] {
-  return Array.from(document.querySelectorAll<HTMLDetailsElement>(`#${DOM.appendix} details.vs-detail`));
+  return Array.from(document.querySelectorAll<HTMLDetailsElement>(`#${DOM.appendix} details.vs-detail:not(.vs-detail-bare)`));
 }
 
 /** Hide rows whose summary text does not contain `query`, and any group left empty. */
@@ -654,8 +1088,11 @@ function applyAppendixFilter(query: string, status: HTMLElement): void {
     row.hidden = !match;
     if (match) shown++;
   }
-  for (const group of Array.from(document.querySelectorAll<HTMLElement>(`.${DOM.appendixGroup}`))) {
-    group.hidden = Array.from(group.querySelectorAll<HTMLDetailsElement>('details.vs-detail')).every((d) => d.hidden);
+  for (const group of Array.from(document.querySelectorAll<HTMLDetailsElement>(`.${DOM.appendixGroup}`))) {
+    const own = Array.from(group.querySelectorAll<HTMLDetailsElement>('details.vs-detail:not(.vs-detail-bare)'));
+    group.hidden = own.every((d) => d.hidden);
+    // A query opens a collapsed figure group that has a match, so the match shows.
+    if (q !== '' && !group.hidden) group.open = true;
   }
   status.textContent = `${shown} of ${rows.length} shown`;
 }
@@ -746,22 +1183,54 @@ function onClick(e: MouseEvent): void {
     return;
   }
 
+  // A term: a link, a quiet span, or a tspan in a figure label. A tap shows
+  // the bubble first, and a second tap opens the definition; a click, and
+  // Enter on a focused term, open the definition (docs/IMPROVEMENTS.md §13.4).
+  const term = target.closest(`.vs-term[${A.term}]`);
+  if (term && !term.closest(`.${DOM.toolbar}, #vs-refpanel`)) {
+    const defId = term.getAttribute(A.term)!;
+    if (canonical(defId) instanceof HTMLDetailsElement) {
+      e.preventDefault();
+      if (isTouch(e) && !bubbleBeforeTap) {
+        showTermTooltip(term);
+        return;
+      }
+      hideTooltip();
+      const origin = term instanceof HTMLAnchorElement ? term : term.closest<SVGElement>('a') ?? undefined;
+      // --- Domain (docs/IMPROVEMENTS.md §5.4): a definition that a concept
+      // owns opens the concept, with its relations and where it appears. The
+      // bubble above stays the definition's first sentence.
+      const concept = canonical(defId)?.getAttribute(A.concept);
+      const openId = concept && canonical(concept) instanceof HTMLDetailsElement ? concept : defId;
+      // --- end domain
+      if (state.current) showDetail(openId, true);
+      else openInspector(openId, origin);
+      return;
+    }
+  }
+
   const focusLink = target.closest<HTMLElement>('a.vs-focus');
   if (focusLink) {
     e.preventDefault();
     const ids = (focusLink.getAttribute(A.focus) ?? '').split(/\s+/u).filter(Boolean);
+    // A part inside a folded group: the group unfolds first (§14.9).
+    revealParts(ids);
     highlight(ids, 'vs-focused');
-    const first = ids[0] ? document.querySelector(`[${A.target}="${CSS.escape(ids[0])}"]`) : null;
+    const first = ids[0] ? Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(ids[0])}"]`)).find((x) => x.closest('[hidden]') === null) : undefined;
     if (first) scrollIntoView(first);
     return;
   }
 
   // Drawn Mermaid elements are not links; they carry the target of their list instance (§9.12).
-  const link = target.closest<HTMLElement>(`a.vs-term, a.vs-cite, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn]:not([data-vs-mermaid-derived])`);
+  // Generated inspector links (a part's Relationships, Appears in, and
+  // Evidence sections) and the bubble's "Open definition" link open their
+  // target in the inspector as well.
+  const link = target.closest<HTMLElement>(`a.vs-cite, a.vs-inspect-link, a.vs-tooltip__open, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn]:not([data-vs-mermaid-derived])`);
   if (link && !link.closest(`.${DOM.toolbar}, #vs-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {
       e.preventDefault();
+      if (link.classList.contains('vs-tooltip__open')) hideTooltip();
       if (state.current) showDetail(id, true);
       else openInspector(id, link);
     }
@@ -802,6 +1271,7 @@ function init(): void {
 
   addReferenceButtons();
   addViewToggles();
+  initAppendixCounts();
   addAppendixFilter();
   initOverflowHints();
 
@@ -809,12 +1279,12 @@ function init(): void {
   document.addEventListener('keydown', onKeydown);
   document.addEventListener('selectionchange', recordSelection);
 
-  for (const term of Array.from(document.querySelectorAll<HTMLElement>('a.vs-term'))) {
-    term.addEventListener('mouseenter', () => showTooltip(term));
-    term.addEventListener('mouseleave', () => scheduleHide());
-    term.addEventListener('focus', () => showTooltip(term));
-    term.addEventListener('blur', () => scheduleHide());
-  }
+  registerFigures();
+  addNeighbourhoods();
+  addTermAndEdgeBubbles();
+  addFolds();
+  addFilterChips();
+  addEntityLinks();
 
   for (const cite of Array.from(document.querySelectorAll<HTMLElement>('a.vs-cite'))) {
     cite.addEventListener('mouseenter', () => showCiteTooltip(cite));
@@ -833,3 +1303,13 @@ function init(): void {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
+
+/* phase 6a: components */
+// The components of docs/IMPROVEMENTS.md §14 (packages/runtime/src/components.ts):
+// the step bar of a `steps` walkthrough and the tree defaults. They start
+// after init(), so their listeners run after the ones above.
+import { initComponents } from './components.ts';
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initComponents);
+else initComponents();
+/* end phase 6a: components */

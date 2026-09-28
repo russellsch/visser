@@ -28,7 +28,7 @@ const DEFERRED = new Map<string, string>([
 // One line of usage for each command, for `visser help`, `visser --help`, and
 // `visser COMMAND --help`. Each command also prints its full usage on E_USAGE.
 const COMMANDS: Array<[string, string]> = [
-  ['init', 'visser init PATH --kind KIND --title TITLE [--toolkit-dir DIR]'],
+  ['init', 'visser init PATH --kind KIND --title TITLE [--must-understand TEXT]... [--toolkit-dir DIR] [--no-lock]'],
   ['ids', 'visser ids assign DOC [--check]'],
   ['check', 'visser check DOC [--review] [--verify-origins [--repo-map LABEL=PATH]] [--release] [--json]'],
   ['build', 'visser build DOC [--out DIR] [--allow-layout-fallback] [--allow-extension-fallback] [--toolkit-dir DIR | --dev-toolkit DIR]'],
@@ -40,9 +40,9 @@ const COMMANDS: Array<[string, string]> = [
   ['install', 'visser install --from-dir DIR | --archive FILE [--sha256 DIGEST] | --from-release OWNER/REPO --version V --sha256 DIGEST --scope user|repo [--default] [--root DIR] [--json]'],
   ['trust', 'visser trust toolkit DIGEST [--revoke] [--json]'],
   ['doctor', 'visser doctor [--doc DOC] [--json]'],
-  ['skill', 'visser skill show [--doc PATH] [--toolkit-dir DIR] [--json]'],
+  ['skill', 'visser skill show [--doc PATH] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]'],
   ['upgrade', 'visser upgrade DOC --to DIGEST [--allow-downgrade] [--dry-run] [--json]'],
-  ['catalogue', 'visser catalogue list | show NAME [--part guide|template|schema] [--json]'],
+  ['catalogue', 'visser catalogue list | show NAME [--part guide|template|schema] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]'],
   ['extension', 'visser extension install --from-dir DIR --scope user|repo | inspect DIR|DIGEST | trust DIGEST [--revoke] | pin DOC DIGEST'],
 ];
 const USAGE_BY_COMMAND = new Map(COMMANDS);

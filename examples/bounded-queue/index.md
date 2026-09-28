@@ -96,6 +96,13 @@ A notification alone does not make the condition true for this caller.
 {% /annotation %}
 {% /annotated %}
 
+{% self-check id="ck_second_producer" question="Two producers wait on a full queue, and a consumer removes one item. What does each producer do next?" %}
+`notify_all` wakes both producers. Each producer gets the lock in turn and
+checks the capacity again. The producer that gets the lock first finds the
+free slot and enqueues. The other producer finds the queue full and waits
+again. {% cite ref="src_queue" /%}
+{% /self-check %}
+
 {% definition id="def_backpressure" term="Backpressure" %}
 A mechanism that makes upstream work wait or slow down when a downstream
 resource cannot accept more work. Here it is implemented by blocking `put`

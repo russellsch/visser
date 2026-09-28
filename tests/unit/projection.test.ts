@@ -32,7 +32,8 @@ describe('semantic Markdown projection (§7.6) @R01 @R14', () => {
   });
 
   it('carries evidence references and the captured excerpt', () => {
-    expect(text).toContain('Evidence: src_queue');
+    // Title and ID, as the evidence of a part prints (phase 6b review F16).
+    expect(text).toMatch(/Evidence: [^\n]*\(src_queue\)/);
     expect(text).toContain('[cite: src_condition_docs]');
     expect(text).toContain('while len(self.items) >= self.capacity:');
     expect(text).toContain('availability: link-only');

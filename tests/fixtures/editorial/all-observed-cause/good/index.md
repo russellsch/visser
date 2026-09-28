@@ -17,14 +17,14 @@ visibility: private
 
 <!-- vs:id p_claim -->
 An expired cache key stalled the order API. The log shows the expiry and the
-exhausted pool; the stampede between them is inferred.
+exhausted pool; we infer the stampede between them.
 
 {% graph id="mechanism" mode="cause" title="The expired key stalled the API" question="Which mechanism links the expired key to the timeouts?" %}
 {% factor id="f_expiry" label="Hot key expired" basis="inferred" %}
 The key was no longer in the cache.
 {% /factor %}
 
-{% factor id="f_stampede" label="Identical queries reach the database" basis="inferred" %}
+{% factor id="f_stampede" label="Identical database queries" basis="inferred" %}
 Many requests missed at once.
 {% /factor %}
 
@@ -36,7 +36,7 @@ No connection was free.
 Clients received errors.
 {% /factor %}
 
-{% causal-link id="cl_1" from="f_expiry" to="f_stampede" label="sends identical misses to the database" basis="observed" evidence=["src_log"] %}
+{% causal-link id="cl_1" from="f_expiry" to="f_stampede" label="sends identical misses" basis="observed" evidence=["src_log"] %}
 The log shows two misses and two identical queries. {% cite ref="src_log" /%}
 {% /causal-link %}
 
@@ -44,7 +44,7 @@ The log shows two misses and two identical queries. {% cite ref="src_log" /%}
 The pool was full while the identical queries ran.
 {% /causal-link %}
 
-{% causal-link id="cl_3" from="f_pool" to="f_timeouts" label="makes requests wait past their deadline" basis="hypothesis" %}
+{% causal-link id="cl_3" from="f_pool" to="f_timeouts" label="makes requests miss deadlines" basis="hypothesis" %}
 No request log was captured, so this link is a hypothesis.
 {% /causal-link %}
 

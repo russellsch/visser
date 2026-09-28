@@ -167,9 +167,15 @@ export function assertInsideRoots(path: string, repoRoot: string): string {
   if (!existsSync(full)) return full;
   if (lstatSync(full).isSymbolicLink()) escape(`${path} is a symbolic link`);
   const real = realpathSync(full);
-  const roots = documentRoots(repoRoot).map((r) => realpathSync(r));
+  const configuredRoots = documentRoots(repoRoot);
+  const roots = configuredRoots.map((r) => realpathSync(r));
   if (!roots.some((root) => isInside(real, root))) {
-    escape(`${path} is outside the configured document roots`);
+    const labels = configuredRoots.map((root) => relative(repoRoot, root).split(sep).join('/'));
+    const locations = labels.length === 0 ? '(none)' : labels.join(', ');
+    const action = labels[0] === undefined
+      ? 'Create a configured document root inside the repository.'
+      : `Put the document under ${labels[0]}/<document>/index.md.`;
+    escape(`${path} is outside the configured document roots (${locations}). ${action}`);
   }
   return full;
 }

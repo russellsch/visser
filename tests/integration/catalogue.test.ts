@@ -54,6 +54,21 @@ describe('catalogue list|show (§17.1) @R16', () => {
     for (const e of entries) expect(e.path.startsWith(join(release, 'skills'))).toBe(true);
   });
 
+  it('list prints mermaid last, under a rule, titled "Mermaid (escape hatch)" (IMPROVEMENTS.md §6.2)', async () => {
+    const out = capture();
+    const code = await runCatalogue(parseArgs(['list']), { env: env(), cwd: tmpdir(), ownRelease: release });
+    const text = out();
+    vi.restoreAllMocks();
+    expect(code).toBe(0);
+    const lines = text.trimEnd().split('\n');
+    expect(lines.at(-1)).toMatch(/^mermaid +Mermaid \(escape hatch\): Is there no native component for this/);
+    expect(lines.at(-2)).toMatch(/^-+$/);
+    expect(lines.slice(0, -2).map((l) => l.split(' ')[0])).toEqual(PATTERNS.filter((p) => !p.escapeHatch).map((p) => p.name));
+    const { json } = await catalogue('list');
+    const entries = json['entries'] as Array<{ name: string; title: string }>;
+    expect(entries.at(-1)).toMatchObject({ name: 'mermaid', title: 'Mermaid (escape hatch) — `mermaid`' });
+  });
+
   it('show prints the guide, the template, or the attribute rules', async () => {
     const guide = await catalogue('show', 'trace');
     expect(validateAgainst('catalogue', guide.json)).toEqual({ ok: true });

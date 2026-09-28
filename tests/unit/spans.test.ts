@@ -31,9 +31,11 @@ const EXPECTED: Array<[string, string, string, string, string]> = [
   ['event_resume', 'event', 'full_queue_trace', '84-87', '3648-3965'],
   ['wait_code', 'annotated', '', '90-97', '3979-4467'],
   ['capacity_loop', 'annotation', 'wait_code', '93-96', '4180-4450'],
-  ['def_backpressure', 'definition', '', '99-103', '4468-4763'],
-  ['src_queue', 'source', '', '105-134', '4764-5717'],
-  ['src_condition_docs', 'source', '', '136-136', '5718-5947'],
+  // Revision 1.27 added the self-check (IMPROVEMENTS.md §14.3); the blocks after it moved down.
+  ['ck_second_producer', 'self-check', '', '99-104', '4468-4899'],
+  ['def_backpressure', 'definition', '', '106-110', '4900-5195'],
+  ['src_queue', 'source', '', '112-141', '5196-6149'],
+  ['src_condition_docs', 'source', '', '143-143', '6150-6379'],
 ];
 
 const enc = new TextEncoder();
@@ -51,7 +53,7 @@ const sliceText = (bytes: Uint8Array, s: number, e: number) => dec.decode(bytes.
 describe('Appendix A spans @R02 @R03', () => {
   const lfParsed = parseSource(lf, 'index.md');
 
-  it('binds exactly the 23 expected targets with no diagnostics', () => {
+  it('binds exactly the 24 expected targets with no diagnostics', () => {
     expect(lfParsed.diagnostics).toEqual([]);
     const rows = lfParsed.targets.map((t) => [t.id, t.kind, t.parentId ?? '', `${t.startLine}-${t.endLine}`, `${t.startByte}-${t.endByte}`]);
     expect(rows).toEqual(EXPECTED);

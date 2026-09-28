@@ -7,8 +7,29 @@ import { identityProblem } from '../provenance/identity.ts';
 import type { Diagnostic, ParsedSource, ParsedTarget, TargetId } from '../types.ts';
 import { normalizeText, sha256Hex } from './hash.ts';
 import type { MNode, TargetModel } from './targets.ts';
+import { DIFF_MAX_LINES, excerptLines } from './diff.ts';
 
-type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region';
+type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'strings' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region' | 'date';
+
+/** A calendar date in ISO 8601 form, YYYY-MM-DD (a task `due`, docs/IMPROVEMENTS.md §4.4). */
+export const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/**
+ * True for a real calendar date in ISO 8601 form: the pattern, then the day
+ * against the length of the month, with the Gregorian leap-year rule. No
+ * `Date` parsing, because its result depends on the engine.
+ */
+export function isIsoDate(value: string): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const last = month === 2 && leap ? 29 : MONTH_DAYS[month - 1]!;
+  return day <= last;
+}
 
 export type TagSpec = {
   required: Record<string, AttrType>;
@@ -24,55 +45,78 @@ export type TagSpec = {
 
 const BASIS = ['observed', 'inferred', 'hypothesis', 'stipulated'] as const;
 const VISUAL = { id: 'id', title: 'string', question: 'string' } as const;
+// `evidence` on a part names the `source` targets that show this part in
+// code; `cite` in the body supports one sentence (docs/IMPROVEMENTS.md §4.4).
+const PART_EVIDENCE = { evidence: 'ids' } as const;
+// `quantity` on a relationship is a cited number such as "1,200 req/s", and
+// `evidence` names the sources for it (docs/IMPROVEMENTS.md §14.9).
+const QUANTITY = { quantity: 'string', evidence: 'ids' } as const;
+/** The three note kinds; there is no free kind (docs/IMPROVEMENTS.md §14.2, §14.11). */
+export const NOTE_KINDS = ['limit', 'assumption', 'warning'] as const;
+/** The figures that take a `steps` walkthrough (docs/IMPROVEMENTS.md §14.1). */
+export const STEPS_PARENTS = ['graph', 'trace', 'transform', 'compare', 'annotated', 'domain'] as const;
+/** Limits of the §14 components: steps and tree entries warn above these; a measure stops at 12 readings. */
+export const STEPS_WARN = 8;
+export const TREE_WARN_ENTRIES = 40;
+export const MEASURE_MAX_READINGS = 12;
+export const DIFF_WARN_LINES = 80;
+/** A diff side above this many lines is `E_LIMIT`, so the build memory stays bounded (§14.7). */
+export { DIFF_MAX_LINES };
 const DETAIL_PARENTS = ['graph', 'group', 'node', 'edge', 'state', 'transition', 'factor', 'causal-link', 'task', 'dependency',
   'trace', 'actor', 'event', 'branch', 'transform', 'stage', 'conversion', 'compare', 'option', 'criterion', 'cell',
-  'annotated', 'annotation', 'definition', 'detail'] as const;
+  'annotated', 'annotation', 'domain', 'concept', 'relation', 'definition', 'detail'] as const;
 
 const SPECS: Record<string, TagSpec> = {
   graph: { required: { ...VISUAL, mode: 'string' }, optional: {}, enums: { mode: ['architecture', 'state', 'cause', 'plan'] } },
-  group: { required: { id: 'id', label: 'string' }, optional: { parent: 'id' }, parents: ['graph'], graphModes: ['architecture'] },
+  // `collapsed=true`: with JavaScript, the group starts folded into one box (docs/IMPROVEMENTS.md §14.9).
+  group: { required: { id: 'id', label: 'string' }, optional: { parent: 'id', collapsed: 'boolean' }, parents: ['graph'], graphModes: ['architecture'] },
   node: {
-    required: { id: 'id', role: 'string' }, optional: { label: 'string', group: 'id', entity: 'id' },
+    required: { id: 'id', role: 'string' }, optional: { label: 'string', group: 'id', entity: 'id', ...PART_EVIDENCE },
     enums: { role: ['process', 'storage', 'external', 'interface', 'decision', 'concept'] }, parents: ['graph'], graphModes: ['architecture'],
   },
   edge: {
-    required: { id: 'id', from: 'id', to: 'id', kind: 'string', label: 'string' }, optional: { basis: 'string' },
+    required: { id: 'id', from: 'id', to: 'id', kind: 'string', label: 'string' }, optional: { basis: 'string', ...QUANTITY },
     enums: { kind: ['call', 'blocking-call', 'data', 'control', 'owns', 'depends-on', 'contains', 'feedback'], basis: BASIS },
     parents: ['graph'], graphModes: ['architecture'],
   },
-  state: { required: { id: 'id', label: 'string' }, optional: { initial: 'boolean', terminal: 'boolean' }, parents: ['graph'], graphModes: ['state'] },
+  state: { required: { id: 'id', label: 'string' }, optional: { initial: 'boolean', terminal: 'boolean', ...PART_EVIDENCE }, parents: ['graph'], graphModes: ['state'] },
   transition: {
     required: { id: 'id', from: 'id', to: 'id', event: 'string', label: 'string' }, optional: { guard: 'string', action: 'string', basis: 'string' },
     enums: { basis: BASIS }, parents: ['graph'], graphModes: ['state'],
   },
-  factor: { required: { id: 'id', label: 'string', basis: 'string' }, optional: {}, enums: { basis: BASIS }, parents: ['graph'], graphModes: ['cause'] },
+  // `evidence` on a factor names a source or a trace observation that
+  // supports it, as on a causal link (docs/IMPROVEMENTS.md §14.6).
+  factor: { required: { id: 'id', label: 'string', basis: 'string' }, optional: { evidence: 'ids' }, enums: { basis: BASIS }, parents: ['graph'], graphModes: ['cause'] },
   'causal-link': {
     required: { id: 'id', from: 'id', to: 'id', label: 'string', basis: 'string' }, optional: { evidence: 'ids' },
     enums: { basis: BASIS }, parents: ['graph'], graphModes: ['cause'],
   },
   task: {
     required: { id: 'id', label: 'string' },
-    optional: { owner: 'string', status: 'string', output: 'string', acceptance: 'string', risk: 'string' },
+    optional: { owner: 'string', status: 'string', output: 'string', acceptance: 'string', risk: 'string', due: 'date', ...PART_EVIDENCE },
     enums: { status: ['proposed', 'ready', 'blocked', 'complete', 'unknown'] }, parents: ['graph'], graphModes: ['plan'],
   },
   dependency: {
-    required: { id: 'id', from: 'id', to: 'id', label: 'string' }, optional: { kind: 'string' },
+    required: { id: 'id', from: 'id', to: 'id', label: 'string' }, optional: { kind: 'string', ...QUANTITY },
     enums: { kind: ['finish-start', 'input', 'decision'] }, parents: ['graph'], graphModes: ['plan'],
   },
   trace: { required: { ...VISUAL }, optional: { timeUnit: 'string', scale: 'string' }, enums: { scale: ['ordinal', 'time'] } },
   actor: { required: { id: 'id' }, optional: { label: 'string', entity: 'id' }, parents: ['trace'] },
+  // `actor` is optional only in a time-scaled trace with no actors: that
+  // trace has one implicit lane. An `observation` is a log line, an alert,
+  // or a metric reading, with its `evidence` (docs/IMPROVEMENTS.md §14.6).
   event: {
-    required: { id: 'id', actor: 'id', label: 'string', kind: 'string' },
-    optional: { to: 'id', after: 'ids', time: 'number', duration: 'number', branch: 'id' },
-    enums: { kind: ['call', 'return', 'send', 'receive', 'compute', 'wait', 'state-change', 'failure'] }, parents: ['trace'],
+    required: { id: 'id', label: 'string', kind: 'string' },
+    optional: { actor: 'id', to: 'id', after: 'ids', time: 'number', duration: 'number', branch: 'id', ...PART_EVIDENCE },
+    enums: { kind: ['call', 'return', 'send', 'receive', 'compute', 'wait', 'state-change', 'failure', 'observation'] }, parents: ['trace'],
   },
   branch: { required: { id: 'id', label: 'string', condition: 'string' }, optional: { exclusiveWith: 'ids' }, parents: ['trace'] },
   transform: { required: { ...VISUAL }, optional: {} },
   stage: {
     required: { id: 'id', label: 'string', representation: 'string' },
-    optional: { shape: 'stringOrStrings', units: 'string', location: 'string', ownership: 'string' }, parents: ['transform'],
+    optional: { shape: 'stringOrStrings', units: 'string', location: 'string', ownership: 'string', ...PART_EVIDENCE }, parents: ['transform'],
   },
-  conversion: { required: { id: 'id', from: 'id', to: 'id', label: 'string' }, optional: { loss: 'string', condition: 'string' }, parents: ['transform'] },
+  conversion: { required: { id: 'id', from: 'id', to: 'id', label: 'string' }, optional: { loss: 'string', condition: 'string', ...QUANTITY }, parents: ['transform'] },
   compare: { required: { ...VISUAL }, optional: {} },
   option: { required: { id: 'id', label: 'string' }, optional: {}, parents: ['compare'] },
   criterion: { required: { id: 'id', label: 'string' }, optional: { units: 'string' }, parents: ['compare'] },
@@ -80,12 +124,48 @@ const SPECS: Record<string, TagSpec> = {
     required: { id: 'id', option: 'id', criterion: 'id' }, optional: { value: 'stringOrNumber', valueStatus: 'string' },
     enums: { valueStatus: ['measured', 'estimated', 'illustrative'] }, parents: ['compare'],
   },
-  annotated: { required: { ...VISUAL, source: 'id' }, optional: {} },
+  // `before` names a second captured source; the page shows a line diff
+  // (docs/IMPROVEMENTS.md §14.7).
+  annotated: { required: { ...VISUAL, source: 'id' }, optional: { before: 'id' } },
+  // Domain model (docs/IMPROVEMENTS.md §5.3): concepts that each own one
+  // definition, and typed relations between them.
+  domain: { required: { ...VISUAL }, optional: {} },
+  concept: {
+    required: { id: 'id', label: 'string', definition: 'id' }, optional: { category: 'string', attributes: 'strings', entity: 'id' },
+    enums: { category: ['thing', 'actor', 'event', 'value', 'rule'] }, parents: ['domain'],
+  },
+  relation: {
+    required: { id: 'id', from: 'id', to: 'id', kind: 'string', label: 'string' }, optional: { cardinality: 'string' },
+    enums: { kind: ['is-a', 'has', 'uses', 'produces', 'identifies'] }, parents: ['domain'],
+  },
+  // Components of docs/IMPROVEMENTS.md §14. A note and a self-check are
+  // blocks with a body; a measure, a tree, and a steps walkthrough have parts.
+  note: { required: { id: 'id', kind: 'string' }, optional: {}, enums: { kind: NOTE_KINDS } },
+  'self-check': { required: { id: 'id', question: 'string' }, optional: {} },
+  measure: { required: { ...VISUAL, unit: 'string' }, optional: {} },
+  // `display` is the text of the value as the page prints it, such as
+  // "0.50", when the number alone loses a digit (phase 6a review S4).
+  reading: {
+    required: { id: 'id', label: 'string', value: 'number', valueStatus: 'string' }, optional: { display: 'string', ...PART_EVIDENCE },
+    enums: { valueStatus: ['measured', 'estimated', 'illustrative'] }, parents: ['measure'],
+  },
+  tree: { required: { ...VISUAL }, optional: {} },
+  entry: {
+    required: { id: 'id', path: 'string', label: 'string' }, optional: { role: 'string', ...PART_EVIDENCE },
+    enums: { role: ['process', 'storage', 'external', 'interface', 'decision', 'concept'] }, parents: ['tree', 'entry'],
+  },
+  steps: { required: { id: 'id' }, optional: {}, parents: STEPS_PARENTS },
+  step: { required: { id: 'id', label: 'string', targets: 'ids' }, optional: {}, parents: ['steps'] },
   mermaid: { required: { ...VISUAL }, optional: {} },
   extension: { required: { ...VISUAL, use: 'string' }, optional: {}, open: true },
   part: { required: { id: 'id', label: 'string' }, optional: {}, parents: ['extension'], open: true },
-  annotation: { required: { id: 'id', label: 'string' }, optional: { lines: 'lines', region: 'region' }, parents: ['annotated'] },
-  definition: { required: { id: 'id', term: 'string' }, optional: {} },
+  annotation: {
+    required: { id: 'id', label: 'string' }, optional: { lines: 'lines', region: 'region', side: 'string' },
+    enums: { side: ['before', 'after'] }, parents: ['annotated'],
+  },
+  // `aliases` adds plurals and short forms to the term auto-link; `auto=false`
+  // turns the auto-link off for this definition (docs/IMPROVEMENTS.md §13.3).
+  definition: { required: { id: 'id', term: 'string' }, optional: { aliases: 'strings', auto: 'boolean' } },
   detail: { required: { id: 'id', label: 'string' }, optional: { summary: 'string' }, parents: DETAIL_PARENTS, topLevel: true },
   source: {
     required: { id: 'id', kind: 'string', title: 'string' },
@@ -121,7 +201,16 @@ const SOURCE_KIND_REQUIRES: Record<string, readonly string[]> = {
 const ENTITY_CHILDREN: Record<string, readonly string[]> = {
   architecture: ['node'], state: ['state'], cause: ['factor'], plan: ['task'],
 };
+/**
+ * The part tags that take an `evidence` attribute (docs/IMPROVEMENTS.md §4.4),
+ * with a measure `reading` and a tree `entry` (§14.4, §14.5).
+ */
+export const PART_EVIDENCE_TAGS: ReadonlySet<string> = new Set(['node', 'event', 'state', 'stage', 'task', 'reading', 'entry']);
+/** The relationship tags that take a `quantity` and its `evidence` (docs/IMPROVEMENTS.md §14.9). */
+export const QUANTITY_TAGS: ReadonlySet<string> = new Set(['edge', 'conversion', 'dependency']);
 const GRAPH_WARN_NODES = 25;
+/** The tags in a figure that have no drawn or listed instance, so a step cannot mark them (§14.1). */
+const UNMARKED_TAGS: ReadonlySet<string> = new Set(['detail']);
 const GRAPH_MAX_NODES = 200;
 const GRAPH_MAX_EDGES = 400;
 const RASTER = /\.(png|jpe?g|webp)$/i;
@@ -139,6 +228,8 @@ function typeOk(value: unknown, type: AttrType): boolean {
       return typeof value === 'number' && Number.isInteger(value);
     case 'ids':
       return Array.isArray(value) && value.every((v) => typeof v === 'string' && v !== '');
+    case 'strings':
+      return Array.isArray(value) && value.every((v) => typeof v === 'string' && v.trim() !== '');
     case 'stringOrStrings':
       return typeof value === 'string' || (Array.isArray(value) && value.every((v) => typeof v === 'string'));
     case 'stringOrNumber':
@@ -147,6 +238,17 @@ function typeOk(value: unknown, type: AttrType): boolean {
       return Array.isArray(value) && value.length === 2 && value.every((v) => typeof v === 'number' && Number.isInteger(v) && v >= 1);
     case 'region':
       return Array.isArray(value) && value.length === 4 && value.every((v) => typeof v === 'number' && v >= 0 && v <= 1);
+    case 'date':
+      return typeof value === 'string' && isIsoDate(value);
+  }
+}
+
+/** The expected form of an attribute type, for a diagnostic. */
+function typeText(type: AttrType): string {
+  switch (type) {
+    case 'date': return 'an ISO 8601 date such as 2026-10-03';
+    case 'ids': return 'a list of IDs, such as ["src_a"]';
+    default: return type;
   }
 }
 
@@ -154,6 +256,31 @@ function ids(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string');
   return [];
+}
+
+/**
+ * The nodes that a map shows when it opens: each node outside every
+ * collapsed group, and one box for each outermost collapsed group
+ * (docs/IMPROVEMENTS.md §14.9, phase 6b review F19). Without JavaScript and
+ * in print the map shows every node; the count is for the first view.
+ */
+export function visibleNodeCount(nodes: readonly ParsedTarget[], groups: readonly ParsedTarget[]): number {
+  const parent = new Map(groups.map((g) => [g.id, typeof g.attributes['parent'] === 'string' ? (g.attributes['parent'] as string) : undefined]));
+  const collapsed = new Set(groups.filter((g) => g.attributes['collapsed'] === true).map((g) => g.id));
+  // The outermost collapsed group around a group, or undefined.
+  const fold = (group: string | undefined): string | undefined => {
+    let found: string | undefined;
+    for (let g = group, i = 0; g !== undefined && i < 1000; g = parent.get(g), i++) if (collapsed.has(g)) found = g;
+    return found;
+  };
+  const boxes = new Set<string>();
+  let count = 0;
+  for (const n of nodes) {
+    const f = fold(typeof n.attributes['group'] === 'string' ? (n.attributes['group'] as string) : undefined);
+    if (f === undefined) count++;
+    else boxes.add(f);
+  }
+  return count + boxes.size;
 }
 
 /** True when the directed graph given by `edges` (from -> to) has a cycle. */
@@ -187,6 +314,12 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
   if (model.targets.size === 0 || parsed.diagnostics.some((d) => d.severity === 'error')) return diagnostics;
   const byId = new Map<TargetId, ParsedTarget>(parsed.targets.map((t) => [t.id, t]));
   const tagOf = (id: string | undefined) => (id === undefined ? undefined : byId.get(id)?.tagName);
+  // The top-level target (the figure) that holds a target.
+  const rootOf = (t: ParsedTarget): string => {
+    let current = t;
+    while (current.parentId && byId.has(current.parentId)) current = byId.get(current.parentId)!;
+    return current.id;
+  };
 
   const report = (code: string, message: string, t: ParsedTarget | undefined, severity: 'error' | 'warning' = 'error', line?: number) => {
     const d: Diagnostic = { code, severity, message, path: parsed.path };
@@ -218,7 +351,7 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
     for (const [name, type] of Object.entries(spec.required)) {
       if (name === 'id') continue;
       if (a[name] === undefined) report('E_SYNTAX', `${t.tagName} ${t.id} is missing required attribute \`${name}\``, t);
-      else if (!typeOk(a[name], type)) report('E_SYNTAX', `${t.tagName} ${t.id}: \`${name}\` must be ${type}`, t);
+      else if (!typeOk(a[name], type)) report('E_SYNTAX', `${t.tagName} ${t.id}: \`${name}\` must be ${typeText(type)}`, t);
     }
     for (const [name, value] of Object.entries(a)) {
       if (name === 'id' || name in spec.required) continue;
@@ -228,7 +361,7 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
         continue;
       }
       if (type === undefined) report('E_SYNTAX', `${t.tagName} ${t.id}: unknown attribute \`${name}\``, t);
-      else if (!typeOk(value, type)) report('E_SYNTAX', `${t.tagName} ${t.id}: \`${name}\` must be ${type}`, t);
+      else if (!typeOk(value, type)) report('E_SYNTAX', `${t.tagName} ${t.id}: \`${name}\` must be ${typeText(type)}`, t);
     }
     for (const [name, allowed] of Object.entries(spec.enums ?? {})) {
       const value = a[name];
@@ -244,7 +377,8 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
     if (spec.parents === undefined) {
       if (t.parentId !== undefined) report('E_SYNTAX', `${t.tagName} ${t.id} must be at the top level, not inside ${parentTag} ${t.parentId}`, t);
     } else if (parentTag === undefined ? !spec.topLevel : !spec.parents.includes(parentTag)) {
-      report('E_SYNTAX', `${t.tagName} ${t.id} must be inside ${spec.parents.length > 3 ? 'a component or entity' : spec.parents.join(' or ')}`, t);
+      const where = spec.parents === STEPS_PARENTS ? `a figure (${STEPS_PARENTS.join(', ')})` : spec.parents.length > 3 ? 'a component or entity' : spec.parents.join(' or ');
+      report('E_SYNTAX', `${t.tagName} ${t.id} must be inside ${where}`, t);
     } else if (parentTag === 'graph' && spec.graphModes) {
       const mode = byId.get(t.parentId!)?.attributes['mode'];
       if (typeof mode === 'string' && !spec.graphModes.includes(mode)) {
@@ -302,6 +436,14 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
   };
   if (parsed.ast) walk(parsed.ast as MNode);
 
+  // `evidence` on a part names sources (docs/IMPROVEMENTS.md §4.4). A
+  // missing ID is E_REF_BROKEN from targets.ts; a wrong kind is reported here.
+  for (const t of parsed.targets) {
+    if (t.tagName && PART_EVIDENCE_TAGS.has(t.tagName)) expectRef(t, 'evidence', ['source']);
+    // The sources of a relationship `quantity` (docs/IMPROVEMENTS.md §14.9).
+    if (t.tagName && QUANTITY_TAGS.has(t.tagName)) expectRef(t, 'evidence', ['source']);
+  }
+
   // Pass 2: family rules.
   const children = (id: string, tag?: string) => parsed.targets.filter((c) => c.parentId === id && (tag === undefined || c.tagName === tag));
   for (const figure of parsed.targets) {
@@ -311,10 +453,12 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       const entityTag = ENTITY_CHILDREN[mode]?.[0];
       const entities = entityTag ? children(figure.id, entityTag) : [];
       const links = children(figure.id).filter((c) => ['edge', 'transition', 'causal-link', 'dependency'].includes(c.tagName ?? ''));
+      // A collapsed group counts as one node: the map opens folded (phase 6b review F19).
+      const shown = visibleNodeCount(entities, children(figure.id, 'group'));
       if (entities.length > GRAPH_MAX_NODES || links.length > GRAPH_MAX_EDGES) {
         report('E_LAYOUT_LIMIT', `graph ${figure.id} has ${entities.length} nodes and ${links.length} edges; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}`, figure);
-      } else if (entities.length > GRAPH_WARN_NODES) {
-        report('W_VISUAL_DENSITY', `graph ${figure.id} shows ${entities.length} nodes; consider splitting it (warning above ${GRAPH_WARN_NODES})`, figure, 'warning');
+      } else if (shown > GRAPH_WARN_NODES) {
+        report('W_VISUAL_DENSITY', `graph ${figure.id} shows ${shown} nodes${shown !== entities.length ? ` (a collapsed group counts as one)` : ''}; consider splitting it (warning above ${GRAPH_WARN_NODES})`, figure, 'warning');
       }
       if (mode === 'architecture') {
         for (const n of children(figure.id, 'node')) expectRef(n, 'group', ['group'], figure.id);
@@ -338,10 +482,28 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
           if (from?.attributes['terminal'] === true) report('E_SEMANTIC', `transition ${tr.id} leaves terminal state ${from.id}`, tr);
         }
       } else if (mode === 'cause') {
+        // A factor names a source or an observation, as a causal link does (§14.6).
+        for (const f of children(figure.id, 'factor')) {
+          expectRef(f, 'evidence', ['source', 'event']);
+          for (const id of ids(f.attributes['evidence'])) {
+            const ref = byId.get(id);
+            if (ref?.tagName === 'event' && ref.attributes['kind'] !== 'observation') {
+              report('E_REF_BROKEN', `factor ${f.id}: \`evidence\` names event ${id}, which is not an observation; name a source or an event with kind="observation"`, f);
+            }
+          }
+        }
         for (const link of children(figure.id, 'causal-link')) {
           expectRef(link, 'from', ['factor'], figure.id);
           expectRef(link, 'to', ['factor'], figure.id);
-          expectRef(link, 'evidence', ['source']);
+          // A causal link names a source, or an observation event of a trace
+          // (docs/IMPROVEMENTS.md §14.6): the log line that supports it.
+          expectRef(link, 'evidence', ['source', 'event']);
+          for (const id of ids(link.attributes['evidence'])) {
+            const ref = byId.get(id);
+            if (ref?.tagName === 'event' && ref.attributes['kind'] !== 'observation') {
+              report('E_REF_BROKEN', `causal-link ${link.id}: \`evidence\` names event ${id}, which is not an observation; name a source or an event with kind="observation"`, link);
+            }
+          }
         }
       } else if (mode === 'plan') {
         const deps = children(figure.id, 'dependency');
@@ -356,7 +518,13 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       const scale = figure.attributes['scale'] ?? 'ordinal';
       const events = children(figure.id, 'event');
       const branches = children(figure.id, 'branch');
+      // One implicit lane: only a time-scaled trace with no actors lets an
+      // event leave out `actor` (docs/IMPROVEMENTS.md §14.6).
+      const implicitLane = scale === 'time' && children(figure.id, 'actor').length === 0;
       for (const e of events) {
+        if (e.attributes['actor'] === undefined && !implicitLane) {
+          report('E_SYNTAX', `event ${e.id} is missing required attribute \`actor\`; only a trace with scale="time" and no actors has one implicit lane`, e);
+        }
         expectRef(e, 'actor', ['actor'], figure.id);
         expectRef(e, 'to', ['actor'], figure.id);
         expectRef(e, 'branch', ['branch'], figure.id);
@@ -365,8 +533,18 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
           for (const name of ['time', 'duration']) {
             if (e.attributes[name] !== undefined) report('E_SEMANTIC', `event ${e.id}: an ordinal trace cannot state \`${name}\`; ordering is not duration`, e);
           }
+          // An observation is a record of what was seen and when (§14.6).
+          if (e.attributes['kind'] === 'observation') report('E_SEMANTIC', `event ${e.id}: an observation needs a time; put it in a trace with scale="time" and give it a \`time\``, e);
         } else if (typeof e.attributes['time'] !== 'number') {
           report('E_SEMANTIC', `event ${e.id}: a time-scaled trace needs a numeric \`time\``, e);
+        } else {
+          for (const id of ids(e.attributes['after'])) {
+            const prerequisite = events.find((p) => p.id === id);
+            const time = prerequisite?.attributes['time'];
+            if (typeof time === 'number' && e.attributes['time'] < time) {
+              report('E_SEMANTIC', `event ${e.id}: \`time\` precedes its \`after\` prerequisite ${id}`, e);
+            }
+          }
         }
       }
       if (scale === 'time' && typeof figure.attributes['timeUnit'] !== 'string') {
@@ -392,6 +570,27 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
           }
         }
       }
+    } else if (tag === 'domain') {
+      // Domain model (docs/IMPROVEMENTS.md §5.3): the graph caps, relation
+      // endpoints in the same figure, and one owner for each definition.
+      const concepts = children(figure.id, 'concept');
+      const relations = children(figure.id, 'relation');
+      if (concepts.length > GRAPH_MAX_NODES || relations.length > GRAPH_MAX_EDGES) {
+        report('E_LAYOUT_LIMIT', `domain ${figure.id} has ${concepts.length} concepts and ${relations.length} relations; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}`, figure);
+      } else if (concepts.length > GRAPH_WARN_NODES) {
+        report('W_VISUAL_DENSITY', `domain ${figure.id} shows ${concepts.length} concepts; consider splitting it (warning above ${GRAPH_WARN_NODES})`, figure, 'warning');
+      }
+      for (const r of relations) {
+        expectRef(r, 'from', ['concept'], figure.id);
+        expectRef(r, 'to', ['concept'], figure.id);
+      }
+    } else if (tag === 'concept') {
+      expectRef(figure, 'definition', ['definition']);
+      const def = figure.attributes['definition'];
+      const owner = typeof def === 'string' ? parsed.targets.find((c) => c.tagName === 'concept' && c.attributes['definition'] === def) : undefined;
+      if (owner && owner.id !== figure.id) {
+        report('E_SEMANTIC', `concept ${figure.id} names definition ${String(def)}, which concept ${owner.id} already owns; one definition has one owner`, figure);
+      }
     } else if (tag === 'transform') {
       for (const c of children(figure.id, 'conversion')) {
         expectRef(c, 'from', ['stage'], figure.id);
@@ -409,35 +608,113 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       }
     } else if (tag === 'annotated') {
       expectRef(figure, 'source', ['source']);
-      const source = byId.get(String(figure.attributes['source']));
-      if (source?.tagName !== 'source') continue;
-      const availability = source.attributes['availability'] ?? 'captured';
-      const excerpt = fenceText(model, source.id);
-      const asset = typeof source.attributes['asset'] === 'string' ? source.attributes['asset'] : undefined;
-      if (availability === 'link-only') {
-        report('E_SEMANTIC', `annotated ${figure.id} uses link-only source ${source.id}; annotations need captured content`, figure);
-        continue;
+      // `before` names a second captured text source; the page shows a line
+      // diff of the two (docs/IMPROVEMENTS.md §14.7).
+      expectRef(figure, 'before', ['source']);
+      const sides: Array<'after' | 'before'> = figure.attributes['before'] === undefined ? ['after'] : ['after', 'before'];
+      const range = new Map<'after' | 'before', { id: string; excerpt: string | undefined; asset: string | undefined; start: number; end: number }>();
+      let usable = true;
+      for (const side of sides) {
+        const source = byId.get(String(figure.attributes[side === 'after' ? 'source' : 'before']));
+        if (source?.tagName !== 'source') {
+          usable = false;
+          continue;
+        }
+        if ((source.attributes['availability'] ?? 'captured') === 'link-only') {
+          report('E_SEMANTIC', `annotated ${figure.id} uses link-only source ${source.id}; annotations need captured content`, figure);
+          usable = false;
+          continue;
+        }
+        const excerpt = fenceText(model, source.id);
+        const asset = typeof source.attributes['asset'] === 'string' ? source.attributes['asset'] : undefined;
+        const start = typeof source.attributes['start'] === 'number' ? source.attributes['start'] : 1;
+        const rows = excerpt === undefined ? 0 : excerpt.replace(/\n$/, '').split('\n').length;
+        const end = typeof source.attributes['end'] === 'number' ? source.attributes['end'] : start + rows - 1;
+        if (sides.length === 2 && excerpt === undefined) {
+          report('E_SEMANTIC', `annotated ${figure.id}: a before-and-after diff needs two captured text sources, but ${source.id} has no text excerpt`, figure);
+          usable = false;
+        } else if (sides.length === 2 && excerptLines(excerpt!).length > DIFF_MAX_LINES) {
+          report('E_LIMIT', `annotated ${figure.id}: the ${side} side has ${excerptLines(excerpt!).length} lines; the limit for a before-and-after diff is ${DIFF_MAX_LINES}; capture the smallest ranges that show the change`, figure);
+          usable = false;
+        } else if (sides.length === 2 && rows > DIFF_WARN_LINES) {
+          report('W_VISUAL_DENSITY', `annotated ${figure.id}: the ${side} side has ${rows} lines; capture the smallest ranges that show the change (warning above ${DIFF_WARN_LINES})`, figure, 'warning');
+        }
+        range.set(side, { id: source.id, excerpt, asset, start, end });
       }
-      const start = typeof source.attributes['start'] === 'number' ? source.attributes['start'] : 1;
-      const rows = excerpt === undefined ? 0 : excerpt.replace(/\n$/, '').split('\n').length;
-      const end = typeof source.attributes['end'] === 'number' ? source.attributes['end'] : start + rows - 1;
+      if (!usable) continue;
       for (const ann of children(figure.id, 'annotation')) {
         const lines = ann.attributes['lines'];
         const region = ann.attributes['region'];
+        const side = ann.attributes['side'] === 'before' ? 'before' : 'after';
+        const own = range.get(side);
+        if (!own) {
+          report('E_SEMANTIC', `annotation ${ann.id}: side="before" needs a \`before\` source on annotated ${figure.id}`, ann);
+          continue;
+        }
         if ((lines === undefined) === (region === undefined)) {
           report('E_SEMANTIC', `annotation ${ann.id} needs exactly one of \`lines\` or \`region\``, ann);
           continue;
         }
         if (lines !== undefined) {
-          if (excerpt === undefined) report('E_SEMANTIC', `annotation ${ann.id}: \`lines\` needs a captured text source, but ${source.id} has none`, ann);
+          if (own.excerpt === undefined) report('E_SEMANTIC', `annotation ${ann.id}: \`lines\` needs a captured text source, but ${own.id} has none`, ann);
           else if (typeOk(lines, 'lines')) {
             const [a, b] = lines as [number, number];
-            if (a > b || a < start || b > end) report('E_SEMANTIC', `annotation ${ann.id}: lines ${a}-${b} are outside source lines ${start}-${end}`, ann);
+            if (a > b || a < own.start || b > own.end) report('E_SEMANTIC', `annotation ${ann.id}: lines ${a}-${b} are outside ${side === 'before' ? 'before ' : ''}source lines ${own.start}-${own.end}`, ann);
           }
         }
-        if (region !== undefined && (asset === undefined || !RASTER.test(asset))) {
+        if (region !== undefined && (own.asset === undefined || !RASTER.test(own.asset))) {
           report('E_SEMANTIC', `annotation ${ann.id}: \`region\` needs a captured raster image asset`, ann);
         }
+      }
+    } else if (tag === 'measure') {
+      // A measure (docs/IMPROVEMENTS.md §14.4): 1 to 12 readings in one unit,
+      // each a bar from zero.
+      const readings = children(figure.id, 'reading');
+      if (readings.length === 0) report('E_SYNTAX', `measure ${figure.id} needs at least one reading`, figure);
+      if (readings.length > MEASURE_MAX_READINGS) report('E_LIMIT', `measure ${figure.id} has ${readings.length} readings; the limit is ${MEASURE_MAX_READINGS}; a longer series is a table`, figure);
+      for (const r of readings) {
+        const value = r.attributes['value'];
+        if (typeof value === 'number' && value < 0) report('E_SEMANTIC', `reading ${r.id}: a bar starts at zero, so \`value\` must be 0 or more, not ${value}`, r);
+      }
+    } else if (tag === 'tree') {
+      // A code map (docs/IMPROVEMENTS.md §14.5): the entries the reader needs.
+      const entries = parsed.targets.filter((t) => t.tagName === 'entry' && rootOf(t) === figure.id);
+      if (children(figure.id, 'entry').length === 0) report('E_SYNTAX', `tree ${figure.id} needs at least one entry`, figure);
+      if (entries.length > TREE_WARN_ENTRIES) {
+        report('W_VISUAL_DENSITY', `tree ${figure.id} shows ${entries.length} entries; show the entries the reader needs, not every folder (warning above ${TREE_WARN_ENTRIES})`, figure, 'warning');
+      }
+    } else if (tag === 'steps') {
+      // A walkthrough (docs/IMPROVEMENTS.md §14.1): the steps name parts of
+      // the figure that holds them. One walkthrough for each figure.
+      const owner = figure.parentId;
+      const steps = children(figure.id, 'step');
+      if (steps.length === 0) report('E_SYNTAX', `steps ${figure.id} needs at least one step`, figure);
+      if (steps.length > STEPS_WARN) {
+        report('W_VISUAL_DENSITY', `steps ${figure.id} has ${steps.length} steps; split the figure by question (warning above ${STEPS_WARN})`, figure, 'warning');
+      }
+      if (owner !== undefined) {
+        const first = children(owner, 'steps')[0];
+        if (first && first.id !== figure.id) report('E_SEMANTIC', `steps ${figure.id}: figure ${owner} already has the walkthrough ${first.id}; one figure has one \`steps\``, figure);
+        for (const s of steps) {
+          for (const id of ids(s.attributes['targets'])) {
+            const ref = byId.get(id);
+            if (!ref) continue; // E_REF_BROKEN from targets.ts
+            if (ref.id === owner || ref.tagName === 'steps' || ref.tagName === 'step' || rootOf(ref) !== owner) {
+              report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${id}, which is not a part of figure ${owner}`, s);
+            } else if (ref.tagName !== undefined && UNMARKED_TAGS.has(ref.tagName)) {
+              // A detail is not drawn, so a step about it marks nothing (phase 6a review C10).
+              report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${ref.tagName} ${id}, which the figure does not draw; name a drawn part`, s);
+            }
+          }
+        }
+      }
+    } else if (tag === 'note' || tag === 'self-check') {
+      // A note is its body, and a self-check body is its answer (phase 6a review C9).
+      const node = model.nodes.get(figure.id);
+      if (node && !hasText(node)) {
+        report('E_SYNTAX', tag === 'note'
+          ? `note ${figure.id} has no body; write the limit, the assumption, or the warning in it`
+          : `self-check ${figure.id} has no answer; write the answer, with its citation, in the body`, figure);
       }
     } else if (tag === 'source') {
       validateSource(figure, model, assets, report);
@@ -469,6 +746,13 @@ function validateRetirement(
       report('E_SEMANTIC', `retired ${id} names ${replacement} as its replacement, but ${replacement} is not a live target (§11.7)`, undefined, 'error', 1);
     }
   }
+}
+
+/** True when a node holds text: words, code, a fence, an image, or a citation. */
+function hasText(node: MNode): boolean {
+  if (node.type === 'text' || node.type === 'code') return String(node.attributes['content'] ?? '').trim() !== '';
+  if (node.type === 'fence' || node.type === 'image' || (node.type === 'tag' && node.tag === 'cite')) return true;
+  return node.children.some(hasText);
 }
 
 /** The fenced body of a source tag, or undefined when it has none. */

@@ -2,6 +2,8 @@
 
 **Question:** How do information, representation, dimensions, or ownership change?
 
+**Confused with:** `architecture` (services, not representations) and `trace` (the order of steps, not the change of a value).
+
 ## Use it when
 
 - A value changes encoding, shape, units, memory location, or owner, and the
@@ -11,7 +13,7 @@
 
 ## Do not use it when
 
-- The boxes are components, not representations of one value. Use `architecture`.
+- The boxes are services, not representations of one value. Use `architecture`.
 - Only the order of steps matters. Use prose or `trace`.
 
 ## Misleading example
@@ -28,8 +30,8 @@ loses detail, so the main view shows it.
 | Tag | Required | Optional |
 |---|---|---|
 | `transform` | `id`, `title`, `question` | — |
-| `stage` | `id`, `label`, `representation` | `shape`, `units`, `location`, `ownership` |
-| `conversion` | `id`, `from`, `to`, `label` | `loss`, `condition` |
+| `stage` | `id`, `label`, `representation` | `shape`, `units`, `location`, `ownership`, `evidence` |
+| `conversion` | `id`, `from`, `to`, `label` | `loss`, `condition`, `quantity`, `evidence` |
 
 - `shape` is a string or a list of dimension names: `shape=["batch", "channel"]`.
 
@@ -40,6 +42,10 @@ loses detail, so the main view shows it.
 - A merge is two or more conversions with the same `to`. Explain in the
   stage body how the inputs combine.
 - `shape` and `units` are descriptive text. Nothing executes them.
+- `evidence=["src_parser"]` names `source` targets: the code that defines
+  this stage. A `cite` supports one sentence in the body.
+- `quantity="40 MB/s"` on a `conversion` shows after its label. Name the
+  source of the number in `evidence` on the conversion.
 
 ## Narrow screens and text
 
@@ -72,5 +78,8 @@ The only lossy step in this pipeline.
 
 ## Diagnostics
 
-- `E_REF_BROKEN`: `from` or `to` is not a stage in this figure.
+- `E_REF_BROKEN`: `from` or `to` is not a stage in this figure, or `evidence`
+  names something that is not a `source`.
 - `E_SYNTAX`: a stage without `representation`. Name the representation.
+- `W_EVIDENCE_GAP` (`check --review`): a `quantity` with no `evidence`. Name
+  the source of the number.

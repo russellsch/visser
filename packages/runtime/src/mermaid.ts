@@ -14,12 +14,70 @@ const DIAGRAM_CONFIG_KEYS = [
   'xyChart', 'requirement', 'architecture', 'mindmap', 'kanban', 'gitGraph', 'c4', 'sankey', 'packet', 'block', 'radar',
 ] as const;
 
-/** The toolkit's fixed Mermaid configuration. Documents cannot change it (§9.12). */
-export function mermaidConfig(): Record<string, unknown> {
+/** The page tokens that theme a Mermaid drawing (docs/IMPROVEMENTS.md §3.5). */
+export type PageTokens = { bg: string; panel: string; fg: string; line: string; font: string; dark: boolean };
+
+// The light values of reader.css (a unit test checks that they match). They
+// apply when a token is missing or is not a hex colour, because Mermaid
+// computes shades and needs a real colour.
+export const LIGHT_TOKENS: PageTokens = {
+  bg: '#ffffff', panel: '#f5f6f8', fg: '#1d1f23', line: '#5a606b',
+  font: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', dark: false,
+};
+
+/** Read the page tokens from the stylesheet at render time, so dark mode follows them. */
+export function pageTokens(root: Element = document.documentElement): PageTokens {
+  const style = getComputedStyle(root);
+  const colour = (name: string, fallback: string) => {
+    const v = style.getPropertyValue(name).trim();
+    return /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(v) ? v : fallback;
+  };
+  const font = style.getPropertyValue('--vs-font').trim();
+  const dark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+  return {
+    bg: colour('--vs-bg', LIGHT_TOKENS.bg),
+    panel: colour('--vs-panel', LIGHT_TOKENS.panel),
+    fg: colour('--vs-fg', LIGHT_TOKENS.fg),
+    line: colour('--vs-line', LIGHT_TOKENS.line),
+    font: font || LIGHT_TOKENS.font,
+    dark,
+  };
+}
+
+/**
+ * The toolkit's fixed Mermaid configuration. Documents cannot change it
+ * (§9.12). The theme is 'base', with its variables from the page tokens
+ * (IMPROVEMENTS §3.5), so a drawing uses the page colours and font.
+ */
+export function mermaidConfig(tokens: PageTokens = LIGHT_TOKENS): Record<string, unknown> {
   const config: Record<string, unknown> = {
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: 'default',
+    theme: 'base',
+    themeVariables: {
+      darkMode: tokens.dark,
+      background: tokens.bg,
+      primaryColor: tokens.panel,
+      primaryTextColor: tokens.fg,
+      primaryBorderColor: tokens.line,
+      secondaryColor: tokens.panel,
+      secondaryTextColor: tokens.fg,
+      secondaryBorderColor: tokens.line,
+      tertiaryColor: tokens.bg,
+      tertiaryTextColor: tokens.fg,
+      tertiaryBorderColor: tokens.line,
+      lineColor: tokens.line,
+      textColor: tokens.fg,
+      // ER and class tables: alternate the panel and the page colour, and draw
+      // no shadow, because the page draws none (a light shadow glows on dark).
+      attributeBackgroundColorOdd: tokens.panel,
+      attributeBackgroundColorEven: tokens.bg,
+      rowOdd: tokens.panel,
+      rowEven: tokens.bg,
+      dropShadow: 'none',
+      fontFamily: tokens.font,
+      fontSize: '14px',
+    },
   };
   for (const key of DIAGRAM_CONFIG_KEYS) config[key] = { useMaxWidth: false };
   return config;
@@ -204,7 +262,7 @@ export async function renderMermaidFigures(): Promise<void> {
     await loadScript(`${base}mermaid.js`, meta.content);
     const api = (window as unknown as { mermaid?: MermaidApi }).mermaid;
     if (!api) throw new Error('mermaid.js did not define mermaid');
-    api.initialize(mermaidConfig());
+    api.initialize(mermaidConfig(pageTokens()));
     // Render one figure at a time: Mermaid keeps global state while it draws.
     for (const figure of figures) await renderFigure(api, figure);
   } catch {

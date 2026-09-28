@@ -1,0 +1,731 @@
+[
+  {
+    "doc": "how",
+    "mode": "wide",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-d_terms",
+          "title": "Four records connect a build",
+          "box": {
+            "x": 397.375,
+            "y": 253.96875,
+            "width": 645.234375,
+            "height": 506.171875
+          },
+          "svg": {
+            "width": 607,
+            "height": 205.328125
+          }
+        },
+        {
+          "id": "x-g_parts",
+          "title": "The shim selects the code",
+          "box": {
+            "x": 397.375,
+            "y": 875.53125,
+            "width": 645.234375,
+            "height": 509.09375
+          },
+          "svg": {
+            "width": 1037.59375,
+            "height": 248.328125
+          }
+        },
+        {
+          "id": "x-tr_build",
+          "title": "A valid source enables a build",
+          "box": {
+            "x": 397.375,
+            "y": 1694.984375,
+            "width": 645.234375,
+            "height": 308.984375
+          },
+          "svg": {
+            "width": 839,
+            "height": 149
+          }
+        }
+      ],
+      "terms": 18,
+      "citations": 12
+    },
+    "checks": [
+      {
+        "name": "term hover",
+        "text": "A source bundle is a folder with index.md and each file that index.md declares. Open concept"
+      },
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      },
+      {
+        "name": "keyboard inspect and return",
+        "returned": true
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "how",
+    "mode": "dark",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-d_terms",
+          "title": "Four records connect a build",
+          "box": {
+            "x": 397.375,
+            "y": 253.96875,
+            "width": 645.234375,
+            "height": 506.171875
+          },
+          "svg": {
+            "width": 607,
+            "height": 205.328125
+          }
+        },
+        {
+          "id": "x-g_parts",
+          "title": "The shim selects the code",
+          "box": {
+            "x": 397.375,
+            "y": 875.53125,
+            "width": 645.234375,
+            "height": 509.09375
+          },
+          "svg": {
+            "width": 1037.59375,
+            "height": 248.328125
+          }
+        },
+        {
+          "id": "x-tr_build",
+          "title": "A valid source enables a build",
+          "box": {
+            "x": 397.375,
+            "y": 1694.984375,
+            "width": 645.234375,
+            "height": 308.984375
+          },
+          "svg": {
+            "width": 839,
+            "height": 149
+          }
+        }
+      ],
+      "terms": 18,
+      "citations": 12
+    },
+    "checks": [
+      {
+        "name": "term hover",
+        "text": "A source bundle is a folder with index.md and each file that index.md declares. Open concept"
+      },
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "how",
+    "mode": "narrow",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "figures": [
+        {
+          "id": "x-d_terms",
+          "title": "Four records connect a build",
+          "box": {
+            "x": 16,
+            "y": 313.15625,
+            "width": 358,
+            "height": 1046.53125
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-g_parts",
+          "title": "The shim selects the code",
+          "box": {
+            "x": 16,
+            "y": 1475.078125,
+            "width": 358,
+            "height": 738.265625
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-tr_build",
+          "title": "A valid source enables a build",
+          "box": {
+            "x": 16,
+            "y": 2670.078125,
+            "width": 358,
+            "height": 519.109375
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        }
+      ],
+      "terms": 18,
+      "citations": 12
+    },
+    "checks": [
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "how",
+    "mode": "small",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "figures": [
+        {
+          "id": "x-d_terms",
+          "title": "Four records connect a build",
+          "box": {
+            "x": 16,
+            "y": 338.75,
+            "width": 288,
+            "height": 1382.53125
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-g_parts",
+          "title": "The shim selects the code",
+          "box": {
+            "x": 16,
+            "y": 1875.0625,
+            "width": 288,
+            "height": 738.265625
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-tr_build",
+          "title": "A valid source enables a build",
+          "box": {
+            "x": 16,
+            "y": 3161.046875,
+            "width": 288,
+            "height": 544.703125
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        }
+      ],
+      "terms": 18,
+      "citations": 12
+    },
+    "checks": [
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "how",
+    "mode": "nojs",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-d_terms",
+          "title": "Four records connect a build",
+          "box": {
+            "x": 397.375,
+            "y": 240.765625,
+            "width": 645.234375,
+            "height": 548.953125
+          },
+          "svg": {
+            "width": 607,
+            "height": 205.328125
+          }
+        },
+        {
+          "id": "x-g_parts",
+          "title": "The shim selects the code",
+          "box": {
+            "x": 397.375,
+            "y": 905.109375,
+            "width": 645.234375,
+            "height": 773.828125
+          },
+          "svg": {
+            "width": 1037.59375,
+            "height": 248.328125
+          }
+        },
+        {
+          "id": "x-tr_build",
+          "title": "A valid source enables a build",
+          "box": {
+            "x": 397.375,
+            "y": 1989.296875,
+            "width": 645.234375,
+            "height": 484.140625
+          },
+          "svg": {
+            "width": 839,
+            "height": 149
+          }
+        }
+      ],
+      "terms": 18,
+      "citations": 12
+    },
+    "checks": []
+  },
+  {
+    "doc": "target",
+    "mode": "wide",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-id_map",
+          "title": "The names around one edit",
+          "box": {
+            "x": 397.375,
+            "y": 253.96875,
+            "width": 645.234375,
+            "height": 543.171875
+          },
+          "svg": {
+            "width": 449,
+            "height": 233
+          }
+        },
+        {
+          "id": "x-tf_packet",
+          "title": "From source bytes to a reference packet",
+          "box": {
+            "x": 397.375,
+            "y": 1184.109375,
+            "width": 645.234375,
+            "height": 1018.375
+          },
+          "svg": {
+            "width": 446,
+            "height": 790
+          }
+        },
+        {
+          "id": "x-lifecycle",
+          "title": "What a held packet resolves to as the document changes",
+          "box": {
+            "x": 397.375,
+            "y": 2581.4375,
+            "width": 645.234375,
+            "height": 893.578125
+          },
+          "svg": {
+            "width": 759.5,
+            "height": 708
+          }
+        },
+        {
+          "id": "x-cmp_handles",
+          "title": "Four ways to point at a paragraph",
+          "box": {
+            "x": 397.375,
+            "y": 3886.59375,
+            "width": 645.234375,
+            "height": 504.109375
+          },
+          "svg": null
+        }
+      ],
+      "terms": 41,
+      "citations": 16
+    },
+    "checks": [
+      {
+        "name": "term hover",
+        "text": "A document is a source bundle that holds targets. Open concept"
+      },
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      },
+      {
+        "name": "keyboard inspect and return",
+        "returned": true
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "target",
+    "mode": "dark",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-id_map",
+          "title": "The names around one edit",
+          "box": {
+            "x": 397.375,
+            "y": 253.96875,
+            "width": 645.234375,
+            "height": 543.171875
+          },
+          "svg": {
+            "width": 449,
+            "height": 233
+          }
+        },
+        {
+          "id": "x-tf_packet",
+          "title": "From source bytes to a reference packet",
+          "box": {
+            "x": 397.375,
+            "y": 1184.109375,
+            "width": 645.234375,
+            "height": 1018.375
+          },
+          "svg": {
+            "width": 446,
+            "height": 790
+          }
+        },
+        {
+          "id": "x-lifecycle",
+          "title": "What a held packet resolves to as the document changes",
+          "box": {
+            "x": 397.375,
+            "y": 2581.4375,
+            "width": 645.234375,
+            "height": 893.578125
+          },
+          "svg": {
+            "width": 759.5,
+            "height": 708
+          }
+        },
+        {
+          "id": "x-cmp_handles",
+          "title": "Four ways to point at a paragraph",
+          "box": {
+            "x": 397.375,
+            "y": 3886.59375,
+            "width": 645.234375,
+            "height": 504.109375
+          },
+          "svg": null
+        }
+      ],
+      "terms": 41,
+      "citations": 16
+    },
+    "checks": [
+      {
+        "name": "term hover",
+        "text": "A document is a source bundle that holds targets. Open concept"
+      },
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "target",
+    "mode": "narrow",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "figures": [
+        {
+          "id": "x-id_map",
+          "title": "The names around one edit",
+          "box": {
+            "x": 16,
+            "y": 287.5625,
+            "width": 358,
+            "height": 1167.125
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-tf_packet",
+          "title": "From source bytes to a reference packet",
+          "box": {
+            "x": 16,
+            "y": 2005.03125,
+            "width": 358,
+            "height": 1019.046875
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-lifecycle",
+          "title": "What a held packet resolves to as the document changes",
+          "box": {
+            "x": 16,
+            "y": 3675.796875,
+            "width": 358,
+            "height": 1135.375
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-cmp_handles",
+          "title": "Four ways to point at a paragraph",
+          "box": {
+            "x": 16,
+            "y": 5432.9375,
+            "width": 358,
+            "height": 1756.484375
+          },
+          "svg": null
+        }
+      ],
+      "terms": 41,
+      "citations": 16
+    },
+    "checks": [
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "target",
+    "mode": "small",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "figures": [
+        {
+          "id": "x-id_map",
+          "title": "The names around one edit",
+          "box": {
+            "x": 16,
+            "y": 349.953125,
+            "width": 288,
+            "height": 1359.125
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-tf_packet",
+          "title": "From source bytes to a reference packet",
+          "box": {
+            "x": 16,
+            "y": 2351.8125,
+            "width": 288,
+            "height": 1124.625
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-lifecycle",
+          "title": "What a held packet resolves to as the document changes",
+          "box": {
+            "x": 16,
+            "y": 4231.9375,
+            "width": 288,
+            "height": 1263.34375
+          },
+          "svg": {
+            "width": 0,
+            "height": 0
+          }
+        },
+        {
+          "id": "x-cmp_handles",
+          "title": "Four ways to point at a paragraph",
+          "box": {
+            "x": 16,
+            "y": 6260.625,
+            "width": 288,
+            "height": 1990.03125
+          },
+          "svg": null
+        }
+      ],
+      "terms": 41,
+      "citations": 16
+    },
+    "checks": [
+      {
+        "name": "term inspect",
+        "visible": true
+      },
+      {
+        "name": "citation inspect",
+        "code": 1
+      }
+    ],
+    "axe": []
+  },
+  {
+    "doc": "target",
+    "mode": "nojs",
+    "errors": [],
+    "external": [],
+    "geometry": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "figures": [
+        {
+          "id": "x-id_map",
+          "title": "The names around one edit",
+          "box": {
+            "x": 397.375,
+            "y": 240.765625,
+            "width": 645.234375,
+            "height": 615.546875
+          },
+          "svg": {
+            "width": 449,
+            "height": 233
+          }
+        },
+        {
+          "id": "x-tf_packet",
+          "title": "From source bytes to a reference packet",
+          "box": {
+            "x": 397.375,
+            "y": 1243.28125,
+            "width": 645.234375,
+            "height": 1289.90625
+          },
+          "svg": {
+            "width": 446,
+            "height": 790
+          }
+        },
+        {
+          "id": "x-lifecycle",
+          "title": "What a held packet resolves to as the document changes",
+          "box": {
+            "x": 397.375,
+            "y": 2912.140625,
+            "width": 645.234375,
+            "height": 1421.453125
+          },
+          "svg": {
+            "width": 759.5,
+            "height": 708
+          }
+        },
+        {
+          "id": "x-cmp_handles",
+          "title": "Four ways to point at a paragraph",
+          "box": {
+            "x": 397.375,
+            "y": 4745.171875,
+            "width": 645.234375,
+            "height": 504.109375
+          },
+          "svg": null
+        }
+      ],
+      "terms": 41,
+      "citations": 16
+    },
+    "checks": []
+  }
+]

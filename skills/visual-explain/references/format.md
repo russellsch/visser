@@ -301,7 +301,7 @@ is `E_SYNTAX`.
 | Tag | Required | Optional | Meaning |
 |---|---|---|---|
 | `detail` | `id`, `label` | `summary` | Referenceable detail. Top level, or inside a component, entity, `definition`, or `detail`. |
-| `definition` | `id`, `term` | | A definition. The first sentence is the short form. Top level only. |
+| `definition` | `id`, `term` | `aliases` (string array), `auto` (boolean, default `true`) | A definition. The first sentence is the short form. Top level only. |
 | `term` | `ref` (a `definition`) | | Inline use of a defined term. |
 | `cite` | `ref` (a `source`) | `note` | Inline citation. `note` states what the source supports. |
 | `focus` | `targets` (ID array) | | Inline text that highlights targets. |
@@ -333,6 +333,28 @@ A producer waits while the queue is full.
 
 <!-- vs:id p_uses -->
 This is {% term ref="d_wait" %}backpressure{% /term %}.
+```
+
+The build links each use of a term to its definition. The match ignores case
+and uses whole words only. It does not look in headings, code, links, or the
+term's own definition. Add `aliases` for plurals and short forms. Set
+`auto=false` to turn the link off for one definition, and tag each use by
+hand with `term`. Use `term` also for a different phrasing, such as "the
+producer's wait".
+
+```markdown visser-valid
+{% definition id="def_packet" term="reference packet" aliases=["reference packets", "packet"] %}
+A reference packet names one target by document ID and target ID.
+{% /definition %}
+
+{% definition id="def_state" term="state" auto=false %}
+A state is one resolver answer for a packet.
+{% /definition %}
+
+<!-- vs:id p_packets -->
+An agent sends a reference packet with each edit. The packet stays the same
+when the document changes, so its {% term ref="def_state" %}state{% /term %}
+can change.
 ```
 
 ```markdown visser-invalid E_REF_BROKEN

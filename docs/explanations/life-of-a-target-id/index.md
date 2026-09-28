@@ -4,6 +4,15 @@ docId: 73df59fe-396f-4f7e-b1a2-76c1e3309c6c
 title: "The life of a target ID"
 kind: teaching
 capturedAt: 2026-09-27T23:57:03Z
+reader:
+  profile: experienced-systems-engineer
+  knows: [YAML, UTF-8, SHA-256, CR, CRLF, LF]
+  new: [target, reference packet, body hash, source revision]
+  mustUnderstand:
+    - "Explain why a target ID still identifies a block after it moves."
+    - "Predict whether another block's edit makes a held packet stale with unchanged text."
+    - "Name the two acknowledgements required to refresh a packet after its target text changes."
+    - "Choose refs retire instead of a hand deletion when a target must disappear."
 visibility: private
 ---
 
@@ -11,69 +20,95 @@ visibility: private
 # The life of a target ID
 
 <!-- vs:id p_intro -->
-When you let an agent edit a document, you need a way to say "change this paragraph" that still means the same paragraph after other people have edited the file. Visser gives every addressable block a target ID that lives in the source text. An agent receives a reference packet that names the document and the target, and Visser refuses the edit if the packet no longer describes what is in the file. This page follows one ID from the moment it is created to the moment it is retired, and it shows what breaks it.
+An agent needs a stable name for the text that it edits. Visser keeps that name with the block in the source. The agent must stop when its packet no longer describes the file.
 
 {% definition id="def_target" term="target" %}
-A target is one addressable part of a document: a heading, a paragraph, a list, a table, a code block, or a part of a figure. Each target has an ID that is unique in its document.
+A target is one addressable block or figure part with a stable ID. Each ID is unique in one document.
+{% /definition %}
+
+{% definition id="def_document" term="document" %}
+A document is a source bundle that holds targets.
 {% /definition %}
 
 {% definition id="def_packet" term="reference packet" %}
-A reference packet is a small YAML record that names one target by document ID and target ID, and records the source revision and the body hash that the reader saw.
+A reference packet is a YAML record for one target at one source revision. It holds the document ID, target ID, and two hashes.
 {% /definition %}
 
+{% definition id="def_body_hash" term="body hash" %}
+A body hash identifies normalized text of one target span.
+{% /definition %}
+
+{% definition id="def_source_revision" term="source revision" %}
+A source revision identifies the declared files of one document.
+{% /definition %}
+
+{% domain id="id_map" title="The names around one edit" question="Which names identify the document, the block, and the packet that carries both?" %}
+The map gives each name one job before the later figures use it.
+
+{% concept id="c_document" label="Document" definition="def_document" category="thing" /%}
+{% concept id="c_target" label="Target" definition="def_target" category="thing" /%}
+{% concept id="c_packet" label="Reference packet" definition="def_packet" category="value" /%}
+{% concept id="c_body" label="Body hash" definition="def_body_hash" category="value" /%}
+{% concept id="c_revision" label="Source revision" definition="def_source_revision" category="value" /%}
+{% relation id="r_contains" from="c_document" to="c_target" kind="has" label="has" /%}
+{% relation id="r_names" from="c_packet" to="c_target" kind="identifies" label="names" /%}
+{% relation id="r_body" from="c_packet" to="c_body" kind="uses" label="carries" /%}
+{% relation id="r_revision" from="c_packet" to="c_revision" kind="uses" label="carries" /%}
+{% /domain %}
+
 <!-- vs:id h_birth -->
-## Where an ID comes from
+## An ID travels
 
 <!-- vs:id p_markers -->
-A top-level block gets its ID from a marker line directly above it, such as `<!-- vs:id p_capacity -->`. A block tag, such as a `detail` or a figure part, takes its ID from its `id` attribute instead. You can choose a readable ID, or run `visser ids assign`. That command gives a new ID only to each block without a marker. The new ID is `b_` followed by 16 base32 characters from 10 random bytes, and it is never an ID that the document already uses. {% cite ref="src_assign" /%}
+A marker gives a top-level block its ID. A block tag uses its `id` attribute. `visser ids assign` adds an unused random ID to each unmarked block. {% cite ref="src_assign" /%}
 
 <!-- vs:id p_span -->
-The {% term ref="def_target" %}target{% /term %} of a marker starts at the marker line and ends at the last line of its block. {% cite ref="src_span" /%} The marker therefore travels with the block: if you cut a paragraph and paste it elsewhere with its marker, it keeps its ID. If you paste it without the marker, it becomes a new block with no ID, and `check` reports `E_ID_MISSING`.
+The {% term ref="def_target" %}target{% /term %} starts at its marker and ends at its block end. {% cite ref="src_span" /%} Move both together, and the target keeps its ID. Remove the marker, and `check` reports `E_ID_MISSING`.
 
 <!-- vs:id h_packet -->
-## What a packet records
+## A packet records two checks
 
 <!-- vs:id p_packet_intro -->
-A {% term ref="def_packet" %}reference packet{% /term %} does not store the text of the target. It stores two hashes, and each one answers a different question later: "did anything in the document change?" and "did this target's own text change?"
+The two hashes answer different questions about a held packet.
 
 {% transform id="tf_packet" title="From source bytes to a reference packet" question="Which parts of the file end up in a packet, and what is lost on the way?" %}
-Each box is one representation of the same target. Only IDs and hashes reach the packet; the text stays in the file.
+The packet carries names and hashes. The target text stays in the document.
 
-{% stage id="sg_bytes" label="Bundle files" representation="UTF-8 bytes of index.md and each declared file" location="document folder" /%}
+{% stage id="sg_bytes" label="Bundle files" representation="UTF-8 bytes of each declared file" location="document folder" evidence=["src_revision"] /%}
 
-{% stage id="sg_span" label="Target span" representation="byte range from the marker line to the end of the block" location="index.md" /%}
+{% stage id="sg_span" label="Target span" representation="bytes from the marker to the block end" location="index.md" evidence=["src_span"] /%}
 
-{% stage id="sg_body" label="Body hash" representation="bodySha256: sha256 of the normalized span text" /%}
+{% stage id="sg_body" label="Body hash" representation="SHA-256 of normalized target text" evidence=["src_body_hash"] /%}
 
-{% stage id="sg_rev" label="Source revision" representation="sha256 of the canonical manifest of all declared files" /%}
+{% stage id="sg_rev" label="Source revision" representation="SHA-256 of the sorted file manifest" evidence=["src_revision"] /%}
 
-{% stage id="sg_ref" label="Reference packet" representation="YAML: docId, targetId, sourceRevision, bodySha256, label, optional quote" location="agent or clipboard" /%}
+{% stage id="sg_ref" label="Reference packet" representation="YAML with IDs and two hashes" location="agent or clipboard" /%}
 
-{% conversion id="cv_parse" from="sg_bytes" to="sg_span" label="parse; bind each marker to the next block" /%}
+{% conversion id="cv_parse" from="sg_bytes" to="sg_span" label="find the block" /%}
 
-{% conversion id="cv_hash_body" from="sg_span" to="sg_body" label="decode, drop one BOM, CRLF and CR to LF, hash" loss="the text itself; line-ending style" /%}
+{% conversion id="cv_hash_body" from="sg_span" to="sg_body" label="normalize then hash" loss="text and line ending style" /%}
 
-{% conversion id="cv_manifest" from="sg_bytes" to="sg_rev" label="hash each file, sort paths, hash the manifest" loss="the text itself" /%}
+{% conversion id="cv_manifest" from="sg_bytes" to="sg_rev" label="hash the manifest" loss="file text" /%}
 
-{% conversion id="cv_issue_body" from="sg_body" to="sg_ref" label="copy into the packet" /%}
+{% conversion id="cv_issue_body" from="sg_body" to="sg_ref" label="copy the hash" /%}
 
-{% conversion id="cv_issue_rev" from="sg_rev" to="sg_ref" label="copy into the packet" /%}
+{% conversion id="cv_issue_rev" from="sg_rev" to="sg_ref" label="copy the hash" /%}
 {% /transform %}
 
 <!-- vs:id p_hashes -->
-The body hash is the sha256 of the span text after strict UTF-8 decoding, removal of one leading byte-order mark, and conversion of CRLF and CR to LF. A change of line endings alone therefore does not change it. {% cite ref="src_body_hash" /%} The source revision is the sha256 of a canonical manifest that lists the document ID and every declared file with its hash, sorted by path. Text files are hashed after the same normalization, so a change of line endings alone changes neither hash, and a packet stays `exact`. Any other change to a declared file changes the revision. {% cite ref="src_revision" /%}
+Visser decodes the span as UTF-8. It removes one leading BOM and changes CRLF or CR to LF. It then hashes the text. {% cite ref="src_body_hash" /%} Line ending changes alone change neither hash. A source revision hashes a sorted manifest of the document ID and declared file hashes. Any other declared-file change changes the revision. {% cite ref="src_revision" /%}
 
 <!-- vs:id p_lookup -->
-A packet names its document by `docId`, not by path. The resolver searches the configured document roots for the one primary file with that `docId`. {% cite ref="src_locate" /%} You can move or rename a document folder inside the document roots, and its packets still find it. If two files carry the same `docId`, the result is `ambiguous`, and nothing is edited.
+A packet names a document by `docId`, not its path. The resolver searches configured document roots for that ID. {% cite ref="src_locate" /%} A move inside those roots keeps the packet useful. Two files with one `docId` produce `ambiguous`.
 
 <!-- vs:id h_aging -->
-## How a packet ages
+## Resolution tells the agent what changed
 
 <!-- vs:id p_aging_intro -->
-A packet is a snapshot of what the reader saw. The document keeps changing, so the same packet gives a different answer over time. The figure shows the answers that a held packet can give, and the commands that move an agent to a fresh packet.
+The resolver compares a held packet with the current document.
 
 {% graph id="lifecycle" mode="state" title="What a held packet resolves to as the document changes" question="Which edits make a packet stale, which make it unusable, and what brings an agent back to an exact packet?" %}
-The states are resolver answers for one packet. A refresh issues a new packet; the old one stays as it was.
+The states are answers for one held packet. A refresh makes a new packet.
 
 {% state id="st_exact" label="exact" initial=true %}
 Same source revision and same body hash. `refs replace` accepts it.
@@ -107,25 +142,25 @@ The ID is in `retiredTargets`, with a reason and an optional replacement.
 
 {% transition id="tr_retire" from="st_exact" to="st_deleted" event="refs retire" label="refs retire" action="remove the span; record the reason" /%}
 
-{% transition id="tr_hand_delete" from="st_exact" to="st_missing" event="block removed by hand, or an error anywhere" label="block removed by hand, or any error" /%}
+{% transition id="tr_hand_delete" from="st_exact" to="st_missing" event="hand deletion or error" label="hand deletion or error" /%}
 
-{% transition id="tr_fixed" from="st_missing" to="st_stale_same" event="the error is fixed (usually stale)" label="the error is fixed (usually stale)" /%}
+{% transition id="tr_fixed" from="st_missing" to="st_stale_same" event="error fixed" label="error fixed" /%}
 {% /graph %}
 
 <!-- vs:id p_stale -->
-The resolver compares the packet with the current file in a fixed order. An absent ID is `deleted` if the frontmatter has a retirement record for it, and `missing` if it does not. A present ID is `exact` only if both the source revision and the body hash match. It is `stale` if the source revision differs, and the result says whether the body hash still matches. A packet whose revision matches but whose body hash does not is `invalid`, because no real file can produce that pair. {% cite ref="src_resolve_status" /%}
+The resolver returns `deleted` for a retired absent ID. It returns `missing` for another absent ID. A present target is `exact` when both hashes match. A changed revision produces `stale` and reports the body match. {% cite ref="src_resolve_status" /%}
 
 <!-- vs:id p_refresh -->
-A stale packet is not an error to hide. `refs refresh` issues a new packet only when you pass the current revision and `--acknowledge-stale`. If the target's own text changed, it also needs `--acknowledge-body-change`, and the skill tells an agent to show you the new text before it passes that flag. {% cite ref="src_refresh" /%}
+`refs refresh` needs the current revision and `--acknowledge-stale`. A changed target body also needs `--acknowledge-body-change`. The agent must read the new text before it gives that acknowledgement. {% cite ref="src_refresh" /%}
 
 <!-- vs:id p_missing_caveat -->
-One answer surprises people: while the document has any error, every packet resolves `missing`, even a packet for a target that is intact. The resolver does not guess target positions in a file that it cannot parse completely. {% cite ref="src_resolve_errors" /%} Fix the error first, and the packets come back. They are usually `stale`, because the file is rarely byte-for-byte the same as when the packet was copied.
+One file error makes every packet resolve `missing`. The resolver refuses to guess positions in an invalid document. {% cite ref="src_resolve_errors" /%} Fix the error first. A held packet then usually resolves `stale`.
 
 <!-- vs:id h_why_ids -->
-## Why not headings or line numbers
+## An ID survives ordinary edits
 
 {% compare id="cmp_handles" title="Four ways to point at a paragraph" question="Which way of naming a target still names the same target after ordinary edits?" %}
-Only the target ID is stored in the source and is unique by rule.
+The ID stays with its marked block. The other names depend on text or position.
 
 {% option id="o_id" label="Target ID" /%}
 {% option id="o_heading" label="Heading text" /%}
@@ -138,19 +173,19 @@ Only the target ID is stored in the source and is unique by rule.
 {% criterion id="c_unique" label="Two targets have the same text" /%}
 
 {% cell id="x_id_reword" option="o_id" criterion="c_reword" %}
-Still found. The packet resolves stale with changed text, so the agent sees the new wording first.
+The packet is stale with changed text.
 {% /cell %}
 
 {% cell id="x_id_elsewhere" option="o_id" criterion="c_elsewhere" %}
-Still found; stale with unchanged text.
+The packet is stale with unchanged text.
 {% /cell %}
 
 {% cell id="x_id_move" option="o_id" criterion="c_move" %}
-Still found, if the marker moved with the block.
+The ID moves with the marker.
 {% /cell %}
 
 {% cell id="x_id_unique" option="o_id" criterion="c_unique" %}
-Still distinct: IDs are unique in the document by rule.
+The unique ID keeps them distinct.
 {% /cell %}
 
 {% cell id="x_heading_reword" option="o_heading" criterion="c_reword" %}
@@ -203,16 +238,16 @@ Matches both copies.
 {% /compare %}
 
 <!-- vs:id p_quote_role -->
-A packet may still carry a quote and a label. They are hints for a human or an agent to confirm that the right text was meant. The resolver reports whether they match, but it never chooses a target by them. {% cite ref="src_resolve_status" /%}
+A packet may still carry a quote and a label. They help a person or agent confirm the intended text. The resolver reports a match, but never chooses a target from either hint. {% cite ref="src_resolve_status" /%}
 
 <!-- vs:id h_change -->
 ## Changing and removing a target
 
 <!-- vs:id p_replace -->
-`refs replace` rewrites one target in a guarded write. Under the edit lock it resolves the packet again, and it refuses a packet that is not `exact` or a `--expected-revision` that is not current. {% cite ref="src_replace_guard" /%} The replacement must keep the target's own ID, and every nested ID of the old target must appear in the replacement exactly once. A replacement may add new blocks next to the kept one, which is how a paragraph splits, but a new block must not reuse an ID that exists elsewhere in the document. {% cite ref="src_retention" /%} To drop a nested target on purpose, the same command takes `--retire ID --reason TEXT`.
+`refs replace` rewrites one target in a guarded write. Under the lock it resolves the packet again. It refuses a non-`exact` packet or a stale `--expected-revision`. {% cite ref="src_replace_guard" /%} The replacement keeps its target ID. It keeps each old nested ID exactly once. A replacement can add blocks beside the kept target. A new block cannot reuse an ID from elsewhere in the document. {% cite ref="src_retention" /%} Use `--retire ID --reason TEXT` to drop a nested target.
 
 <!-- vs:id p_retire -->
-`refs retire` removes a target and writes its ID, a reason, and an optional replacement into `retiredTargets` in the frontmatter. It refuses while a live target still refers to the retired ID, it refuses a replacement that is itself being removed, and it refuses a chain of replacements. {% cite ref="src_retire" /%} A merge is a retirement with a replacement: first replace the paragraph you keep with the merged text, then retire the other one and name the kept one as its replacement. Old packets for the retired paragraph then resolve `deleted` and point to the kept one.
+`refs retire` removes a target and records its ID in `retiredTargets`. The record can include a reason and a replacement. It refuses a live referrer, a removed replacement, or a replacement chain. {% cite ref="src_retire" /%} To merge two paragraphs, replace the kept paragraph first. Then retire the other paragraph and name the kept one as its replacement. Old packets then resolve `deleted` and point to it.
 
 <!-- vs:id h_breaks -->
 ## What breaks an ID
@@ -225,9 +260,9 @@ A packet may still carry a quote and a label. They are hints for a human or an a
 - **Leaving an error in the file.** Every packet resolves `missing` until the error is fixed. {% cite ref="src_resolve_errors" /%}
 
 <!-- vs:id p_limits -->
-These rules protect the identity of a target, not the truth of its text. A packet that resolves `exact` tells an agent that it is editing the text you saw. It does not tell anyone that the text is correct, and a stale packet with unchanged text can still sit next to paragraphs that changed its meaning.
+These rules protect a target's identity, not its truth. An `exact` packet lets an agent edit the text that the reader saw. It does not prove that text is correct. Unchanged target text can sit beside changed context.
 
-{% source id="src_assign" kind="git" title="ids assign: a random ID for each block without a marker" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/syntax/ids.ts" start=48 end=67 capturedAt="2026-09-27T23:57:25Z" excerptSha256="8b89665cce577b594b3d0ccd97625f7fa33db6ef73193c84774b6a085fe07f3e" originFileSha256="8195ddacd7de8038a374062a56142543d705bc36240bcf003e46953d3bbfb376" %}
+{% source id="src_assign" kind="working-tree" title="ids assign: a random ID for each block without a marker" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/syntax/ids.ts" start=48 end=67 capturedAt="2026-09-28T15:05:07Z" excerptSha256="8b89665cce577b594b3d0ccd97625f7fa33db6ef73193c84774b6a085fe07f3e" originFileSha256="8195ddacd7de8038a374062a56142543d705bc36240bcf003e46953d3bbfb376" %}
 ```typescript
   const src = a.text;
   const nl = detectNewline(bytes);
@@ -252,7 +287,7 @@ These rules protect the identity of a target, not the truth of its text. A packe
 ```
 {% /source %}
 
-{% source id="src_span" kind="git" title="A marker target's span starts at its marker line" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/syntax/parse.ts" start=183 end=190 capturedAt="2026-09-27T23:57:39Z" excerptSha256="43ee28ec8df709bd40c1a54202981be497ee24fea8d0dc266521d88493777483" originFileSha256="0a2e86b9f0bc5b08ebccf3093dfe15e453a5c66ac0dfbe944af952132f514e7a" %}
+{% source id="src_span" kind="working-tree" title="A marker target spans from its marker line" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/syntax/parse.ts" start=183 end=190 capturedAt="2026-09-28T15:05:07Z" excerptSha256="43ee28ec8df709bd40c1a54202981be497ee24fea8d0dc266521d88493777483" originFileSha256="0a2e86b9f0bc5b08ebccf3093dfe15e453a5c66ac0dfbe944af952132f514e7a" %}
 ```typescript
   function markerTarget(id: string, markerLine: number, block: MNode, s: SourceText, rep: typeof report): ParsedTarget | undefined {
     const blockEnd = trimTrailingBlank(s, block.lines[block.lines.length - 1] ?? markerLine + 1);
@@ -265,7 +300,7 @@ These rules protect the identity of a target, not the truth of its text. A packe
 ```
 {% /source %}
 
-{% source id="src_body_hash" kind="git" title="bodySha256: normalized text of the span" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/model/hash.ts" start=36 end=57 capturedAt="2026-09-28T00:03:31Z" excerptSha256="69bcd458f56781723036e6875b2fee518bc3a657811f54d3e3ee8aaecbad9ad9" originFileSha256="184a333e66f27504ab291c00e45de4ef66b764151e9c0cf71a094213010a527d" %}
+{% source id="src_body_hash" kind="working-tree" title="bodySha256 uses normalized span text" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/model/hash.ts" start=36 end=57 capturedAt="2026-09-28T15:05:07Z" excerptSha256="69bcd458f56781723036e6875b2fee518bc3a657811f54d3e3ee8aaecbad9ad9" originFileSha256="184a333e66f27504ab291c00e45de4ef66b764151e9c0cf71a094213010a527d" %}
 ```typescript
 
 /** Decode strict UTF-8, remove one leading BOM, and convert CRLF and CR to LF. */
@@ -292,7 +327,7 @@ export function normalizedTextSha256(bytes: Uint8Array): Sha256 {
 ```
 {% /source %}
 
-{% source id="src_revision" kind="git" title="sourceRevision: hash of the canonical manifest" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/model/hash.ts" start=203 end=236 capturedAt="2026-09-27T23:58:07Z" excerptSha256="f52f79f3ac3a379c3ace6296ddb7e8bcc762c1412d60ee99880bcccaa352d0e2" originFileSha256="184a333e66f27504ab291c00e45de4ef66b764151e9c0cf71a094213010a527d" %}
+{% source id="src_revision" kind="working-tree" title="sourceRevision hashes the canonical manifest" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/model/hash.ts" start=203 end=236 capturedAt="2026-09-28T15:05:08Z" excerptSha256="f52f79f3ac3a379c3ace6296ddb7e8bcc762c1412d60ee99880bcccaa352d0e2" originFileSha256="184a333e66f27504ab291c00e45de4ef66b764151e9c0cf71a094213010a527d" %}
 ```typescript
 /** Build the source manifest (§7.4) from declared bundle files. */
 export function sourceManifest(docId: string, files: readonly BundleFile[]): SourceManifest {
@@ -331,21 +366,21 @@ export function sourceRevision(docId: string, files: readonly BundleFile[]) {
 ```
 {% /source %}
 
-{% source id="src_locate" kind="git" title="Find a document by docId in the document roots" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/registry.ts" start=118 end=126 capturedAt="2026-09-27T23:57:26Z" excerptSha256="3528b9665883a99a94ccde835557e48bfc82fe5ad18b04a39b7ca9792fed88b9" originFileSha256="dcc27e049e195f43aa934ae9637b045b5b945e0ec47c510294219027d9af406c" %}
+{% source id="src_locate" kind="working-tree" title="Find a document by docId in document roots" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/registry.ts" start=118 end=126 capturedAt="2026-09-28T15:19:47Z" excerptSha256="a26e405e7d72b4d6258e4d70d159e13fe95a906d5325bb92470ac5b7c32cd7a1" originFileSha256="dea27e769b4c1f4d161937a24f00e662329eb3473c6721f70bc8469f5284d367" %}
 ```typescript
-  const matches: string[] = [];
-  for (const root of documentRoots(opts.repoRoot)) {
-    for (const file of primaryFiles(root)) {
-      if (frontmatterDocId(file) === docId) matches.push(file);
-    }
+    return undefined;
   }
-  if (matches.length === 0) return { status: 'missing', message: `no document with docId ${docId} in the configured roots` };
-  if (matches.length > 1) return { status: 'ambiguous', paths: matches.sort() };
-  return { status: 'found', path: matches[0]! };
+  const lines = text.replace(/^﻿/, '').split(/\r\n?|\n/);
+  if (lines[0] !== '---') return undefined;
+  for (let i = 1; i < lines.length && lines[i] !== '---'; i++) {
+    const m = /^docId:\s*["']?([0-9a-f-]+)["']?\s*$/.exec(lines[i] ?? '');
+    if (m) return m[1];
+  }
+  return undefined;
 ```
 {% /source %}
 
-{% source id="src_resolve_status" kind="git" title="Resolver: deleted, missing, exact, stale, invalid" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/resolve.ts" start=134 end=185 capturedAt="2026-09-27T23:57:27Z" excerptSha256="25dc4ec4fdbebe7945a0397e7c95f4494f755106c92e197b9e817287cc791a5d" originFileSha256="58d4f922fe307c0a0b149925e9f842bcc935b488db37718d7c90b36ea53f988a" %}
+{% source id="src_resolve_status" kind="working-tree" title="Resolver returns deleted, missing, exact, stale, or invalid" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/resolve.ts" start=134 end=185 capturedAt="2026-09-28T15:05:22Z" excerptSha256="25dc4ec4fdbebe7945a0397e7c95f4494f755106c92e197b9e817287cc791a5d" originFileSha256="58d4f922fe307c0a0b149925e9f842bcc935b488db37718d7c90b36ea53f988a" %}
 ```typescript
   // Step 9: absent target.
   if (!record) {
@@ -402,7 +437,7 @@ export function sourceRevision(docId: string, files: readonly BundleFile[]) {
 ```
 {% /source %}
 
-{% source id="src_refresh" kind="git" title="refs refresh: the two acknowledgements" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/refresh.ts" start=42 end=53 capturedAt="2026-09-27T23:57:27Z" excerptSha256="bdf70bf0b8209f7686016b7b45d5b3812130e247f7d2f1641a67b144db4ca16e" originFileSha256="10780266415ecc9e8dc66f5540512ef5220c439ef8002700be19b00ee1851e57" %}
+{% source id="src_refresh" kind="working-tree" title="refs refresh requires two acknowledgements" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/refresh.ts" start=42 end=53 capturedAt="2026-09-28T15:05:22Z" excerptSha256="bdf70bf0b8209f7686016b7b45d5b3812130e247f7d2f1641a67b144db4ca16e" originFileSha256="10780266415ecc9e8dc66f5540512ef5220c439ef8002700be19b00ee1851e57" %}
 ```typescript
   if (result.currentRevision !== expectedCurrent) {
     throw new RefreshRefused(`--expected-current does not match the current revision ${result.currentRevision}`, result, current.sourceText);
@@ -419,7 +454,7 @@ export function sourceRevision(docId: string, files: readonly BundleFile[]) {
 ```
 {% /source %}
 
-{% source id="src_resolve_errors" kind="git" title="Resolver: a document with errors resolves nothing" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/resolve.ts" start=116 end=129 capturedAt="2026-09-27T23:57:27Z" excerptSha256="9b7836828434ba54b1a8fd4257153e4ee43ee3c80542e1d947ed57d3c51026c9" originFileSha256="58d4f922fe307c0a0b149925e9f842bcc935b488db37718d7c90b36ea53f988a" %}
+{% source id="src_resolve_errors" kind="working-tree" title="Resolver returns missing for an invalid document" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/resolve.ts" start=116 end=129 capturedAt="2026-09-28T15:05:22Z" excerptSha256="9b7836828434ba54b1a8fd4257153e4ee43ee3c80542e1d947ed57d3c51026c9" originFileSha256="58d4f922fe307c0a0b149925e9f842bcc935b488db37718d7c90b36ea53f988a" %}
 ```typescript
   // Step 3: parse and validate current source; never use cached offsets.
   const bundle = loadBundle(located.path);
@@ -438,7 +473,7 @@ export function sourceRevision(docId: string, files: readonly BundleFile[]) {
 ```
 {% /source %}
 
-{% source id="src_replace_guard" kind="git" title="refs replace refuses a stale packet or revision" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/replace.ts" start=116 end=134 capturedAt="2026-09-28T00:03:31Z" excerptSha256="7bb2e3d68933140c46838422f0d1ca858a610ee2471d95df4d3a162291a37be2" originFileSha256="0e092484068fc99e5d5b677d6eb0d01507e799a8ca015f7f3a98a6b224d2393b" %}
+{% source id="src_replace_guard" kind="working-tree" title="refs replace refuses a stale packet or revision" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/replace.ts" start=116 end=134 capturedAt="2026-09-28T15:05:35Z" excerptSha256="7bb2e3d68933140c46838422f0d1ca858a610ee2471d95df4d3a162291a37be2" originFileSha256="0e092484068fc99e5d5b677d6eb0d01507e799a8ca015f7f3a98a6b224d2393b" %}
 ```typescript
 export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, expectedRevision: string, opts: ReplaceOptions): EditResult {
   const located = locateDocument(packet.docId, opts.doc === undefined ? { repoRoot: opts.repoRoot } : { repoRoot: opts.repoRoot, doc: opts.doc });
@@ -462,7 +497,7 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
 ```
 {% /source %}
 
-{% source id="src_retention" kind="git" title="refs replace: ID retention rules" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/replace.ts" start=90 end=110 capturedAt="2026-09-27T23:57:28Z" excerptSha256="95e613180d20948e29262a14716911410e5edc0c97f6753845ab575ee3bb5df0" originFileSha256="0e092484068fc99e5d5b677d6eb0d01507e799a8ca015f7f3a98a6b224d2393b" %}
+{% source id="src_retention" kind="working-tree" title="refs replace keeps nested target IDs" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/replace.ts" start=90 end=110 capturedAt="2026-09-28T15:05:35Z" excerptSha256="95e613180d20948e29262a14716911410e5edc0c97f6753845ab575ee3bb5df0" originFileSha256="0e092484068fc99e5d5b677d6eb0d01507e799a8ca015f7f3a98a6b224d2393b" %}
 ```typescript
   const inRegion = (t: TargetRecord) => t.span.startByte >= region.start && t.span.endByte <= region.end;
   const retained = after.model.targets.get(targetId);
@@ -488,7 +523,7 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
 ```
 {% /source %}
 
-{% source id="src_retire" kind="git" title="refs retire: replacement and referrer checks" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/retire.ts" start=99 end=110 capturedAt="2026-09-27T23:57:28Z" excerptSha256="fee9a3eda04cf85cef52cad36a61b9db11e04bc35132f44478f54a2c145b419d" originFileSha256="c278da22b0d8a01b7659eb46ad9b183a21a010869f7eca22f820c02190ba0e9d" %}
+{% source id="src_retire" kind="working-tree" title="refs retire checks replacements and referrers" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/retire.ts" start=99 end=110 capturedAt="2026-09-28T15:05:35Z" excerptSha256="fee9a3eda04cf85cef52cad36a61b9db11e04bc35132f44478f54a2c145b419d" originFileSha256="c278da22b0d8a01b7659eb46ad9b183a21a010869f7eca22f820c02190ba0e9d" %}
 ```typescript
     const removedSet = new Set(removed);
 
@@ -505,7 +540,7 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
 ```
 {% /source %}
 
-{% source id="src_fork" kind="git" title="fork: the copy gets a new random docId" language="typescript" repository="https://github.com/russellsch/visser.git" commit="0f6959a44a7c57808b318f279f3a09c26e99036a" file="packages/core/src/references/fork.ts" start=86 end=101 capturedAt="2026-09-27T23:59:29Z" excerptSha256="157d06dde9b7078062682c9d1ddfdb472fb6f81b57e39a97712fd911db65315e" originFileSha256="70ff3c6ccc9a0053ebf1c4838a29e55af91ba8f87b16cf5eb932a31543f1cf54" %}
+{% source id="src_fork" kind="working-tree" title="fork gives the copy a new random docId" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/fork.ts" start=86 end=101 capturedAt="2026-09-28T15:05:36Z" excerptSha256="157d06dde9b7078062682c9d1ddfdb472fb6f81b57e39a97712fd911db65315e" originFileSha256="70ff3c6ccc9a0053ebf1c4838a29e55af91ba8f87b16cf5eb932a31543f1cf54" %}
 ```typescript
 
   const docId = opts.newDocId ?? randomUUID();
@@ -525,4 +560,3 @@ export function replaceTarget(packet: ReferencePacket, replacement: Uint8Array, 
       }
 ```
 {% /source %}
-

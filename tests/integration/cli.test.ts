@@ -49,7 +49,7 @@ describe('Phase 0 CLI against the built release', () => {
     const doc = join(root, 'examples/bounded-queue/index.md');
     const check = run('check', doc, '--json');
     expect(check.status, check.stdout).toBe(0);
-    expect(JSON.parse(check.stdout).targetCount).toBe(23);
+    expect(JSON.parse(check.stdout).targetCount).toBe(24); // 23, and the self-check of revision 1.27
     const exported = run('export', doc, '--format', 'markdown');
     expect(exported.status).toBe(0);
     expect(exported.stdout).toContain('Producer --[blocking-call; put waits while full]--> Bounded queue');

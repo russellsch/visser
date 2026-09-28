@@ -1,8 +1,10 @@
 // R08 (§17.7 4b, §18.8): the toolkit works with no network. The script proves
 // isolation first and never passes without that proof.
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer, type Server } from 'node:net';
-import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = new URL('../..', import.meta.url).pathname;
@@ -12,9 +14,16 @@ const hasUnshare = spawnSync('unshare', ['-rn', 'true']).status === 0;
 
 describe('offline check (R08)', () => {
   it('reports "not run" (exit 3) when unshare is not on PATH', () => {
-    const r = spawnSync(process.execPath, [script], { encoding: 'utf8', env: { ...process.env, PATH: dirname(process.execPath) } });
-    expect(r.status).toBe(3);
-    expect(r.stderr).toContain('not run: unshare -rn is not available');
+    // A system Node may share /usr/bin with unshare. Use an empty directory
+    // instead of assuming the directory containing Node has no other tools.
+    const emptyPath = mkdtempSync(join(tmpdir(), 'visser-empty-path-'));
+    try {
+      const r = spawnSync(process.execPath, [script], { encoding: 'utf8', env: { ...process.env, PATH: emptyPath } });
+      expect(r.status).toBe(3);
+      expect(r.stderr).toContain('not run: unshare -rn is not available');
+    } finally {
+      rmSync(emptyPath, { recursive: true, force: true });
+    }
   });
 
   it('reports "not run" (exit 3) when a probe address is reachable', async () => {

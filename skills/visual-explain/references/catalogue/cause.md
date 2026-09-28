@@ -2,6 +2,8 @@
 
 **Question:** What mechanism links conditions to an outcome, and how strong is the support?
 
+**Confused with:** `trace` (timing, not mechanism). A root-cause document normally has both: the mechanism first, then one observed run.
+
 ## Use it when
 
 - An established investigation names a mechanism, and the reader must see
@@ -30,7 +32,7 @@ competing explanations; label them.
 | Tag | Required | Optional |
 |---|---|---|
 | `graph` | `id`, `title`, `question`, `mode` | — |
-| `factor` | `id`, `label`, `basis` | — |
+| `factor` | `id`, `label`, `basis` | `evidence` |
 | `causal-link` | `id`, `from`, `to`, `label`, `basis` | `evidence` |
 
 - `basis`: `observed`, `inferred`, `hypothesis`, `stipulated`.
@@ -38,8 +40,12 @@ competing explanations; label them.
 ## Rules
 
 - `factor` and `causal-link` go directly inside the `graph`.
-- `from` and `to` name factors in the same figure. `evidence` names `source`
-  blocks.
+- `from` and `to` name factors in the same figure.
+- `evidence` on a `factor` or a `causal-link` names `source` blocks or
+  trace events with `kind="observation"`. An observed factor with
+  `evidence` has its support in the data: the log line that shows it.
+- A `causal-link` is a relationship, so its inspector shows the body first
+  and the evidence last.
 - Show an AND condition as its own factor labelled "AND: …", and explain it.
 - A cycle is allowed; label it as feedback, not as a timeline.
 - Never add probabilities or a "verified root cause" badge.
@@ -78,4 +84,7 @@ Inferred from the cache design: without single-flight, every miss queries.
 ## Diagnostics
 
 - `E_SYNTAX`: a missing or unknown `basis`. Use a listed value.
-- `E_REF_BROKEN`: `evidence` names something that is not a `source`.
+- `E_REF_BROKEN`: `evidence` names something that is not a `source` or an
+  observation.
+- `W_EVIDENCE_GAP` (`check --review`): an observed factor or link has no
+  `evidence` and no `cite`. Name the observation, or change the basis.

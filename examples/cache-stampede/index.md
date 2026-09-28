@@ -98,6 +98,31 @@ This is not a chronological step.
 ```
 {% /source %}
 
+{% source id="src_pool_before" kind="example" title="Illustrative pool log before the fix" language="text" excerptSha256="66387faebaa01be469247432dee826441174febec55538d97988a0ca0605f960" %}
+```text
+12:00:00.310 pool  in_use=50/50 waiting=37 wait_p99_ms=840
+```
+{% /source %}
+
+{% source id="src_pool_after" kind="example" title="Illustrative pool log after the fix" language="text" excerptSha256="7cb0901056c05125441dbe4fb0ce6aa5033e4789d66fdbf623f0abbbff1fecca" %}
+```text
+12:00:00.310 pool  in_use=6/50 waiting=0 wait_p99_ms=12
+```
+{% /source %}
+
 <!-- vs:id p_fix -->
 The fix follows from the mechanism, not from the timeline: coalesce concurrent
 misses for one key so that only one query reaches the database.
+
+{% measure id="pool_wait" title="The pool wait fell after single-flight" question="How much did coalesced misses reduce the wait for a connection?" unit="ms" %}
+Each value is the p99 wait for a connection at the same peak. Both values are
+illustrative, so the page hatches the bars.
+
+{% reading id="rd_wait_before" label="Before the fix" value=840 valueStatus="illustrative" evidence=["src_pool_before"] /%}
+{% reading id="rd_wait_after" label="After the fix" value=12 valueStatus="illustrative" evidence=["src_pool_after"] /%}
+{% /measure %}
+
+{% note id="nt_one_key" kind="limit" %}
+The fix coalesces misses for one key at a time. A burst of misses on two or
+more different keys can still fill the pool.
+{% /note %}

@@ -39,15 +39,28 @@ const ELEMENT_ATTRS: Record<string, readonly string[]> = {
   g: ['transform'], defs: [],
   marker: ['viewBox', 'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'markerUnits'],
   rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray'],
-  path: ['d', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
+  path: ['d', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'marker-start', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
   polygon: ['points', 'fill', 'stroke'],
   text: ['x', 'y', 'text-anchor', 'dominant-baseline', 'fill', 'font-size'],
-  tspan: ['x', 'y', 'dy'],
+  // `fill-opacity` mutes a secondary line in a node box, such as a task's
+  // `due` date, in the theme's text colour (docs/IMPROVEMENTS.md §4.4).
+  tspan: ['x', 'y', 'dy', 'fill-opacity'],
   desc: [],
 };
 
 // Elements whose `href` is an SVG link (same rules as HTML links).
 const LINK_ATTRS = new Set(['href', 'src']);
+
+// Presentation attributes whose value must match a pattern, not only whose
+// name is allowed: an opacity is a number from 0 to 1, and a line end names
+// only a marker that the renderer generates, m-FIGURE.arrow with an optional
+// suffix (phase 4 review D14).
+const MARKER_URL = /^url\(#m-[a-z][a-z0-9_-]{0,63}\.arrow(-[a-z]+)?\)$/;
+const VALUE_PATTERNS: Record<string, RegExp> = {
+  'fill-opacity': /^(0|1|0?\.[0-9]+)$/,
+  'marker-start': MARKER_URL,
+  'marker-end': MARKER_URL,
+};
 
 function allowedAttribute(tag: string, name: string): boolean {
   if (/^on/i.test(name) || name === 'style') return false;
@@ -66,6 +79,8 @@ export function h(tag: string, attrs: Attrs = {}, ...children: Child[]): HNode {
     if (!allowedAttribute(tag, name)) throw new UnsafeMarkupError(`attribute ${name} on <${tag}> is not allowed`);
     const text = value === true ? '' : String(value);
     if (LINK_ATTRS.has(name) && !isSafeRenderedUrl(text)) throw new UnsafeMarkupError(`unsafe ${name} value on <${tag}>`);
+    const pattern = VALUE_PATTERNS[name];
+    if (pattern && !pattern.test(text)) throw new UnsafeMarkupError(`unsafe ${name} value on <${tag}>`);
     list.push([name, text]);
   }
   return { kind: 'element', tag, attrs: list, children: flatten(children) };

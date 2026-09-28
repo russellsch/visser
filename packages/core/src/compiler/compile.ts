@@ -4,13 +4,19 @@
 import type { Diagnostic, TargetRecord } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
 import type { MNode } from '../model/targets.ts';
-import { projectText } from '../model/project.ts';
+import { firstSentence, noteWord, projectText, READING_ORDER, readingOrderFigure, withUnit } from '../model/project.ts';
+import { diffPairs, excerptLines, lineDiff, type DiffRow } from '../model/diff.ts';
+import { swatch as cueSwatch } from './encoding.ts';
+import { measureSvg } from './measure-svg.ts';
+import { PART_EVIDENCE_TAGS, QUANTITY_TAGS } from '../model/validate.ts';
 import { inCitationOrder, sourceOrder } from '../model/citations.ts';
 import { buildId as computeBuildId, canonicalJSON, HashError, normalizedTextSha256, sha256Hex } from '../model/hash.ts';
 import { DOM } from './dom-contract.ts';
 import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
 import { graphSvg, traceSvg } from './svg.ts';
+import { phraseKey, TermMatcher, type LinkableDefinition, type TermSegment } from './autolink.ts';
+import { BASIS_CUES, CATEGORY_CUES, DEPENDENCY_KIND_CUES, EDGE_KIND_CUES, EVENT_CUES, filterToken, hueChips, RELATION_KIND_CUES, legend, LOSS_CUE, patternChips, ROLE_CUES, showsHue, STATUS_CUES, styleFor, UNSTATED_BASIS_DASH, type Chip, type PartStyle } from './encoding.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
 import type { ExtensionBinding } from '../extensions/registry.ts';
@@ -103,23 +109,33 @@ const MERMAID_KIND_TEXT: Record<string, string> = {
 };
 
 const ENTITY_KINDS = new Set(['definition', 'source', 'detail']);
+
+/**
+ * The notice for a source with no captured excerpt (ARCHITECTURE §8.1). The
+ * appendix row and the inspector Evidence section use the same words
+ * (docs/IMPROVEMENTS.md §4.4).
+ */
+const LINK_ONLY_TEXT = 'No captured excerpt; this origin link is not self-contained evidence.';
+const linkOnlyNotice = (): HNode => h('p', { class: 'vs-link-only', [DOM.attr.generated]: true }, LINK_ONLY_TEXT);
+
 const COMPONENTS = new Set(['graph', 'trace', 'annotated', 'transform', 'compare']);
 // Figure/component root kinds (matches COMPONENT_ROOTS in model/targets.ts): a
 // figure's owned parts group under "Figure: <title>" in the appendix (F3).
-const FIGURE_KINDS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid', 'extension']);
+const FIGURE_KINDS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
 
-// Graph-like families share one kernel (§9.1): graph modes plus transform.
-type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform';
+// Graph-like families share one kernel (§9.1): graph modes plus transform
+// and domain (docs/IMPROVEMENTS.md §5.4).
+type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform' | 'domain';
 const GRAPH_MODES = new Set<GraphFamily>(['architecture', 'state', 'cause', 'plan']);
 
-// Causal basis is shown as text and as a line pattern, never by color alone (§9.7).
-const BASIS_DASH: Record<string, string | undefined> = { observed: undefined, inferred: '6 4', hypothesis: '2 4', stipulated: '10 3 2 3' };
+// Causal basis is shown as text and as a line pattern, never by color alone
+// (§9.7). The patterns and hues are in encoding.ts (docs/IMPROVEMENTS.md §3.2).
 
 const NODE_LIST_LABEL: Record<GraphFamily, string> = {
-  architecture: 'Elements', state: 'States', cause: 'Factors', plan: 'Tasks', transform: 'Stages',
+  architecture: 'Elements', state: 'States', cause: 'Factors', plan: 'Tasks', transform: 'Stages', domain: 'Concepts',
 };
 const REL_LIST_LABEL: Record<GraphFamily, string> = {
-  architecture: 'Relationships', state: 'Transitions', cause: 'Causal links', plan: 'Dependencies', transform: 'Conversions',
+  architecture: 'Relationships', state: 'Transitions', cause: 'Causal links', plan: 'Dependencies', transform: 'Conversions', domain: 'Relations',
 };
 const TEXT_MEDIA: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
 
@@ -146,6 +162,15 @@ class Renderer {
   readonly layout: LayoutFunction;
   readonly options: CompileOptions;
   usesMermaid = false;
+  // The line diff of each annotated figure with a `before` source. The page
+  // and the text projection share it, so a build computes it once (phase 6a
+  // review C1).
+  readonly diffs = new Map<string, DiffRow[]>();
+  // Term auto-link (docs/IMPROVEMENTS.md §13.3, §13.5).
+  readonly terms: TermMatcher;
+  linkOff = 0; // above 0: do not link terms (headings, links, and inline tags)
+  ownDefinition: string | undefined; // the definition whose body is being rendered
+  termScope: Set<string> | undefined; // the terms already underlined in the current paragraph
 
   constructor(bundle: LoadedBundle, options: CompileOptions) {
     this.bundle = bundle;
@@ -157,6 +182,7 @@ class Renderer {
     // Citation numbers follow the first citation in reading order (revision 1.24).
     this.sourceOrder = sourceOrder(bundle.parsed.ast as MNode, this.targets);
     this.sourceOrder.forEach((id, i) => this.citationNumber.set(id, i + 1));
+    this.terms = new TermMatcher(linkableDefinitions(bundle));
   }
 
   error(code: string, message: string, targetId?: string) {
@@ -197,8 +223,75 @@ class Renderer {
 
   // --- Inline content ------------------------------------------------------
 
+  /**
+   * The inline children of a node. A run of text and soft line breaks is
+   * joined before the term auto-link, so a term that wraps to the next source
+   * line is still found (docs/IMPROVEMENTS.md §13.3).
+   */
   inlines(node: MNode): Child[] {
-    return node.children.map((c) => this.inline(c));
+    const out: Child[] = [];
+    let run: string[] = [];
+    const flush = () => {
+      if (run.length === 0) return;
+      out.push(this.linkText(run.join('')));
+      run = [];
+    };
+    for (const c of node.children) {
+      if (c.type === 'text') run.push(String(c.attributes['content'] ?? ''));
+      else if (c.type === 'softbreak') run.push('\n');
+      else {
+        flush();
+        out.push(this.inline(c));
+      }
+    }
+    flush();
+    return out;
+  }
+
+  /** Run `fn` with the term auto-link off (headings, links, and inline tags). */
+  withoutLinks<T>(fn: () => T): T {
+    this.linkOff++;
+    try {
+      return fn();
+    } finally {
+      this.linkOff--;
+    }
+  }
+
+  /** Run `fn` in a new paragraph scope: the first use of each term in it is underlined (§13.5). */
+  withTermScope<T>(fn: () => T): T {
+    const previous = this.termScope;
+    this.termScope = new Set();
+    try {
+      return fn();
+    } finally {
+      this.termScope = previous;
+    }
+  }
+
+  /** Prose text with each use of a defined term linked to its definition (§13.3). */
+  linkText(raw: string, targetId?: string): Child {
+    const text = this.safeText(raw, targetId);
+    if (this.linkOff > 0 || this.terms.empty) return text;
+    return this.terms.split(text, this.ownDefinition).map((seg) => (typeof seg === 'string' ? seg : this.termLink(seg.defId, seg.text)));
+  }
+
+  /**
+   * One use of a term. The first use of a term in a paragraph is a link with
+   * a dotted underline. A later use in the same paragraph is a plain span
+   * that still shows the definition on hover, but has no underline and no
+   * tab stop (docs/IMPROVEMENTS.md §13.5).
+   */
+  termLink(defId: string, text: Child, authored = false): HNode {
+    const first = !this.termScope?.has(defId);
+    this.termScope?.add(defId);
+    if (first || authored) return h('a', { class: 'vs-term', href: `#${DOM.canonicalId(defId)}`, [DOM.attr.term]: defId }, text);
+    return h('span', { class: 'vs-term vs-term-quiet', [DOM.attr.term]: defId }, text);
+  }
+
+  /** Segments of an SVG label: plain text and uses of defined terms (§13.4). */
+  labelTerms(text: string): TermSegment[] {
+    return this.terms.empty ? [text] : this.terms.split(text);
   }
 
   inline(node: MNode): Child {
@@ -225,7 +318,7 @@ class Renderer {
       this.error('E_UNSAFE_CONTENT', `link rejected (${check.reason})`);
       return this.inlines(node);
     }
-    return h('a', { href: check.href, rel: check.external ? 'noopener noreferrer' : undefined }, this.inlines(node));
+    return h('a', { href: check.href, rel: check.external ? 'noopener noreferrer' : undefined }, this.withoutLinks(() => this.inlines(node)));
   }
 
   image(node: MNode): Child {
@@ -247,12 +340,15 @@ class Renderer {
   }
 
   inlineTag(node: MNode): Child {
-    const children = this.inlines(node);
+    // The text inside a term, a citation, a focus link, or a detail link is
+    // already a link, so the term auto-link does not look inside it.
+    const known = node.tag === 'term' || node.tag === 'cite' || node.tag === 'focus' || node.tag === 'detail-link';
+    const children = known ? this.withoutLinks(() => this.inlines(node)) : this.inlines(node);
     switch (node.tag) {
       case 'term': {
         const ref = attrString(node, 'ref')!;
         const text = children.length > 0 ? children : this.label(ref);
-        return h('a', { class: 'vs-term', href: `#${DOM.canonicalId(ref)}`, [DOM.attr.term]: ref }, text);
+        return this.termLink(ref, text, true);
       }
       case 'cite': {
         const ref = attrString(node, 'ref')!;
@@ -281,25 +377,25 @@ class Renderer {
     switch (node.type) {
       case 'heading': {
         const level = Math.min(6, Math.max(1, Number(node.attributes['level'] ?? 1)));
-        return h(`h${level}`, {}, this.inlines(node));
+        return h(`h${level}`, {}, this.withoutLinks(() => this.inlines(node)));
       }
-      case 'paragraph': return h('p', {}, this.inlines(node));
-      case 'inline': return h('p', {}, this.inlines(node));
+      case 'paragraph': return h('p', {}, this.withTermScope(() => this.inlines(node)));
+      case 'inline': return h('p', {}, this.withTermScope(() => this.inlines(node)));
       case 'fence': return this.fence(node);
       case 'hr': return h('hr');
       case 'blockquote': return h('blockquote', {}, this.blocks(node));
       case 'list': {
         const ordered = node.attributes['ordered'] === true;
         const start = node.attributes['start'];
-        return h(ordered ? 'ol' : 'ul', { start: ordered && typeof start === 'number' && start !== 1 ? start : undefined }, node.children.map((item) => h('li', {}, this.blocks(item))));
+        return h(ordered ? 'ol' : 'ul', { start: ordered && typeof start === 'number' && start !== 1 ? start : undefined }, node.children.map((item) => h('li', {}, this.withTermScope(() => this.blocks(item)))));
       }
-      case 'item': return h('li', {}, this.blocks(node));
+      case 'item': return h('li', {}, this.withTermScope(() => this.blocks(node)));
       case 'table': return h('table', {}, this.blocks(node));
       case 'thead': return h('thead', {}, this.blocks(node));
       case 'tbody': return h('tbody', {}, this.blocks(node));
       case 'tr': return h('tr', {}, this.blocks(node));
-      case 'th': return h('th', { scope: 'col', align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.inlines(node));
-      case 'td': return h('td', { align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.inlines(node));
+      case 'th': return h('th', { scope: 'col', align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.withTermScope(() => this.inlines(node)));
+      case 'td': return h('td', { align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.withTermScope(() => this.inlines(node)));
       case 'comment': return null;
       case 'tag': return null; // entity tags render in their own places
       default: return this.blocks(node);
@@ -318,18 +414,167 @@ class Renderer {
 
   // --- Components ----------------------------------------------------------
 
-  figureShell(id: string, node: MNode, kindClass: string, content: Child[], hasMap = false): HNode {
+  figureShell(id: string, node: MNode, kindClass: string, content: Child[], hasMap = false, legendNode: HNode | null = null): HNode {
     const question = attrString(node, 'question') ?? '';
-    const title = attrString(node, 'title') ?? this.label(id);
-    return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
-      h('p', { class: 'vs-figure-eyebrow', [DOM.attr.generated]: true }, 'Figure'),
-      h('figcaption', {}, this.safeText(title, id)),
+    const title = this.safeText(attrString(node, 'title') ?? this.label(id), id);
+    // The title is the visible heading. The word "Figure" is not shown; it
+    // stays in the accessible name (docs/IMPROVEMENTS.md §3.6).
+    return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-label': `Figure: ${title}`, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
+      h('figcaption', {}, title),
       // The authored question, visible under the caption (F7); the empty case
       // collapses via CSS (:empty), and this element stays the aria-describedby target.
-      h('p', { id: `vs-q-${id}`, class: 'vs-figure-question' }, this.safeText(question, id)),
-      this.blocks(node),
+      // The question is prose, so the term auto-link applies (docs/IMPROVEMENTS.md §13.3).
+      h('p', { id: `vs-q-${id}`, class: 'vs-figure-question' }, this.withTermScope(() => this.linkText(question, id))),
+      // The legend comes after the interpretation paragraph (§3.3). The two
+      // share a wrapping row, so a short paragraph and a short legend sit
+      // side by side, and a long one pushes the legend to the next line (§3.6).
+      legendNode ? h('div', { class: 'vs-figure-lead' }, h('div', { class: 'vs-figure-text' }, this.blocks(node)), legendNode) : this.blocks(node),
       content,
+      // A walkthrough goes under the figure (docs/IMPROVEMENTS.md §14.1).
+      this.stepsSection(id),
     );
+  }
+
+  // --- Components of docs/IMPROVEMENTS.md §14 -----------------------------------
+
+  /**
+   * A `steps` walkthrough (§14.1): a numbered list under the figure. Each
+   * step has its label, its body, and a link to each part that it names.
+   * The list is the canonical element of the walkthrough and of each step,
+   * so it works with no JavaScript, in print, and on a narrow screen. With
+   * JavaScript on a wide screen, the runtime adds the step bar and marks the
+   * parts of the active step. In a graph of any mode and in a domain the list
+   * says that the order is a reading order, because only a trace claims an
+   * execution order (phase 6a review S1).
+   */
+  stepsSection(figureId: string): Child {
+    const walk = this.childTargets(figureId).find((c) => c.kind === 'steps');
+    if (!walk) return null;
+    const steps = this.childTargets(walk.id).filter((c) => c.kind === 'step');
+    const readingOrder = readingOrderFigure(this.targets.get(figureId)?.kind);
+    return h('section', { class: 'vs-steps', ...this.canonical(walk.id), 'aria-label': `Steps: ${this.figureTitle(figureId)}` },
+      h('p', { class: 'vs-steps-heading', [DOM.attr.generated]: true }, `Walkthrough in ${steps.length} step${steps.length === 1 ? '' : 's'}`),
+      readingOrder ? h('p', { class: 'vs-steps-note', [DOM.attr.generated]: true }, READING_ORDER) : null,
+      h('ol', { class: 'vs-step-list' }, steps.map((s) => {
+        const n = this.nodes.get(s.id)!;
+        const targets = (Array.isArray(n.attributes['targets']) ? n.attributes['targets'] : []).filter((x): x is string => typeof x === 'string' && this.targets.has(x));
+        return h('li', { class: 'vs-step', ...this.canonical(s.id), [DOM.attr.stepTargets]: targets.join(' ') },
+          h('p', { class: 'vs-step-label' }, this.label(s.id)),
+          h('div', { class: 'vs-step-body' }, this.blocks(n)),
+          targets.length > 0
+            ? h('p', { class: 'vs-step-targets', [DOM.attr.generated]: true }, 'Parts: ',
+                targets.map((t, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(t)}`, id: DOM.listInstanceId(figureId, `${s.id}.${t}`), [DOM.attr.target]: t, [DOM.attr.interactive]: true }, this.label(t))]))
+            : null);
+      })));
+  }
+
+  /**
+   * A note (§14.2): a limit, an assumption, or a warning, as a block with a
+   * 4 px left rule in its category hue and the kind word as an eyebrow. The
+   * word is the paired cue, so the hue never carries the kind alone.
+   */
+  note(id: string, node: MNode): HNode {
+    const kind = attrString(node, 'kind') ?? 'limit';
+    const word = noteWord(kind);
+    return h('div', { class: `vs-block vs-note vs-note-${kind.replace(/[^a-z]/g, '')}`, role: 'note', 'aria-label': word, ...this.canonical(id) },
+      h('p', { class: 'vs-note-kind', [DOM.attr.generated]: true }, word),
+      this.blocks(node));
+  }
+
+  /**
+   * A self-check (§14.3): the question, then the answer in a native
+   * `details` with the summary "Show answer". Without JavaScript the
+   * reader opens it; in print it is open.
+   */
+  selfCheck(id: string, node: MNode): HNode {
+    const question = attrString(node, 'question') ?? this.label(id);
+    return h('div', { class: 'vs-block vs-self-check', ...this.canonical(id) },
+      h('p', { class: 'vs-self-check-question' },
+        h('span', { class: 'vs-self-check-kind', [DOM.attr.generated]: true }, 'Check yourself'),
+        ' ', this.withTermScope(() => this.linkText(question, id))),
+      h('details', { class: 'vs-self-check-answer' },
+        h('summary', { [DOM.attr.generated]: true }, 'Show answer'),
+        h('div', { class: 'vs-self-check-body' }, this.blocks(node))));
+  }
+
+  /**
+   * A measure (§14.4): one horizontal bar for each reading, in authored
+   * order, with its number and unit. A bar is ink. A reading that is not
+   * measured is hatched and says so in its value text. The axis shows zero
+   * and the maximum only. The table under it is the list view, the narrow
+   * view, and the text form.
+   */
+  measure(id: string, node: MNode): HNode {
+    const unit = attrString(node, 'unit');
+    const readings = this.childTargets(id).filter((c) => c.kind === 'reading');
+    const rows = readings.map((r) => {
+      const n = this.nodes.get(r.id)!;
+      const value = typeof n.attributes['value'] === 'number' ? (n.attributes['value'] as number) : 0;
+      const status = attrString(n, 'valueStatus') ?? 'measured';
+      return { id: r.id, label: this.label(r.id), value, status, text: this.safeText(`${withUnit(value, unit, attrString(n, 'display'))}${status === 'measured' ? '' : ` (${status})`}`, r.id) };
+    });
+    // The axis maximum prints as the largest reading prints, with its `display` text (phase 6a review S4).
+    const top = rows.reduce<(typeof rows)[number] | undefined>((best, r) => (best === undefined || r.value > best.value ? r : best), undefined);
+    const topDisplay = top ? attrString(this.nodes.get(top.id)!, 'display') : undefined;
+    const svg = top ? measureSvg({ figureId: id, title: attrString(node, 'title') ?? this.label(id), rows, maxText: this.safeText(withUnit(top.value, unit, topDisplay), id) }) : null;
+    const table = h('table', { class: 'vs-measure-table' },
+      h('thead', { [DOM.attr.generated]: true }, h('tr', {},
+        h('th', { scope: 'col' }, 'Reading'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Status'), h('th', { scope: 'col' }, 'Evidence'))),
+      h('tbody', {}, rows.map((r) => {
+        const n = this.nodes.get(r.id)!;
+        const evidence = this.ownEvidenceIds(r.id);
+        return h('tr', { class: r.status === 'measured' ? undefined : 'vs-reading-unmeasured' },
+          h('th', { scope: 'row' }, h('a', { href: `#${DOM.canonicalId(r.id)}`, id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: r.id, [DOM.attr.interactive]: true }, r.label)),
+          h('td', { class: 'vs-reading-value' }, this.safeText(withUnit(n.attributes['value'], unit, attrString(n, 'display')), r.id)),
+          h('td', { [DOM.attr.generated]: true }, r.status),
+          h('td', {}, evidence.length > 0
+            ? evidence.map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.label(s))])
+            : h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'none')));
+      })));
+    return this.figureShell(id, node, 'vs-measure', [
+      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      h('div', { class: 'vs-lists' }, table),
+    ], svg !== null);
+  }
+
+  /**
+   * A tree (§14.5): an indented list of entries, each with its path in mono,
+   * its label, and its role cue (the architecture role swatch and word). The
+   * children of an entry are in a native `details` under its line; the top
+   * two levels are open. The entry link is outside the `summary`, so no
+   * link is inside another control (phase 6a review C4, WCAG 4.1.2). A click
+   * on an entry opens it in the inspector, with its evidence first.
+   */
+  tree(id: string, node: MNode): HNode {
+    const all = [...this.targets.values()].filter((t) => t.kind === 'entry' && t.ownerComponentId === id);
+    const roles = all.map((e) => attrString(this.nodes.get(e.id)!, 'role')).filter((r): r is string => r !== undefined);
+    const hue = showsHue(roles);
+    const item = (entry: TargetRecord, depth: number): HNode => {
+      const n = this.nodes.get(entry.id)!;
+      const role = attrString(n, 'role');
+      const cue = role ? ROLE_CUES[role] : undefined;
+      const kids = this.childTargets(entry.id).filter((c) => c.kind === 'entry');
+      const evidence = this.ownEvidenceIds(entry.id).length > 0;
+      const line: Child[] = [
+        h('a', { class: 'vs-tree-entry', href: `#${DOM.canonicalId(entry.id)}`, id: DOM.listInstanceId(id, entry.id), [DOM.attr.target]: entry.id, [DOM.attr.interactive]: true },
+          h('code', { class: 'vs-tree-path' }, this.safeText(attrString(n, 'path') ?? '', entry.id)),
+          h('span', { class: 'vs-tree-label' }, this.label(entry.id))),
+        cue ? h('span', { class: 'vs-tree-role', [DOM.attr.generated]: true }, cueSwatch(cue, hue), cue.word) : null,
+        evidence ? h('span', { class: 'vs-tree-evidence', [DOM.attr.generated]: true }, 'evidence') : null,
+      ];
+      if (kids.length === 0) return h('li', { class: 'vs-tree-item' }, h('div', { class: 'vs-tree-line' }, line));
+      const path = this.safeText(attrString(n, 'path') ?? '', entry.id);
+      return h('li', { class: 'vs-tree-item' },
+        h('div', { class: 'vs-tree-line' }, line),
+        h('details', { class: `vs-tree-node${depth < 2 ? ' vs-tree-open' : ''}`, open: depth < 2 },
+          h('summary', { class: 'vs-tree-toggle', [DOM.attr.generated]: true },
+            `${kids.length} ${kids.length === 1 ? 'entry' : 'entries'}`, h('span', { class: 'vs-sr' }, ` in ${path}`)),
+          h('ul', { class: 'vs-tree-children' }, kids.map((k) => item(k, depth + 1)))));
+    };
+    const top = this.childTargets(id).filter((c) => c.kind === 'entry');
+    return this.figureShell(id, node, 'vs-tree', [
+      h('ul', { class: 'vs-tree-list', 'aria-label': 'Entries' }, top.map((e) => item(e, 0))),
+    ]);
   }
 
   childTargets(id: string): TargetRecord[] {
@@ -342,6 +587,7 @@ class Renderer {
 
   familyOf(id: string, node: MNode): GraphFamily {
     if (this.targets.get(id)?.kind === 'transform') return 'transform';
+    if (this.targets.get(id)?.kind === 'domain') return 'domain';
     const mode = attrString(node, 'mode') ?? 'architecture';
     return GRAPH_MODES.has(mode as GraphFamily) ? (mode as GraphFamily) : 'architecture';
   }
@@ -358,13 +604,14 @@ class Renderer {
         return notes;
       }
       case 'cause': return a('basis') ? [a('basis')!] : [];
-      case 'plan': return [`status: ${a('status') ?? 'proposed'}`, ...(a('owner') ? [`owner: ${a('owner')}`] : [])];
+      case 'plan': return [`status: ${a('status') ?? 'proposed'}`, ...(a('owner') ? [`owner: ${a('owner')}`] : []), ...(a('due') ? [`due: ${a('due')}`] : [])];
       case 'transform': {
         const shape = n.attributes['shape'];
         const shapeText = Array.isArray(shape) ? shape.map(String).join(' × ') : typeof shape === 'string' ? shape : undefined;
         return [a('representation'), shapeText ? `shape: ${shapeText}` : undefined, a('units') ? `units: ${a('units')}` : undefined, a('location') ? `location: ${a('location')}` : undefined]
           .filter((x): x is string => x !== undefined);
       }
+      case 'domain': return a('category') ? [a('category')!] : [];
       default: return a('role') ? [a('role')!] : [];
     }
   }
@@ -372,13 +619,19 @@ class Renderer {
   /** Text on a relationship arrow. Material facts (guard, basis, loss) stay in the main visual. */
   edgeLabel(family: GraphFamily, edgeId: string): string {
     const n = this.nodes.get(edgeId)!;
-    const label = this.label(edgeId);
     const a = (k: string) => attrString(n, k);
+    // A `quantity` follows the label in parentheses; the drawing mutes it
+    // (docs/IMPROVEMENTS.md §14.9).
+    const quantity = this.quantity(edgeId);
+    const label = quantity ? `${this.label(edgeId)} (${quantity})` : this.label(edgeId);
     switch (family) {
       case 'state': {
         // The arrow shows the author's label, as the list does; the event is in the list notes (dogfood-2 Q4).
+        // A basis other than observed is a line pattern, so the word goes on
+        // the arrow too, as in cause (review F-08).
         const guard = a('guard');
-        return guard ? `${label} [${guard}]` : label;
+        const basis = this.relationship(edgeId)?.basis;
+        return `${guard ? `${label} [${guard}]` : label}${basis && basis !== 'observed' ? ` (${basis})` : ''}`;
       }
       case 'cause': return `${label} (${a('basis') ?? 'unstated basis'})`;
       case 'plan': {
@@ -386,7 +639,38 @@ class Renderer {
         return kind && kind !== 'finish-start' ? `${label} (${kind})` : label;
       }
       case 'transform': return a('loss') ? `${label}; loss: ${a('loss')}` : label;
+      // The cardinality is part of the relation label, "contains · 1..*". Text
+      // at the line end had no space in the layout and could touch the end of
+      // another relation (phase 4 review D7).
+      case 'domain': return a('cardinality') ? `${label} · ${a('cardinality')}` : label;
       default: return label;
+    }
+  }
+
+  /** The `quantity` of an edge, a conversion, or a dependency (docs/IMPROVEMENTS.md §14.9). */
+  quantity(edgeId: string): string | undefined {
+    const n = this.nodes.get(edgeId);
+    return n && QUANTITY_TAGS.has(n.tag ?? '') ? attrString(n, 'quantity') : undefined;
+  }
+
+  /**
+   * The word that names an edge's line cue, for its aria-label (review F-07):
+   * the edge kind, the basis, the dependency kind, or the loss. The drawing
+   * shows it as a pattern or a hue, so a screen reader gets the same fact.
+   */
+  edgeCueWord(family: GraphFamily, edgeId: string): string | undefined {
+    const n = this.nodes.get(edgeId)!;
+    const a = (k: string) => attrString(n, k);
+    const r = this.relationship(edgeId);
+    switch (family) {
+      case 'architecture': return r?.kind;
+      case 'cause': return r?.basis ?? 'unstated basis';
+      case 'state': return r?.basis;
+      case 'plan': return a('kind') ?? 'finish-start';
+      case 'transform': return a('loss') ? `loss: ${a('loss')}` : undefined;
+      // The relation kind is the line pattern and the line end; the cardinality is the small end label.
+      case 'domain': return `${r?.kind ?? 'relation'}${a('cardinality') ? `, cardinality ${a('cardinality')}` : ''}`;
+      default: return undefined;
     }
   }
 
@@ -406,6 +690,7 @@ class Renderer {
       if (a('loss')) notes.push(`loss: ${a('loss')}`);
       if (a('condition')) notes.push(`condition: ${a('condition')}`);
     }
+    if (family === 'domain' && a('cardinality')) notes.push(`cardinality: ${a('cardinality')}`);
     return notes;
   }
 
@@ -414,23 +699,36 @@ class Renderer {
     const children = this.childTargets(id);
     const edges = children.filter((c) => this.relationship(c.id) !== undefined);
     const groups = children.filter((c) => c.kind === 'group');
-    const nodes = children.filter((c) => !edges.includes(c) && c.kind !== 'group');
+    // A `steps` walkthrough is not a node; it renders under the figure (§14.1).
+    // A `detail` in a figure is not a node either: it stays a detail in the
+    // appendix. A domain map draws only its concepts (phase 4 review D10).
+    const nodes = children.filter((c) => !edges.includes(c) && c.kind !== 'group' && c.kind !== 'steps' && c.kind !== 'detail' && (family !== 'domain' || c.kind === 'concept'));
     if (nodes.length > GRAPH_MAX_NODES || edges.length > GRAPH_MAX_EDGES) {
       this.error('E_LAYOUT_LIMIT', `graph ${id} has ${nodes.length} nodes and ${edges.length} edges; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}`, id);
     }
     // The validator reports W_VISUAL_DENSITY above GRAPH_WARN_NODES; do not repeat it here.
     const notes = new Map(nodes.map((n) => [n.id, this.nodeNotes(family, n.id)]));
+    const encoding = this.encoding(family, nodes.map((n) => n.id), edges.map((e) => e.id));
     const input: GraphInput = {
       id,
+      // A domain map shares its row with the glossary, so the layout rule
+      // counts the glossary height (docs/IMPROVEMENTS.md §5.4).
+      ...(family === 'domain' ? { glossaryRows: nodes.length } : {}),
       groups: groups.map((g) => {
         const parent = attrString(this.nodes.get(g.id)!, 'parent');
         return { id: g.id, label: this.label(g.id), ...(parent ? { parent } : {}) };
       }),
       nodes: nodes.map((n) => {
         const group = attrString(this.nodes.get(n.id)!, 'group');
-        // Architecture roles stay in the list and aria-label only (unchanged Phase 1 layout).
-        const extra = family === 'architecture' ? [] : notes.get(n.id)!.map((x) => this.safeText(family === 'state' ? `(${x})` : x, n.id));
-        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra } : {}) };
+        // A box shows its label only (docs/IMPROVEMENTS.md §3.4). Role, status,
+        // basis, and the state marks move to the paired cue, the legend, the
+        // list, and the inspector. A transform stage keeps its representation,
+        // and a task keeps its `due` date.
+        const extra = this.boxLines(family, n.id).map((x) => this.safeText(x, n.id));
+        const style = encoding.nodes.get(n.id);
+        const marked = (style?.marks ?? []).some((m) => m === 'check' || m === 'question' || m === 'initial');
+        const drum = style?.shape === 'drum';
+        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra } : {}), ...(marked ? { marked } : {}), ...(drum ? { drum } : {}) };
       }),
       edges: edges.map((e) => {
         const r = this.relationship(e.id)!;
@@ -450,24 +748,28 @@ class Renderer {
     }
 
     const roles = new Map(nodes.map((n) => [n.id, family === 'architecture' ? attrString(this.nodes.get(n.id)!, 'role') : undefined]));
+    const collapsed = groups.filter((g) => this.nodes.get(g.id)!.attributes['collapsed'] === true).map((g) => g.id);
     const kinds = new Map(edges.map((e) => [e.id, this.relationship(e.id)!.kind]));
-    const nodeClass = (x: string): string | undefined => {
-      if (family !== 'state') return undefined;
-      const n = this.nodes.get(x)!;
-      const classes = [n.attributes['initial'] === true ? 'vs-initial' : '', n.attributes['terminal'] === true ? 'vs-terminal' : ''].filter(Boolean);
-      return classes.length > 0 ? classes.join(' ') : undefined;
-    };
-    // Observed links are solid; a missing or unknown basis is dotted.
-    const dash = (x: string): string | undefined => {
-      if (family !== 'cause') return undefined;
-      const basis = this.relationship(x)?.basis;
-      return basis !== undefined && basis in BASIS_DASH ? BASIS_DASH[basis] : '1 3';
-    };
     const svg = layout
       ? graphSvg({
           figureId: id, title: attrString(node, 'title') ?? this.label(id), layout,
           labelOf: (x) => this.label(x), roleOf: (x) => roles.get(x), noteOf: (x) => notes.get(x)?.join(', ') || undefined,
-          kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x), nodeClassOf: nodeClass, dashOf: dash,
+          kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x),
+          nodeStyleOf: (x) => encoding.nodes.get(x), edgeStyleOf: (x) => encoding.edges.get(x),
+          edgeNoteOf: (x) => this.edgeCueWord(family, x),
+          termsOf: (x) => this.labelTerms(x),
+          // A task's `due` line is muted (docs/IMPROVEMENTS.md §3.4, §4.4), and
+          // so is a concept's `attributes` line (§5.3).
+          ...(family === 'plan' || family === 'domain' ? { mutedLinesOf: (x: string) => this.boxLines(family, x).length } : {}),
+          // Figure interactions (docs/IMPROVEMENTS.md §14.9): the filter token
+          // of each part, the muted quantity in an edge label, and the groups
+          // that start folded.
+          filterOf: (x) => encoding.filters.get(x),
+          edgeQuantityOf: (x) => { const q = this.quantity(x); return q === undefined ? undefined : this.safeText(q, x); },
+          ...(collapsed.length > 0 ? {
+            collapsed,
+            parentOf: (x: string) => attrString(this.nodes.get(x)!, this.targets.get(x)?.kind === 'group' ? 'parent' : 'group'),
+          } : {}),
         })
       : null;
 
@@ -481,6 +783,7 @@ class Renderer {
           h('span', { class: 'vs-rel-endpoint' }, this.label(r.from)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
           h('a', { class: 'vs-rel-label', href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true }, this.label(e.id)),
+          ((q) => (q === undefined ? null : h('span', { class: 'vs-rel-quantity', [DOM.attr.generated]: true }, ` (${this.safeText(q, e.id)})`)))(this.quantity(e.id)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
           h('span', { class: 'vs-rel-endpoint' }, this.label(r.to)),
           kind ? h('span', { class: 'vs-rel-kind', [DOM.attr.generated]: true }, this.safeText(kind, e.id)) : null,
@@ -494,6 +797,7 @@ class Renderer {
           note.length > 0 ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
       }));
 
+    if (family === 'domain') return this.domainShell(id, node, svg, nodes, relList, svg ? encoding.legend : null);
     return this.figureShell(id, node, `vs-graph vs-family-${family}`, [
       svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
       // The runtime unhides this when the viewport actually overflows (F5c);
@@ -501,7 +805,200 @@ class Renderer {
       // scrollbar alone is easy to miss on a trackpad or a narrow window.
       svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
       h('div', { class: 'vs-lists' }, nodeList, relList),
-    ], svg !== null);
+    ], svg !== null, svg ? encoding.legend : null);
+  }
+
+  /**
+   * Secondary lines inside a node box (docs/IMPROVEMENTS.md §3.4): a
+   * transform stage keeps its representation and location, and a task keeps
+   * its `due` date (§4.4) as muted text. The date is text, never a bar
+   * length, so the plan stays a dependency graph.
+   */
+  boxLines(family: GraphFamily, nodeId: string): string[] {
+    const n = this.nodes.get(nodeId)!;
+    if (family === 'plan') {
+      const due = attrString(n, 'due');
+      return due ? [`due ${due}`] : [];
+    }
+    if (family === 'domain') {
+      // A concept's attributes, as one muted line under its label (§5.3).
+      const list = n.attributes['attributes'];
+      return Array.isArray(list) && list.length > 0 ? [list.map(String).join(', ')] : [];
+    }
+    if (family !== 'transform') return [];
+    const representation = attrString(n, 'representation');
+    const location = attrString(n, 'location');
+    return [representation, location ? `location: ${location}` : undefined].filter((x): x is string => x !== undefined);
+  }
+
+  /**
+   * The visual encoding of a graph-like figure (docs/IMPROVEMENTS.md §3.2):
+   * one variable in hue per family, each hue with a paired cue. The hue shows
+   * only when the figure uses 2 or more values of the variable (§2.1). Shape
+   * and line-pattern cues show in every case.
+   */
+  encoding(family: GraphFamily, nodeIds: string[], edgeIds: string[]): { nodes: Map<string, PartStyle>; edges: Map<string, PartStyle>; legend: HNode | null; filters: Map<string, string> } {
+    const attr = (id: string, k: string) => attrString(this.nodes.get(id)!, k);
+    const nodes = new Map<string, PartStyle>();
+    const edges = new Map<string, PartStyle>();
+    // The filter token of each node and edge: the value of the variable that
+    // a legend chip names (docs/IMPROVEMENTS.md §14.9).
+    const filters = new Map<string, string>();
+    const tokens = (ids: string[], variable: string, values: string[]) => ids.forEach((x, i) => filters.set(x, filterToken(variable, values[i]!)));
+    // The legend: the chips of the hue variable, then a pattern chip for each
+    // edge kind, transition basis, or dependency kind that the figure uses
+    // (§3.2, review F-08).
+    let chips: Chip[] = [];
+    switch (family) {
+      case 'architecture': {
+        const values = nodeIds.map((x) => attr(x, 'role') ?? '');
+        const hue = showsHue(values);
+        for (const x of nodeIds) nodes.set(x, styleFor(ROLE_CUES[attr(x, 'role') ?? ''], hue));
+        const kinds = edgeIds.map((x) => this.relationship(x)?.kind ?? '');
+        edgeIds.forEach((x, i) => edges.set(x, styleFor(EDGE_KIND_CUES[kinds[i]!], false)));
+        chips = [...hueChips(values, ROLE_CUES, 'role'), ...patternChips(kinds, EDGE_KIND_CUES, 'kind')];
+        tokens(nodeIds, 'role', values);
+        tokens(edgeIds, 'kind', kinds);
+        break;
+      }
+      case 'cause': {
+        const basisOf = (x: string, rel: boolean) => (rel ? this.relationship(x)?.basis : attr(x, 'basis')) ?? 'unstated';
+        const values = [...nodeIds.map((x) => basisOf(x, false)), ...edgeIds.map((x) => basisOf(x, true))];
+        const hue = showsHue(values);
+        const style = (basis: string): PartStyle => (BASIS_CUES[basis] ? styleFor(BASIS_CUES[basis], hue) : { dash: UNSTATED_BASIS_DASH });
+        for (const x of nodeIds) nodes.set(x, style(basisOf(x, false)));
+        for (const x of edgeIds) edges.set(x, style(basisOf(x, true)));
+        chips = hueChips(values, BASIS_CUES, 'basis');
+        tokens([...nodeIds, ...edgeIds], 'basis', values);
+        break;
+      }
+      case 'plan': {
+        const values = nodeIds.map((x) => attr(x, 'status') ?? 'proposed');
+        const hue = showsHue(values);
+        for (const x of nodeIds) nodes.set(x, styleFor(STATUS_CUES[attr(x, 'status') ?? 'proposed'], hue));
+        const kinds = edgeIds.map((x) => attr(x, 'kind') ?? 'finish-start');
+        edgeIds.forEach((x, i) => edges.set(x, styleFor(DEPENDENCY_KIND_CUES[kinds[i]!], false)));
+        chips = [...hueChips(values, STATUS_CUES, 'status'), ...patternChips(kinds, DEPENDENCY_KIND_CUES, 'kind')];
+        tokens(nodeIds, 'status', values);
+        tokens(edgeIds, 'kind', kinds);
+        break;
+      }
+      case 'transform': {
+        const values = edgeIds.map((x) => (attr(x, 'loss') ? 'loss' : 'none'));
+        const hue = showsHue(values);
+        for (const x of nodeIds) nodes.set(x, {});
+        for (const x of edgeIds) edges.set(x, attr(x, 'loss') ? { ...styleFor(LOSS_CUE, hue), labelHue: hue } : {});
+        chips = hueChips(values, { loss: LOSS_CUE }, 'loss');
+        tokens(edgeIds, 'loss', values);
+        break;
+      }
+      case 'state': {
+        // No hue: the initial and terminal marks are shapes, and a transition
+        // basis other than observed is a line pattern, as in cause.
+        for (const x of nodeIds) {
+          const n = this.nodes.get(x)!;
+          const initial = n.attributes['initial'] === true;
+          const terminal = n.attributes['terminal'] === true;
+          const marks = [...(initial ? ['initial' as const] : []), ...(terminal ? ['terminal' as const] : [])];
+          const className = [initial ? 'vs-initial' : '', terminal ? 'vs-terminal' : ''].filter(Boolean).join(' ');
+          nodes.set(x, { ...(marks.length > 0 ? { marks } : {}), ...(className ? { className } : {}) });
+        }
+        const bases = edgeIds.map((x) => this.relationship(x)?.basis ?? '');
+        edgeIds.forEach((x, i) => {
+          const dash = BASIS_CUES[bases[i]!]?.dash;
+          edges.set(x, dash ? { dash } : {});
+        });
+        chips = patternChips(bases, BASIS_CUES, 'basis');
+        tokens(edgeIds, 'basis', bases);
+        break;
+      }
+      case 'domain': {
+        // Concept `category` in hue with a shape cue; relation `kind` as a
+        // line pattern and a line end (docs/IMPROVEMENTS.md §3.2, §5.3).
+        const values = nodeIds.map((x) => attr(x, 'category') ?? 'none');
+        const hue = showsHue(values);
+        for (const x of nodeIds) nodes.set(x, styleFor(CATEGORY_CUES[attr(x, 'category') ?? ''], hue));
+        const kinds = edgeIds.map((x) => this.relationship(x)?.kind ?? '');
+        edgeIds.forEach((x, i) => edges.set(x, styleFor(RELATION_KIND_CUES[kinds[i]!], false)));
+        chips = [...hueChips(values, CATEGORY_CUES, 'category'), ...patternChips(kinds, RELATION_KIND_CUES, 'kind')];
+        tokens(nodeIds, 'category', values);
+        tokens(edgeIds, 'kind', kinds);
+        break;
+      }
+    }
+    return { nodes, edges, legend: legend(chips, DOM.attr.generated, DOM.attr.filter), filters };
+  }
+
+  // --- Domain (docs/IMPROVEMENTS.md §5) ----------------------------------------
+
+  /**
+   * A domain figure (§5.4): the map and a glossary table in one row. On a
+   * window of 1200 px or more the row is centred on the text column, and the
+   * glossary sits beside the map when both fit, else under it (reader.css).
+   * The runtime puts the view bar before the row. On a narrow screen the glossary comes
+   * first and the map is behind "Show map". The glossary rows are the list
+   * instances of the concepts; the relation list is behind the view toggle,
+   * as in the other graph families.
+   */
+  domainShell(id: string, node: MNode, svg: HNode | null, concepts: TargetRecord[], relList: HNode, legendNode: HNode | null): HNode {
+    return this.figureShell(id, node, 'vs-graph vs-family-domain', [
+      h('div', { class: 'vs-domain-body' },
+        svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+        svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
+        this.glossary(id, concepts)),
+      h('div', { class: 'vs-lists' }, relList),
+    ], svg !== null, legendNode);
+  }
+
+  /** Run `fn` as if it renders the body of `defId`: the term of that definition is not linked (§13.3). */
+  withOwnDefinition<T>(defId: string | undefined, fn: () => T): T {
+    const previous = this.ownDefinition;
+    this.ownDefinition = defId;
+    try {
+      return fn();
+    } finally {
+      this.ownDefinition = previous;
+    }
+  }
+
+  /**
+   * The glossary of a domain figure (§5.4): one row per concept with the
+   * term and its category word, the first sentence of its definition, and a
+   * "Read more" link that opens the concept in the inspector.
+   */
+  glossary(figureId: string, concepts: TargetRecord[]): HNode {
+    return h('div', { class: 'vs-glossary-wrap' },
+      h('table', { class: 'vs-glossary', 'aria-label': 'Glossary' },
+        h('thead', { [DOM.attr.generated]: true }, h('tr', {},
+          h('th', { scope: 'col' }, 'Term'),
+          h('th', { scope: 'col' }, 'Meaning'),
+          h('th', { scope: 'col' }, h('span', { class: 'vs-sr' }, 'Details')))),
+        h('tbody', {}, concepts.map((c) => {
+          const defId = attrString(this.nodes.get(c.id)!, 'definition');
+          const category = attrString(this.nodes.get(c.id)!, 'category');
+          const label = this.label(c.id);
+          return h('tr', {},
+            h('th', { scope: 'row' },
+              h('a', { class: 'vs-glossary-term', href: `#${DOM.canonicalId(c.id)}`, id: DOM.listInstanceId(figureId, c.id), [DOM.attr.target]: c.id, [DOM.attr.interactive]: true }, label),
+              // The category word, as in the node list: the list view has no
+              // map and no legend (docs/IMPROVEMENTS.md §3.3, phase 4 review D5).
+              category ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(category, c.id)})`) : null),
+            h('td', {}, this.withTermScope(() => this.withOwnDefinition(defId, () => this.linkText(defId ? this.definitionSentence(defId) : '', defId)))),
+            h('td', { class: 'vs-glossary-more' },
+              h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(c.id)}`, 'aria-label': `Read more: ${label}`, [DOM.attr.generated]: true }, 'Read more')));
+        }))));
+  }
+
+  /** A concept's inspector body (§5.4): its definition, then its own body. */
+  conceptBody(node: MNode): Child[] {
+    const defId = attrString(node, 'definition');
+    const def = defId ? this.nodes.get(defId) : undefined;
+    return this.withOwnDefinition(defId, () => [def ? this.blocks(def) : null, this.blocks(node)]);
+  }
+
+  /** The concept that owns a definition, if any (§5.3: one definition, one owner). */
+  conceptOf(defId: string): string | undefined {
+    return this.bundle.parsed.targets.find((t) => t.tagName === 'concept' && t.attributes['definition'] === defId)?.id;
   }
 
   /**
@@ -568,14 +1065,29 @@ class Renderer {
       const value = n.attributes['value'];
       const status = attrString(n, 'valueStatus');
       if (value === undefined) {
-        // No value: the cell text comes first, and a small link after it opens the
-        // cell's detail, so a table of short cells is not a column of "Details"
-        // links (dogfood-2 Q5). The link keeps the cell's one table instance (§10.3).
-        return [
-          h('div', { class: 'vs-cell-body' }, this.blocks(n)),
-          h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}`, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true },
-            h('span', { [DOM.attr.generated]: true }, 'details')),
-        ];
+        // No value: the first paragraph of the cell is its value (docs/
+        // IMPROVEMENTS.md §4.6). A small "›" link opens the cell's detail only
+        // when the inspector holds more than the cell shows: a second block,
+        // evidence, a `cite`, or a nested `detail`. The link is then the
+        // cell's one table instance (§10.3); it sits inline after the text,
+        // and the full word "details" is in its aria-label. With no link, the
+        // cell body carries the table instance.
+        const body = [...this.blocks(n)];
+        if (!compareCellHasDetails(n, (x) => this.isTargetNode(x), this.ownEvidenceIds(cell.id).length > 0)) {
+          return h('div', { class: 'vs-cell-body', id: instanceId, [DOM.attr.target]: cell.id }, body);
+        }
+        const cellLink = h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}, details`, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true },
+          h('span', { [DOM.attr.generated]: true, 'aria-hidden': 'true' }, '›'));
+        let last = body.length - 1;
+        while (last >= 0 && !body[last]) last--;
+        const end = body[last];
+        if (end && typeof end === 'object' && !Array.isArray(end) && (end as HNode).tag === 'p') {
+          const p = end as HNode;
+          body[last] = { ...p, children: [...p.children, ' ', cellLink] };
+        } else {
+          body.push(cellLink);
+        }
+        return h('div', { class: 'vs-cell-body' }, body);
       }
       return [
         link(cell.id, instanceId, this.safeText(String(value), cell.id)),
@@ -634,7 +1146,7 @@ class Renderer {
     const timeUnit = attrString(node, 'timeUnit');
     const scaleNote = scale === 'ordinal'
       ? h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, 'Ordering, not duration.')
-      : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, `Time scale${timeUnit ? ` in ${timeUnit}` : ''}.`);
+      : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, `Event times${timeUnit ? ` in ${timeUnit}` : ''}; vertical position shows order layer.`);
     const actorList = h('ul', { class: 'vs-actor-list', 'aria-label': 'Actors' },
       actors.map((a) => {
         const entity = attrString(this.nodes.get(a.id)!, 'entity');
@@ -674,6 +1186,11 @@ class Renderer {
         h('span', { class: 'vs-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
         scale === 'time' && time !== undefined ? h('span', { class: 'vs-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
         branch ? h('span', { class: 'vs-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
+        // An observation names what shows it (docs/IMPROVEMENTS.md §14.6).
+        kind === 'observation' && this.ownEvidenceIds(e.id).length > 0
+          ? h('span', { class: 'vs-event-evidence', [DOM.attr.generated]: true }, '; seen in: ',
+              this.ownEvidenceIds(e.id).map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.label(s))]))
+          : null,
         orders.length > 0
           ? h('span', { class: 'vs-after', [DOM.attr.generated]: true }, ' after: ',
               orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.label(r.from))]))
@@ -696,7 +1213,15 @@ class Renderer {
           ? h('ol', { class: 'vs-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
               own.map((e) => h('li', { class: `vs-event vs-kind-${kindOf(e)}` }, eventContent(e, '.card', false))))
           : h('p', { class: 'vs-no-events', [DOM.attr.generated]: true }, 'No events.'));
-    }));
+    }), (() => {
+      // The events of the one implicit lane of a time-scaled trace with no actors (§14.6).
+      const loose = events.filter((e) => attrString(this.nodes.get(e.id)!, 'actor') === undefined);
+      if (loose.length === 0) return null;
+      return h('section', { class: 'vs-actor-group', 'aria-label': 'Events' },
+        h('p', { class: 'vs-actor-heading', [DOM.attr.generated]: true }, 'Events'),
+        h('ol', { class: 'vs-trace-cards', 'aria-label': 'Events' },
+          loose.map((e) => h('li', { class: `vs-event vs-kind-${kindOf(e)}` }, eventContent(e, '.card', false)))));
+    })());
     const branchList = branches.length > 0
       ? h('ul', { class: 'vs-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
           h('a', { href: `#${DOM.canonicalId(b.id)}`, id: DOM.listInstanceId(id, b.id), [DOM.attr.target]: b.id, [DOM.attr.interactive]: true }, this.label(b.id)))))
@@ -706,11 +1231,16 @@ class Renderer {
     // caps the figure is left out; the lists are always present.
     const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && events.some((e) => e.id === r.to));
     const drawable = events.length > 0 && events.length <= GRAPH_MAX_NODES && orders.length <= GRAPH_MAX_EDGES;
+    // Hue encodes the event kind, failure and wait only (docs/IMPROVEMENTS.md §3.2).
+    const kindValues = events.map((e) => kindOf(e));
     const svg = drawable
       ? traceSvg({
           figureId: id,
           title: attrString(node, 'title') ?? this.label(id),
-          actors: actors.map((a) => ({ id: a.id, label: this.label(a.id) })),
+          // A time-scaled trace with no actors has one implicit lane (§14.6).
+          actors: actors.length === 0 && events.some((e) => attrString(this.nodes.get(e.id)!, 'actor') === undefined)
+            ? [{ id: '', label: '', implicit: true }]
+            : actors.map((a) => ({ id: a.id, label: this.label(a.id) })),
           events: events.map((e) => {
             const en = this.nodes.get(e.id)!;
             const branch = attrString(en, 'branch');
@@ -722,7 +1252,14 @@ class Renderer {
               label: this.label(e.id),
               kind: kindOf(e),
               layer: layerOf(e.id, new Set()),
-              meta: [
+              // A box shows its label, the receiver of a message, and a time on
+              // a time scale (§3.4). The kind and the branch move to the cue,
+              // the branch heading, the list, and the aria-label. The time line
+              // has its own class, so the reader mutes it and not the receiver.
+              meta: message ? [`\u2192 ${this.label(message.to)}`] : [],
+              ...(scale === 'time' && time !== undefined ? { time: `at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}` } : {}),
+              ...(scale === 'time' && typeof time === 'number' ? { timeValue: time } : {}),
+              notes: [
                 `[${kindOf(e)}]${message ? ` \u2192 ${this.label(message.to)}` : ''}`,
                 ...(branch ? [`branch: ${this.label(branch)}`] : []),
                 ...(scale === 'time' && time !== undefined ? [`at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`] : []),
@@ -737,6 +1274,8 @@ class Renderer {
             return { id: b.id, label: this.label(b.id), exclusiveWith: Array.isArray(excl) ? excl.map(String) : [] };
           }),
           labelOf: (x) => this.label(x),
+          hue: showsHue(kindValues),
+          termsOf: (x) => this.labelTerms(x),
         })
       : null;
     return this.figureShell(id, node, 'vs-trace', [
@@ -744,7 +1283,7 @@ class Renderer {
       svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
       svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
       h('div', { class: 'vs-lists' }, actorList, branchList, eventList, byActor),
-    ], svg !== null);
+    ], svg !== null, svg ? legend(hueChips(kindValues, EVENT_CUES, 'kind'), DOM.attr.generated, DOM.attr.filter) : null);
   }
 
   /** Captured text of a source target: its fenced body, or a declared text asset. */
@@ -765,50 +1304,139 @@ class Renderer {
     return undefined;
   }
 
-  codeLines(sourceId: string, text: string, marks: Map<number, string[]>, figureId?: string): HNode {
+  codeLines(sourceId: string, text: string, marks: Map<number, string[]>, figureId?: string, cover?: Map<number, string[]>): HNode {
     const start = Number(this.nodes.get(sourceId)?.attributes['start'] ?? 1);
     const lines = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n');
     return h('pre', { class: 'vs-code' }, h('code', {}, lines.map((line, i) => {
       const number = start + i;
       const annotations = marks.get(number) ?? [];
-      return h('span', { class: annotations.length > 0 ? 'vs-line vs-annotated' : 'vs-line' },
+      // The annotations that cover the line, for a `steps` walkthrough (§14.1).
+      const covered = cover?.get(number) ?? [];
+      return h('span', { class: annotations.length > 0 ? 'vs-line vs-annotated' : 'vs-line', [DOM.attr.ann]: covered.length > 0 ? covered.join(' ') : undefined },
         h('span', { class: 'vs-ln', [DOM.attr.generated]: true }, String(number)),
-        figureId ? annotations.map((a) => h('a', { class: 'vs-annotation-marker', href: `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.interactive]: true, [DOM.attr.generated]: true, 'aria-label': this.label(a) }, '\u25cf')) : null,
+        figureId ? this.markerColumn(figureId, annotations, number) : null,
         this.safeText(line, sourceId),
         '\n');
     })));
   }
 
-  annotated(id: string, node: MNode): HNode {
-    const sourceId = attrString(node, 'source') ?? '';
-    const captured = this.sourceText(sourceId);
-    const annotations = this.childTargets(id).filter((c) => c.kind === 'annotation');
+  /**
+   * The marker column of an annotated code line: a fixed-width cell before
+   * the code, on every line, that holds the marker of each annotation that
+   * starts on the line. The code then starts in the same column on each
+   * line, with or without a marker (phase 6a review S3).
+   */
+  markerColumn(figureId: string, annotations: string[], number: number): HNode {
+    return h('span', { class: 'vs-ann-col', [DOM.attr.generated]: true },
+      annotations.map((a) => h('a', { class: 'vs-annotation-marker', href: `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.interactive]: true, [DOM.attr.generated]: true, 'aria-label': this.label(a) }, '\u25cf')));
+  }
+
+  /**
+   * The annotation marks of one source: each annotation's ID at its first
+   * line (`marks`), and every annotation that covers each line (`cover`),
+   * which a `steps` walkthrough uses to mark the lines of a step (\u00a714.1).
+   */
+  annotationMarks(sourceId: string, text: string | undefined, annotations: TargetRecord[]): { marks: Map<number, string[]>; cover: Map<number, string[]> } {
     const start = Number(this.nodes.get(sourceId)?.attributes['start'] ?? 1);
     const marks = new Map<number, string[]>();
+    const cover = new Map<number, string[]>();
     for (const a of annotations) {
       const range = this.nodes.get(a.id)!.attributes['lines'];
       if (!Array.isArray(range) || range.length !== 2) continue;
       const [from, to] = range as number[];
-      const count = captured ? captured.text.replace(/\n$/, '').split('\n').length : 0;
+      const count = text !== undefined ? text.replace(/\n$/, '').split('\n').length : 0;
       if (from === undefined || to === undefined || from < start || to < from || to > start + count - 1) {
         this.error('E_REF_BROKEN', `annotation ${a.id} lines ${from}-${to} are outside source ${sourceId}`, a.id);
         continue;
       }
-      for (let n = from; n <= to; n++) marks.set(n, [...(marks.get(n) ?? []), ...(n === from ? [a.id] : [])]);
+      for (let n = from; n <= to; n++) {
+        marks.set(n, [...(marks.get(n) ?? []), ...(n === from ? [a.id] : [])]);
+        cover.set(n, [...(cover.get(n) ?? []), a.id]);
+      }
     }
+    return { marks, cover };
+  }
+
+  annotated(id: string, node: MNode): HNode {
+    const sourceId = attrString(node, 'source') ?? '';
+    const beforeId = attrString(node, 'before');
+    const captured = this.sourceText(sourceId);
+    const annotations = this.childTargets(id).filter((c) => c.kind === 'annotation');
+    const sideOf = (a: TargetRecord) => (beforeId && attrString(this.nodes.get(a.id)!, 'side') === 'before' ? 'before' : 'after');
     if (!captured) this.error('E_REF_BROKEN', `annotated ${id} needs a captured text source; ${sourceId} has none`, id);
     const list = h('ol', { class: 'vs-annotation-list', 'aria-label': 'Annotations' }, annotations.map((a) => {
       const range = this.nodes.get(a.id)!.attributes['lines'];
-      const where = Array.isArray(range) ? `Lines ${range.join('\u2013')}: ` : '';
+      const lines = Array.isArray(range) ? `lines ${range.join('\u2013')}` : '';
+      // With a `before` source, each item names its side (\u00a714.7).
+      const where = beforeId
+        ? `${sideOf(a) === 'before' ? 'Before' : 'After'}${lines ? `, ${lines}` : ''}: `
+        : lines ? `L${lines.slice(1)}: ` : '';
       return h('li', {},
         h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true },
           h('span', { [DOM.attr.generated]: true }, where), this.label(a.id)));
     }));
+    if (beforeId) {
+      const before = this.sourceText(beforeId);
+      if (!before) this.error('E_REF_BROKEN', `annotated ${id} needs a captured text source for \`before\`; ${beforeId} has none`, id);
+      return this.figureShell(id, node, 'vs-annotated vs-annotated-diff', [
+        captured && before ? this.diffView(id, beforeId, before.text, sourceId, captured.text, annotations.filter((a) => sideOf(a) === 'before'), annotations.filter((a) => sideOf(a) === 'after')) : null,
+        list,
+      ]);
+    }
+    const { marks, cover } = this.annotationMarks(sourceId, captured?.text, annotations);
     return this.figureShell(id, node, 'vs-annotated', [
       h('p', { class: 'vs-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
-      captured ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id)) : null,
+      captured ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id, cover)) : null,
       list,
     ]);
+  }
+
+  /**
+   * The before-and-after view of an annotated figure (\u00a714.7). The build
+   * computes a line diff. Each side keeps the line numbers of its own
+   * source. A removed line has a "\u2212" sign, and an added line a "+" sign, so
+   * the mark does not depend on colour. On a wide screen the two sides sit
+   * side by side, with a gap row where the other side has a line; on a
+   * narrow screen they stack, and the gap rows hide.
+   */
+  diffView(figureId: string, beforeId: string, beforeText: string, afterId: string, afterText: string, beforeAnnotations: TargetRecord[], afterAnnotations: TargetRecord[]): HNode {
+    const a = excerptLines(beforeText);
+    const b = excerptLines(afterText);
+    const rows = lineDiff(a, b);
+    this.diffs.set(figureId, rows);
+    const pairs = diffPairs(rows);
+    const side = (which: 'before' | 'after', sourceId: string, lines: string[], annotations: TargetRecord[]) => {
+      const start = Number(this.nodes.get(sourceId)?.attributes['start'] ?? 1);
+      const { marks, cover } = this.annotationMarks(sourceId, lines.join('\n'), annotations);
+      const sign = which === 'before' ? '\u2212' : '+';
+      const changedClass = which === 'before' ? 'vs-line-removed' : 'vs-line-added';
+      const rows = pairs.map((p) => {
+        const index = which === 'before' ? p.before : p.after;
+        if (index === undefined) return h('span', { class: 'vs-line vs-line-gap', 'aria-hidden': 'true' }, '\n');
+        const number = start + index;
+        const annotations = marks.get(number) ?? [];
+        const covered = cover.get(number) ?? [];
+        return h('span', { class: `vs-line${p.changed ? ` ${changedClass}` : ''}${annotations.length > 0 ? ' vs-annotated' : ''}`, [DOM.attr.ann]: covered.length > 0 ? covered.join(' ') : undefined },
+          h('span', { class: 'vs-ln', [DOM.attr.generated]: true }, String(number)),
+          // The sign is for the eye; assistive technology reads the word
+          // (phase 6a review S2). A span with no role ignores an aria-label.
+          h('span', { class: 'vs-diff-sign', [DOM.attr.generated]: true, 'aria-hidden': 'true' }, p.changed ? sign : ' '),
+          p.changed ? h('span', { class: 'vs-sr vs-diff-sr', [DOM.attr.generated]: true }, which === 'before' ? 'removed: ' : 'added: ') : null,
+          this.markerColumn(figureId, annotations, number),
+          this.safeText(lines[index]!, sourceId),
+          '\n');
+      });
+      return h('div', { class: `vs-diff-side vs-diff-${which}` },
+        h('p', { class: 'vs-diff-heading', [DOM.attr.generated]: true }, which === 'before' ? 'Before: ' : 'After: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
+        h('pre', { class: 'vs-code' }, h('code', {}, rows)));
+    };
+    const removed = pairs.filter((p) => p.changed && p.before !== undefined).length;
+    const added = pairs.filter((p) => p.changed && p.after !== undefined).length;
+    return h('div', { class: 'vs-diff' },
+      h('p', { class: 'vs-diff-summary', [DOM.attr.generated]: true }, `${removed} line${removed === 1 ? '' : 's'} removed (\u2212), ${added} line${added === 1 ? '' : 's'} added (+).`),
+      h('div', { class: 'vs-viewport vs-diff-sides', [DOM.attr.viewport]: true },
+        side('before', beforeId, a, beforeAnnotations),
+        side('after', afterId, b, afterAnnotations)));
   }
 
   // --- Appendix -------------------------------------------------------------
@@ -903,8 +1531,11 @@ class Renderer {
       specifics.push(h('p', { class: 'vs-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
         element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
     }
-    return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id) },
-      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${MERMAID_KIND_TEXT[record.kind] ?? record.kind}`)),
+    // A Mermaid part has no authored body, so it gets no visible appendix row
+    // (docs/IMPROVEMENTS.md §4.5); the inspector still shows this detail.
+    const cue = this.cueWord(record);
+    return h('details', { class: `vs-detail vs-kind-${record.kind} vs-detail-bare`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
+      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`)),
       h('div', { class: 'vs-detail-body' }, specifics));
   }
 
@@ -1015,7 +1646,7 @@ class Renderer {
     // evidence before the metadata dump, in the appendix and in the inspector
     // (the same element moves between the two).
     return [
-      captured ? this.codeLines(id, captured.text, new Map()) : h('p', { class: 'vs-link-only', [DOM.attr.generated]: true }, 'No captured excerpt; this origin link is not self-contained evidence.'),
+      captured ? this.codeLines(id, captured.text, new Map()) : linkOnlyNotice(),
       this.sourceOriginLine(node, id),
       h('details', { class: 'vs-provenance' },
         h('summary', {}, 'Provenance'),
@@ -1023,12 +1654,229 @@ class Renderer {
     ];
   }
 
+  /** True for a figure part: a target owned by a figure, not a source, definition, or detail. */
+  isPart(record: TargetRecord): boolean {
+    return record.ownerComponentId !== undefined && record.ownerComponentId !== record.id && !ENTITY_KINDS.has(record.kind);
+  }
+
+  /**
+   * The paired-cue word of a target (docs/IMPROVEMENTS.md §4.2, §4.5): the
+   * value of the variable that the figure encodes for it, such as the role of
+   * a node or the status of a task, else the kind of the part.
+   */
+  cueWord(record: TargetRecord): string {
+    const node = this.nodes.get(record.id);
+    const a = (k: string) => (node ? attrString(node, k) : undefined);
+    switch (record.kind) {
+      case 'node': return a('role') ?? 'node';
+      case 'state': return node?.attributes['initial'] === true ? 'initial state' : node?.attributes['terminal'] === true ? 'terminal state' : 'state';
+      case 'factor': return a('basis') ?? 'factor';
+      case 'causal-link': return a('basis') ?? 'causal link';
+      case 'transition': return 'transition';
+      case 'task': return a('status') ?? 'proposed';
+      case 'dependency': return a('kind') ?? 'finish-start';
+      case 'edge': return a('kind') ?? 'edge';
+      case 'conversion': return a('loss') ? 'loss' : 'conversion';
+      case 'event': return a('kind') ?? 'event';
+      case 'group': return 'boundary';
+      case 'concept': return a('category') ?? 'concept';
+      case 'relation': return a('kind') ?? 'relation';
+      // A tree entry's cue is its role; a reading's is its value status (§14.4, §14.5).
+      case 'entry': return a('role') ?? 'entry';
+      case 'reading': return a('valueStatus') ?? 'reading';
+      default: return MERMAID_KIND_TEXT[record.kind] ?? record.kind;
+    }
+  }
+
+  /** The sources in a target's own `evidence` attribute, in authored order (docs/IMPROVEMENTS.md §4.4). */
+  ownEvidenceIds(id: string): string[] {
+    const attr = this.nodes.get(id)?.attributes['evidence'];
+    const out: string[] = [];
+    for (const x of Array.isArray(attr) ? attr : [attr]) {
+      if (typeof x === 'string' && this.targets.get(x)?.kind === 'source' && !out.includes(x)) out.push(x);
+    }
+    return out;
+  }
+
+  /**
+   * The source IDs that support a target, in inspector order: its `evidence`
+   * attribute first, then its citations (docs/IMPROVEMENTS.md §4.4). The
+   * set is the §9.2 `evidenceIds`; only the order differs.
+   */
+  evidenceIds(id: string): string[] {
+    const node = this.nodes.get(id);
+    if (!node) return [];
+    const out: string[] = [...this.ownEvidenceIds(id)];
+    const add = (x: unknown) => {
+      if (typeof x === 'string' && this.targets.get(x)?.kind === 'source' && !out.includes(x)) out.push(x);
+    };
+    const visit = (n: MNode) => {
+      if (n !== node && this.isTargetNode(n)) return;
+      if (n.type === 'tag' && n.tag === 'cite') add(n.attributes['ref']);
+      for (const child of n.children) visit(child);
+    };
+    visit(node);
+    for (const x of this.relationship(id)?.evidenceIds ?? []) add(x);
+    // The sources of an observation that a causal link names (§14.6).
+    for (const o of this.observationIds(id)) for (const x of this.ownEvidenceIds(o)) add(x);
+    return out;
+  }
+
+  /** The trace observations that a target names in its `evidence` (docs/IMPROVEMENTS.md §14.6). */
+  observationIds(id: string): string[] {
+    const attr = this.nodes.get(id)?.attributes['evidence'];
+    const out: string[] = [];
+    for (const x of Array.isArray(attr) ? attr : [attr]) {
+      if (typeof x !== 'string' || out.includes(x) || this.targets.get(x)?.kind !== 'event') continue;
+      if (attrString(this.nodes.get(x)!, 'kind') === 'observation') out.push(x);
+    }
+    return out;
+  }
+
+  /**
+   * The Terms section of a part (docs/IMPROVEMENTS.md §13.4): each term in
+   * the part's label, with the first sentence of its definition under it. A
+   * term in an SVG label has no tab stop, and no tap target of its own on a
+   * narrow screen, so the inspector shows the definition under the part. The
+   * term links to its full definition. Without JavaScript this section is
+   * the route from a drawn label to the meaning of its terms.
+   */
+  labelTermsLine(id: string): Child {
+    const found = new Map<string, string>();
+    for (const seg of this.labelTerms(this.label(id))) if (typeof seg !== 'string' && !found.has(seg.defId)) found.set(seg.defId, seg.text);
+    if (found.size === 0) return null;
+    return h('section', { class: 'vs-detail-section vs-detail-terms', [DOM.attr.generated]: true },
+      h('h3', {}, 'Terms'),
+      h('dl', {}, [...found].map(([defId, text]) => [
+        h('dt', {}, this.inspectLink(defId, text)),
+        h('dd', {}, this.definitionSentence(defId)),
+      ])));
+  }
+
+  /**
+   * The first sentence of a definition, as plain text: the same text that
+   * the term bubble shows (docs/IMPROVEMENTS.md §13.4).
+   */
+  definitionSentence(defId: string): string {
+    const node = this.nodes.get(defId);
+    if (!node) return '';
+    const parts: string[] = [];
+    // Inline nodes join their text with no space; a block ends with one.
+    const inline = new Set(['inline', 'em', 'strong', 's', 'link', 'tag']);
+    const visit = (n: MNode) => {
+      if (n !== node && this.isTargetNode(n)) return;
+      if (n.type === 'text' || n.type === 'code') {
+        parts.push(String(n.attributes['content'] ?? ''));
+        return;
+      }
+      if (n.type === 'softbreak' || n.type === 'hardbreak') {
+        parts.push(' ');
+        return;
+      }
+      if (n.type === 'fence' || (n.type === 'tag' && n.tag === 'cite')) return;
+      for (const child of n.children) visit(child);
+      if (!inline.has(n.type)) parts.push(' ');
+    };
+    visit(node);
+    return this.safeText(firstSentence(parts.join('')), defId);
+  }
+
+  /** A link that opens a target in the inspector, or plain text when the target has no detail. */
+  inspectLink(id: string, text: Child): Child {
+    return this.targets.get(id)?.inspectable ? h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(id)}` }, text) : text;
+  }
+
+  /**
+   * The Relationships section of a part (docs/IMPROVEMENTS.md §4.2): each
+   * relationship that starts or ends at the part, as "→ label → Other part".
+   * Each item carries the relationship ID and the other part's ID, so the
+   * reader runtime finds the neighbourhood of a part in the static HTML
+   * (§4.3) and does not compute it from the drawing.
+   */
+  relationshipSection(id: string): Child {
+    const rels = this.bundle.model.relationships;
+    const own = rels.find((r) => r.id === id && r.kind !== 'order');
+    const items: HNode[] = [];
+    const arrow = (text: string) => h('span', { class: 'vs-rel-arrow' }, text);
+    const labelOf = (r: (typeof rels)[number]) => this.inspectLink(r.id, r.kind === 'order' ? r.label : this.label(r.id));
+    if (own) {
+      items.push(h('li', { class: 'vs-rel-own' },
+        this.inspectLink(own.from, this.label(own.from)), arrow(' \u2192 '), this.label(id), arrow(' \u2192 '), this.inspectLink(own.to, this.label(own.to))));
+    }
+    for (const r of rels) {
+      if (r.id === id) continue;
+      if (r.from === id) items.push(h('li', { [DOM.attr.edge]: r.id, [DOM.attr.other]: r.to }, arrow('\u2192 '), labelOf(r), arrow(' \u2192 '), this.inspectLink(r.to, this.label(r.to))));
+    }
+    for (const r of rels) {
+      if (r.id === id) continue;
+      if (r.to === id) items.push(h('li', { [DOM.attr.edge]: r.id, [DOM.attr.other]: r.from }, arrow('\u2190 '), labelOf(r), arrow(' \u2190 '), this.inspectLink(r.from, this.label(r.from))));
+    }
+    if (items.length === 0) return null;
+    return h('section', { class: 'vs-detail-section vs-detail-rels', [DOM.attr.generated]: true },
+      h('h3', {}, 'Relationships'), h('ul', {}, items));
+  }
+
+  /**
+   * The Appears-in section (docs/IMPROVEMENTS.md §4.2): the parts in other
+   * figures that stand for the same thing, through `entity`.
+   */
+  appearsInSection(id: string): Child {
+    const entityOf = (x: string) => {
+      const n = this.nodes.get(x);
+      return n ? attrString(n, 'entity') : undefined;
+    };
+    const key = entityOf(id) ?? id;
+    const others = [...this.targets.values()].filter((t) => t.id !== id && this.isPart(t) && (t.id === key || entityOf(t.id) === key));
+    if (others.length === 0) return null;
+    return h('section', { class: 'vs-detail-section vs-detail-appears', [DOM.attr.generated]: true },
+      h('h3', {}, 'Appears in'),
+      // Each item names the other part, so the reader runtime marks it on
+      // hover of this part (docs/IMPROVEMENTS.md §14.9).
+      h('ul', {}, others.map((t) => h('li', { [DOM.attr.entity]: t.id },
+        this.inspectLink(t.id, this.label(t.id)),
+        t.ownerComponentId ? [' in ', h('a', { href: `#${DOM.canonicalId(t.ownerComponentId)}` }, this.figureTitle(t.ownerComponentId))] : null))));
+  }
+
+  /**
+   * The Evidence section (docs/IMPROVEMENTS.md §4.2): each source, excerpt
+   * first, then its origin line. A link-only source gets the appendix notice
+   * in place of the excerpt (§4.4, ARCHITECTURE §8.1).
+   */
+  evidenceSection(ids: string[], observations: string[] = []): Child {
+    if (ids.length === 0 && observations.length === 0) return null;
+    const EXCERPT_LINES = 6;
+    return h('section', { class: 'vs-detail-section vs-detail-evidence', [DOM.attr.generated]: true },
+      h('h3', {}, 'Evidence'),
+      // A causal link can name an observation of a trace (docs/IMPROVEMENTS.md
+      // §14.6): the event comes first, and its sources follow as excerpts.
+      observations.length > 0
+        ? h('ul', { class: 'vs-evidence-observations' }, observations.map((o) => {
+            const time = this.nodes.get(o)?.attributes['time'];
+            const trace = this.targets.get(o)?.parentId;
+            const unit = trace ? attrString(this.nodes.get(trace)!, 'timeUnit') : undefined;
+            return h('li', {}, 'Observed: ', this.inspectLink(o, this.label(o)), time !== undefined ? ` (at ${String(time)}${unit ? ` ${unit}` : ''})` : null);
+          }))
+        : null,
+      ids.map((sourceId) => {
+        const node = this.nodes.get(sourceId)!;
+        const captured = this.sourceText(sourceId);
+        const lines = captured ? captured.text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n') : [];
+        const more = lines.length - EXCERPT_LINES;
+        return h('div', { class: 'vs-evidence-item' },
+          captured ? this.codeLines(sourceId, lines.slice(0, EXCERPT_LINES).join('\n'), new Map()) : linkOnlyNotice(),
+          more > 0 ? h('p', { class: 'vs-evidence-more' }, `${more} more line${more === 1 ? '' : 's'} in the source.`) : null,
+          this.sourceOriginLine(node, sourceId),
+          h('p', { class: 'vs-evidence-open' }, this.inspectLink(sourceId, this.label(sourceId))));
+      }));
+  }
+
   detail(record: TargetRecord): HNode {
     if (record.kind.startsWith('mermaid-') || !this.nodes.has(record.id)) return this.mermaidDetail(record);
     const node = this.nodes.get(record.id)!;
+    const part = this.isPart(record);
     const specifics: Child[] = [];
     const r = this.relationship(record.id);
-    if (r && r.kind !== 'message') {
+    if (r && r.kind !== 'message' && !part) {
       specifics.push(h('p', { class: 'vs-rel-statement' },
         h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
         h('span', { [DOM.attr.generated]: true }, ` \u2192 ${r.kind}: `), this.label(record.id), h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
@@ -1036,19 +1884,27 @@ class Renderer {
     }
     switch (record.kind) {
       case 'node': case 'state': case 'factor': case 'task': case 'stage':
-      case 'transition': case 'causal-link': case 'conversion': case 'dependency':
-      case 'option': case 'criterion': case 'cell': case 'part': {
+      case 'transition': case 'causal-link': case 'conversion': case 'dependency': case 'edge':
+      case 'option': case 'criterion': case 'cell': case 'part':
+      case 'concept': case 'relation': case 'entry': case 'reading': {
         // A part shows its extension-specific attributes (§14).
         const keys = record.kind === 'part' ? Object.keys(node.attributes).filter((k) => k !== 'id' && k !== 'label').sort() : (DETAIL_FACTS[record.kind] ?? []);
         const facts: Array<[string, string]> = [];
         for (const key of keys) {
           const v = node.attributes[key];
           if (v === undefined || v === false) continue;
-          const text = Array.isArray(v) ? v.map(String).join(key === 'shape' ? ' \u00d7 ' : ', ') : v === true ? 'yes' : String(v);
+          // A reading's value carries the unit of its measure (\u00a714.4).
+          const unit = record.kind === 'reading' && key === 'value' && record.parentId ? attrString(this.nodes.get(record.parentId)!, 'unit') : undefined;
+          const text = Array.isArray(v) ? v.map(String).join(key === 'shape' ? ' \u00d7 ' : ', ') : v === true ? 'yes' : unit ? withUnit(v, unit, attrString(node, 'display')) : String(v);
           facts.push([key, this.safeText(text, record.id)]);
         }
         if (record.kind === 'task' && node.attributes['status'] === undefined) facts.push(['status', 'proposed']);
-        if (facts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, facts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+        // The inspector title and the appendix row already show the cue word,
+        // such as "Order store · storage", so a fact with that value is not
+        // repeated in the list (phase-2 review S1).
+        const cueWord = part ? this.cueWord(record) : undefined;
+        const shownFacts = facts.filter(([, v]) => v !== cueWord);
+        if (shownFacts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, shownFacts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
         break;
       }
       case 'actor': {
@@ -1058,28 +1914,68 @@ class Renderer {
       }
       case 'event': {
         const actor = attrString(node, 'actor');
-        const orders = this.bundle.model.relationships.filter((x) => x.kind === 'order' && x.to === record.id);
         specifics.push(h('p', { class: 'vs-event-meta', [DOM.attr.generated]: true },
-          `${attrString(node, 'kind') ?? 'event'}`, actor ? [' by ', h('a', { href: `#${DOM.canonicalId(actor)}` }, this.label(actor))] : null,
-          orders.length > 0 ? [' after ', orders.map((o, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(o.from)}` }, this.label(o.from))])] : null));
+          `${attrString(node, 'kind') ?? 'event'}`, actor ? [' by ', h('a', { href: `#${DOM.canonicalId(actor)}` }, this.label(actor))] : null));
         break;
       }
       case 'annotation': {
         const range = node.attributes['lines'];
-        const owner = record.parentId ? attrString(this.nodes.get(record.parentId)!, 'source') : undefined;
+        // An annotation on the before side counts lines of the `before` source (§14.7).
+        const figure = record.parentId ? this.nodes.get(record.parentId) : undefined;
+        const owner = figure ? (attrString(node, 'side') === 'before' && attrString(figure, 'before') ? attrString(figure, 'before') : attrString(figure, 'source')) : undefined;
         if (Array.isArray(range)) specifics.push(h('p', { class: 'vs-annotation-lines', [DOM.attr.generated]: true }, `Lines ${range.join('\u2013')}`, owner ? [' of ', h('a', { href: `#${DOM.canonicalId(owner)}` }, this.label(owner))] : null));
         break;
       }
     }
-    const body = record.kind === 'source' ? this.sourceDetail(record.id, node) : this.blocks(node);
+    // The term in its own definition is not linked (§13.3).
+    const previous = this.ownDefinition;
+    if (record.kind === 'definition') this.ownDefinition = record.id;
+    // A concept shows the body of the definition that it owns (docs/IMPROVEMENTS.md §5.4).
+    const body = record.kind === 'source' ? this.sourceDetail(record.id, node) : record.kind === 'concept' ? this.conceptBody(node) : this.blocks(node);
+    this.ownDefinition = previous;
     // F3b: a source row's summary shows its origin, in muted mono, after the title.
     const origin = record.kind === 'source' ? this.sourceOriginSummary(node, record.id) : undefined;
-    return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id) },
-      h('summary', {},
-        this.label(record.id),
-        h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${record.kind}`),
-        origin ? h('span', { class: 'vs-source-origin-summary vs-mono', [DOM.attr.generated]: true }, ` ${origin}`) : null),
-      h('div', { class: 'vs-detail-body' }, specifics, body, this.evidence(record.id)));
+    const cue = this.cueWord(record);
+    // A part row names its label and its cue word, such as "Charge queue ·
+    // storage" (docs/IMPROVEMENTS.md §4.5). A source, definition, or detail
+    // row is in a group of its kind, so the row repeats no kind word.
+    const summary = h('summary', {},
+      this.label(record.id),
+      part ? h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`) : null,
+      origin ? h('span', { class: 'vs-source-origin-summary vs-mono', [DOM.attr.generated]: true }, ` ${origin}`) : null);
+    if (!part) {
+      // A definition that a domain concept owns names the concept, so a term
+      // link opens the concept in the inspector (docs/IMPROVEMENTS.md §5.4).
+      const concept = record.kind === 'definition' ? this.conceptOf(record.id) : undefined;
+      // The first sentence, computed once: the term bubble shows the same
+      // text as the glossary and the Terms section (phase 4 review D6).
+      const summaryText = record.kind === 'definition' ? this.definitionSentence(record.id) : undefined;
+      return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id), [DOM.attr.cue]: cue, [DOM.attr.concept]: concept, [DOM.attr.summary]: summaryText || undefined },
+        summary,
+        h('div', { class: 'vs-detail-body' }, specifics, body, this.evidence(record.id)));
+    }
+    // A figure part (docs/IMPROVEMENTS.md §4.2): the body, the facts, then
+    // the Relationships, Appears-in, and Evidence sections. A part with an
+    // `evidence` attribute names the source that shows the part (§4.4), so
+    // its Evidence section comes first: a click on the part shows the
+    // excerpt with no scroll. Only the 5 part tags do this; a `causal-link`
+    // is a relationship, and its Evidence section stays last. A part with no
+    // body and no evidence gets no visible appendix row (§4.5); its detail
+    // stays in the DOM, so the inspector and a link still reach it.
+    const evidence = this.evidenceIds(record.id);
+    const evidenceFirst = node.type === 'tag' && PART_EVIDENCE_TAGS.has(node.tag ?? '') && this.ownEvidenceIds(record.id).length > 0;
+    const bare = !hasBody(node, (x) => this.isTargetNode(x)) && evidence.length === 0;
+    return h('details', { class: `vs-detail vs-kind-${record.kind}${bare ? ' vs-detail-bare' : ''}`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
+      summary,
+      h('div', { class: 'vs-detail-body' },
+        evidenceFirst ? this.evidenceSection(evidence) : null,
+        h('div', { class: 'vs-detail-text' }, body),
+        // A concept's label is the term of its own definition, shown above.
+        record.kind === 'concept' ? null : this.labelTermsLine(record.id),
+        specifics,
+        this.relationshipSection(record.id),
+        this.appearsInSection(record.id),
+        evidenceFirst ? null : this.evidenceSection(evidence, this.observationIds(record.id))));
   }
 
   // --- Page -----------------------------------------------------------------
@@ -1100,8 +1996,13 @@ class Renderer {
       else if (record.kind === 'trace') out.push(this.trace(id, child));
       else if (record.kind === 'annotated') out.push(this.annotated(id, child));
       else if (record.kind === 'compare') out.push(this.compare(id, child));
+      else if (record.kind === 'domain') out.push(await this.graph(id, child));
       else if (record.kind === 'mermaid') out.push(this.mermaid(id, child));
       else if (record.kind === 'extension') out.push(this.extension(id, child));
+      else if (record.kind === 'note') out.push(this.note(id, child));
+      else if (record.kind === 'self-check') out.push(this.selfCheck(id, child));
+      else if (record.kind === 'measure') out.push(this.measure(id, child));
+      else if (record.kind === 'tree') out.push(this.tree(id, child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
         this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
         out.push(h('div', { class: 'vs-block', ...this.canonical(id) }, this.blocks(child)));
@@ -1126,10 +2027,31 @@ class Renderer {
     return this.safeText(title ?? this.label(id), id);
   }
 
-  /** One `<h3>` group of the appendix, or null when it would be empty (F3a). */
+  /**
+   * One group of the appendix, or null when it would be empty (F3a). A group
+   * is a `details` element with an h3 in its summary. Sources, Definitions,
+   * and Details are open by default (docs/IMPROVEMENTS.md §4.5).
+   */
   appendixGroup(label: string, records: TargetRecord[]): HNode | null {
     if (records.length === 0) return null;
-    return h('div', { class: DOM.appendixGroup }, h('h3', {}, label), records.map((r) => this.detail(r)));
+    return h('details', { class: `${DOM.appendixGroup} vs-appendix-open`, open: true },
+      h('summary', {}, h('h3', {}, label)), records.map((r) => this.detail(r)));
+  }
+
+  /**
+   * The parts of one figure, in one collapsed group titled "Parts of 'TITLE'
+   * (N)" (docs/IMPROVEMENTS.md §4.5). In the static HTML, N counts every
+   * row, because without JavaScript and in print every row shows (§13.2).
+   * The runtime hides the rows of parts with no body and no evidence, and
+   * changes N to the number of rows that show.
+   */
+  figureGroup(figureId: string, records: TargetRecord[]): HNode | null {
+    if (records.length === 0) return null;
+    const rows = records.map((r) => this.detail(r));
+    const shown = rows.filter((row) => !(row.attrs.find(([k]) => k === 'class')?.[1] ?? '').split(' ').includes('vs-detail-bare')).length;
+    return h('details', { class: `${DOM.appendixGroup} vs-appendix-parts${shown === 0 ? ' vs-appendix-group-bare' : ''}`, [DOM.attr.figure]: figureId },
+      h('summary', {}, h('h3', {}, `Parts of '${this.figureTitle(figureId)}' `, h('span', { class: 'vs-appendix-count', [DOM.attr.generated]: true }, `(${rows.length})`))),
+      rows);
   }
 
   appendix(): HNode {
@@ -1153,7 +2075,7 @@ class Renderer {
       this.appendixGroup('Sources', sources),
       this.appendixGroup('Definitions', definitions),
       this.appendixGroup('Details', authoredDetails),
-      ...this.figureIds().map((id) => this.appendixGroup(`Figure: ${this.figureTitle(id)}`, byFigure.get(id) ?? [])),
+      ...this.figureIds().map((id) => this.figureGroup(id, byFigure.get(id) ?? [])),
     ].filter((g): g is HNode => g !== null);
     return h('section', { id: DOM.appendix, 'aria-label': 'Details and evidence' },
       h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), groups);
@@ -1167,14 +2089,83 @@ const DETAIL_FACTS: Record<string, readonly string[]> = {
   transition: ['event', 'guard', 'action', 'basis'],
   factor: ['basis'],
   'causal-link': ['basis'],
-  task: ['status', 'owner', 'output', 'acceptance', 'risk'],
-  dependency: ['kind'],
+  task: ['status', 'due', 'owner', 'output', 'acceptance', 'risk'],
+  dependency: ['kind', 'quantity'],
+  // An edge shows its `quantity` (docs/IMPROVEMENTS.md §14.9); the kind is its cue word.
+  edge: ['quantity'],
   stage: ['representation', 'shape', 'units', 'location', 'ownership'],
-  conversion: ['loss', 'condition'],
+  conversion: ['loss', 'condition', 'quantity'],
   option: [],
   criterion: ['units'],
   cell: ['value', 'valueStatus'],
+  // A concept's `entity` shows in its Appears-in section, by label.
+  concept: ['category', 'attributes'],
+  relation: ['kind', 'cardinality'],
+  entry: ['path', 'role'],
+  reading: ['value', 'valueStatus'],
 };
+
+/** The definitions of a document, in document order, for the term auto-link (§13.3). */
+function linkableDefinitions(bundle: LoadedBundle): LinkableDefinition[] {
+  // The label of a domain concept is an alias of the definition that the
+  // concept owns, when it differs from the term (docs/IMPROVEMENTS.md §5.4).
+  const conceptLabels = new Map<string, string[]>();
+  for (const t of bundle.parsed.targets) {
+    const def = t.attributes['definition'];
+    const label = t.attributes['label'];
+    if (t.tagName !== 'concept' || typeof def !== 'string' || typeof label !== 'string') continue;
+    conceptLabels.set(def, [...(conceptLabels.get(def) ?? []), label]);
+  }
+  return bundle.parsed.targets
+    .filter((t) => t.tagName === 'definition' && typeof t.attributes['term'] === 'string')
+    .map((t) => {
+      const aliases = t.attributes['aliases'];
+      const term = t.attributes['term'] as string;
+      const authored = Array.isArray(aliases) ? aliases.filter((a): a is string => typeof a === 'string') : [];
+      const fromConcepts = (conceptLabels.get(t.id) ?? []).filter((l) => phraseKey(l) !== phraseKey(term) && !authored.some((a) => phraseKey(a) === phraseKey(l)));
+      return {
+        id: t.id,
+        term,
+        aliases: [...authored, ...fromConcepts],
+        auto: t.attributes['auto'] !== false,
+      };
+    });
+}
+
+/**
+ * True when the inspector holds more than a compare cell shows in the table
+ * (docs/IMPROVEMENTS.md §4.6). The first block of a cell with no value is its
+ * value, so the cell has details when it has evidence, a second block, a
+ * `cite`, or a nested `detail`.
+ */
+export function compareCellHasDetails(cell: MNode, isTarget: (n: MNode) => boolean, hasEvidence = false): boolean {
+  if (hasEvidence) return true;
+  let more = false;
+  const visit = (n: MNode) => {
+    if (more) return;
+    if (n.type === 'tag' && (n.tag === 'detail' || n.tag === 'cite')) {
+      more = true;
+      return;
+    }
+    if (n !== cell && isTarget(n)) return;
+    for (const child of n.children) visit(child);
+  };
+  visit(cell);
+  if (more) return true;
+  const blocks = cell.children.filter((c) => !isTarget(c) && c.type !== 'comment' && hasBody({ children: [c] } as unknown as MNode, isTarget));
+  return blocks.length > 1;
+}
+
+/** True when a target node has authored body content: a block with text, not only nested targets or comments. */
+function hasBody(node: MNode, isTarget: (n: MNode) => boolean): boolean {
+  const text = (n: MNode): boolean => {
+    if (n.type === 'text' || n.type === 'code') return String(n.attributes['content'] ?? '').trim() !== '';
+    if (n.type === 'fence' || n.type === 'image' || n.type === 'hr' || n.type === 'table') return true;
+    if (n.type === 'tag' && n.tag === 'cite') return true;
+    return n.children.some(text);
+  };
+  return node.children.some((c) => !isTarget(c) && c.type !== 'comment' && text(c));
+}
 
 function tableAlign(node: MNode): string | undefined {
   const a = node.attributes['align'];
@@ -1325,7 +2316,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
   const files: OutputFile[] = [];
   const add = (name: string, bytes: Uint8Array, mediaType: string) => files.push({ path: `${directory}/${name}`, bytes, mediaType });
   add('index.html', encoder.encode(page), 'text/html; charset=utf-8');
-  add('document.md', encoder.encode(projectText(bundle.parsed, bundle.model.targets)), 'text/markdown; charset=utf-8');
+  add('document.md', encoder.encode(projectText(bundle.parsed, bundle.model.targets, r.diffs)), 'text/markdown; charset=utf-8');
   for (const image of [...r.images.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
     if (!files.some((f) => f.path === `${directory}/${image.path}`)) add(image.path, image.bytes, image.mediaType);
   }

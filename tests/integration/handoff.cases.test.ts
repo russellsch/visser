@@ -40,7 +40,9 @@ function resolveWith(name: string, text: string) {
 describe('handoff.md cases through the built CLI', () => {
   it('missing, invalid, and ambiguous each exit 2 with the documented status', () => {
     expect(resolveWith('missing.yaml', packetText.replace('targetId: p_one', 'targetId: p_nope').replace('/p_one?', '/p_nope?'))).toEqual({ exit: 2, status: 'missing' });
-    expect(resolveWith('invalid.yaml', packetText.replace(/^sourceRevision: ./m, 'sourceRevision: f'))).toEqual({ exit: 2, status: 'invalid' });
+    // Always disagree with the URI, including when the random revision starts with f.
+    const mismatchedRevision = packetText.replace(/^sourceRevision: (.)/m, (_match, first: string) => `sourceRevision: ${first === 'f' ? '0' : 'f'}`);
+    expect(resolveWith('invalid.yaml', mismatchedRevision)).toEqual({ exit: 2, status: 'invalid' });
     cpSync(join(repo, 'docs', 'explanations', 'notes'), join(repo, 'docs', 'explanations', 'copy'), { recursive: true });
     expect(resolveWith('ambiguous.yaml', packetText)).toEqual({ exit: 2, status: 'ambiguous' });
   });

@@ -3,240 +3,217 @@ format: visser/1
 docId: c2ab082b-4ca3-49c3-a119-c2d8d4bb552e
 title: "How Visser works"
 kind: teaching
-capturedAt: 2026-09-27T22:37:53Z
+capturedAt: 2026-09-28T00:00:00Z
+reader:
+  profile: experienced-systems-engineer
+  knows: [Markdown, Git, SHA-256]
+  new: [target, source revision, reference packet, toolkit]
+  mustUnderstand:
+    - "Name the source revision, toolkit digest, extension digests, and render options that determine a build."
+    - "Predict when a reference packet is exact, stale, or refused."
+    - "Explain why a repository toolkit needs user trust before it runs."
 visibility: private
+retiredTargets:
+  a_cli: {reason: "replaced by the focused build plan"}
+  a_shim: {reason: "replaced by the focused build plan"}
+  a_worker: {reason: "replaced by the focused build plan"}
+  br_invalid: {reason: "replaced by the focused build plan"}
+  br_valid: {reason: "replaced by the focused build plan"}
+  d_install: {reason: "removed from the main path"}
+  d_mermaid: {reason: "removed from the main path"}
+  e_check_trust: {reason: "replaced by e_gate"}
+  e_exec: {reason: "replaced by e_start"}
+  e_layout: {reason: "replaced by e_start"}
+  e_parse: {reason: "replaced by e_source"}
+  e_read_lock: {reason: "replaced by e_lock"}
+  e_run: {reason: "removed from the focused map"}
+  e_write: {reason: "replaced by the build plan"}
+  ev_own: {reason: "replaced by ev_select"}
+  ev_positions: {reason: "replaced by ev_render"}
+  ev_publish: {reason: "replaced by ev_render"}
+  ev_send: {reason: "replaced by ev_render"}
+  ev_spawn: {reason: "replaced by ev_select"}
+  ev_stop: {reason: "replaced by ev_validate"}
+  ev_verify: {reason: "replaced by ev_select"}
+  h_trust: {reason: "merged into h_parts" , replacement: h_parts}
+  l_edit_steps: {reason: "replaced by g_edit" , replacement: g_edit}
+  l_trust_limits: {reason: "removed from the main path"}
+  l_trust_rules: {reason: "merged into p_parts_reader" , replacement: p_parts_reader}
+  n_agent: {reason: "removed from the focused map"}
+  n_output: {reason: "replaced by ev_render"}
+  n_worker: {reason: "merged into n_cli" , replacement: n_cli}
+  p_build_intro: {reason: "merged into p_build_parse" , replacement: p_build_parse}
+  p_build_limits: {reason: "removed from the main path"}
+  p_edit_limits: {reason: "merged into p_edit_guard" , replacement: p_edit_guard}
+  p_old_names: {reason: "stale rename note removed"}
+  p_packet_note: {reason: "removed from the focused path"}
+  p_parts_intro: {reason: "merged into p_parts_reader" , replacement: p_parts_reader}
+  p_reading_path: {reason: "merged into p_summary" , replacement: p_summary}
+  p_trust_data: {reason: "removed from the focused path"}
+  p_trust_intro: {reason: "merged into p_parts_reader" , replacement: p_parts_reader}
+  p_trust_limits: {reason: "removed from the focused path"}
+  t_status: {reason: "merged into p_edit_status" , replacement: p_edit_status}
+  code_map: {reason: "removed from the focused path"}
+  t_core: {reason: "removed from the focused path"}
+  t_bundle: {reason: "removed from the focused path"}
+  t_resolve: {reason: "removed from the focused path"}
+  t_guarded: {reason: "removed from the focused path"}
+  t_cli: {reason: "removed from the focused path"}
+  t_build: {reason: "removed from the focused path"}
+  t_toolkit: {reason: "removed from the focused path"}
+  t_shim: {reason: "removed from the focused path"}
+  t_runtime: {reason: "removed from the focused path"}
+  t_skill: {reason: "removed from the focused path"}
+  src_own_digest: {reason: "stale unused source removed"}
+  ev_packet: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  ev_resolve: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  ev_replace: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  ev_rebuild: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  dp_packet: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  dp_exact: {reason: "replaced by numbered edit steps" , replacement: g_edit}
+  dp_write: {reason: "replaced by numbered edit steps" , replacement: g_edit}
 ---
 
 <!-- vs:id overview -->
 # How Visser works
 
 <!-- vs:id p_summary -->
-Visser turns a Markdown-like source file into a static web page whose every paragraph, figure part, and piece of evidence has a stable ID. A person reads the page; an LLM agent uses the IDs to change exactly one part of the source later. Three rules carry most of the design: the source is the only canonical copy, every build is an immutable snapshot, and only a toolkit that you installed or explicitly trusted runs code on your machine.
-
-<!-- vs:id p_reading_path -->
-This page follows one document through its life: the parts that take part, what `visser build` does, how an agent edits one paragraph safely, and why a cloned repository cannot run code on your machine. Each section ends with its limits.
-
-<!-- vs:id p_old_names -->
-The code excerpts on this page come from commit `9fdeb25`, before the tool was renamed from Explain to Visser. They still show the old names: `explain` for `visser`, `.explain` for `.visser`, and `EXPLAIN_HOME` for `VISSER_HOME`. The behaviour they show did not change.
+Visser compiles one source bundle into a static snapshot. The source remains the canonical document. A reader uses the snapshot. An author changes the source and builds a new snapshot.
 
 {% definition id="def_bundle" term="source bundle" %}
-A source bundle is a folder with one `index.md` and the files it declares. The `index.md` holds YAML frontmatter, prose with ID markers, and tags such as `graph`, `trace`, and `source`.
+A source bundle is a folder with `index.md` and each file that `index.md` declares.
 {% /definition %}
 
 {% definition id="def_target" term="target" %}
-A target is any part of a document that has an ID: a heading, a paragraph, a list, a figure, one node or edge of a figure, a definition, a detail, or a captured source.
+A target is one addressable block or figure part with an ID that is unique in its document.
 {% /definition %}
 
-{% definition id="def_toolkit" term="toolkit release" %}
-A toolkit release is one folder that holds the CLI, the build workers, the browser assets, the schemas, and the agent skill, with a `release.json` that lists the sha256 of every file. The sha256 of that manifest is the toolkit digest.
+{% definition id="def_toolkit" term="toolkit" %}
+A toolkit is the checked set of CLI, worker, and browser files that Visser runs.
 {% /definition %}
 
 {% definition id="def_packet" term="reference packet" %}
-A reference packet is a small YAML record that names one target by document ID and target ID, at the source revision that the reader saw.
+A reference packet names one target and records the source revision and target body hash that a reader saw.
 {% /definition %}
 
+{% definition id="def_revision" term="source revision" %}
+A source revision is the hash of the canonical manifest of declared source files. Text files use normalized line endings. {% cite ref="src_revision" /%}
+{% /definition %}
+
+{% domain id="d_terms" title="Four records connect a build" question="Which records identify the source, the tool, and one later edit?" %}
+Each record has one job. The map names relations, not execution order.
+
+{% concept id="c_bundle" label="Source bundle" definition="def_bundle" category="thing" attributes=["document ID", "declared files"] /%}
+
+{% concept id="c_target" label="Target" definition="def_target" category="thing" attributes=["target ID", "body hash"] /%}
+
+{% concept id="c_toolkit" label="Toolkit" definition="def_toolkit" category="thing" attributes=["digest"] /%}
+
+{% concept id="c_packet" label="Reference packet" definition="def_packet" category="value" attributes=["revision", "body hash"] /%}
+
+{% relation id="r_bundle_target" from="c_bundle" to="c_target" kind="has" label="contains" cardinality="1..*" /%}
+{% relation id="r_packet_target" from="c_packet" to="c_target" kind="identifies" label="names" cardinality="1" /%}
+{% relation id="r_bundle_toolkit" from="c_bundle" to="c_toolkit" kind="uses" label="pins" cardinality="1" /%}
+{% /domain %}
+
 <!-- vs:id h_parts -->
-## The parts and who calls whom
+## The shim selects the code
 
-<!-- vs:id p_parts_intro -->
-Visser has no server and no database. The pieces are files in two places: your repository, which anyone who can push to it controls, and your user folder, which only you control. The map below shows who calls or reads whom; it does not show order.
+{% graph id="g_parts" mode="architecture" title="The shim selects the code" question="Which part selects the code, and where does the repository stop controlling it?" %}
+Arrows show calls and reads. They do not show order.
 
-{% graph id="g_parts" mode="architecture" title="Who calls whom when you use Visser" question="Which parts does the repository control, and which part decides what code runs?" %}
-Arrows are calls and reads. The user folder decides which code runs; the repository only supplies data.
-
-{% group id="grp_repo" label="Your repository (repository-controlled)" %}
-Anyone who can push to the repository can change these files.
+{% group id="grp_repo" label="Repository files" %}
+The repository supplies source data and may supply a toolkit copy.
 {% /group %}
 
-{% group id="grp_home" label="Your user folder, ~/.visser (user-controlled)" %}
-Only you change these files, with `visser install` and `visser trust`.
+{% group id="grp_home" label="User files" %}
+The user folder holds the shim, trust store, and installed toolkits.
 {% /group %}
 
-{% node id="n_agent" label="Author or agent" role="external" %}
-A person or an LLM agent that runs `visser` commands.
+{% node id="n_bundle" group="grp_repo" label="Source bundle" role="storage" evidence=["src_load"] %}
+The loader reads `index.md`, declared files, and the document lock.
 {% /node %}
 
-{% node id="n_bundle" group="grp_repo" label="Source bundle and lock" role="storage" %}
-`index.md`, its declared files, and `visser.lock.json`, which pins one toolkit digest.
+{% node id="n_repo_toolkit" group="grp_repo" label="Repository toolkit" role="process" evidence=["src_trust_gate"] %}
+The repository may hold a candidate toolkit under `.visser/toolchains/`.
 {% /node %}
 
-{% node id="n_output" group="grp_repo" label="Snapshot output" role="storage" %}
-`.visser/output/d/DOC/REVISION/BUILD/`: `index.html`, `document.md`, and `build.json`.
-{% /node %}
-
-{% node id="n_shim" group="grp_home" label="User shim" role="interface" %}
-`~/.visser/bin/visser.cjs`, the only entry point that agents and wrappers call.
+{% node id="n_shim" group="grp_home" label="User shim" role="interface" evidence=["src_shim"] %}
+The shim chooses a release before it starts a CLI.
 {% /node %}
 
 {% node id="n_trust" group="grp_home" label="Trust store" role="storage" %}
-`~/.visser/trust.json`: the toolkit and extension digests that you accepted.
+The trust store records digests that the user accepted.
 {% /node %}
 
-{% node id="n_cli" group="grp_home" label="Toolkit CLI and compiler" role="process" %}
-The pinned release's own `bin/visser.cjs`, which parses, validates, and renders.
+{% node id="n_cli" group="grp_home" label="Toolkit CLI" role="process" evidence=["src_workers"] %}
+The selected release supplies the CLI and its layout worker.
 {% /node %}
 
-{% node id="n_worker" group="grp_home" label="Layout worker" role="process" %}
-A worker thread from the same release that computes graph layout with ELK.
-{% /node %}
-
-{% edge id="e_run" from="n_agent" to="n_shim" kind="call" label="runs every command through" /%}
-{% edge id="e_read_lock" from="n_shim" to="n_bundle" kind="data" label="reads the pinned toolkit digest from" /%}
-{% edge id="e_check_trust" from="n_shim" to="n_trust" kind="data" label="looks up a repository toolchain's digest in" /%}
-{% edge id="e_exec" from="n_shim" to="n_cli" kind="call" label="verifies every file, then runs" /%}
-{% edge id="e_parse" from="n_cli" to="n_bundle" kind="data" label="parses and validates" /%}
-{% edge id="e_layout" from="n_cli" to="n_worker" kind="call" label="sends each graph for layout to" /%}
-{% edge id="e_write" from="n_cli" to="n_output" kind="data" label="writes a new immutable snapshot to" /%}
+{% edge id="e_lock" from="n_shim" to="n_bundle" kind="data" label="reads the lock" /%}
+{% edge id="e_gate" from="n_shim" to="n_trust" kind="data" label="checks the digest" /%}
+{% edge id="e_repo" from="n_shim" to="n_repo_toolkit" kind="call" label="accepts trusted code" /%}
+{% edge id="e_start" from="n_shim" to="n_cli" kind="call" label="starts selected CLI" /%}
+{% edge id="e_source" from="n_cli" to="n_bundle" kind="data" label="loads source" /%}
 {% /graph %}
 
 <!-- vs:id p_parts_reader -->
-The page itself needs no Visser process. `index.html` already holds all prose, the figure SVG, the relationship lists, and the evidence. The browser loads `reader.js` and `reader.css` from the toolkit's asset pack, and `reader.js` only adds inspection, the narrow-screen views, and a button that copies a reference packet. Without JavaScript the page is still complete.
+Run all commands through the user shim. Repository contributors can change a candidate toolkit. The shim checks the candidate digest against user trust before it verifies and runs that copy. {% cite ref="src_shim" /%} {% cite ref="src_trust_gate" /%}
 
 <!-- vs:id p_parts_where -->
-The toolkit usually lives in your user folder, under `~/.visser/toolchains/DIGEST/`. A repository may also ship a copy under `.visser/toolchains/DIGEST/`. If it does, the shim uses that copy only when its digest is in your trust store, and otherwise stops. The last section explains why.
+An installed user copy can satisfy the same locked digest. The repository does not control that user copy. `--dev-toolkit PATH` is a developer bypass. It runs the named local release and marks builds as development builds.
 
 <!-- vs:id h_build -->
-## What `visser build` does
+## A build records its inputs
 
-<!-- vs:id p_build_intro -->
-A build is a pure function of three inputs: the declared source files, the toolkit digest, and the render options. The build hashes each input, so the snapshot folder name tells you exactly what produced it.
+{% graph id="tr_build" mode="plan" title="A valid source enables a build" question="Which checks must pass before the CLI writes a snapshot?" %}
+Arrows show requirements. They do not show duration.
 
-{% trace id="tr_build" title="One run of visser build" question="Which checks happen before any output is written, and whose code runs at each step?" %}
-Nothing is written until every check has passed.
+{% task id="ev_select" label="Select toolkit" status="ready" output="verified release" acceptance="the shim accepts its digest" evidence=["src_shim", "src_trust_gate"] /%}
+{% task id="ev_parse" label="Load source" status="ready" output="target records" acceptance="each source block parses" evidence=["src_load"] /%}
+{% task id="ev_validate" label="Check document" status="ready" output="no error diagnostics" acceptance="visser check exits 0" evidence=["src_load"] /%}
+{% task id="ev_render" label="Write snapshot" status="ready" output="HTML and Markdown" acceptance="visser build exits 0" evidence=["src_build"] /%}
 
-{% actor id="a_shim" entity="n_shim" /%}
-{% actor id="a_cli" entity="n_cli" /%}
-{% actor id="a_worker" entity="n_worker" /%}
-
-{% event id="ev_select" actor="a_shim" label="Reads the lock and selects the pinned toolkit" kind="compute" /%}
-
-{% event id="ev_verify" actor="a_shim" label="Verifies every release file against release.json" kind="compute" after=["ev_select"] %}
-An unlisted, missing, changed, or symlinked file stops the command with `E_INTEGRITY`.
-{% /event %}
-
-{% event id="ev_spawn" actor="a_shim" to="a_cli" label="Runs the toolkit's own bin/visser.cjs" kind="call" after=["ev_verify"] /%}
-
-{% event id="ev_parse" actor="a_cli" label="Parses index.md and builds the target records" kind="compute" after=["ev_spawn"] %}
-Each target gets its exact byte span in the source and a `bodySha256` of its normalized text.
-{% /event %}
-
-{% event id="ev_validate" actor="a_cli" label="Validates frontmatter, IDs, references, and evidence hashes" kind="compute" after=["ev_parse"] /%}
-
-{% branch id="br_invalid" label="Source has an error" condition="any error diagnostic" exclusiveWith=["br_valid"] /%}
-{% branch id="br_valid" label="Source is valid" condition="no error diagnostic" exclusiveWith=["br_invalid"] /%}
-
-{% event id="ev_stop" actor="a_cli" label="Prints the diagnostics and exits 2 without writing" kind="failure" after=["ev_validate"] branch="br_invalid" /%}
-
-{% event id="ev_own" actor="a_cli" label="Checks that the lock pins this CLI's own digest" kind="compute" after=["ev_validate"] branch="br_valid" /%}
-
-{% event id="ev_send" actor="a_cli" to="a_worker" label="Sends each graph to the layout worker" kind="call" after=["ev_own"] branch="br_valid" /%}
-
-{% event id="ev_positions" actor="a_worker" to="a_cli" label="Returns node and edge positions" kind="return" after=["ev_send"] branch="br_valid" /%}
-
-{% event id="ev_render" actor="a_cli" label="Renders HTML, SVG, and document.md" kind="compute" after=["ev_positions"] branch="br_valid" /%}
-
-{% event id="ev_publish" actor="a_cli" label="Renames a temporary folder into the snapshot path" kind="state-change" after=["ev_render"] branch="br_valid" /%}
-{% /trace %}
+{% dependency id="dp_select" from="ev_select" to="ev_render" label="toolkit must pass" /%}
+{% dependency id="dp_parse" from="ev_parse" to="ev_validate" label="records must exist" /%}
+{% dependency id="dp_valid" from="ev_validate" to="ev_render" label="source must pass" /%}
+{% /graph %}
 
 <!-- vs:id p_build_parse -->
-The first steps are ordinary compiler work. The CLI parses `index.md` with a restricted Markdoc profile, validates the frontmatter against a schema, and turns every marked block and tag into a target record. {% cite ref="src_load" /%} Raw HTML, Markdoc variables, functions, and conditionals are rejected before anything renders, so a source file cannot run code in the build or in the page.
+The loader reads the primary file and declared files. It parses the source, checks frontmatter, and creates target records. {% cite ref="src_load" /%} The CLI stops before it writes output if validation reports an error. {% cite ref="src_build" /%}
 
 <!-- vs:id p_build_identity -->
-Two hashes identify the result. The source revision is the sha256 of a canonical manifest that lists every declared file and its content hash. The build ID also covers the toolkit digest and the render options. The snapshot path `d/DOC/REVISION/BUILD/` is therefore different for any change of source or toolkit. The build ID also records whether the build is a development build. An existing snapshot folder is never replaced, so a reader can keep a page open while you build a new revision.
+The source revision identifies declared source bytes after text line endings normalize. The build ID also covers the toolkit digest, extension digests, and render options. {% cite ref="src_revision" /%} The CLI uses both IDs in the snapshot path. {% cite ref="src_build" /%} A render-option-only change keeps a packet exact but changes the build ID. {% cite ref="src_stale" /%}
 
 <!-- vs:id p_build_whose -->
-Only the pinned toolkit's code runs. An installed CLI refuses to build a document whose lock pins a different digest, and tells you to use the user shim instead. {% cite ref="src_own_digest" /%} The layout worker comes from the same release as the running CLI, never from the document's folder. {% cite ref="src_workers" /%}
-
-{% detail id="d_mermaid" label="Mermaid figures" summary="Parsed at build time in a separate process; drawn in the browser." %}
-A `mermaid` figure is parsed at build time in a separate Node process with a 30-second limit, so its nodes get target IDs like any other figure. The browser draws it with the toolkit's `mermaid.js`, which loads only on pages that need it and only if its sha384 integrity digest matches. On a slow connection this file takes several seconds to arrive, because it is about 1.6 MB after compression; the text of the page is readable before that.
-{% /detail %}
-
-<!-- vs:id p_build_limits -->
-Limits: the snapshot does not follow the codebase. A captured excerpt shows the code at the commit it names, and `visser check --verify-origins` tells you whether the local repository still has the same bytes. A build also refuses a graph above 200 nodes or 400 edges instead of drawing an unreadable figure.
+The CLI uses a worker from its own selected release for layout. {% cite ref="src_workers" /%} The browser reads the finished snapshot. A later source change does not change that snapshot.
 
 <!-- vs:id h_edit -->
-## How an agent changes exactly one paragraph
+## A packet permits one edit
 
 <!-- vs:id p_edit_intro -->
-Headings and line numbers move when someone edits a file, so Visser never uses them to find a target. A {% term ref="def_packet" %}reference packet{% /term %} names the target by two IDs and carries two hashes: the source revision the reader saw, and the `bodySha256` of the target's text at that revision.
+A {% term ref="def_packet" %}reference packet{% /term %} binds an edit request to one {% term ref="def_target" %}target{% /term %}. It carries a document revision and a hash of the target body. Line numbers and headings do not make this decision.
 
-<!-- vs:id c_packet -->
-```yaml
-schema: visser-ref/1
-docId: c2ab082b-4ca3-49c3-a119-c2d8d4bb552e
-targetId: p_build_whose
-sourceRevision: 3f1c…
-bodySha256: 9a04…
-label: "Only the pinned toolkit's code runs. An installed CLI refuses to build a docu"
-kind: paragraph
-issuedBy: browser
-```
-
-<!-- vs:id p_packet_note -->
-The two hashes above are shortened; a real packet carries 64 hexadecimal characters for each. The label is only a hint: the first 80 characters of the target's text.
-
-<!-- vs:id l_edit_steps -->
-1. **Issue.** A reader clicks the reference button next to a block, or an agent runs `visser refs show DOC TARGET_ID`. Either way the packet comes from the built page or the current source, never from a guess.
-2. **Resolve.** `visser refs resolve --packet FILE` finds the document by its ID, reparses it, and compares both hashes. It never writes.
-3. **Replace.** `visser refs replace --packet FILE --replacement NEW.md --expected-revision REV` rewrites only the target's byte span. The replacement text must keep the target's ID marker.
-4. **Check the result.** The agent runs `visser check` and rebuilds. The new build has a new revision, so old packets become stale on purpose.
+<!-- vs:id g_edit -->
+1. Issue a packet for one target.
+2. Resolve the packet against the current source.
+3. Replace only after an `exact` result.
+4. Check and build the changed source.
 
 <!-- vs:id p_edit_status -->
-Resolution gives one of six statuses. `exact` means that the revision and the target text both match, and only `exact` allows a write. `stale` means that the document changed since the packet was issued; the result also says whether this target's own text changed. {% cite ref="src_stale" /%} `deleted`, `missing`, `ambiguous`, and `invalid` all stop the edit: the tool never picks the "closest" paragraph.
-
-<!-- vs:id t_status -->
-| Status | Meaning | What the agent does |
-|---|---|---|
-| `exact` | Revision and target text match | Replace the target |
-| `stale`, text unchanged | Another part of the document changed | Refresh the packet, then replace |
-| `stale`, text changed | The target itself changed | Show the user the current text; continue only if the request still applies |
-| `deleted` | The target was retired | Report it and any named replacement |
-| `missing`, `ambiguous`, `invalid` | No single safe target | Report it; never guess |
+The resolver reports `exact` when the revision and body hash match. It reports `stale` when the source revision changed. The result says whether the target body changed too. {% cite ref="src_stale" /%} The replace command accepts only `exact`; the other results stop the write. {% cite ref="src_replace" /%}
 
 <!-- vs:id p_edit_guard -->
-The write itself is guarded against a second writer. `refs replace` takes an exclusive edit lock for the document, reparses the file under the lock, and writes the new text to a temporary file. It validates the whole candidate document, then reads the original file once more and compares its raw hash with the bytes it started from. If they differ, it stops with `E_WRITE_CONFLICT` and writes nothing; otherwise it renames the temporary file over the original. {% cite ref="src_recheck" /%}
-
-<!-- vs:id p_edit_limits -->
-Limits: the guard protects the source file, not your intent. A packet for a stale target is refreshed only after an explicit acknowledgement, and the agent must show the user the changed text first. A direct edit with a text editor bypasses all of this; the next `check` still validates the result, but nothing compares it with a packet.
-
-<!-- vs:id h_trust -->
-## Why a cloned repository cannot run code on your machine
-
-<!-- vs:id p_trust_intro -->
-A repository that you clone controls its source bundles, its lock files, and any toolkit copy under `.visser/`. If Visser ran whatever the lock names, cloning a repository and running `visser build` would run the repository author's code. Three rules stop that.
-
-<!-- vs:id l_trust_rules -->
-- **Agents call only the user shim.** Agents and skill wrappers call `~/.visser/bin/visser.cjs`, which you installed. No command runs a repository's own shim or scripts.
-- **A repository toolchain needs your trust.** If the repository ships a copy of the pinned toolkit under `.visser/toolchains/`, the shim looks up that digest in your trust store before it reads any file of the copy. An unknown digest stops with `E_TOOLKIT_UNTRUSTED` and prints the command to trust it after review. The shim does not fall back to another copy. {% cite ref="src_trust_gate" /%}
-- **Every release is verified before it runs.** The shim checks that the release folder holds exactly the files in `release.json`, with matching hashes and no symlinks, and only then runs that release's own CLI. {% cite ref="src_shim" /%}
-
-<!-- vs:id p_trust_data -->
-Everything else that the repository supplies is data. The source cannot contain HTML or Markdoc code, captured excerpts are shown as text and never executed, and the lock, the workspace config, and collection files are read as regular files of at most 1 MiB without following symlinks.
-
-<!-- vs:id p_trust_limits -->
-The limits are real, and you should know them before you rely on this:
-
-<!-- vs:id l_trust_limits -->
-- Trust is a decision about a digest, not a review. After you trust a toolkit or an extension, its code runs with your operating-system privileges. The layout worker has a time limit, and an extension's build process has time and memory limits, but neither is a sandbox. A trusted extension can also load Node modules from folders outside its digest, so trust only extensions without outside dependencies.
-- The shim verifies a release and then starts it. A process that can already write your user folder can change the files between those two steps. Visser accepts this, because such a process already runs as you.
-- `--dev-toolkit PATH` runs whatever toolkit you name. It marks the build as a development build, and `check --release` and public exports refuse such builds.
-- A public export trusts the repository names that sources record. The author controls those names, so the export report warns with `W_PUBLIC_BY_NAME` for each one.
-
-{% detail id="d_install" label="How a toolkit gets into your user folder" summary="install verifies, stages, and renames; it never edits PATH." %}
-`visser install --from-dir DIR`, `--archive FILE`, or `--from-release OWNER/REPO` stages the release in a temporary folder, verifies it, and renames it into `~/.visser/toolchains/DIGEST/`. An archive is read by a small tar reader that rejects the whole archive on any link, device, absolute path, `..`, or duplicate name. A download uses HTTPS only, allowed hosts only, a size cap, and a total deadline, and it checks the archive digest before extraction. Install records the digest in the trust store and never changes `PATH` or shell files.
-{% /detail %}
+The writer locks the document and creates a temporary candidate. It validates the candidate. It checks the original bytes again before it renames the candidate. {% cite ref="src_recheck" /%} A direct editor bypasses this guard.
 
 <!-- vs:id h_next -->
-## What to read next
+## Read the source again
 
 <!-- vs:id p_next -->
-To write a document, read `skills/visual-explain/SKILL.md` and `skills/visual-explain/references/format.md`. The full design, including every error code, is in `docs/ARCHITECTURE.md`, and the known gaps are in `docs/validation/limitations.md`. The human trial that would show whether these pages help readers understand faster has not run yet, so this page makes no such claim.
+The figures name the main evidence. Open each cited excerpt before you rely on a behavioural claim. This page describes the current working tree, not a published release.
 
-{% source id="src_load" kind="git" title="loadBundle parses, validates frontmatter, and builds targets" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/core/src/model/bundle.ts" start=51 end=66 capturedAt="2026-09-27T22:38:07Z" excerptSha256="99a8537ae55b5caf4feb19214ce28ba51a95849aa8ae3c5ada61b2e50f9f9278" originFileSha256="14b2ebdaa52708a70ab881116a102127dbe2f4720eb809806643380e003087d4" %}
+{% source id="src_load" kind="working-tree" title="The loader reads source and records targets" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/model/bundle.ts" start=59 end=101 capturedAt="2026-09-28T15:04:17Z" excerptSha256="5897aa8ca418fcb20a0d31bcd4b5d9b324e0d42b0b5cf199c804a16a2e26a75f" originFileSha256="fd23b564a79ad65fe4feca543574924a412c05e71c49f285c68347a5aaa2ebbf" %}
 ```typescript
-export function loadBundle(indexPath: string): LoadedBundle {
-  const bytes = new Uint8Array(readFileSync(indexPath));
-  const root = dirname(indexPath);
   const parsed = parseSource(bytes, 'index.md');
   const diagnostics: Diagnostic[] = [...parsed.diagnostics];
 
@@ -250,34 +227,106 @@ export function loadBundle(indexPath: string): LoadedBundle {
   }
   const model = buildTargetRecords(parsed);
   diagnostics.push(...model.diagnostics);
-```
-{% /source %}
+  const docId = typeof parsed.frontmatter['docId'] === 'string' ? parsed.frontmatter['docId'] : undefined;
 
-{% source id="src_own_digest" kind="git" title="A CLI refuses a document pinned to another toolkit" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/cli/src/toolkit.ts" start=258 end=266 capturedAt="2026-09-27T22:38:08Z" excerptSha256="ea0a80df54aa5c031b09d9057cad80854e8bf5954f63dba5ae7c25f36359e630" originFileSha256="0a4c51ae609932251bfae41463fbaeb468029ae6dc5826783182cd4caf94ba04" %}
-```typescript
-  if (own) {
-    const ownRelease = selection.release.dir === resolve(own) ? selection.release : verifyRelease(own);
-    if (ownRelease.sha256 !== selection.release.sha256) {
-      throw devToolkit
-        ? new CliError('E_USAGE', `--dev-toolkit ${selection.release.dir} is toolkit ${selection.release.sha256}, but this CLI is ${ownRelease.sha256}; run that toolkit's own bin/explain.cjs`, EXIT.invalid)
-        : new CliError('E_TOOLKIT_MISSING', `the document pins toolkit ${selection.release.sha256}, but this CLI is ${ownRelease.sha256}; run the command through the user shim (\${EXPLAIN_HOME:-~/.explain}/bin/explain.cjs), which runs the pinned toolkit's own CLI`, EXIT.unavailable);
+  // Declared content files. Every file must be a regular file inside the bundle (§15.4).
+  const files: BundleFile[] = [{ path: 'index.md', kind: 'text', content: bytes }];
+  const realRoot = realpathSync(root);
+  for (const path of declaredPaths(parsed)) {
+    const full = join(root, path);
+    if (!existsSync(full)) {
+      diagnostics.push({ code: 'E_REF_BROKEN', severity: 'error', message: `declared file ${path} does not exist`, path: 'index.md' });
+      continue;
     }
-    selection.workerRelease = ownRelease.dir;
+    if (lstatSync(full).isSymbolicLink() || !statSync(full).isFile() || !realpathSync(full).startsWith(realRoot + sep)) {
+      diagnostics.push({ code: 'E_PATH_ESCAPE', severity: 'error', message: `declared file ${path} is not a regular file inside the bundle`, path: 'index.md' });
+      continue;
+    }
+    files.push({ path, kind: IMAGE_EXTENSIONS.test(path) ? 'binary' : 'text', content: new Uint8Array(readFileSync(full)) });
   }
+  diagnostics.push(...validateDocument(parsed, model, new Map(files.filter((f) => f.kind === 'binary').map((f) => [f.path, f.content]))));
+  const declared = new Set(files.map((f) => f.path));
+  for (const extra of listBundleFiles(root)) {
+    if (!declared.has(extra)) {
+      diagnostics.push({ code: 'W_UNDECLARED_FILE', severity: 'warning', message: `${extra} is in the bundle folder but not declared; it is not read`, path: extra });
+    }
+  }
+
+  let manifest: SourceManifest | undefined;
+  let revision: string | undefined;
+  if (docId && !diagnostics.some((d) => d.severity === 'error')) {
+    try {
+      const result = sourceRevision(docId, files);
 ```
 {% /source %}
 
-{% source id="src_workers" kind="git" title="Layout workers come only from the running CLI's release" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/cli/src/commands/build.ts" start=66 end=69 capturedAt="2026-09-27T22:38:07Z" excerptSha256="9e882bbf6d8de82719671c107c7da4563a66b15a2c0734db8b3cf5310315fe12" originFileSha256="807b35e01437e2228df48eb41862887d9d0450be5840a6ec8703449d2511122b" %}
+{% source id="src_workers" kind="working-tree" title="The build uses its own worker" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/cli/src/commands/build.ts" start=66 end=112 capturedAt="2026-09-28T15:04:29Z" excerptSha256="a1ec43444493475f4e35603156614915b801655457e2fe957f5279aa076adab6" originFileSha256="ee494e62b6ce5a57904bd216152d2de18cba9500a46286d007f5e86043c55f3e" %}
 ```typescript
+  // SRI value for the lazily loaded Mermaid asset (§9.12).
+  const integrity = existsSync(mermaidPath)
+    ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
     : undefined;
   // Workers come only from the running CLI's own release (§12.4 "Whose code
   // runs"); in source mode there is none, and layout runs in process.
   const workerPath = toolkit.workerRelease ? join(toolkit.workerRelease, 'workers', 'layout.cjs') : undefined;
+  // Extensions (§14.3): pinned by the lock, verified, and run only if the user
+  // trusts their exact digest. Resolution never executes anything.
+  let extensions;
+  try {
+    const bound = bindExtensions(bundle.model, { bundleRoot: bundle.root, repoRoot: repoRootFor(bundle.root), allowFallback: request.extensionFallback === true });
+    printDiagnostics(bound.diagnostics.filter((d) => d.severity === 'warning'), false);
+    const errors = bound.diagnostics.filter((d) => d.severity === 'error');
+    if (errors.length > 0) {
+      printDiagnostics(errors, false);
+      throw new CliError('E_BUILD', 'build stopped: an extension cannot run', exitCodeFor(errors));
+    }
+    extensions = bound.bindings;
+  } catch (error) {
+    if (!(error instanceof HashError)) throw error;
+    const d = { code: error.code, severity: 'error' as const, message: error.message };
+    printDiagnostics([d], false);
+    throw new CliError('E_BUILD', 'build stopped: an extension cannot run', exitCodeFor([d]));
+  }
+  try {
+    return await compileDocument(
+      bundle,
+      {
+        version: toolkit.release.version,
+        sha256: toolkit.release.sha256,
+        assets: {
+          'reader.js': assetSha('reader.js'),
+          'reader.css': assetSha('reader.css'),
+          ...(existsSync(mermaidPath) ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
+        },
+        ...(integrity ? { integrity } : {}),
+      },
+      {
+        audience: request.audience,
+        includeSource: request.includeSource,
+        layoutFallback: request.layoutFallback,
+        ...(workerPath && existsSync(workerPath) ? { layout: workerLayout(workerPath) } : {}),
+        nodeVersion: request.nodeVersion,
+        ...(toolkit.development ? { development: true } : {}),
+        extensions,
+      },
 ```
 {% /source %}
 
-{% source id="src_stale" kind="git" title="exact versus stale resolution" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/core/src/references/resolve.ts" start=161 end=175 capturedAt="2026-09-27T22:38:08Z" excerptSha256="39f566ad034192fbdccfdd89d50d330f4e19da2bf098053fdcdf2a09aeb0e363" originFileSha256="d8580b7d1b09728b8a34128c67bb421a40c8fb74f843d61f564b434829821473" %}
+{% source id="src_stale" kind="working-tree" title="The resolver reports exact or stale" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/resolve.ts" start=148 end=187 capturedAt="2026-09-28T15:04:47Z" excerptSha256="5fc664efe7b38789190cbde83efe01cd93860f32deaf306602e6f809ffb99dca" originFileSha256="58d4f922fe307c0a0b149925e9f842bcc935b488db37718d7c90b36ea53f988a" %}
 ```typescript
+      indexPath: located.path,
+    };
+  }
+
+  // Steps 5–8.
+  const bodyUnchanged = packet.bodySha256 === record.bodySha256;
+  const advisory: Partial<ResolveResult> = {};
+  if (packet.quote) {
+    advisory.quoteFound = normalizeQuoteText(record.plainText, true).includes(normalizeQuoteText(packet.quote.exact, true));
+  }
+  if (packet.label !== undefined) advisory.labelMatches = packet.label === record.label;
+  if (packet.kind !== undefined) advisory.kindMatches = packet.kind === record.kind;
+
   let result: ResolveResult;
   if (packet.sourceRevision === currentRevision && bodyUnchanged) {
     result = { ...base, status: 'exact', currentRevision, targetBodyUnchanged: true, ...advisory, current: currentView(bundle, record), diagnostics: [] };
@@ -291,13 +340,59 @@ export function loadBundle(indexPath: string): LoadedBundle {
       current: currentView(bundle, record),
       diagnostics: [diag('E_REF_STALE', bodyUnchanged
         ? 'the document changed since the packet was copied; the target text is unchanged'
-        : 'the document changed since the packet was copied, including the target text', { targetId: record.id, suggestedAction: 'reconcile, then run `explain refs refresh`' })],
+        : 'the document changed since the packet was copied, including the target text', { targetId: record.id, suggestedAction: 'reconcile, then run `visser refs refresh`' })],
     };
+  } else {
+    result = {
+      ...base,
+      status: 'invalid',
+      currentRevision,
+      targetBodyUnchanged: false,
+      ...advisory,
+      diagnostics: [diag('E_REF_INVALID', 'the packet body digest is inconsistent with its claimed source revision', { targetId: record.id })],
+    };
+  }
+  return { result, bundle, indexPath: located.path };
+}
 ```
 {% /source %}
 
-{% source id="src_recheck" kind="git" title="Validate the candidate, recheck the raw file, then rename" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/core/src/references/guarded-write.ts" start=162 end=173 capturedAt="2026-09-27T22:38:09Z" excerptSha256="d20e57e098096878f28914d5af432a554c50c77c6caab8fdea4275e6bf64c727" originFileSha256="d61cb0e2249c182c14cc88ad6dda6785c311345a61c243137a3ee2abc907518b" %}
+{% source id="src_recheck" kind="working-tree" title="The writer validates, rechecks, and renames" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/guarded-write.ts" start=157 end=210 capturedAt="2026-09-28T15:16:12Z" excerptSha256="f5fef14367f52ebefdf2373c0934ef2fe3a10f6b74bb2c2c93a31ff4f07b9715" originFileSha256="93fbd094bb2155b2e574dbc0039d4b686a13de2e4988908956054be1d17c81cb" %}
 ```typescript
+
+export type GuardedWriteOptions = {
+  repoRoot: string;
+  docId: string;
+  indexPath: string;
+  fsContext?: FsContext;
+};
+
+export type GuardedWriteResult = { after: LoadedBundle; original: Uint8Array; candidate: Uint8Array };
+
+/**
+ * Lock the document, let `produce` build the candidate under the lock, validate
+ * the whole candidate document in memory, recheck the raw file, and rename.
+ * Any error diagnostic in the candidate aborts the write with its code.
+ */
+export function guardedWrite(opts: GuardedWriteOptions, produce: () => GuardedCandidate): GuardedWriteResult {
+  const { indexPath } = opts;
+  if (lstatSync(indexPath).isSymbolicLink()) fail('E_PATH_ESCAPE', 'the primary file is a symbolic link');
+  const lock = acquireLock(opts.repoRoot, opts.docId, opts.fsContext);
+  let tempPath: string | undefined;
+  try {
+    const { original, candidate, validate } = produce();
+    const rawHash = sha256Hex(original);
+
+    tempPath = join(dirname(indexPath), `.${basename(indexPath)}.${lockToken(opts.fsContext)}.tmp`);
+    const fd = openSync(tempPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
+    try {
+      writeSync(fd, candidate);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    chmodSync(tempPath, statSync(indexPath).mode & 0o7777);
+
     const after = loadBundle(tempPath);
     // The caller's check runs first: it can map a candidate error to a more
     // exact code (refs replace maps a duplicate ID to E_ID_RETENTION, §15.6).
@@ -310,18 +405,26 @@ export function loadBundle(indexPath: string): LoadedBundle {
       fail('E_WRITE_CONFLICT', 'the document changed on disk during the edit; nothing was written');
     }
     renameSync(tempPath, indexPath);
+    tempPath = undefined;
+    return { after, original, candidate };
+  } finally {
+    if (tempPath) rmSync(tempPath, { force: true });
+    releaseLock(lock);
+  }
+}
+
 ```
 {% /source %}
 
-{% source id="src_trust_gate" kind="git" title="A repository toolchain needs the user's trust" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/cli/src/toolkit.ts" start=179 end=193 capturedAt="2026-09-27T22:38:07Z" excerptSha256="db9263e013086be75bb0b8a9ff1c1d01af63da3528567ea84b047c747b97ded4" originFileSha256="0a4c51ae609932251bfae41463fbaeb468029ae6dc5826783182cd4caf94ba04" %}
+{% source id="src_trust_gate" kind="working-tree" title="The resolver checks repository trust" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/cli/src/toolkit.ts" start=178 end=211 capturedAt="2026-09-28T15:04:26Z" excerptSha256="3af29bbd09be2765a0095cc7750814179bdb02d8cd94376aac6831b87d529c7b" originFileSha256="3a262b5a072760770735f404169d7985a6ce3f56473f7e28acbcc2f42a4c1e1c" %}
 ```typescript
-  // 2. A repository toolchain is repository-controlled code: eligible only
-  // when the user trusts its digest. The trust check reads nothing from it.
+  // repository copy (install-pressure-1, m8).
+  const userDir = join(visserHome(env), 'toolchains', digest);
   if (opts.repoRoot) {
-    const dir = join(opts.repoRoot, '.explain', 'toolchains', digest);
-    if (present(dir)) {
+    const dir = join(opts.repoRoot, '.visser', 'toolchains', digest);
+    if (present(dir) && !(present(userDir) && !trusted(digest, env))) {
       if (!trusted(digest, env)) {
-        throw new CliError('E_TOOLKIT_UNTRUSTED', `the repository toolchain ${dir} (${digest}) is not in the user trust store; review it, then run: explain trust toolkit ${digest}`, EXIT.security);
+        throw new CliError('E_TOOLKIT_UNTRUSTED', `the repository toolchain ${dir} (${digest}) is not in the user trust store; review it, then run: visser trust toolkit ${digest}`, EXIT.security);
       }
       const release = verifyCandidate(dir, digest, 'repository toolchain');
       if (!isInside(realpathSync(dir), realpathSync(opts.repoRoot))) {
@@ -330,20 +433,173 @@ export function loadBundle(indexPath: string): LoadedBundle {
       return { release, source: 'repository' };
     }
   }
+
+  // 3. The user installation is trusted because the user installed it.
+  if (present(userDir)) return { release: verifyCandidate(userDir, digest, 'user toolchain'), source: 'user' };
+
+  // 4. The release that contains the running CLI (a development convenience).
+  if (opts.ownRelease) {
+    const release = verifyRelease(opts.ownRelease);
+    if (release.sha256 === digest) return { release, source: 'running' };
+  }
+
+  throw new CliError('E_TOOLKIT_MISSING', `toolkit ${digest} is not installed; ${installHint(digest, opts.origin, opts.version)}`, EXIT.unavailable);
+}
+
+export type ToolkitSelection = {
+  release: VerifiedRelease;
+  development: boolean; // true when --dev-toolkit accepted a digest that differs from the lock
+  warnings: string[];
+  source: ResolutionSource | 'dev-toolkit';
+  /** The release whose workers this CLI may run: its own, never another toolkit's (§12.4). */
 ```
 {% /source %}
 
-{% source id="src_shim" kind="git" title="The user shim runs the selected toolkit's own CLI" language="typescript" repository="https://github.com/russellsch/visser.git" commit="9fdeb259e45e088890a4df5dec2d3ff9e1cd59ac" file="packages/cli/src/shim.ts" start=138 end=147 capturedAt="2026-09-27T22:38:08Z" excerptSha256="99b6f231a273d03f980db8a8ed1fe3197fd21fa4577f0463701bb41e7bf0408f" originFileSha256="199fbd4087bb23f841172d590d29865ae55f3337fd47b032d501fa541ad40883" %}
+{% source id="src_shim" kind="working-tree" title="The user shim selects and starts a toolkit" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/cli/src/shim.ts" start=172 end=210 capturedAt="2026-09-28T15:04:21Z" excerptSha256="324e6a4d3960123ddbfd34fa2a5236580e0471f84ab855b971444b0684ebf93d" originFileSha256="104c903b6a706c3d52ed779bc6fd5b36d14cea8d7c4f0ce615273f91ff4fe8d1" %}
 ```typescript
-export function shimMain(argv: string[], env: NodeJS.ProcessEnv = process.env): number {
+    const digest = workspaceDefault(repoRoot) ?? readDefaultPointer(env);
+    if (!digest) noDefault();
+    return resolveDigest({ digest, repoRoot, env }).release;
+  }
+  // A user-level command. `install --from-dir DIR` needs no default at all:
+  // the user named the release, so its own verified CLI installs it.
+  const fromDir = command === 'install' ? stringFlag(args, 'from-dir') : undefined;
+  let reason: string;
+  try {
+    const digest = readDefaultPointer(env);
+    if (digest) return resolveDigest({ digest, env }).release;
+    reason = `there is no default toolkit (${join(visserHome(env), 'default')})`;
+  } catch (error) {
+    if (!(error instanceof CliError)) throw error;
+    reason = `the default toolkit is not usable: ${error.message.replace(/; (only a copy|install it with).*$/s, '')}`;
+  }
+  if (fromDir !== undefined) return verifyRelease(resolve(cwd, fromDir));
+  throw recovery(reason, env);
+}
+
+const FORWARDED = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+
+/** Run the command through the selected toolkit's own CLI; resolves to its exit code. */
+export function shimMain(argv: string[], env: NodeJS.ProcessEnv = process.env): Promise<number> {
   let release: VerifiedRelease;
   try {
     release = selectToolkit(argv, env);
   } catch (error) {
-    if (!(error instanceof CliError)) throw error;
-    printDiagnostics([{ code: error.code, severity: 'error', message: error.message }], argv.includes('--json'));
-    return error.exitCode;
+    let code: string;
+    let message: string;
+    let exit: number;
+    if (error instanceof CliError) ({ code, message, exitCode: exit } = error);
+    else if (error instanceof HashError) {
+      ({ code, message } = error);
+      exit = exitCodeFor([{ code, severity: 'error', message }]);
+    } else throw error;
+    printDiagnostics([{ code, severity: 'error', message }], argv.includes('--json'));
+    return Promise.resolve(exit);
   }
-  const result = spawnSync(process.execPath, [join(release.dir, 'bin', 'explain.cjs'), ...argv], { stdio: 'inherit', env });
+```
+{% /source %}
+
+{% source id="src_revision" kind="working-tree" title="The source revision and build inputs" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/model/hash.ts" start=215 end=252 capturedAt="2026-09-28T15:06:41Z" excerptSha256="11d8adaf92ee0573d3e59fce6c0664c2fb42b204657e19f435d17a839bb1708c" originFileSha256="184a333e66f27504ab291c00e45de4ef66b764151e9c0cf71a094213010a527d" %}
+```typescript
+      throw new HashError('E_PATH_INVALID', 'E_PATH_CASE_COLLISION', `case collision for ${f.path}`);
+    }
+    seen.add(f.path);
+    folded.add(fold);
+    const sha256 = f.kind === 'text' ? normalizedTextSha256(f.content) : sha256Hex(f.content);
+    return { path: f.path, sha256 };
+  });
+  if (!seen.has('index.md')) throw new HashError('E_PATH_INVALID', 'E_MANIFEST', 'index.md is required');
+  entries.sort((a, b) => compareCodePoints(a.path, b.path));
+  return { schema: 'visser-source-manifest/1', docId, files: entries };
+}
+
+/** §17.9 computeSourceRevision: sha256 of the canonical manifest. */
+export function computeSourceRevision(manifest: SourceManifest): Sha256 {
+  return canonicalSha256(manifest);
+}
+
+export function sourceRevision(docId: string, files: readonly BundleFile[]) {
+  const manifest = sourceManifest(docId, files);
+  const canonical = canonicalJSON(manifest);
+  return { manifest, canonical, sourceRevision: sha256Hex(Buffer.from(canonical, 'utf8')) };
+}
+
+// ---------------------------------------------------------------------------
+// Build ID
+
+export type EffectiveRenderOptions = {
+  audience: 'private' | 'public';
+  includeSource: boolean;
+  layoutFallback: boolean;
+  /**
+   * Present, and true, only for a development build (§12.4). A development build
+   * and a normal build of the same source and toolkit then get different IDs, so
+   * an existing snapshot folder is never replaced. Absent otherwise, so normal
+   * build IDs do not change.
+   */
+  development?: true;
+};
+```
+{% /source %}
+
+{% source id="src_build" kind="working-tree" title="The CLI stops errors before output" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/cli/src/commands/build.ts" start=138 end=170 capturedAt="2026-09-28T15:07:40Z" excerptSha256="6c425c2db1026f2b037a1946874f9734d0a65470aa65a94e946b8aa9d11325cc" originFileSha256="ee494e62b6ce5a57904bd216152d2de18cba9500a46286d007f5e86043c55f3e" %}
+```typescript
+  if (code !== EXIT.ok) {
+    printDiagnostics(bundle.diagnostics.filter((d) => d.severity === 'error'), false);
+    throw new CliError('E_BUILD', 'build stopped: the source has errors', code);
+  }
+
+  const toolkit = resolveForDocument(bundle.root, stringFlag(args, 'toolkit-dir'), stringFlag(args, 'dev-toolkit'));
+  for (const warning of toolkit.warnings) process.stderr.write(`warning ${warning}\n`);
+
+  const releaseDir = toolkit.release.dir;
+  const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
+  const result = await compileWithToolkit(bundle, toolkit, {
+    audience: 'private',
+    includeSource: false,
+    layoutFallback: args.flags.has('allow-layout-fallback'),
+    nodeVersion: process.version,
+    extensionFallback: args.flags.has('allow-extension-fallback'),
+  });
+  printDiagnostics(result.diagnostics.filter((d) => d.severity === 'warning'), false);
+
+  // Find the repository before anything is written: the first build outside a
+  // repository creates DOC/.visser, which would then look like a repository.
+  const repository = findRepoRoot(bundle.root);
+  const outDir = resolve(stringFlag(args, 'out') ?? join(repository ?? bundle.root, '.visser', 'output'));
+  const snapshotDir = `d/${result.docId}/${result.sourceRevision}/${result.buildId}`;
+  const finalDir = join(outDir, snapshotDir);
+
+  // Shared asset pack (§13.1): each needed file is copied on its own, so a later
+  // Mermaid build adds mermaid.js to an asset directory that already exists.
+  const assetDir = join(outDir, '_visser', 'assets', toolkit.release.sha256);
+  const needed = ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])];
+  if (result.needsMermaid && !existsSync(mermaidPath)) {
+    throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${releaseDir} has no browser/mermaid.js; this document needs a toolkit with Mermaid support`, EXIT.unavailable);
+  }
+```
+{% /source %}
+
+{% source id="src_replace" kind="working-tree" title="The replace command requires exact" language="typescript" repository="https://github.com/russellsch/visser.git" baseCommit="ab5eec8ca86b636e592805230041f00725181c94" file="packages/core/src/references/replace.ts" start=120 end=138 capturedAt="2026-09-28T15:16:15Z" excerptSha256="75522c04ea050601e310dc63c3a9b11e2806da55da9de057d5991a0001fc6685" originFileSha256="0e092484068fc99e5d5b677d6eb0d01507e799a8ca015f7f3a98a6b224d2393b" %}
+```typescript
+  const indexPath = located.path;
+
+  let before: LoadedBundle | undefined;
+  let region = { start: 0, end: 0 };
+  const { after, original, candidate } = guardedWrite({ repoRoot: opts.repoRoot, docId: packet.docId, indexPath, ...(opts.fsContext ? { fsContext: opts.fsContext } : {}) }, () => {
+    // Step 2: reparse under the lock and require exact resolution.
+    const { result, bundle } = resolveReference(packet, { repoRoot: opts.repoRoot, doc: indexPath });
+    if (result.status === 'stale') fail('E_REF_STALE', 'the packet is stale; resolve, reconcile, and refresh it before replacing');
+    if (result.status !== 'exact' || !bundle) {
+      const first = result.diagnostics[0];
+      fail(first?.code ?? 'E_REF_INVALID', `the packet does not resolve exactly (${result.status}): ${first?.message ?? ''}`);
+    }
+    if (bundle.sourceRevision !== expectedRevision) {
+      fail('E_REF_STALE', `--expected-revision ${expectedRevision} is not the current revision ${bundle.sourceRevision}`);
+    }
+    const record = bundle.model.targets.get(packet.targetId)!;
+    if (record.kind === 'source') fail('E_REF_INVALID', 'captured evidence cannot be replaced; recapture it instead');
+    if (record.kind.startsWith('mermaid-')) {
+      fail('E_REF_INVALID', `${packet.targetId} is inside Mermaid figure ${record.parentId ?? ''}; edit the figure (replace ${record.parentId ?? 'the figure'} as a whole)`);
 ```
 {% /source %}

@@ -132,6 +132,20 @@ export async function copiedTexts(page: Page): Promise<string[]> {
 export const isNarrow = (page: Page) => (page.viewportSize()?.width ?? 1440) <= 899;
 
 /**
+ * On wide screens a figure shows its drawing first, and "Show as list" adds
+ * its lists (docs/IMPROVEMENTS.md §4.1). Tests that use a list entry on a wide
+ * screen press the toggle first. Narrow screens and pages without JavaScript
+ * show the lists already.
+ */
+export async function showList(page: Page, figureId: string): Promise<void> {
+  if (isNarrow(page)) return;
+  const toggle = page.locator(`[id="x-${figureId}"] .vs-view-toggle`);
+  if ((await toggle.count()) > 0 && (await toggle.isVisible()) && (await toggle.getAttribute('aria-pressed')) !== 'true') {
+    await toggle.click();
+  }
+}
+
+/**
  * On narrow screens a figure shows its list first (§9.3); tests that use the
  * SVG map switch the figure to its map view first.
  */

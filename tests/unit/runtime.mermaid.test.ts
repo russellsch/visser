@@ -4,7 +4,9 @@
 // @ts-expect-error jsdom ships no type declarations, and @types/jsdom is not a dependency.
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { attachTargets, findDrawn, isValidIntegrity, mermaidConfig, noticeText, renderIdFor } from '../../packages/runtime/src/mermaid.ts';
+import { readFileSync } from 'node:fs';
+import { afterEach, vi } from 'vitest';
+import { attachTargets, findDrawn, isValidIntegrity, LIGHT_TOKENS, mermaidConfig, noticeText, pageTokens, renderIdFor, type PageTokens } from '../../packages/runtime/src/mermaid.ts';
 
 function dom(html: string): Document {
   return (new JSDOM(`<!doctype html><body>${html}</body>`) as { window: { document: Document } }).window.document;
@@ -28,6 +30,16 @@ describe('Mermaid element mapping (§9.12)', () => {
     for (const key of ['flowchart', 'sequence', 'state', 'er', 'class', 'gantt', 'mindmap']) {
       expect(config[key]).toEqual({ useMaxWidth: false });
     }
+  });
+
+  it('uses the base theme with variables from the page tokens, so dark mode follows them (IMPROVEMENTS §3.5)', () => {
+    const light = mermaidConfig();
+    expect(light['theme']).toBe('base');
+    expect(light['themeVariables']).toMatchObject({ primaryColor: '#f5f6f8', primaryBorderColor: '#5a606b', lineColor: '#5a606b', fontSize: '14px', darkMode: false });
+    const dark: PageTokens = { bg: '#16181c', panel: '#1f2227', fg: '#e6e8eb', line: '#a4aab4', font: 'system-ui', dark: true };
+    expect(mermaidConfig(dark)['themeVariables']).toMatchObject({
+      primaryColor: '#1f2227', primaryBorderColor: '#a4aab4', lineColor: '#a4aab4', primaryTextColor: '#e6e8eb', fontFamily: 'system-ui', darkMode: true,
+    });
   });
 
   it('derives render IDs that cannot clash with m-FIG, x-, v-, or l- ids', () => {
@@ -115,5 +127,33 @@ describe('Mermaid loading and failure notices (§9.12)', () => {
     const [parsed, figureLevel] = Array.from(doc.querySelectorAll('figure'));
     expect(noticeText(parsed!)).toBe('This diagram could not be drawn. Its source and lists are shown instead.');
     expect(noticeText(figureLevel!)).toBe('This diagram could not be drawn. Its source is shown instead.');
+  });
+});
+
+describe('Mermaid page tokens (IMPROVEMENTS §3.5, review F-14)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('LIGHT_TOKENS has the same values as the :root block of reader.css', () => {
+    const css = readFileSync(new URL('../../packages/runtime/src/reader.css', import.meta.url), 'utf8');
+    const root = /^:root \{([\s\S]*?)^\}/m.exec(css)![1]!;
+    const token = (name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(root)![1]!.trim();
+    expect(LIGHT_TOKENS).toEqual({
+      bg: token('--vs-bg'), panel: token('--vs-panel'), fg: token('--vs-fg'), line: token('--vs-line'), font: token('--vs-font'), dark: false,
+    });
+  });
+
+  it('pageTokens reads hex tokens from the computed style, and the dark flag from the colour scheme', () => {
+    const values: Record<string, string> = { '--vs-bg': ' #16181c', '--vs-panel': '#1f2227', '--vs-fg': '#e6e8eb', '--vs-line': '#a4aab4', '--vs-font': ' Inter, sans-serif ' };
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (name: string) => values[name] ?? '' }));
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(prefers-color-scheme: dark)' }));
+    const root = dom('').documentElement;
+    expect(pageTokens(root)).toEqual({ bg: '#16181c', panel: '#1f2227', fg: '#e6e8eb', line: '#a4aab4', font: 'Inter, sans-serif', dark: true });
+  });
+
+  it('pageTokens keeps the light value for a token that is missing or is not a hex colour', () => {
+    const values: Record<string, string> = { '--vs-bg': 'Canvas', '--vs-panel': 'rgb(1, 2, 3)', '--vs-fg': '#fff' };
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (name: string) => values[name] ?? '' }));
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    expect(pageTokens(dom('').documentElement)).toEqual({ ...LIGHT_TOKENS, fg: '#fff' });
   });
 });

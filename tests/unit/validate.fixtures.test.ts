@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSource } from '../../packages/core/src/syntax/index.ts';
 import { buildTargetRecords } from '../../packages/core/src/model/targets.ts';
 import { validateDocument } from '../../packages/core/src/model/validate.ts';
-import { projectText } from '../../packages/core/src/model/project.ts';
+import { projectText, RELATION_VERBS } from '../../packages/core/src/model/project.ts';
 
 const ROOT = new URL('../../fixtures/', import.meta.url).pathname;
 
@@ -50,6 +50,12 @@ describe('positive family fixtures @R01 @R14', () => {
       for (const r of model.relationships.filter((r) => r.kind !== 'order')) {
         const from = model.targets.get(r.from)!.label;
         const to = model.targets.get(r.to)!.label;
+        // A domain relation reads as a sentence: "Order has Invoice line (1..*): label" (IMPROVEMENTS.md §5.4).
+        if (model.targets.get(r.id)?.kind === 'relation') {
+          const line = text.split('\n').find((l) => l.startsWith(`${from} ${RELATION_VERBS[r.kind]} ${to}`));
+          expect(line?.endsWith(`: ${r.label}`), r.id).toBe(true);
+          continue;
+        }
         expect(text).toContain(`${from} --[${r.kind}; ${r.label}]--> ${to}`);
       }
       for (const r of model.relationships.filter((r) => r.kind === 'order')) {

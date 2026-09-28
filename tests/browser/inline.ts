@@ -50,8 +50,16 @@ function startOnce(indexPath: string, port: number): Promise<{ url: string; chil
       if (m) settle(() => resolve({ url: m[1]!, child }));
     });
     child.stderr!.on('data', (chunk: Buffer) => { err += chunk.toString(); });
+    child.on('error', (error) => settle(() => reject(error)));
     child.on('exit', () => settle(() => (err.includes('E_PORT_BUSY') ? resolve(undefined) : reject(new Error(`serve failed: ${err}`)))));
   });
+}
+
+/** Serve an existing fixture on an OS-assigned port, and wait for its own ready message. */
+export async function serveFixture(indexPath: string): Promise<InlineServer> {
+  const started = await startOnce(indexPath, 0);
+  if (!started) throw new Error('serve could not allocate a free port');
+  return { url: started.url, indexPath, close: () => started.child.kill() };
 }
 
 export async function serveInline(markdown: string): Promise<InlineServer> {

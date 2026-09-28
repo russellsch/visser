@@ -61,10 +61,16 @@ function box(text: string, maxWidth: number, padX: number, padY: number, extra: 
 
 export type GraphInput = {
   id: string;
-  // `extra` adds secondary lines under the label (state marks, stage representation, task status).
-  nodes: Array<{ id: string; label: string; group?: string; extra?: string[] }>;
+  // `extra` adds secondary lines under the label (a transform stage's representation and location).
+  // `marked` reserves side padding for a corner mark (a check, a question mark, or an initial dot).
+  // `drum` reserves bottom padding for the storage drum line.
+  nodes: Array<{ id: string; label: string; group?: string; extra?: string[]; marked?: boolean; drum?: boolean }>;
   groups: Array<{ id: string; label: string; parent?: string }>;
   edges: Array<{ id: string; from: string; to: string; label: string }>;
+  // A domain map: the number of glossary rows that share its row on the page.
+  // The direction rule then counts the glossary height (docs/IMPROVEMENTS.md
+  // §5.4, `domainDirection`).
+  glossaryRows?: number;
 };
 
 export type Point = { x: number; y: number };
@@ -79,7 +85,45 @@ export type GraphLayout = {
 
 export type LayoutFunction = (graph: GraphInput) => Promise<GraphLayout>;
 
-export const NODE_LABEL_WIDTH = 160;
+/**
+ * Node label wrap widths, narrowest first (docs/IMPROVEMENTS.md §3.4). A box
+ * shows its label only, so it can be small. With 12 px padding on each side,
+ * the narrowest width gives a box of 150 px. `chooseLabelWidth` gives the
+ * rule.
+ */
+export const NODE_LABEL_WIDTHS: readonly number[] = [126, 150, 176, 200];
+export const NODE_LABEL_WIDTH = NODE_LABEL_WIDTHS[0]!;
+const NODE_LABEL_LINES = 2;
+// The widest width at which a label that fits on 1 line takes 1 line.
+export const ONE_LINE_MAX_WIDTH = 176;
+
+export const NODE_PAD_X = 12;
+// Room for a 10 px corner mark, with a gap of 9 px or more between the mark
+// and the label on each side, so the label stays centred (review F-11).
+export const MARKED_PAD_X = 26;
+const DRUM_PAD_BOTTOM = 6; // more room under the label for the drum line (review F-09)
+
+/**
+ * The wrap width for one or more labels that share a width, from `widths`
+ * (narrowest first). The choice is by line count first, then by width
+ * (review F-10): the narrowest width up to `oneLineMax` (176 for a node
+ * label) at which every label takes 1 line; else the narrowest width at which every label takes 2 lines or
+ * fewer; else the widest width. Each secondary line must fit on 1 line at
+ * the width. `inset` is the part of each width that the label cannot use
+ * (for example, the room for a corner mark).
+ */
+export function chooseLabelWidth(items: ReadonlyArray<{ label: string; extra?: readonly string[]; inset?: number }>, widths: readonly number[] = NODE_LABEL_WIDTHS, oneLineMax = ONE_LINE_MAX_WIDTH): number {
+  const lines = (w: number) => Math.max(0, ...items.map((i) => wrapText(i.label, w - (i.inset ?? 0)).length));
+  const extrasFit = (w: number) => items.every((i) => (i.extra ?? []).every((x) => wrapText(x, w - (i.inset ?? 0)).length === 1));
+  const oneLine = widths.find((w) => w <= oneLineMax && lines(w) === 1 && extrasFit(w));
+  if (oneLine !== undefined) return oneLine;
+  return widths.find((w) => lines(w) <= NODE_LABEL_LINES && extrasFit(w)) ?? widths[widths.length - 1]!;
+}
+
+function nodeBox(label: string, extra: string[] = [], marked = false, drum = false) {
+  const b = box(label, chooseLabelWidth([{ label, extra }]), marked ? MARKED_PAD_X : NODE_PAD_X, 8, extra);
+  return drum ? { ...b, height: b.height + DRUM_PAD_BOTTOM } : b;
+}
 export const EDGE_LABEL_WIDTH = 140;
 
 export type LayoutDirection = 'RIGHT' | 'DOWN';
@@ -92,6 +136,25 @@ export type LayoutDirection = 'RIGHT' | 'DOWN';
  * width needs no horizontal scrolling on a desktop.
  */
 export const MAX_FIGURE_WIDTH = 1100;
+
+/**
+ * The domain map and its glossary (docs/IMPROVEMENTS.md §5.4, phase 4 review
+ * D2). The glossary sits beside a map up to DOMAIN_BESIDE_WIDTH wide: a
+ * 1200 px window, minus 4rem, the 24 px gap, and the 30rem flex basis of the
+ * glossary in reader.css (480 px). A wider map has the glossary under it,
+ * 12 px lower. The glossary height is an estimate: a header and one row for
+ * each concept.
+ */
+export const DOMAIN_BESIDE_WIDTH = 1200 - 64 - 24 - 480;
+export const GLOSSARY_HEAD_HEIGHT = 40;
+export const GLOSSARY_ROW_HEIGHT = 44;
+const GLOSSARY_WRAP_GAP = 12;
+
+/** The height of a domain map and its glossary on a 1200 px window. */
+export function domainCost(layout: { width: number; height: number }, rows: number): number {
+  const glossary = GLOSSARY_HEAD_HEIGHT + GLOSSARY_ROW_HEIGHT * rows;
+  return layout.width <= DOMAIN_BESIDE_WIDTH ? Math.max(layout.height, glossary) : layout.height + GLOSSARY_WRAP_GAP + glossary;
+}
 
 // The fixed option allowlist (§7.5). Changing any value changes layout bytes.
 export const LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
@@ -129,7 +192,7 @@ export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGH
     });
   }
   for (const n of graph.nodes) {
-    const b = box(n.label, NODE_LABEL_WIDTH, 12, 8, n.extra);
+    const b = nodeBox(n.label, n.extra, n.marked, n.drum);
     lines.set(n.id, b.lines);
     elkNodes.set(n.id, { id: n.id, width: b.width, height: b.height });
   }
@@ -324,8 +387,12 @@ export async function layoutGraph(graph: GraphInput): Promise<GraphLayout> {
   // Direction rule: left-to-right first. A layout wider than MAX_FIGURE_WIDTH
   // switches to top-to-bottom when that is narrower. The choice depends only on
   // the layout input, so the output stays byte-deterministic (§7.5).
+  // A domain map up to MAX_FIGURE_WIDTH also switches when top-to-bottom
+  // costs less height with its glossary counted (`domainCost`, §5.4).
   const right = await run('RIGHT');
-  if (right.width <= MAX_FIGURE_WIDTH) return right;
+  const rows = graph.glossaryRows;
+  if (right.width <= MAX_FIGURE_WIDTH && rows === undefined) return right;
   const down = await run('DOWN');
-  return down.width < right.width ? down : right;
+  if (right.width > MAX_FIGURE_WIDTH) return down.width < right.width ? down : right;
+  return domainCost(down, rows!) < domainCost(right, rows!) ? down : right;
 }

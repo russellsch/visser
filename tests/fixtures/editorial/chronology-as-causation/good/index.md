@@ -28,7 +28,7 @@ The migration dropped the column.
 Each query failed with an unknown-column error.
 {% /factor %}
 
-{% causal-link id="cl_1" from="f_deploy" to="f_errors" label="removes a column that checkout reads" basis="inferred" %}
+{% causal-link id="cl_1" from="f_deploy" to="f_errors" label="drops a column checkout reads" basis="inferred" %}
 Each checkout query names the removed column.
 {% /causal-link %}
 

@@ -3,7 +3,7 @@
 // not sanitized or contained: node-tar extracted most of these and reported success.
 import { existsSync, mkdirSync, readdirSync, readFileSync, truncateSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { constants, gunzipSync, gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LIMITS, extractArchive, gzipFixed, packFiles, paxData, tarBytes, tarHeader, type TarEntry } from '../../packages/core/src/distribution/ustar.ts';
 import { tempDir } from '../integration/install.fixtures.ts';
@@ -115,7 +115,10 @@ describe('ustar reader: hostile archives are rejected as a whole (§12.1) @R10',
       const tar = tarBytes([{ name: 'ok.txt', data: enc('fine') }]);
       const padded = Buffer.alloc(257 * MIB);
       padded.set(tar, 0);
-      const gz = gzipSync(padded, { level: 1 });
+      // Avoid length/distance compression: its ratio for zero padding varies
+      // between zlib versions and can exceed 1000 even at level 1. Huffman-only
+      // compression keeps this fixture below the old ratio-based limit.
+      const gz = gzipSync(padded, { level: 1, strategy: constants.Z_HUFFMAN_ONLY });
       expect(padded.length / gz.length).toBeLessThan(1000);
       const path = join(dir, 'a.tar.gz');
       writeFileSync(path, gz);

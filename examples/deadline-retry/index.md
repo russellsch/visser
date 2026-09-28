@@ -28,6 +28,19 @@ second or a minute depending on the delays and on how long each failing call
 takes. A caller with its own timeout cares about elapsed time, so the loop
 measures elapsed time.
 
+{% annotated id="count_to_deadline" title="The exit test changes from a count to a clock" question="Which lines change when the loop stops on time?" source="src_retry" before="src_retry_count" %}
+Only the state that the exit test reads changes. The retry, the sleep, and the
+delay growth stay the same.
+
+{% annotation id="ann_count_exit" label="Stop after a fixed count" lines=[11, 13] side="before" %}
+The count says nothing about time: five slow calls can take a minute.
+{% /annotation %}
+
+{% annotation id="ann_start" label="Record the start time" lines=[5, 5] /%}
+
+{% annotation id="ann_time_exit" label="Stop when the next sleep passes the deadline" lines=[11, 12] /%}
+{% /annotated %}
+
 <!-- vs:id q_requirement -->
 > The caller must receive either a result or an error within its own time
 > budget; it does not care how many attempts were made.
@@ -74,6 +87,26 @@ def call_with_retries(call, deadline_s, first_delay_s=0.1, max_delay_s=2.0):
         except Exception:
             if time.monotonic() - start + delay > deadline_s:
                 raise
+            time.sleep(delay)
+            delay = min(delay * 2, max_delay_s)
+```
+{% /source %}
+
+{% source id="src_retry_count" kind="example" title="Illustrative count-bounded retry" language="python" excerptSha256="a5a6fa0c7bf584624d5edcb451bc019116cad45dcd17481819808f42e303ca61" %}
+```python
+import time
+
+
+def call_with_retries(call, max_attempts=5, first_delay_s=0.1, max_delay_s=2.0):
+    attempt = 1
+    delay = first_delay_s
+    while True:
+        try:
+            return call()
+        except Exception:
+            if attempt >= max_attempts:
+                raise
+            attempt += 1
             time.sleep(delay)
             delay = min(delay * 2, max_delay_s)
 ```

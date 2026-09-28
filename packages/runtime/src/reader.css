@@ -1,4 +1,17 @@
-/* Visser reader stylesheet (§10). System fonts, one accent, no remote resources. */
+/* Visser reader stylesheet (§10). System fonts, no remote resources.
+   Accent marks action. Category hue marks one variable per figure
+   (docs/IMPROVEMENTS.md §2.1). The accent (blue) means "you can act on this":
+   links, the primary button, focus, and selection. A figure encodes at most
+   one variable in hue, and every hue has a paired shape, line pattern, or
+   text cue, so the figure is the same in greyscale and in forced colours.
+   Depth is one click away; the main view carries the path (docs/
+   IMPROVEMENTS.md §2.2). The main view shows the label of each part and the
+   relationships between them. Everything else (kind, basis, status text,
+   body, evidence, related parts) is one click or one hover away, in the
+   inspector or a tooltip. The text lists and the appendix keep the full
+   content for readers without JavaScript, for print, for search, and for the
+   Markdown projection. They do not compete with the drawing on a wide
+   screen, so the rules that hide them are all under .vs-js or @media screen. */
 :root {
   --vs-fg: #1d1f23;
   --vs-muted: #5a606b;
@@ -14,6 +27,22 @@
   --vs-node: var(--vs-bg);
   --vs-line: #5a606b;
   --vs-danger: #b3261e;
+  /* Six category hues (IMPROVEMENTS §3.1). The stroke carries the hue; the
+     tint is the fill; text in a tinted box stays --vs-fg. Blue is the accent,
+     so no category uses it. --vs-danger is the rose family, so a family that
+     uses rose for a category does not also show failure.
+     Contrast (WCAG 2), light theme:
+       stroke on --vs-bg / --vs-panel, then --vs-fg on the tint (need 3, 3, 4.5):
+       teal   5.47 / 5.06, fg 14.61     amber  5.02 / 4.64, fg 14.81
+       violet 7.10 / 6.57, fg 14.04     green  5.02 / 4.64, fg 14.67
+       rose   6.29 / 5.81, fg 14.08     slate  7.58 / 7.01, fg 14.57
+     An amber edge label (transform loss) is text on --vs-bg: 5.02 (need 4.5). */
+  --vs-cat-teal: #0f766e;   --vs-cat-teal-tint: #e6f4f2;
+  --vs-cat-amber: #b45309;  --vs-cat-amber-tint: #fdf1e1;
+  --vs-cat-violet: #6d28d9; --vs-cat-violet-tint: #f0eafb;
+  --vs-cat-green: #15803d;  --vs-cat-green-tint: #e7f5ec;
+  --vs-cat-rose: #be123c;   --vs-cat-rose-tint: #fce8ee;
+  --vs-cat-slate: #475569;  --vs-cat-slate-tint: #eef1f5;
   --vs-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --vs-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   color-scheme: light dark;
@@ -32,6 +61,30 @@
     --vs-node: var(--vs-bg);
     --vs-line: #a4aab4;
     --vs-danger: #ff8a80;
+    /* Dark theme. Each tint is 16% of the stroke over --vs-bg.
+       Contrast: stroke on --vs-bg / --vs-panel, then --vs-fg on the tint:
+         teal   12.01 / 10.78, fg 9.88    amber  10.65 / 9.56, fg 10.20
+         violet  9.63 /  8.64, fg 10.37   green  12.66 / 11.36, fg 9.81
+         rose    9.40 /  8.44, fg 10.52   slate  11.97 / 10.74, fg 9.87 */
+    --vs-cat-teal: #5eead4;   --vs-cat-teal-tint: #223a39;
+    --vs-cat-amber: #fbbf24;  --vs-cat-amber-tint: #3b331d;
+    --vs-cat-violet: #c4b5fd; --vs-cat-violet-tint: #323140;
+    --vs-cat-green: #86efac;  --vs-cat-green-tint: #283a33;
+    --vs-cat-rose: #fda4af;   --vs-cat-rose-tint: #3b2e34;
+    --vs-cat-slate: #cbd5e1;  --vs-cat-slate-tint: #33363c;
+  }
+}
+
+/* Forced colours: every category is the system text colour on the canvas.
+   The shape, line-pattern, and mark cues stay, so no value is lost. */
+@media (forced-colors: active) {
+  :root {
+    --vs-cat-teal: CanvasText;   --vs-cat-teal-tint: Canvas;
+    --vs-cat-amber: CanvasText;  --vs-cat-amber-tint: Canvas;
+    --vs-cat-violet: CanvasText; --vs-cat-violet-tint: Canvas;
+    --vs-cat-green: CanvasText;  --vs-cat-green-tint: Canvas;
+    --vs-cat-rose: CanvasText;   --vs-cat-rose-tint: Canvas;
+    --vs-cat-slate: CanvasText;  --vs-cat-slate-tint: Canvas;
   }
 }
 
@@ -60,6 +113,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   outline: 3px solid var(--vs-accent);
   outline-offset: 2px;
 }
+/* A fold box and a Fold control are SVG buttons. After a mouse click the
+   browser draws its own :focus ring on them; only a keyboard move shows the
+   ring above (phase 6b review F8). */
+.vs-viewport svg [role="button"]:focus:not(:focus-visible) { outline: none; }
 
 code, pre, .vs-mono { font-family: var(--vs-mono); font-size: 0.9375em; }
 pre { overflow-x: auto; padding: 0.75rem; background: var(--vs-panel); border-radius: 4px; }
@@ -99,8 +156,6 @@ html { scroll-padding-top: 3.5rem; }
 .vs-block, .vs-figure { position: relative; }
 .vs-figure { margin: 1.5rem 0; }
 .vs-figure figcaption { font-weight: 600; font-size: 1.125rem; }
-/* 0.875rem (14px), not the smaller 0.8125rem, to stay at the reader's 14px text-size floor (§9.3). */
-.vs-figure-eyebrow { color: var(--vs-muted); font-size: 0.875rem; letter-spacing: 0.04em; margin: 0 0 0.25rem; }
 .vs-figure-question { color: var(--vs-muted); font-style: italic; margin: 0.25rem 0 0.75rem; }
 .vs-figure-question:empty { display: none; }
 
@@ -125,16 +180,32 @@ html { scroll-padding-top: 3.5rem; }
   border-radius: 999px;
 }
 
-/* Figure views: the toggle appears only on narrow screens with JavaScript. */
+/* Figure views (IMPROVEMENTS §4.1): with JavaScript, a figure with a map has
+   a view bar with one toggle. On a wide screen the drawing shows first and
+   "Show as list" adds the lists; on a narrow screen the lists show first and
+   "Show map" switches to the drawing. Without JavaScript and in print, the
+   lists always show. */
 .vs-view-bar { display: none; margin: 0.5rem 0; }
+.vs-js .vs-figure[data-vs-views] .vs-view-bar { display: flex; }
+.vs-figure.vs-view-list .vs-viewport { display: none; }
+.vs-figure.vs-view-map .vs-lists { display: none; }
+/* The legend explains the drawing, so it hides with the drawing. */
+.vs-figure.vs-view-list .vs-legend { display: none; }
 
 /* Compare: a semantic table on wide screens, criterion cards on narrow screens. */
 .vs-compare-cards { display: none; }
 .vs-compare-table td { vertical-align: top; }
 .vs-cell-body > :first-child { margin-top: 0.25rem; }
 .vs-cell-body > :last-child { margin-bottom: 0; }
-/* A cell without a value: a small link after its text (dogfood-2 Q5). */
-.vs-cell-link { font-size: 0.875rem; color: var(--vs-muted, inherit); display: inline-block; margin-top: 0.25rem; }
+/* A cell without a value: a small "›" link inline after its text, only when
+   the inspector holds more than the cell shows (dogfood-2 Q5, IMPROVEMENTS
+   §4.6). The compiler puts the link inside the last paragraph. */
+.vs-cell-link {
+  display: inline-block; min-width: 1.5rem;
+  font-size: 1.125rem; line-height: 1; text-align: center; text-decoration: none;
+  color: var(--vs-muted, inherit);
+}
+.vs-cell-link:hover { color: var(--vs-accent); }
 .vs-compare-table td, .vs-compare-table th[scope="row"] { min-width: 12rem; }
 .vs-not-provided { color: var(--vs-muted); font-style: italic; }
 .vs-compare-card { border: 1px solid var(--vs-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.75rem 0; }
@@ -193,22 +264,78 @@ img { max-width: 100%; height: auto; }
 
 /* ------------------------------------------------------------ inline */
 
-.vs-term { text-decoration-style: dotted; text-underline-offset: 0.2em; }
+/* A term (IMPROVEMENTS §13.4): body ink with a 1 px dotted underline in the
+   muted colour, not the accent, because a term is a word with a meaning and
+   not an action. The underline is the paired cue; colour never marks a term.
+   On hover the underline becomes solid. A later use of the same term in one
+   paragraph has no underline and still shows the bubble (§13.5). */
+.vs-term {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--vs-muted);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.vs-term:hover { text-decoration-style: solid; }
+.vs-term-quiet { text-decoration-line: none; }
+/* A term inside an SVG label: the same dotted underline (text-decoration
+   works on SVG text) and the same bubble. */
+.vs-figure svg .vs-term {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--vs-muted);
+}
+.vs-figure svg .vs-term-quiet { text-decoration: none; }
+/* A quiet span and an SVG term have no action without the runtime (no
+   bubble, no link of their own), so the hover affordance is under .vs-js. */
+.vs-js .vs-term-quiet { cursor: help; }
+.vs-js .vs-term-quiet:hover { text-decoration-line: underline; }
+.vs-js .vs-figure svg .vs-term { cursor: help; }
+.vs-js .vs-figure svg .vs-term:hover { text-decoration-style: solid; }
 /* F10: a run of adjacent citations reads as one superscript group, "[3][4]". */
 .vs-cite { font-size: 0.75em; position: relative; top: -0.4em; text-decoration: none; white-space: nowrap; }
 .vs-cite + .vs-cite { margin-left: 0.15em; }
+/* The bubble of a term, a citation run, or an edge (IMPROVEMENTS §13.4, §4.7):
+   the page colours, not inverted, so it reads as part of the page in both
+   schemes and in forced colours. The runtime places it above the word when
+   there is room, else below, and sets --vs-arrow-x so that the 4 px arrow
+   points at the word. */
 .vs-tooltip {
-  position: absolute; z-index: 20;
+  position: absolute; z-index: 40;
   display: block;
-  max-width: min(32rem, calc(100vw - 2rem));
-  margin-top: 1.75em;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(40ch, calc(100vw - 1rem));
   padding: 0.5rem 0.75rem;
-  background: var(--vs-fg); color: var(--vs-bg);
-  font-size: 0.875rem; line-height: 1.4;
+  background: var(--vs-bg); color: var(--vs-fg);
+  border: 1px solid var(--vs-rule);
   border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-size: 0.875rem; font-style: normal; font-weight: 400; line-height: 1.4;
+  text-align: left;
+}
+.vs-tooltip::before, .vs-tooltip::after {
+  content: ""; position: absolute; left: var(--vs-arrow-x, 50%);
+  width: 0; height: 0; border: solid transparent;
+}
+.vs-tooltip::before { margin-left: -5px; border-width: 5px; }
+.vs-tooltip::after { margin-left: -4px; border-width: 4px; }
+.vs-tooltip--above::before { top: 100%; border-top-color: var(--vs-rule); }
+.vs-tooltip--above::after { top: 100%; border-top-color: var(--vs-bg); }
+.vs-tooltip--below::before { bottom: 100%; border-bottom-color: var(--vs-rule); }
+.vs-tooltip--below::after { bottom: 100%; border-bottom-color: var(--vs-bg); }
+.vs-tooltip__open { font-size: 0.8125rem; white-space: nowrap; }
+@media (forced-colors: active) {
+  .vs-tooltip { border-color: CanvasText; }
+  .vs-tooltip::before, .vs-tooltip::after { display: none; }
 }
 
 .vs-focused { background: var(--vs-highlight); outline: 2px solid var(--vs-highlight); }
+/* Neighbourhood on hover and focus (IMPROVEMENTS §4.3): the parts that are
+   not adjacent to the node under the pointer or the focus fade; the adjacent
+   parts get a heavier stroke. The change is instant, so it has no motion. */
+.vs-figure svg .vs-dim { opacity: 0.35; }
+.vs-figure svg .vs-near .vs-shape, .vs-figure svg .vs-near .vs-line { stroke-width: 2.5; }
 svg .vs-focused, svg .vs-selected { outline: none; }
 svg .vs-focused *, svg .vs-selected * { stroke-width: 3; }
 
@@ -217,13 +344,24 @@ svg .vs-focused *, svg .vs-selected * { stroke-width: 3; }
 #vs-appendix { margin-top: 3rem; border-top: 1px solid var(--vs-rule); }
 .vs-detail { margin: 0.5rem 0; padding: 0.25rem 0.5rem; border: 1px solid var(--vs-rule); border-radius: 4px; }
 .vs-detail > summary { cursor: pointer; font-weight: 600; min-height: 2rem; }
-/* F3a: one h3-headed group per kind, then one per figure. */
+/* F3a, IMPROVEMENTS §4.5: one group per kind (Sources, Definitions, Details,
+   open by default), then one collapsed group per figure, "Parts of 'TITLE'
+   (N)". Each group is a details element with an h3 in its summary. */
 .vs-appendix-group { margin: 1.5rem 0; }
 .vs-appendix-group[hidden] { display: none; }
-.vs-appendix-group > h3 { font-size: 1.125rem; margin: 0 0 0.5rem; }
+.vs-appendix-group > summary { cursor: pointer; margin: 0 0 0.5rem; }
+.vs-appendix-group > summary > h3 { display: inline; font-size: 1.125rem; margin: 0; }
+.vs-appendix-count { color: var(--vs-muted); font-weight: 400; }
 .vs-appendix-group > .vs-detail[hidden] { display: none; }
+/* A part with no body and no evidence has no visible row when the runtime
+   runs; the inspector shows it. Without JavaScript and in print the row
+   stays, so the appendix keeps the full content (IMPROVEMENTS §2.2). */
+@media screen {
+  .vs-js .vs-detail-bare, .vs-js .vs-appendix-group-bare { display: none; }
+  .vs-js .vs-inspector .vs-detail-bare { display: block; }
+}
 /* F3b: the origin shown on a source row's summary, after the title. */
-.vs-source-origin-summary { color: var(--vs-muted); font-size: 0.8125rem; margin-left: 0.5rem; }
+.vs-source-origin-summary { color: var(--vs-muted); font-size: 0.8125rem; margin-left: 0.5rem; word-break: normal; overflow-wrap: anywhere; }
 /* F4a: the one-line origin between the excerpt and the collapsed Provenance. */
 .vs-source-origin { color: var(--vs-muted); font-size: 0.875rem; margin: 0.5rem 0; font-family: var(--vs-mono); }
 .vs-provenance { margin: 0.5rem 0; }
@@ -270,6 +408,8 @@ svg .vs-focused *, svg .vs-selected * { stroke-width: 3; }
    always in the DOM (and in `title`, reader.ts) for anyone who needs it. */
 .vs-inspector__title {
   flex: 1 1 10rem; margin: 0; font-size: 1.125rem;
+  /* The inspector title is an h2, but not a section heading: no top rule (F7). */
+  border-top: 0; padding-top: 0;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   overflow: hidden;
 }
@@ -278,6 +418,32 @@ svg .vs-focused *, svg .vs-selected * { stroke-width: 3; }
 .vs-inspector__title:focus:not(:focus-visible) { outline: none; }
 .vs-inspector__back[hidden] { display: none; }
 .vs-inspector .vs-detail { border: 0; padding: 0; }
+/* The inspector header already names the target, and the origin line under the
+   excerpt already names the file, so the moved detail's summary repeats both;
+   hide it while the detail is in the inspector (dogfood-3 F4, follow-up). */
+.vs-inspector .vs-detail > summary { display: none; }
+/* IMPROVEMENTS §4.2: the paired-cue word after the label, then the body, the
+   Relationships, Appears in, and Evidence sections, and Copy reference last. */
+.vs-inspector__cue { color: var(--vs-muted); font-weight: 400; }
+.vs-inspector__footer { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--vs-rule); }
+.vs-detail-section { margin: 1rem 0 0; }
+.vs-detail-section > h3 { font-size: 0.875rem; font-weight: 600; color: var(--vs-muted); margin: 0 0 0.25rem; }
+.vs-detail-section > ul { list-style: none; padding-left: 0; margin: 0; }
+.vs-detail-section > ul > li { margin: 0.25rem 0; }
+.vs-rel-arrow { color: var(--vs-muted); }
+/* The terms in a part's label, each with the first sentence of its
+   definition (IMPROVEMENTS §13.4): the no-JS, keyboard, and touch route to
+   a term inside an SVG label. */
+.vs-detail-terms > dl { margin: 0; font-size: 0.875rem; }
+.vs-detail-terms dt { font-weight: 600; margin: 0.25rem 0 0; }
+.vs-detail-terms dd { margin: 0 0 0.25rem; }
+.vs-evidence-item { margin: 0.5rem 0 0.75rem; }
+/* A line number in an excerpt: muted, right-aligned, and one space from the code. */
+.vs-code .vs-ln { display: inline-block; min-width: 2ch; margin-right: 1.5ch; text-align: right; color: var(--vs-muted); user-select: none; }
+/* The excerpt wraps, so the inspector never scrolls sideways. */
+.vs-evidence-item .vs-code { margin: 0 0 0.25rem; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
+.vs-evidence-more, .vs-evidence-open { font-size: 0.875rem; margin: 0.25rem 0; }
+.vs-evidence-more { color: var(--vs-muted); }
 .vs-status { margin: 0.5rem 0 0; font-size: 0.875rem; min-height: 1.25rem; }
 
 /* ------------------------------------------------------------ reference mode */
@@ -321,6 +487,18 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
    centred on it, up to the window width, instead of being clipped (§9.3: do not
    shrink labels as the only way to fit). */
 @media (min-width: 900px) {
+  /* With the inspector open, move the text column left only as far as it must
+     go to stay clear of the aside (26rem wide, 1rem from the edge, plus a 2rem
+     gap); a column that already fits stays centred. A wide figure then stays in
+     the column and scrolls, instead of breaking out under the aside or past
+     the left edge (dogfood-3 F4, follow-up). */
+  body.vs-has-inspector #vs-doc {
+    margin-left: max(1rem, min(calc((100% - 74ch) / 2), calc(100% - 74ch - 29rem)));
+  }
+  body.vs-has-inspector .vs-figure .vs-viewport {
+    width: auto; max-width: 100%;
+    margin-left: 0; transform: none;
+  }
   /* A compare table may also use more than the text column (dogfood-2 Q5). */
   .vs-figure .vs-compare-table {
     width: max-content;
@@ -345,15 +523,17 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
    presentation attributes, so these rules retheme the shapes onto the palette
    tokens above without touching svg.ts. Kept as one block, before the very end
    of the file, so a concurrent block appended after it is unaffected. */
-.vs-viewport svg .vs-node rect,
-.vs-viewport svg .vs-event-box rect {
+.vs-figure svg .vs-shape {
+  fill: var(--vs-node);
   stroke: var(--vs-line);
 }
-.vs-viewport svg .vs-node rect:first-of-type,
-.vs-viewport svg .vs-event-box rect:first-of-type {
-  fill: var(--vs-node);
-}
-.vs-viewport svg .vs-kind-failure rect:first-of-type {
+.vs-figure svg .vs-mark { stroke: var(--vs-line); }
+.vs-figure svg .vs-mark-fill { fill: var(--vs-line); }
+.vs-figure svg .vs-mark-text { fill: var(--vs-fg); }
+.vs-viewport svg .vs-kind-failure .vs-shape,
+.vs-legend svg .vs-kind-failure .vs-shape,
+.vs-viewport svg .vs-kind-failure .vs-mark,
+.vs-legend svg .vs-kind-failure .vs-mark {
   stroke: var(--vs-danger);
 }
 .vs-viewport svg .vs-group rect {
@@ -366,15 +546,32 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
 }
 .vs-viewport svg .vs-lifeline,
 .vs-viewport svg .vs-trace-message,
-.vs-viewport svg .vs-edge .vs-line {
+.vs-viewport svg .vs-edge .vs-line,
+.vs-legend svg .vs-line {
   stroke: var(--vs-line);
 }
 .vs-viewport svg marker path {
   fill: var(--vs-line);
 }
+.vs-viewport svg .vs-edge-mark,
+.vs-legend svg .vs-edge-mark {
+  fill: var(--vs-bg);
+  stroke: var(--vs-line);
+}
 .vs-viewport svg .vs-edge-label-bg {
   fill: var(--vs-bg);
 }
+.vs-viewport svg .vs-proxy-callout-bg {
+  fill: var(--vs-bg);
+  stroke: var(--vs-line);
+}
+.vs-viewport svg .vs-proxy-callout-key {
+  fill: var(--vs-bg);
+  stroke: var(--vs-line);
+}
+.vs-viewport svg .vs-proxy-callout-stem { stroke: var(--vs-line); stroke-width: 1; }
+.vs-viewport svg .vs-proxy-callout-key-text,
+.vs-viewport svg .vs-proxy-callout-context { fill: var(--vs-fg); }
 .vs-viewport svg .vs-node-label,
 .vs-viewport svg .vs-edge-label,
 .vs-viewport svg .vs-group-label,
@@ -383,21 +580,81 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
 .vs-viewport svg .vs-trace-axis {
   fill: var(--vs-fg);
 }
+/* The "at T" line under an event label on a time scale is muted metadata,
+   the same opacity as a task's `due` line (svg.ts MUTED_OPACITY). The
+   receiver line ("→ B") names a part, so it keeps the full text colour. */
+.vs-viewport svg .vs-trace-time { fill-opacity: 0.72; }
+
+/* Category hue (IMPROVEMENTS §3.1, §3.2). svg.ts gives a coloured part the
+   classes `vs-cat vs-cat-NAME`; these rules map the name to the theme tokens.
+   The stroke carries the hue and the fill is the tint. `vs-nofill` keeps the
+   hue on the stroke only. A figure with one value of its variable has no
+   `vs-cat` class, so it shows no hue. */
+.vs-cat-teal { --vs-cat: var(--vs-cat-teal); --vs-cat-tint: var(--vs-cat-teal-tint); }
+.vs-cat-amber { --vs-cat: var(--vs-cat-amber); --vs-cat-tint: var(--vs-cat-amber-tint); }
+.vs-cat-violet { --vs-cat: var(--vs-cat-violet); --vs-cat-tint: var(--vs-cat-violet-tint); }
+.vs-cat-green { --vs-cat: var(--vs-cat-green); --vs-cat-tint: var(--vs-cat-green-tint); }
+.vs-cat-rose { --vs-cat: var(--vs-cat-rose); --vs-cat-tint: var(--vs-cat-rose-tint); }
+.vs-cat-slate { --vs-cat: var(--vs-cat-slate); --vs-cat-tint: var(--vs-cat-slate-tint); }
+.vs-figure svg .vs-cat .vs-shape { fill: var(--vs-cat-tint); stroke: var(--vs-cat); }
+.vs-figure svg .vs-cat.vs-nofill .vs-shape { fill: var(--vs-node); }
+.vs-figure svg .vs-cat .vs-mark { stroke: var(--vs-cat); }
+.vs-figure svg .vs-cat .vs-mark-fill { fill: var(--vs-cat); }
+.vs-figure svg .vs-cat .vs-mark-text { fill: var(--vs-cat); }
+.vs-figure svg .vs-edge.vs-cat .vs-line,
+.vs-figure svg .vs-swatch.vs-cat .vs-line { stroke: var(--vs-cat); }
+.vs-figure svg marker.vs-cat path { fill: var(--vs-cat); }
+.vs-figure svg .vs-edge.vs-label-hue .vs-edge-label { fill: var(--vs-cat); }
+/* Exclusive trace branches: a neutral band behind each sub-column, the panel
+   and the page colour in turn, with a rule line. The bands have no hue, so a
+   trace encodes one variable in hue (IMPROVEMENTS §3.2). */
+.vs-band-panel { --vs-band-fill: var(--vs-panel); }
+.vs-band-bg { --vs-band-fill: var(--vs-bg); }
+.vs-figure svg .vs-trace-band { fill: var(--vs-band-fill); stroke: var(--vs-rule); }
+
+/* Legend (IMPROVEMENTS §3.3): one chip per value, under the interpretation
+   paragraph. Each chip has a swatch with the paired cue and the value word.
+   It is static HTML, so it prints and works without JavaScript. */
+.vs-legend {
+  display: flex; flex-wrap: wrap; gap: 0.25rem 1rem;
+  list-style: none; margin: 0.5rem 0 0.75rem; padding: 0;
+  font-size: 0.875rem; color: var(--vs-fg);
+}
+.vs-legend-chip { display: inline-flex; align-items: center; gap: 0.375rem; }
+.vs-legend-swatch { flex: none; }
+/* The interpretation paragraph and the legend share a wrapping row. When both
+   are short, they sit side by side; when the paragraph is long, it takes the
+   full line and the legend goes under it (IMPROVEMENTS §3.6). */
+.vs-figure-lead { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1.5rem; }
+.vs-figure-lead > .vs-figure-text { flex: 0 1 auto; min-width: 0; }
+.vs-figure-lead > .vs-figure-text:empty { display: none; }
+.vs-figure-lead > .vs-legend { flex: 0 1 auto; }
 
 @media (forced-colors: active) {
-  .vs-viewport svg .vs-node rect,
-  .vs-viewport svg .vs-event-box rect,
+  .vs-figure svg .vs-shape,
+  .vs-figure svg .vs-cat .vs-shape,
+  .vs-figure svg .vs-cat.vs-nofill .vs-shape,
   .vs-viewport svg .vs-group rect,
-  .vs-viewport svg .vs-lane rect {
+  .vs-viewport svg .vs-lane rect,
+  .vs-figure svg .vs-trace-band {
     fill: Canvas;
     stroke: CanvasText;
     forced-color-adjust: none;
   }
-  .vs-viewport svg .vs-kind-failure rect {
+  .vs-figure svg .vs-kind-failure .vs-shape,
+  .vs-viewport svg .vs-kind-failure .vs-mark,
+  .vs-legend svg .vs-kind-failure .vs-mark {
     stroke: Mark;
   }
+  .vs-figure svg .vs-mark,
+  .vs-figure svg .vs-cat .vs-mark { stroke: CanvasText; }
+  .vs-figure svg .vs-mark-fill,
+  .vs-figure svg .vs-cat .vs-mark-fill,
+  .vs-figure svg .vs-mark-text,
+  .vs-figure svg .vs-cat .vs-mark-text { fill: CanvasText; }
   .vs-viewport svg .vs-node-label,
   .vs-viewport svg .vs-edge-label,
+  .vs-figure svg .vs-edge.vs-label-hue .vs-edge-label,
   .vs-viewport svg .vs-group-label,
   .vs-viewport svg .vs-lane-label,
   .vs-viewport svg .vs-trace-text,
@@ -407,13 +664,90 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-viewport svg .vs-lifeline,
   .vs-viewport svg .vs-trace-message,
   .vs-viewport svg .vs-edge .vs-line,
-  .vs-viewport svg marker path {
+  .vs-figure svg .vs-edge.vs-cat .vs-line,
+  .vs-figure svg .vs-swatch .vs-line,
+  .vs-viewport svg marker path,
+  .vs-figure svg marker.vs-cat path {
     stroke: CanvasText;
     fill: CanvasText;
   }
+  .vs-viewport svg .vs-edge .vs-line,
+  .vs-figure svg .vs-edge.vs-cat .vs-line,
+  .vs-figure svg .vs-swatch .vs-line { fill: none; }
+  .vs-viewport svg .vs-edge-mark,
+  .vs-legend svg .vs-edge-mark { fill: Canvas; stroke: CanvasText; }
   .vs-viewport svg .vs-edge-label-bg {
     fill: Canvas;
   }
+  .vs-viewport svg .vs-proxy-callout-bg,
+  .vs-viewport svg .vs-proxy-callout-key {
+    fill: Canvas;
+    stroke: CanvasText;
+    forced-color-adjust: none;
+  }
+  .vs-viewport svg .vs-proxy-callout-key-text,
+  .vs-viewport svg .vs-proxy-callout-context { fill: CanvasText; }
+  .vs-viewport svg .vs-proxy-callout-stem { stroke: CanvasText; }
+}
+
+/* ------------------------------------------------------------ figure interactions (IMPROVEMENTS §14.9) */
+
+/* The compiler emits the fold boxes, the Fold controls, and the proxy edges
+   with `hidden`; the runtime shows them and hides the parts of a folded
+   group. SVG has no built-in rule for `hidden`, so this rule is the switch. */
+.vs-viewport svg [hidden] { display: none; }
+.vs-viewport svg .vs-fold, .vs-viewport svg .vs-fold-toggle { cursor: pointer; }
+.vs-viewport svg .vs-fold rect, .vs-viewport svg .vs-fold-toggle rect { fill: var(--vs-panel); stroke: var(--vs-line); }
+.vs-viewport svg .vs-fold-toggle rect { fill: var(--vs-bg); }
+.vs-viewport svg .vs-fold-label, .vs-viewport svg .vs-fold-toggle text { fill: var(--vs-fg); }
+.vs-viewport svg .vs-fold:hover .vs-fold-shape, .vs-viewport svg .vs-fold-toggle:hover rect { stroke: var(--vs-accent); }
+/* Cross-figure highlight: an actor lane, and a fold box that stands for a part. */
+.vs-figure svg .vs-lane.vs-near > rect, .vs-figure svg .vs-fold.vs-near .vs-fold-shape { stroke-width: 2.5; }
+/* A folded group keeps its boundary, dashed and with no label, so the empty
+   area reads as the place of the group; the fold box is at its centre
+   (phase 6b review F14). The boundary takes no pointer: the fold box does. */
+.vs-viewport svg a.vs-group.vs-folded { pointer-events: none; }
+.vs-viewport svg a.vs-group.vs-folded rect { stroke-dasharray: 6 4; }
+.vs-viewport svg a.vs-group.vs-folded .vs-group-label { display: none; }
+/* An edge quantity is muted after the label, in the drawing and in the list.
+   The muted ink colour, not an opacity on the hue, keeps the contrast at
+   4.5:1 or more in a figure with the loss hue (phase 6b review F11). */
+.vs-rel-quantity { color: var(--vs-muted); }
+.vs-figure svg .vs-edge .vs-edge-quantity { fill: var(--vs-muted); fill-opacity: 1; }
+/* Filter chips: with JavaScript each legend chip is a toggle button. A
+   pressed chip has an accent border and bold text, so it does not depend on
+   the fill colour. */
+.vs-legend-toggle {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  font: inherit; color: inherit; background: none; cursor: pointer;
+  border: 1px solid var(--vs-rule); border-radius: 999px; padding: 0.125rem 0.625rem 0.125rem 0.375rem;
+}
+.vs-legend-toggle:hover { border-color: var(--vs-accent); }
+.vs-legend-toggle[aria-pressed="true"] { border: 2px solid var(--vs-accent); background: var(--vs-selected); font-weight: 600; padding: 0.0625rem 0.5625rem 0.0625rem 0.3125rem; }
+/* "Clear" sits in a right padding that a legend with chips always has, at
+   the height of a chip, so the legend keeps its rows when the first chip is
+   pressed and the drawing does not move (phase 6b review F12). */
+.vs-legend.vs-legend-filterable { position: relative; padding-right: 4.75rem; }
+.vs-legend-filterable > .vs-legend-clear { position: absolute; top: 0; right: 0; }
+.vs-legend-clear[hidden] { display: none; }
+.vs-legend-clear .vs-btn { min-height: 0; line-height: inherit; font-size: 0.875rem; padding: 0.125rem 0.625rem; border-width: 1px; }
+@media (forced-colors: active) {
+  .vs-viewport svg .vs-fold rect, .vs-viewport svg .vs-fold-toggle rect { fill: Canvas; stroke: CanvasText; forced-color-adjust: none; }
+  .vs-viewport svg .vs-fold-label, .vs-viewport svg .vs-fold-toggle text { fill: CanvasText; }
+  .vs-legend-toggle[aria-pressed="true"] { border-color: Highlight; }
+  .vs-figure svg .vs-edge .vs-edge-quantity { fill: CanvasText; }
+}
+/* Print shows every group unfolded, as without JavaScript: no fold box, no
+   Fold control, no proxy edge, and every part (phase 6b review F1). The
+   legend shows no chip as pressed, because print shows no filter (F13). */
+@media print {
+  .vs-legend-clear { display: none; }
+  .vs-legend.vs-legend-filterable { padding-right: 0; }
+  .vs-viewport svg [data-vs-fold], .vs-viewport svg [data-vs-fold-toggle], .vs-viewport svg [data-vs-proxy-for] { display: none !important; }
+  .vs-viewport svg a.vs-group[hidden], .vs-viewport svg a.vs-node[hidden], .vs-viewport svg a.vs-edge[hidden]:not([data-vs-proxy-for]) { display: inline !important; }
+  .vs-viewport svg a.vs-group.vs-folded rect { stroke-dasharray: none; }
+  .vs-viewport svg a.vs-group.vs-folded .vs-group-label { display: inline !important; }
+  .vs-legend-toggle[aria-pressed="true"] { border: 1px solid var(--vs-rule); background: none; font-weight: inherit; padding: 0.125rem 0.625rem 0.125rem 0.375rem; }
 }
 
 /* ------------------------------------------------------------ Mermaid (§9.12) */
@@ -446,12 +780,13 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
      44px touch target even for a short label; it stays inline so wrapped text
      still keeps the list number and kind label on the link's line. */
   .vs-rel-list a { display: inline; padding: 0.8125rem 0.5rem; }
-  /* Inline term and citation links keep the line spacing; a 44px hit area sits around them. */
-  .vs-cite, .vs-term { position: relative; }
-  .vs-cite::after, .vs-term::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2.75rem; height: 2.75rem; transform: translate(-50%, -50%); }
-  .vs-js .vs-figure[data-vs-views] .vs-view-bar { display: flex; }
-  .vs-figure.vs-view-list .vs-viewport { display: none; }
-  .vs-figure.vs-view-map .vs-lists { display: none; }
+  /* Citation targets occupy their space, so adjacent references cannot steal
+     each other's taps. Terms use their native inline text hit area, including
+     wrapped lines, rather than an invisible box over neighbouring words. */
+  .vs-cite {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.75rem; min-height: 2.75rem; top: 0; vertical-align: middle;
+  }
   .vs-compare-table { display: none; }
   .vs-compare-cards { display: block; }
   /* Narrow screens: the actor-grouped cards replace the flat event list and the actor list. */
@@ -493,6 +828,8 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-mermaid-rendered .vs-mermaid-source, .vs-source-toggle { display: none !important; }
   .vs-view-bar { display: none !important; }
   .vs-figure.vs-view-list .vs-viewport, .vs-figure.vs-view-map .vs-lists { display: block !important; }
+  .vs-figure.vs-view-list .vs-legend { display: flex !important; }
+  .vs-near, .vs-dim { opacity: 1 !important; }
   .vs-compare-table { display: table !important; }
   .vs-compare-cards { display: none !important; }
   .vs-trace .vs-trace-by-actor { display: none !important; }
@@ -563,14 +900,207 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   stroke-linejoin: round;
 }
 
-/* F2: a trace event keeps a per-box order-layer badge and, for an exclusive
-   branch, a heading and a fork mark at the point of divergence. Halo the
-   badge and the fork label too, since both can sit near lifelines or arrows. */
-.vs-trace svg .vs-event-layer-badge,
-.vs-trace svg .vs-trace-branch-heading,
-.vs-trace svg .vs-trace-fork-label {
+/* F2: an exclusive branch has a heading over its band and a fork mark at the
+   point of divergence. The order layer shows on the axis only (IMPROVEMENTS
+   F8). The heading has a halo in the band's fill, because an arrow enters
+   the box under it through the heading. */
+.vs-trace svg .vs-trace-branch-heading {
   paint-order: stroke fill;
-  stroke: var(--vs-bg);
+  stroke: var(--vs-band-fill, var(--vs-bg));
   stroke-width: 4px;
   stroke-linejoin: round;
 }
+/* svg.ts writes a fixed dark grey on these marks; take the theme's colours so
+   they stay readable on the dark background (dogfood-3 F2, Penpot review).
+   The heading uses --vs-fg, because it sits on a band. */
+.vs-trace svg .vs-trace-branch-heading { fill: var(--vs-fg); }
+.vs-trace svg .vs-trace-fork-bracket { stroke: var(--vs-line); }
+@media (forced-colors: active) {
+  .vs-trace svg .vs-trace-branch-heading { fill: CanvasText; stroke: Canvas; }
+  .vs-trace svg .vs-trace-fork-bracket { stroke: CanvasText; }
+}
+
+/* ------------------------------------------------------------ domain (IMPROVEMENTS §5.4) */
+/* A domain figure wraps its map and its glossary in .vs-domain-body. The
+   glossary is one row per concept: the term, the first sentence of its
+   definition, and a "Read more" link into the inspector. On a narrow screen
+   the map is behind "Show map", so the glossary comes first. On a window of
+   1200 px or more the map and the glossary are one row, centred on the text
+   column: the map at its natural width, the glossary 20 to 40rem beside it
+   when both fit, else under it. The row is never wider than the window
+   minus 4rem. The view bar is before the row, in the text column (phase 4
+   review D1). The term cell has the category word in muted text (D5). */
+.vs-glossary-wrap { overflow-x: auto; margin: 0.75rem 0; }
+.vs-glossary { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+.vs-glossary th, .vs-glossary td {
+  text-align: left; vertical-align: top;
+  padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--vs-rule);
+}
+.vs-glossary thead th { font-size: 0.8125rem; font-weight: 600; color: var(--vs-muted); }
+.vs-glossary th[scope="row"] { font-weight: 600; min-width: 6rem; }
+.vs-glossary th[scope="row"] .vs-role { font-weight: 400; white-space: nowrap; }
+.vs-glossary-more { white-space: nowrap; font-size: 0.875rem; }
+.vs-glossary-more a { color: var(--vs-muted); }
+.vs-glossary-more a:hover { color: var(--vs-accent); }
+/* Relation ends: a hollow triangle (is-a) and a filled diamond (has). */
+.vs-viewport svg marker path.vs-marker-hollow { fill: var(--vs-bg); stroke: var(--vs-line); }
+.vs-legend svg .vs-edge-mark.vs-edge-mark-fill { fill: var(--vs-line); }
+@media (min-width: 1200px) {
+  .vs-domain-body {
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+    gap: 0.75rem 1.5rem;
+    width: max-content;
+    max-width: calc(100vw - 4rem);
+    margin-left: 50%; transform: translateX(-50%);
+  }
+  .vs-domain-body > .vs-viewport { flex: 0 0 auto; width: max-content; max-width: 100%; margin-left: 0; transform: none; }
+  /* The flex basis is 30rem, so the glossary goes beside the map only if it
+     gets 30rem or more; a narrower glossary is taller than the row under the
+     map (measured: 366 px wide beside a 986 px map, 566 px tall against 382). */
+  .vs-domain-body > .vs-glossary-wrap { order: 2; flex: 1 1 30rem; min-width: 20rem; max-width: 40rem; margin: 0; }
+  .vs-domain-body > .vs-overflow-hint { order: 3; flex: 0 0 100%; }
+  .vs-glossary-more { font-size: 0.8125rem; }
+  /* With the inspector open, the figure stays in the text column. */
+  body.vs-has-inspector .vs-domain-body { width: auto; max-width: 100%; margin-left: 0; transform: none; }
+}
+@media (forced-colors: active) {
+  .vs-viewport svg marker path.vs-marker-hollow { fill: Canvas; stroke: CanvasText; }
+  .vs-legend svg .vs-edge-mark.vs-edge-mark-fill { fill: CanvasText; }
+  /* A value concept keeps its second outline, its cue without hue (D4). */
+  .vs-figure svg .vs-mark-double { fill: none; stroke: CanvasText; forced-color-adjust: none; }
+}
+
+/* phase 6a: components */
+/* The components of IMPROVEMENTS §14. Each hue has a paired cue: a word, a
+   shape, a hatch, or a sign. Every rule that hides content is under a class
+   that the runtime sets, so the page is complete without JavaScript and in
+   print. */
+
+/* Note (§14.2): a 4 px left rule in the category hue and the kind word as a
+   small eyebrow. Limit slate, assumption amber, warning rose. No icon. */
+.vs-note { margin: 1.25rem 0; padding: 0.125rem 0 0.125rem 0.875rem; border-left: 4px solid var(--vs-note-hue); }
+.vs-note-limit { --vs-note-hue: var(--vs-cat-slate); }
+.vs-note-assumption { --vs-note-hue: var(--vs-cat-amber); }
+.vs-note-warning { --vs-note-hue: var(--vs-cat-rose); }
+.vs-note-kind { margin: 0; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.02em; color: var(--vs-note-hue); }
+.vs-note-kind + p { margin-top: 0.125rem; }
+.vs-note > :last-child { margin-bottom: 0; }
+
+/* Self-check (§14.3): the question, then a native "Show answer" toggle. */
+.vs-self-check { margin: 1.5rem 0; padding: 0.75rem 1rem; background: var(--vs-panel); border: 1px solid var(--vs-rule); border-radius: 6px; }
+.vs-self-check-question { margin: 0; font-weight: 600; }
+.vs-self-check-kind { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--vs-muted); }
+.vs-self-check-answer { margin-top: 0.5rem; }
+.vs-self-check-answer > summary { cursor: pointer; color: var(--vs-accent); min-height: 2rem; }
+.vs-self-check-body > :first-child { margin-top: 0.25rem; }
+.vs-self-check-body > :last-child { margin-bottom: 0; }
+
+/* Measure (§14.4): ink bars; a reading that is not measured is an outline
+   with a hatch, and its value text names its status. */
+.vs-measure svg .vs-bar { fill: var(--vs-fg); }
+.vs-measure svg .vs-bar-outline { fill: var(--vs-bg); stroke: var(--vs-fg); }
+.vs-measure svg .vs-bar-hatch { stroke: var(--vs-fg); }
+.vs-measure svg .vs-measure-label, .vs-measure svg .vs-measure-value { fill: var(--vs-fg); }
+.vs-measure svg .vs-measure-tick { fill: var(--vs-muted); }
+.vs-measure svg .vs-measure-axis { stroke: var(--vs-line); }
+.vs-measure svg .vs-measure-row:hover .vs-measure-label,
+.vs-measure svg .vs-measure-row:focus-visible .vs-measure-label { text-decoration: underline; }
+.vs-measure-table td.vs-reading-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vs-reading-unmeasured td.vs-reading-value { font-style: italic; }
+
+/* Tree (§14.5): the path in mono, the label, and the role cue. */
+.vs-tree-list, .vs-tree-children { list-style: none; margin: 0; padding-left: 0; }
+.vs-tree-list { margin: 0.5rem 0; }
+.vs-tree-children { margin-left: 0.4rem; padding-left: 1.1rem; border-left: 1px solid var(--vs-rule); }
+.vs-tree-item { margin: 0.125rem 0; }
+.vs-tree-line { padding: 0.125rem 0 0.125rem 1.1rem; }
+/* The children of an entry are behind a native toggle under its line; the
+   entry link is outside the summary (phase 6a review C4). */
+.vs-tree-node > summary.vs-tree-toggle { cursor: pointer; margin-left: 1.1rem; font-size: 0.8125rem; color: var(--vs-muted); width: max-content; }
+.vs-tree-entry { text-decoration: none; }
+.vs-tree-entry:hover .vs-tree-label, .vs-tree-entry:focus-visible .vs-tree-label { text-decoration: underline; }
+.vs-tree-path { font-family: var(--vs-mono); font-size: 0.875rem; color: var(--vs-accent); word-break: break-all; }
+.vs-tree-label { margin-left: 0.5rem; color: var(--vs-fg); }
+.vs-tree-role { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; font-size: 0.8125rem; color: var(--vs-muted); vertical-align: middle; }
+.vs-tree-role .vs-legend-swatch { width: 26px; height: 15px; }
+.vs-tree-evidence { margin-left: 0.5rem; padding: 0 0.4rem; font-size: 0.75rem; color: var(--vs-muted); border: 1px solid var(--vs-rule); border-radius: 999px; }
+
+/* Steps (§14.1): a numbered list under the figure. With the runtime on a
+   wide screen, a step bar and the text of the active step sit side by side;
+   the overview shows every step. */
+.vs-steps { margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--vs-rule); }
+.vs-steps-heading { margin: 0 0 0.25rem; font-size: 0.9375rem; font-weight: 600; }
+.vs-steps-note { margin: 0 0 0.5rem; font-size: 0.875rem; font-style: italic; color: var(--vs-muted); }
+.vs-step-list { margin: 0.25rem 0 0; padding-left: 1.5rem; }
+.vs-step { margin: 0.5rem 0; }
+.vs-step-label { margin: 0; font-weight: 600; }
+.vs-step-body > :first-child { margin-top: 0.125rem; }
+.vs-step-body > :last-child { margin-bottom: 0; }
+.vs-step-targets { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--vs-muted); }
+.vs-step-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.25rem 0 0.5rem; }
+.vs-step-bar[hidden] { display: none; }
+.vs-step-status { flex: 1 1 100%; margin: 0; font-weight: 600; }
+.vs-steps-live { display: grid; grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); column-gap: 1.5rem; align-items: start; }
+.vs-steps-live > .vs-step-bar, .vs-steps-live > .vs-steps-note { grid-column: 1; }
+/* The bar names the number of steps, so the static heading hides. */
+.vs-steps-live > .vs-steps-heading { display: none; }
+.vs-steps-live > .vs-step-list { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
+.vs-steps-live:not(.vs-steps-overview) > .vs-step-list { list-style: none; padding-left: 0; }
+.vs-steps-live:not(.vs-steps-overview) .vs-step:not(.vs-step-active) { display: none; }
+.vs-steps-live .vs-step-active { margin-top: 0; }
+/* The marks of the active step on the parts that are not SVG. */
+.vs-walking .vs-compare-table .vs-dim, .vs-walking .vs-glossary .vs-dim, .vs-walking .vs-code .vs-dim { opacity: 0.35; }
+.vs-walking .vs-code .vs-line.vs-near { background: var(--vs-selected); }
+.vs-walking .vs-compare-table .vs-near, .vs-walking .vs-glossary .vs-near { outline: 2px solid var(--vs-accent); outline-offset: -2px; }
+
+/* Annotated before and after (§14.7): the signs are the cue; the tints add
+   to them. Side by side at 900 px or more; stacked below, with no gap rows. */
+.vs-diff-summary { margin: 0.25rem 0 0.5rem; font-size: 0.875rem; color: var(--vs-muted); }
+.vs-diff-side { min-width: 0; }
+.vs-diff-heading { margin: 0.5rem 0 0.25rem; font-size: 0.875rem; font-weight: 600; }
+.vs-diff-side .vs-code { margin: 0; overflow-x: auto; }
+.vs-diff-sign { display: inline-block; width: 1.5ch; color: var(--vs-muted); user-select: none; }
+.vs-diff-sr { user-select: none; }
+/* The marker column of an annotated excerpt: every line has it, so the code
+   starts in one column with or without a marker (phase 6a review S3). */
+.vs-code .vs-ann-col { display: inline-block; min-width: 2ch; user-select: none; }
+.vs-line-removed { background: var(--vs-cat-rose-tint); }
+.vs-line-added { background: var(--vs-cat-green-tint); }
+.vs-line-removed .vs-diff-sign { color: var(--vs-cat-rose); font-weight: 700; }
+.vs-line-added .vs-diff-sign { color: var(--vs-cat-green); font-weight: 700; }
+.vs-line-gap { display: none; }
+@media (min-width: 900px) {
+  .vs-figure .vs-viewport.vs-diff-sides {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1rem;
+    width: min(calc(100vw - 4rem), 84rem);
+  }
+  .vs-line-gap { display: inline; }
+}
+
+@media (max-width: 899px) {
+  .vs-self-check-answer > summary { min-height: 2.75rem; padding: 0.5rem 0; }
+  .vs-tree-line { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .vs-tree-node > summary.vs-tree-toggle { min-height: 2.75rem; padding: 0.625rem 0; box-sizing: border-box; }
+  .vs-step-bar .vs-btn { min-height: 2.75rem; }
+}
+
+@media (forced-colors: active) {
+  .vs-note { border-left-color: CanvasText; }
+  .vs-note-kind { color: CanvasText; }
+  .vs-measure svg .vs-bar { fill: CanvasText; }
+  .vs-measure svg .vs-bar-outline { fill: Canvas; stroke: CanvasText; }
+  .vs-measure svg .vs-bar-hatch, .vs-measure svg .vs-measure-axis { stroke: CanvasText; }
+  .vs-measure svg .vs-measure-label, .vs-measure svg .vs-measure-value, .vs-measure svg .vs-measure-tick { fill: CanvasText; }
+}
+
+@media print {
+  .vs-step-bar { display: none !important; }
+  .vs-steps-live { display: block !important; }
+  /* The bar hides the heading on screen; print has no bar (phase 6a review C15). */
+  .vs-steps-live > .vs-steps-heading { display: block !important; }
+  .vs-steps-live .vs-step { display: list-item !important; }
+  .vs-steps-live > .vs-step-list { list-style: decimal !important; padding-left: 1.5rem !important; }
+  .vs-walking .vs-dim { opacity: 1 !important; }
+  .vs-line-gap { display: none !important; }
+}
+/* end phase 6a: components */

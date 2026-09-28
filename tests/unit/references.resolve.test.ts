@@ -77,7 +77,21 @@ describe('registry (§11.5)', () => {
     const { repo } = tempRepo();
     const outside = join(repo, 'elsewhere.md');
     copyFileSync(EXAMPLE, outside);
-    expect(() => showReference(outside, 'enqueue', { repoRoot: repo })).toThrow(/outside the configured document roots/);
+    expect(() => showReference(outside, 'enqueue', { repoRoot: repo })).toThrow(
+      /outside the configured document roots \(docs\/explanations\)\. Put the document under docs\/explanations\/<document>\/index\.md/,
+    );
+  });
+
+  it('names a custom configured root and a valid document path', () => {
+    const { repo } = tempRepo();
+    mkdirSync(join(repo, 'notes'));
+    mkdirSync(join(repo, '.visser'));
+    writeFileSync(join(repo, '.visser/config.json'), JSON.stringify({ schema: 'visser-workspace/1', documentRoots: ['notes'] }));
+    const outside = join(repo, 'elsewhere.md');
+    copyFileSync(EXAMPLE, outside);
+    expect(() => showReference(outside, 'enqueue', { repoRoot: repo })).toThrow(
+      /outside the configured document roots \(notes\)\. Put the document under notes\/<document>\/index\.md/,
+    );
   });
 });
 

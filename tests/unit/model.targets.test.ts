@@ -9,9 +9,9 @@ const model = buildTargetRecords(parseSource(bytes, 'index.md'));
 const t = (id: string) => model.targets.get(id)!;
 
 describe('derived target fields (§7.1) @R02 @R03', () => {
-  it('builds all 23 Appendix A targets without diagnostics', () => {
+  it('builds all 24 Appendix A targets without diagnostics', () => {
     expect(model.diagnostics).toEqual([]);
-    expect(model.targets.size).toBe(23);
+    expect(model.targets.size).toBe(24); // 23, and the self-check of revision 1.27
   });
 
   it('derives kind, label, parent, owner, and section', () => {

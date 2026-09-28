@@ -8,8 +8,8 @@
 // verified, trusted toolkit that this CLI is, and refuses `--dev-toolkit`
 // (E_USAGE, exit 2): a release check never accepts a development toolkit.
 // `--review` (§15.6, §16.3) adds editorial review prompts (W_JARGON,
-// W_VISUAL_DENSITY, W_EVIDENCE_GAP) as warnings, only when there are no
-// errors. They are prompts, not verdicts, and never change the exit code.
+// W_VISUAL_DENSITY, W_EVIDENCE_GAP, and the prose, shape, and term prompts of
+// core/src/review/) as warnings, only when there are no errors. They are prompts, not verdicts, and never change the exit code.
 import { dirname, resolve } from 'node:path';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { loadBundle } from '../../../core/src/model/bundle.ts';

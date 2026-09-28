@@ -13,6 +13,7 @@ export const EXAMPLE_PORTS = {
   'mermaid-sequence': 4330,
   'mermaid-er': 4331,
   'mermaid-class': 4332,
+  'domain-orders': 4333,
 } as const;
 
 export type ExampleName = keyof typeof EXAMPLE_PORTS;

@@ -60,7 +60,7 @@ describe('catalogue guides (§9.1) @R16', () => {
   it('every pattern has a guide, and no guide is orphaned', () => {
     for (const p of PATTERNS) expect(existsSync(join(DIR, `${p.name}.md`)), p.name).toBe(true);
     expect(PATTERNS.map((p) => p.name).sort()).toEqual(
-      ['annotated', 'architecture', 'cause', 'compare', 'mermaid', 'plan', 'prose', 'state', 'trace', 'transform'],
+      ['annotated', 'architecture', 'cause', 'compare', 'decision', 'domain', 'measure', 'mermaid', 'note', 'plan', 'prose', 'self-check', 'state', 'steps', 'trace', 'transform', 'tree'],
     );
   });
 

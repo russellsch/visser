@@ -2,7 +2,9 @@
 
 **Question:** Can ordinary text answer the reader's question without a visual?
 
-Start here. Prose, lists, and Markdown tables are first-class options. No rule
+**Confused with:** a figure that repeats the prose with boxes around the nouns.
+
+Prose, lists, and Markdown tables are first-class options. No rule
 requires a minimum number of diagrams (§9.11). Pick a component only when it
 answers a question that text answers less well.
 

@@ -1,0 +1,17 @@
+---
+format: visser/1
+docId: 9c0c5e2a-9999-4a99-8a99-999999999999
+title: Negative fixture
+kind: plan
+capturedAt: 2026-09-27T00:00:00Z
+visibility: private
+---
+
+<!-- vs:id intro -->
+# Negative fixture
+
+{% graph id="fig" mode="plan" title="T" question="Q?" %}
+Interpretation.
+
+{% task id="t1" label="Ship it" due="3 October 2026" /%}
+{% /graph %}

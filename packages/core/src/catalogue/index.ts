@@ -13,12 +13,18 @@ export type CataloguePattern = {
   mode?: string;
   /** Child tags, in the order the guide documents them. */
   children: readonly string[];
+  /**
+   * An escape hatch, not a catalogue answer (IMPROVEMENTS.md §6.2): listed
+   * last, under a rule, and left out of the skill's component table.
+   */
+  escapeHatch?: true;
 };
 
-/** Every catalogue pattern, in reading order. `prose` has no component. */
+/** Every catalogue pattern, in reading order. `prose` has no component. The escape hatch (`mermaid`) is last. */
 export const PATTERNS: readonly CataloguePattern[] = [
   { name: 'prose', tag: null, children: [] },
   { name: 'architecture', tag: 'graph', mode: 'architecture', children: ['group', 'node', 'edge'] },
+  { name: 'domain', tag: 'domain', children: ['concept', 'relation'] },
   { name: 'trace', tag: 'trace', children: ['actor', 'event', 'branch'] },
   { name: 'state', tag: 'graph', mode: 'state', children: ['state', 'transition'] },
   { name: 'transform', tag: 'transform', children: ['stage', 'conversion'] },
@@ -26,7 +32,14 @@ export const PATTERNS: readonly CataloguePattern[] = [
   { name: 'compare', tag: 'compare', children: ['option', 'criterion', 'cell'] },
   { name: 'plan', tag: 'graph', mode: 'plan', children: ['task', 'dependency'] },
   { name: 'annotated', tag: 'annotated', children: ['annotation'] },
-  { name: 'mermaid', tag: 'mermaid', children: [] },
+  // Components of IMPROVEMENTS.md §14, and the decision guide (§14.8), which has no tag.
+  { name: 'measure', tag: 'measure', children: ['reading'] },
+  { name: 'tree', tag: 'tree', children: ['entry'] },
+  { name: 'steps', tag: 'steps', children: ['step'] },
+  { name: 'note', tag: 'note', children: [] },
+  { name: 'self-check', tag: 'self-check', children: [] },
+  { name: 'decision', tag: null, children: [] },
+  { name: 'mermaid', tag: 'mermaid', children: [], escapeHatch: true },
 ];
 
 export type CatalogueEntry = { name: string; title: string; question: string; path: string };
@@ -89,11 +102,11 @@ export function patternSchema(pattern: CataloguePattern): TagSchema[] {
   });
 }
 
-/** Every guide present in the toolkit, in PATTERNS order. A missing guide is skipped. */
+/** Every guide present in the toolkit, in PATTERNS order with the escape hatches last. A missing guide is skipped. */
 export function listCatalogue(toolkitDir: string): CatalogueEntry[] {
   const dir = catalogueDir(toolkitDir);
   const out: CatalogueEntry[] = [];
-  for (const pattern of PATTERNS) {
+  for (const pattern of [...PATTERNS.filter((p) => !p.escapeHatch), ...PATTERNS.filter((p) => p.escapeHatch)]) {
     const path = join(dir, `${pattern.name}.md`);
     if (!existsSync(path)) continue;
     out.push({ name: pattern.name, ...guideHeader(readGuide(path)), path });

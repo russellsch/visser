@@ -2,6 +2,8 @@
 
 **Question:** Which relevant property differs, and what follows from the difference?
 
+**Confused with:** a Markdown table (two or three plain facts) and `annotated` (a code diff).
+
 ## Use it when
 
 - The reader must choose between options, and each difference needs its own

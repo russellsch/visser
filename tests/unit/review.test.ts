@@ -10,6 +10,11 @@ import { reviewDocument } from '../../packages/core/src/review/index.ts';
 const root = new URL('../..', import.meta.url).pathname;
 const fixtures = join(root, 'tests/fixtures/editorial');
 const REVIEW_CODES = ['W_JARGON', 'W_VISUAL_DENSITY', 'W_EVIDENCE_GAP'];
+// The prose, shape, and term prompts (IMPROVEMENTS.md §6.2, §11.3, §12.4, §13.6); tests/unit/review.prose.test.ts covers them.
+const ALL_REVIEW_CODES = [...REVIEW_CODES, 'W_SENTENCE_LENGTH', 'W_PASSIVE', 'W_CONTRACTION', 'W_VAGUE_QUANTITY', 'W_SYNONYM', 'W_READER',
+  'W_LENGTH', 'W_FIGURE_COUNT', 'W_LATE_FIGURE', 'W_LABEL_LENGTH', 'W_DUPLICATE', 'W_HEADING', 'W_MERMAID', 'W_TERM_UNUSED', 'W_TERM_COLLISION',
+  // The component prompts of IMPROVEMENTS.md §14; tests/unit/components.test.ts covers them.
+  'W_NOTE_DENSITY', 'W_SELF_CHECK'];
 
 // Expected prompts on each bad draft: code, target, and text the message must name.
 const EXPECTED: Record<string, Array<[string, string, string?]>> = {
@@ -45,7 +50,7 @@ describe('@R16 editorial review prompts on the editorial fixtures', () => {
       for (const d of bad) {
         expect(d.severity).toBe('warning');
         expect(d.message.startsWith('review: ')).toBe(true);
-        expect(REVIEW_CODES).toContain(d.code);
+        expect(ALL_REVIEW_CODES).toContain(d.code);
       }
       expect(review(join(fixtures, name, 'good', 'index.md'))).toEqual([]);
     });
@@ -61,9 +66,10 @@ describe('@R16 editorial review prompts on the editorial fixtures', () => {
       } catch {
         continue; // not a document folder (for example github-pages)
       }
-      for (const d of prompts) found.push(`${name}:${d.code}:${d.targetId}`);
+      for (const d of prompts) if (REVIEW_CODES.includes(d.code)) found.push(`${name}:${d.code}:${d.targetId}`);
     }
-    // A precision check: every other example is clean. These six are real
+    // A precision check for the three original prompts: every other example
+    // is clean of them. These six are real
     // gaps in the example (observed with no cited evidence), not false alarms.
     expect(found).toEqual([
       'cache-stampede:W_EVIDENCE_GAP:f_expiry',

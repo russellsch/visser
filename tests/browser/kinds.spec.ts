@@ -13,7 +13,7 @@ import { copiedTexts, installClipboardSpy, openSnapshot, test } from './support.
 
 const root = new URL('../..', import.meta.url).pathname;
 const cli = join(root, 'dist/release/bin/visser.cjs');
-const FIGURES = new Set(['graph', 'trace', 'transform', 'compare', 'annotated']);
+const FIGURES = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree']);
 
 type Pick = { example: ExampleName; id: string; kind: string; parentId: string | undefined };
 
@@ -35,14 +35,35 @@ async function clickable(page: Page, pick: Pick): Promise<Locator> {
     if (await own.count()) return own;
     return canonicalEl;
   }
+  // A walkthrough and its steps are canonical in their figure, not in the
+  // appendix (docs/IMPROVEMENTS.md §14.1): select the step bar status or the step label.
+  if (pick.kind === 'steps') return canonicalEl.locator(':scope > .vs-step-bar .vs-step-status, :scope > .vs-steps-heading').locator('visible=true').first();
+  if (pick.kind === 'step') return canonicalEl.locator('.vs-step-label');
   if (!pick.parentId && !['definition', 'source', 'detail'].includes(pick.kind)) return canonicalEl;
   // An entity: prefer a visible instance in a figure or list; fall back to its detail summary.
   const instances = page.locator(`[data-vs-target="${pick.id}"]:not([id="x-${pick.id}"])`);
-  for (let i = 0; i < (await instances.count()); i++) {
-    const inst = instances.nth(i);
-    if (await inst.isVisible()) {
-      const label = inst.locator('text').first();
-      return (await label.count()) && (await label.isVisible()) ? label : inst;
+  const visible = async (): Promise<Locator | undefined> => {
+    for (let i = 0; i < (await instances.count()); i++) {
+      const inst = instances.nth(i);
+      if (await inst.isVisible()) {
+        const label = inst.locator('text').first();
+        return (await label.count()) && (await label.isVisible()) ? label : inst;
+      }
+    }
+    return undefined;
+  };
+  const shown = await visible();
+  if (shown) return shown;
+  // On a wide screen the lists of a figure show after "Show as list"
+  // (docs/IMPROVEMENTS.md §4.1). A target with no instance in the drawing,
+  // such as a trace branch, is in the list only.
+  if ((await instances.count()) > 0) {
+    const figure = await instances.first().evaluate((n) => n.closest('figure[data-vs-views]')?.id ?? '');
+    const toggle = page.locator(`[id="${figure}"] .vs-view-toggle[aria-pressed="false"]`);
+    if (figure && (await toggle.count()) > 0) {
+      await toggle.click();
+      const listed = await visible();
+      if (listed) return listed;
     }
   }
   return canonicalEl.locator(':scope > summary');

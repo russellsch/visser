@@ -42,6 +42,11 @@ function svgText(markup: string): string {
   return markup.replace(/<\/tspan><tspan[^>]*>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 }
 
+/** The opening tag of the SVG instance with the given ID. */
+function tagOf(html: string, instanceId: string): string {
+  return new RegExp(`<a [^>]*id="${instanceId.replace(/[.~]/g, '\\$&')}"[^>]*>`).exec(html)?.[0] ?? '';
+}
+
 /** Markup between a start marker and the next marker that closes the view. */
 function section(html: string, start: string, end: string): string {
   const i = html.indexOf(start);
@@ -212,9 +217,19 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     relationshipViews(bundle, html, 'lifecycle');
     const map = section(html, '<div class="vs-viewport"', '</svg>');
     const text = svgText(map);
-    expect(text).toContain('(initial)');
-    expect(text).toContain('(terminal)');
+    // The box shows the label only. The marks are shapes: a dot for initial and
+    // an inner ring for terminal. The words stay in the list (IMPROVEMENTS §3.4).
+    expect(text).not.toContain('(initial)');
+    expect(text).not.toContain('(terminal)');
+    expect(map).toMatch(/class="vs-node vs-initial"/);
     expect(map).toMatch(/class="vs-node vs-terminal"/);
+    expect(section(map, 'id="v-lifecycle.st_idle"', '</a>')).toContain('class="vs-mark vs-mark-fill"');
+    expect(section(map, 'id="v-lifecycle.st_closed"', '</a>')).toMatch(/<rect [^>]*class="vs-mark"/);
+    const nodeList = section(html, '<ul class="vs-node-list"', '</ul>');
+    expect(nodeList).toContain('(initial)');
+    expect(nodeList).toContain('(terminal)');
+    // The state family has no hue variable, so it has no legend.
+    expect(html).not.toContain('class="vs-legend"');
     // The arrow shows the transition's label, as the list does, with its guard (dogfood-2 Q4).
     expect(text).toContain('connect succeeds [host reachable]');
     const list = section(html, 'id="l-lifecycle.tr_connect"', '</li>');
@@ -233,6 +248,13 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     const block = section(html, 'id="v-why_slow.cl_block"', '</a>');
     expect(block).not.toContain('stroke-dasharray');
     expect(svgText(block)).toContain('(observed)');
+    // The basis also has a hue, and the factor box shows the label only (IMPROVEMENTS §3.2, §3.4).
+    expect(tagOf(html, 'v-why_slow.cl_amplify')).toMatch(/class="vs-edge vs-kind-[a-z-]+ vs-cat vs-cat-violet"/);
+    const retry = section(html, 'id="v-why_slow.f_retry"', '</a>');
+    expect(tagOf(html, 'v-why_slow.f_retry')).toMatch(/class="vs-node vs-cat vs-cat-amber"/);
+    expect(retry).toContain('stroke-dasharray="6 4"');
+    expect(svgText(retry.slice(retry.indexOf('>') + 1))).not.toContain('inferred');
+    expect(svgText(section(html, '<ul class="vs-legend"', '</ul>')).trim().split(' ')).toEqual(['observed', 'inferred', 'hypothesis']);
     expect(html.toLowerCase()).not.toContain('verified');
   });
 
@@ -240,9 +262,26 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     const { bundle, result, html } = await compile(PLAN);
     commonChecks(bundle, result, html);
     relationshipViews(bundle, html, 'rollout');
-    const map = svgText(section(html, '<div class="vs-viewport"', '</svg>'));
-    expect(map).toContain('status: complete');
-    expect(map).toContain('status: proposed');
+    const markup = section(html, '<div class="vs-viewport"', '</svg>');
+    const map = svgText(markup);
+    // Status leaves the box: hue, a pattern or a mark, the legend, and the list carry it (IMPROVEMENTS §3.2, §3.4).
+    expect(map).not.toContain('status:');
+    expect(map).not.toContain('data team');
+    expect(tagOf(markup, 'v-rollout.t_schema')).toMatch(/class="vs-node vs-cat vs-cat-green"/);
+    expect(tagOf(markup, 'v-rollout.t_backfill')).toMatch(/class="vs-node vs-cat vs-cat-teal"/);
+    expect(tagOf(markup, 'v-rollout.t_switch')).toMatch(/class="vs-node vs-cat vs-cat-slate vs-nofill"/);
+    const nodeList = section(html, '<ul class="vs-node-list"', '</ul>');
+    expect(nodeList).toContain('status: complete');
+    expect(nodeList).toContain('status: proposed');
+    expect(nodeList).toContain('owner: data team');
+    // Proposed has a dotted outline, so it differs from ready without hue (review F-01).
+    expect(section(markup, 'id="v-rollout.t_switch"', '</a>')).toContain('stroke-dasharray="2 4"');
+    expect(section(markup, 'id="v-rollout.t_backfill"', '</a>')).not.toContain('stroke-dasharray');
+    // The legend lists the status chips, then a pattern chip for each dependency kind in use (review F-08).
+    const legendMarkup = section(html, '<ul class="vs-legend"', '</ul>');
+    expect(svgText(legendMarkup).trim().split(' ')).toEqual(['complete', 'ready', 'proposed', 'finish-start', 'input']);
+    // The dependency kind is a line pattern, and the arrow label keeps the word.
+    expect(section(markup, 'id="v-rollout.d_input"', '</a>')).toContain('stroke-dasharray="6 4"');
     expect(map).toContain('rows complete (input)');
     expect(map).not.toMatch(/\d+%/);
   });
@@ -253,9 +292,15 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     relationshipViews(bundle, html, 'pipe');
     const markup = section(html, '<div class="vs-viewport"', '</svg>');
     const map = svgText(markup);
+    // A stage box keeps its representation; shape and units stay in the list (IMPROVEMENTS §3.4).
     expect(map).toContain('float32 tensor');
-    expect(map).toContain('shape: batch × height');
+    expect(map).not.toContain('shape: batch × height');
+    expect(section(html, '<ul class="vs-node-list"', '</ul>')).toContain('shape: batch × height');
     expect(map).toContain('loss: JPEG artifacts remain');
+    // The lossy conversion is the one fact in hue: an amber line and label (IMPROVEMENTS §10).
+    expect(tagOf(markup, 'v-pipe.cv_decode')).toMatch(/class="vs-edge vs-kind-[a-z-]+ vs-cat vs-cat-amber vs-label-hue"/);
+    expect(tagOf(markup, 'v-pipe.cv_threshold')).not.toContain('vs-cat');
+    expect(svgText(section(html, '<ul class="vs-legend"', '</ul>')).trim()).toBe('loss');
     expect(markup).toContain('id="v-pipe.cv_threshold"');
     expect(markup).toContain('id="v-pipe.cv_orientation"');
     expect(markup).not.toContain('vs-role-');
@@ -281,10 +326,12 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     // One link per option row: no generated "Details" link in the cards.
     expect(cards).not.toContain('>Details<');
     expect(cards).toContain('aria-label="Bounded queue: Failure behavior"');
-    // Table cells without a value: a small link after the cell text, not a "Details" line above it (dogfood-2 Q5).
+    // Table cells without a value: no "Details" line above the text (dogfood-2 Q5).
     expect(table).not.toContain('>Details<');
-    const bf = section(table, 'Producers wait.', '</td>');
-    expect(bf).toMatch(/<a class="vs-cell-link"[^>]*aria-label="Bounded queue: Failure behavior"[^>]*data-vs-target="cell_bf"|<a class="vs-cell-link"[^>]*data-vs-target="cell_bf"[^>]*aria-label="Bounded queue: Failure behavior"/);
+    // The whole body of cell_bf is the one sentence in the table, so it gets
+    // no "›" link, and the cell body is its table instance (docs/IMPROVEMENTS.md §4.6).
+    expect(table).not.toContain('vs-cell-link');
+    expect(table).toContain('<div class="vs-cell-body" id="v-queues.cell_bf" data-vs-target="cell_bf"><p>Producers wait.</p></div>');
     expect(html.toLowerCase()).not.toMatch(/winner|score/);
     expect(html).not.toMatch(/<figure[^>]*id="x-queues"[^>]*data-vs-views/);
   });

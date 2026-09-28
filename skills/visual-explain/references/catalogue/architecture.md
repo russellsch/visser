@@ -2,6 +2,8 @@
 
 **Question:** What exists, where are the boundaries, and how do responsibilities interact?
 
+**Confused with:** `trace` (the order of events) and `transform` (representations of one value, not components).
+
 ## Use it when
 
 - The reader must know which part owns a responsibility and which part it calls.
@@ -29,9 +31,9 @@ charge request", and a `trace` for order. Both share node IDs through `entity`.
 | Tag | Required | Optional |
 |---|---|---|
 | `graph` | `id`, `title`, `question`, `mode` | — |
-| `group` | `id`, `label` | `parent` |
-| `node` | `id`, `role` | `label`, `group`, `entity` |
-| `edge` | `id`, `from`, `to`, `kind`, `label` | `basis` |
+| `group` | `id`, `label` | `parent`, `collapsed` |
+| `node` | `id`, `role` | `label`, `group`, `entity`, `evidence` |
+| `edge` | `id`, `from`, `to`, `kind`, `label` | `basis`, `quantity`, `evidence` |
 
 - `role`: `process`, `storage`, `external`, `interface`, `decision`, `concept`.
 - `kind`: `call`, `blocking-call`, `data`, `control`, `owns`, `depends-on`, `contains`, `feedback`.
@@ -44,8 +46,18 @@ charge request", and a `trace` for order. Both share node IDs through `entity`.
 - `edge` endpoints are nodes in the same figure. `node group` and `group
   parent` name groups in the same figure. Group nesting must not form a cycle.
 - `entity` names an existing `node` that has no `entity` itself.
-- Above 25 nodes you get `W_VISUAL_DENSITY`. The hard cap is 200 nodes and
-  400 edges (`E_LAYOUT_LIMIT`).
+- `evidence=["src_handler"]` names `source` targets: the code that shows
+  this node. A `cite` supports one sentence in the body.
+- `collapsed=true` on a `group`: with JavaScript, the group starts folded into
+  one box with a count, and a click unfolds it. The dashed boundary of the
+  group stays, with the box at its centre. Use it on a map above 25 nodes.
+  Without JavaScript and in print the group shows unfolded, and the lists
+  always show every node.
+- `quantity="1,200 req/s"` on an `edge` shows after its label. Name the
+  source of the number in `evidence` on the edge.
+- Above 25 nodes you get `W_VISUAL_DENSITY`. A collapsed group counts as one
+  node, because the map opens folded. The hard cap is 200 nodes and 400 edges
+  (`E_LAYOUT_LIMIT`).
 - Write an edge label that says what the relationship does, not "connects".
 
 ## Narrow screens and text
@@ -86,6 +98,11 @@ A retry with the same key cannot charge twice.
 
 ## Diagnostics
 
-- `E_REF_BROKEN`: an edge endpoint is not a node in this figure. Fix the ID.
+- `E_REF_BROKEN`: an edge endpoint is not a node in this figure, or `evidence`
+  names something that is not a `source`. Fix the ID.
 - `E_SYNTAX`: an unknown `role` or `kind`, or a missing `label`. Use a listed value.
 - `E_SEMANTIC`: group nesting is cyclic. Remove one `parent`.
+- `W_VISUAL_DENSITY`: more than 25 nodes when the map opens. Split the map,
+  or fold a group with `collapsed=true`.
+- `W_EVIDENCE_GAP` (`check --review`): a `quantity` with no `evidence`. Name
+  the source of the number.

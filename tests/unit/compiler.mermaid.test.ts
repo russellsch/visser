@@ -82,7 +82,8 @@ describe('Mermaid kernel (§9.12)', () => {
   it('gives every Mermaid element a canonical detail in the appendix', async () => {
     const { html } = await page();
     for (const id of ['producer', 'queue', 'worker', 'e1']) {
-      expect(html).toMatch(new RegExp(`<details class="vs-detail vs-kind-mermaid-[a-z]+" id="x-${id}" data-vs-target="${id}"`));
+      // A Mermaid part has no authored body, so its row is bare (docs/IMPROVEMENTS.md §4.5); the detail stays.
+      expect(html).toMatch(new RegExp(`<details class="vs-detail vs-kind-mermaid-[a-z]+ vs-detail-bare" id="x-${id}" data-vs-target="${id}"`));
     }
     expect(html).toContain('In diagram <a href="#x-flow">');
   });
