@@ -5,7 +5,7 @@ Reviewer role: independent review. No source file was changed.
 
 ## Scope
 
-- Skill text: `skills/visual-explain/SKILL.md`, `references/prose.md`, `references/operations.md`,
+- Skill text: `skills/visser-visual-explain/SKILL.md`, `references/prose.md`, `references/operations.md`,
   `references/catalogue/*.md` (the "Confused with" lines and `mermaid.md`), and `references/handoff.md`
   (to confirm where the packet workflow went).
 - Review code: `packages/core/src/review/{index,context,prose,shape,terms,text}.ts`.

@@ -72,12 +72,12 @@ describe('doctor', () => {
     const fx = fixture();
     const D = installUser(fx, release);
     const { repo, doc } = repoWithDocument(fx, 'repo', D);
-    mkdirSync(join(repo, '.claude', 'skills', 'visual-explain'), { recursive: true });
-    writeFileSync(join(repo, '.claude', 'skills', 'visual-explain', 'SKILL.md'), 'repository wrapper\n');
-    mkdirSync(join(fx.userHome, '.claude', 'skills', 'visual-explain'), { recursive: true });
-    writeFileSync(join(fx.userHome, '.claude', 'skills', 'visual-explain', 'SKILL.md'), 'user wrapper\n');
+    mkdirSync(join(repo, '.claude', 'skills', 'visser-visual-explain'), { recursive: true });
+    writeFileSync(join(repo, '.claude', 'skills', 'visser-visual-explain', 'SKILL.md'), 'repository wrapper\n');
+    mkdirSync(join(fx.userHome, '.claude', 'skills', 'visser-visual-explain'), { recursive: true });
+    writeFileSync(join(fx.userHome, '.claude', 'skills', 'visser-visual-explain', 'SKILL.md'), 'user wrapper\n');
     const report = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
-    // The pack carries the canonical wrapper (skills/visual-explain/wrapper/SKILL.md).
+    // The pack carries the canonical wrapper (skills/visser-visual-explain/wrapper/SKILL.md).
     expect(existsSync(join(release, CANONICAL_WRAPPER))).toBe(true);
     expect(report.wrappers.map((w) => [w.scope, w.state])).toEqual([
       ['repository', 'differs'],
@@ -86,7 +86,7 @@ describe('doctor', () => {
     expect(report.conflicts.some((c) => c.startsWith('claude-code:'))).toBe(true);
 
     // A repository wrapper that is a copy of the canonical text matches.
-    cpSync(join(release, CANONICAL_WRAPPER), join(repo, '.claude', 'skills', 'visual-explain', 'SKILL.md'));
+    cpSync(join(release, CANONICAL_WRAPPER), join(repo, '.claude', 'skills', 'visser-visual-explain', 'SKILL.md'));
     const again = await doctorReport(parseArgs(['--doc', doc]), { env: fx.env, cwd: repo, ownRelease: undefined });
     expect(again.wrappers.find((w) => w.scope === 'repository')?.state).toBe('matches');
   });
@@ -103,9 +103,9 @@ describe('skill show', () => {
     const shown = JSON.parse(out.text());
     expect(validateAgainst('skill', shown)).toEqual({ ok: true });
     expect(shown.toolkit).toMatchObject({ sha256: D, source: 'user', dir: join(fx.home, 'toolchains', D) });
-    expect(shown.skill.path).toBe(join(fx.home, 'toolchains', D, 'skills', 'visual-explain', 'SKILL.md'));
+    expect(shown.skill.path).toBe(join(fx.home, 'toolchains', D, 'skills', 'visser-visual-explain', 'SKILL.md'));
     expect(shown.skill.text.length).toBeGreaterThan(0);
-    for (const guide of shown.guides) expect(guide.startsWith(join(fx.home, 'toolchains', D, 'skills', 'visual-explain', 'references'))).toBe(true);
+    for (const guide of shown.guides) expect(guide.startsWith(join(fx.home, 'toolchains', D, 'skills', 'visser-visual-explain', 'references'))).toBe(true);
   });
 
   it('refuses a document whose lock pins an untrusted repository toolchain', async () => {

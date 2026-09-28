@@ -1,6 +1,6 @@
 // `visser skill show [--doc PATH] [--toolkit-dir DIR | --dev-toolkit DIR] [--json]` (§12.7, §17.1).
 // Prints the core skill pinned by the document's lock, and absolute local
-// paths to the guides in that toolkit's skills/visual-explain/references/. With no
+// paths to the guides in that toolkit's skills/visser-visual-explain/references/. With no
 // document it uses the workspace default, then the user default, then the
 // release that contains the running CLI. `--dev-toolkit DIR` wins over all of
 // these, as it does for `check` and `build`. Read-only.
@@ -52,10 +52,10 @@ export async function runSkill(args: ParsedArgs, opts: SkillOptions = {}): Promi
   if (args.positional[0] !== 'show' || args.positional.length !== 1) throw new CliError('E_USAGE', USAGE, EXIT.invalid);
   const found = selectForSkill(args, opts);
   const dir = found.release.dir;
-  const skillPath = join(dir, 'skills', 'visual-explain', 'SKILL.md');
-  if (!existsSync(skillPath)) throw new CliError('E_TOOLKIT_MISSING', `toolkit ${found.release.sha256} has no skills/visual-explain/SKILL.md`, EXIT.unavailable);
+  const skillPath = join(dir, 'skills', 'visser-visual-explain', 'SKILL.md');
+  if (!existsSync(skillPath)) throw new CliError('E_TOOLKIT_MISSING', `toolkit ${found.release.sha256} has no skills/visser-visual-explain/SKILL.md`, EXIT.unavailable);
   const text = readFileSync(skillPath, 'utf8');
-  const referenceDir = join(dir, 'skills', 'visual-explain', 'references');
+  const referenceDir = join(dir, 'skills', 'visser-visual-explain', 'references');
   // references/*.md, then the catalogue guides in references/catalogue/.
   const markdown = (dir: string) => existsSync(dir)
     ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort().map((name) => join(dir, name))

@@ -2,7 +2,7 @@
 
 Date: 27 September 2026. Toolkit: `dist/release` built from commit `0f6959a`,
 digest `89362ea5dff0…`. The author was an agent (Claude Opus 5.5) that
-followed `skills/visual-explain/SKILL.md` and the guides it names. The agent
+followed `skills/visser-visual-explain/SKILL.md` and the guides it names. The agent
 installed the toolkit with the README's install step into a temporary
 `VISSER_HOME` and ran every command through the installed user shim. The
 agent used `--dev-toolkit dist/release` only for the steps that the skill's
@@ -92,7 +92,7 @@ reader sees it.
   "Explain in the stage body". A search found 2 more leftovers of the rename:
   - `docs/ARCHITECTURE.md:388`: "This is an **Visser convention**".
   - `tests/unit/projection.test.ts:12`: "with an visser-text/1 ID line".
-- **Fix:** in `skills/visual-explain/references/catalogue/transform.md:40`,
+- **Fix:** in `skills/visser-visual-explain/references/catalogue/transform.md:40`,
   write "Explain in the stage body …". Correct the article in the other 2
   places. The rename check searched for identifiers, not for the verb.
 
@@ -108,7 +108,7 @@ reader sees it.
 - **Also found by rereading:** "a renamed ID is a deleted target" (it
   resolves `missing`, because there is no retirement record), and "move a
   document folder" (only inside the document roots).
-- **Fix:** in `skills/visual-explain/SKILL.md` step 12, add: "For a claim
+- **Fix:** in `skills/visser-visual-explain/SKILL.md` step 12, add: "For a claim
   about what changes or does not change a result, test it on a copy when you
   can." A reread checks that the excerpt contains the words; it does not
   check the reasoning between the excerpt and the claim.
@@ -168,7 +168,7 @@ reader sees it.
 - **Result:** the guide says "On a narrow screen stages become cards, and each
   conversion becomes a sentence with its loss and condition." At 390 px the
   page shows the same bullet list and numbered list as other graphs.
-- **Fix:** correct `skills/visual-explain/references/catalogue/transform.md`
+- **Fix:** correct `skills/visser-visual-explain/references/catalogue/transform.md`
   to describe the lists.
 
 ### Q9 (minor): `refs retire` and `refs replace` print a diff of most of the file

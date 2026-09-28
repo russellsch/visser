@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { PATTERNS } from '../../packages/core/src/catalogue/index.ts';
 
 const read = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), 'utf8');
-const SKILL = read('skills/visual-explain/SKILL.md');
-const HANDOFF = read('skills/visual-explain/references/handoff.md');
-const WRAPPER = read('skills/visual-explain/wrapper/SKILL.md');
+const SKILL = read('skills/visser-visual-explain/SKILL.md');
+const HANDOFF = read('skills/visser-visual-explain/references/handoff.md');
+const WRAPPER = read('skills/visser-visual-explain/wrapper/SKILL.md');
 const MAIN = read('packages/cli/src/main.ts');
 
 // Commands the dispatcher handles, plus the Phase 5 commands that the parent
@@ -80,7 +80,7 @@ describe('handoff guide', () => {
 
 describe('canonical wrapper (§12.7)', () => {
   it('only loads the pinned skill through the user shim', () => {
-    expect(WRAPPER).toMatch(/^---\nname: visual-explain\n/);
+    expect(WRAPPER).toMatch(/^---\nname: visser-visual-explain\n/);
     expect(WRAPPER).toContain('"${VISSER_HOME:-$HOME/.visser}/bin/visser.cjs" skill show');
     expect(WRAPPER).not.toMatch(/\.visser\/bin|\.visser\/toolchains/);
     expect(words(WRAPPER)).toBeLessThan(250);

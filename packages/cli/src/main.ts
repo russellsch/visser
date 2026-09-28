@@ -33,7 +33,7 @@ const COMMANDS: Array<[string, string]> = [
   ['check', 'visser check DOC [--review] [--verify-origins [--repo-map LABEL=PATH]] [--release] [--json]'],
   ['build', 'visser build DOC [--out DIR] [--allow-layout-fallback] [--allow-extension-fallback] [--toolkit-dir DIR | --dev-toolkit DIR]'],
   ['serve', 'visser serve DOC [--port N] [--host H] [--public-origin URL] [--base-path P] [--cache-private]'],
-  ['export', 'visser export DOC|--collection FILE --format site|markdown --out DIR [--audience private|public] [--allow-private-content] [--include-source] [--json]'],
+  ['export', 'visser export DOC [--format html] --out FILE | DOC|--collection FILE --format site --out DIR | DOC --format markdown [--out FILE]'],
   ['refs', 'visser refs show DOC TARGET_ID | resolve --packet FILE | refresh --packet FILE | replace --packet FILE --replacement FILE --expected-revision REV | retire ...'],
   ['capture', 'visser capture git --repo DIR --file PATH --lines START:END --doc DOC --id ID --title TITLE | capture file --from PATH --kind KIND --doc DOC --id ID --title TITLE'],
   ['fork', 'visser fork DOC DEST [--root DIR] [--json]'],
@@ -146,4 +146,3 @@ export async function main(argv: string[]): Promise<number> {
     return EXIT.internal;
   }
 }
-

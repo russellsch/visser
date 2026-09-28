@@ -56,6 +56,91 @@ Other sources:
 - `install --archive FILE [--sha256 DIGEST]` installs a packed release (`npm run release:pack`).
 - `install --from-release OWNER/REPO --version VERSION --sha256 DIGEST` downloads a GitHub release and checks its digest before it extracts the archive.
 
+## Upgrade guide
+
+Visser separates two operations:
+
+1. **Install a toolkit.** This makes verified release bytes available on the
+   current machine. `--default` also selects it for new documents and commands
+   that do not name a document.
+2. **Upgrade a document.** This changes that document's `visser.lock.json` to
+   an exact installed toolkit digest. Existing documents never follow the user
+   default automatically.
+
+This separation keeps a new global install from changing existing documents.
+It also lets a repository review and commit each lock change.
+
+### Upgrade from a source checkout
+
+Build and install the new release:
+
+```sh
+npm ci
+npm run build
+node dist/release/bin/visser.cjs install \
+  --from-dir dist/release --scope user --default
+```
+
+Copy the `toolkit digest` from the install output. Then preview the document
+upgrade:
+
+```sh
+visser upgrade docs/explanations/queue/index.md \
+  --to TOOLKIT_DIGEST --dry-run
+```
+
+The dry run uses the target toolkit to check the document. It prints the lock
+diff but writes nothing. Apply the upgrade after you review that result:
+
+```sh
+visser upgrade docs/explanations/queue/index.md --to TOOLKIT_DIGEST
+visser check docs/explanations/queue/index.md --release
+```
+
+The upgrade writes the lock with conflict checks and rebuilds the document.
+Old build snapshots remain available. If the rebuild fails after the lock
+write, fix the document with the new toolkit or deliberately downgrade it.
+
+### Upgrade from a published release
+
+Use the archive SHA-256 value published with the release:
+
+```sh
+visser install --from-release OWNER/REPO \
+  --version VERSION --sha256 ARCHIVE_SHA256 \
+  --scope user --default
+```
+
+The archive digest verifies the download. The installer prints a separate
+`toolkit digest`; pass that toolkit digest to `visser upgrade --to`.
+
+For an offline upgrade, download the release archive and run:
+
+```sh
+visser install --archive FILE --sha256 ARCHIVE_SHA256 \
+  --scope user --default
+```
+
+### Upgrade several documents
+
+First list the document locks in the repository:
+
+```sh
+find docs/explanations -name visser.lock.json -print
+```
+
+Run `visser upgrade DOC --to TOOLKIT_DIGEST --dry-run` for each document.
+Apply the upgrades only after every dry run succeeds. Visser currently upgrades
+one document at a time; it has no atomic repository-wide upgrade command.
+Commit each changed `visser.lock.json` with any required document changes.
+
+Every machine that builds the repository must install the locked toolkit.
+User installations are local to one machine and are not stored in the
+repository. Toolkit upgrades also do not change pinned extensions.
+
+To move to an older toolkit, add `--allow-downgrade`. Use that flag only after
+you confirm that the older toolkit accepts the document.
+
 ## Quick start
 
 In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps inside a Git repository. The default document root is `docs/explanations`.
@@ -66,7 +151,7 @@ In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps in
    visser init docs/explanations/queue --kind teaching --title "Bounded queue"
    ```
 
-2. Write the explanation in `docs/explanations/queue/index.md`. Read `skills/visual-explain/references/format.md` for the rules.
+2. Write the explanation in `docs/explanations/queue/index.md`. Read `skills/visser-visual-explain/references/format.md` for the rules.
 
 3. Add ID markers to new blocks:
 
@@ -112,13 +197,18 @@ In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps in
    | `--watch` | Rebuild when `index.md`, `visser.lock.json`, or any declared bundle file changes, and keep serving the latest build at `<base-path>latest/`. A failed rebuild prints its error and keeps the previous build serving. |
    | `--toolkit-dir DIR` / `--dev-toolkit DIR` | Use this toolkit release instead of the locked one. |
 
-8. Export a static site:
+8. Export one standalone HTML file:
 
    ```sh
-   visser export docs/explanations/queue/index.md --format site --out site
+   visser export docs/explanations/queue/index.md --out queue.html
    ```
 
-   The export writes only to a new or empty folder. It publishes nothing. Use `--audience public` for a public site. A public export stops if it contains private material.
+   The file embeds its CSS, JavaScript, diagrams, and captured images, so it
+   opens directly from disk and can move by itself. Export a static site with
+   shared assets instead by adding `--format site --out site`. Exports never
+   overwrite an existing file or a non-empty folder and publish nothing. Use
+   `--audience public` for public material; a public export stops if it contains
+   private material.
 
 ## References for agents
 
@@ -130,7 +220,7 @@ A reference packet is a small YAML record. It identifies one target by document 
 
 ## Agent skill
 
-The skill for agents is in `skills/visual-explain/SKILL.md`. The installed toolkit holds a copy.
+The skill for agents is in `skills/visser-visual-explain/SKILL.md`. The installed toolkit holds a copy.
 
 - `visser skill show` prints the pinned skill and the paths to its guides.
 - `visser catalogue list` lists the explanation patterns.

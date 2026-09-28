@@ -287,7 +287,7 @@ describe('@R16 term prompts (IMPROVEMENTS.md §13.6, §11.3)', () => {
 });
 
 describe('@R16 prose guide snippets (references/prose.md)', () => {
-  const guide = readFileSync(join(root, 'skills/visual-explain/references/prose.md'), 'utf8');
+  const guide = readFileSync(join(root, 'skills/visser-visual-explain/references/prose.md'), 'utf8');
   const snippets: Array<{ line: number; info: string[]; body: string }> = [];
   const lines = guide.split('\n');
   for (let i = 0; i < lines.length; i++) {

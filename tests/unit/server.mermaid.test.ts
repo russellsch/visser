@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { serveArtifacts, type Route, type ServerHandle } from '../../packages/cli/src/server.ts';
 import { copyAssets } from '../../packages/cli/src/commands/build.ts';
 import { contentSecurityPolicy } from '../../packages/core/src/compiler/compile.ts';
+import { canonicalJSON } from '../../packages/core/src/model/hash.ts';
+import type { VerifiedRelease } from '../../packages/core/src/distribution/index.ts';
 
 const MERMAID_CSP = contentSecurityPolicy({ mermaid: true, delivery: 'header' });
 const STRICT_CSP = contentSecurityPolicy({ mermaid: false, delivery: 'header' });
@@ -45,15 +47,16 @@ describe('per-route Content Security Policy (§9.12)', () => {
   });
 });
 
-function fakeRelease(files: Record<string, string>): string {
+function fakeRelease(files: Record<string, string>): VerifiedRelease {
   const dir = mkdtempSync(join(tmpdir(), 'visser-release-'));
   mkdirSync(join(dir, 'browser'), { recursive: true });
   const entries = Object.entries(files).map(([name, text]) => {
     writeFileSync(join(dir, 'browser', name), text);
     return { path: `browser/${name}`, sha256: createHash('sha256').update(text).digest('hex') };
   });
-  writeFileSync(join(dir, 'release.json'), JSON.stringify({ schema: 'visser-release/1', version: '0.0.0', files: entries }));
-  return dir;
+  const manifest = { schema: 'visser-release/1', version: '0.0.0', files: entries };
+  writeFileSync(join(dir, 'release.json'), JSON.stringify(manifest));
+  return { dir, version: manifest.version, sha256: createHash('sha256').update(canonicalJSON(manifest)).digest('hex') };
 }
 
 describe('per-file asset copying (§13.1)', () => {
@@ -68,8 +71,17 @@ describe('per-file asset copying (§13.1)', () => {
 
   it('refuses an asset that does not match release.json', () => {
     const release = fakeRelease({ 'reader.js': 'js', 'reader.css': 'css', 'mermaid.js': 'mermaid' });
-    writeFileSync(join(release, 'browser', 'mermaid.js'), 'tampered');
+    writeFileSync(join(release.dir, 'browser', 'mermaid.js'), 'tampered');
     const assets = join(mkdtempSync(join(tmpdir(), 'visser-out-')), 'assets');
     expect(() => copyAssets(release, assets, ['mermaid.js'])).toThrow(/does not match release.json/);
+  });
+
+  it('refuses a replacement manifest even when its replacement asset matches', () => {
+    const release = fakeRelease({ 'reader.js': 'js', 'reader.css': 'css' });
+    const replacement = { schema: 'visser-release/1', version: '0.0.0', files: [{ path: 'browser/reader.js', sha256: createHash('sha256').update('replacement').digest('hex') }] };
+    writeFileSync(join(release.dir, 'release.json'), JSON.stringify(replacement));
+    writeFileSync(join(release.dir, 'browser', 'reader.js'), 'replacement');
+    const assets = join(mkdtempSync(join(tmpdir(), 'visser-out-')), 'assets');
+    expect(() => copyAssets(release, assets, ['reader.js'])).toThrow(/no longer describes resolved toolkit/);
   });
 });

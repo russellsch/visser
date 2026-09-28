@@ -177,7 +177,8 @@
 //   and makes the viewport focusable (tabindex=0, role=region).
 //   The page <head> carries <meta name="vs-mermaid" content=SRI_DIGEST> when
 //   the page needs the Mermaid asset; the runtime loads ASSETS/mermaid.js with
-//   that integrity value only then.
+//   that integrity value only then. A standalone export also carries
+//   <meta name="vs-mermaid-source" content=DATA_URL>.
 
 export const DOM = {
   root: 'vs-doc',
@@ -242,6 +243,7 @@ export const DOM = {
   canonicalId: (id: string) => `x-${id}`,
   mermaidRenderId: (figure: string) => `m-${figure}`,
   mermaidMeta: 'vs-mermaid',
+  mermaidSourceMeta: 'vs-mermaid-source',
   svgInstanceId: (figure: string, id: string) => `v-${figure}.${id}`,
   listInstanceId: (figure: string, id: string) => `l-${figure}.${id}`,
   // Breakpoint between the desktop <aside> inspector and the narrow <dialog>.

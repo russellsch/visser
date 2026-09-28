@@ -16,7 +16,7 @@ export const RELEASE_FILES: Record<string, string> = {
   'workers/layout.cjs': '// layout worker\n',
   'browser/reader.js': '// reader\n',
   'schemas/visser-ref-1.schema.json': '{}\n',
-  'skills/visual-explain/SKILL.md': '# skill\n',
+  'skills/visser-visual-explain/SKILL.md': '# skill\n',
   'LICENSES.txt': 'notices\n',
 };
 

@@ -55,13 +55,13 @@ const samples: Record<Exclude<SchemaName, 'frontmatter' | 'packet' | 'lock' | 'w
     trust: [{ sha256: SHA, source: 'install --from-dir dist/release', addedAt: '2026-09-27T00:00:00Z' }],
     document: { path: '/r/docs/a', lockSha256: SHA, resolution: { state: 'error', code: 'E_TOOLKIT_UNTRUSTED', message: 'untrusted' } },
     workspace: { root: '/r', resolution: { state: 'resolved', sha256: SHA, version: '0.0.0', source: 'user', dir: `/home/u/.visser/toolchains/${SHA}` } },
-    wrappers: [{ host: 'claude-code', scope: 'repository', path: '/r/.claude/skills/visual-explain/SKILL.md', sha256: SHA, state: 'no-canonical' }],
+    wrappers: [{ host: 'claude-code', scope: 'repository', path: '/r/.claude/skills/visser-visual-explain/SKILL.md', sha256: SHA, state: 'no-canonical' }],
     conflicts: [], port: { host: '127.0.0.1', port: 4310, available: true }, diagnostics: [],
   },
   skill: {
     schema: 'visser-skill/1', toolkit: { sha256: SHA, version: '0.0.0', dir: '/home/u/.visser/toolchains/x', source: 'user' },
-    document: '/r/docs/a/index.md', skill: { path: '/home/u/.visser/toolchains/x/skills/visual-explain/SKILL.md', text: '# Visser\n' },
-    guides: ['/home/u/.visser/toolchains/x/skills/visual-explain/references/format.md'],
+    document: '/r/docs/a/index.md', skill: { path: '/home/u/.visser/toolchains/x/skills/visser-visual-explain/SKILL.md', text: '# Visser\n' },
+    guides: ['/home/u/.visser/toolchains/x/skills/visser-visual-explain/references/format.md'],
   },
   install: {
     schema: 'visser-install/1', scope: 'user', version: '0.0.0', toolkitSha256: SHA, archiveSha256: SHA,
@@ -120,6 +120,24 @@ describe('schemas for --json outputs and metadata files (§5.4)', () => {
     const doc = (exp['documents'] as Array<Record<string, unknown>>)[0]!;
     expect(validateAgainst('export', { ...exp, documents: [{ ...doc, path: `/d/${DOC}/index.html` }] }).ok).toBe(false);
     expect(validateAgainst('export', { ...exp, assetPacks: [{ toolkitSha256: SHA, path: 'x', files: ['evil.js'] }] }).ok).toBe(false);
+  });
+
+  it('export: standalone HTML has one document, no collection, no source bundle, and no asset pack', () => {
+    const site = samples.export as Record<string, unknown>;
+    const [document] = site['documents'] as Array<Record<string, unknown>>;
+    const html = {
+      ...site,
+      format: 'html',
+      out: '/tmp/notes.html',
+      documents: [{ ...document, path: 'notes.html' }],
+      mermaidPages: [],
+      assetPacks: [],
+    } as Record<string, unknown>;
+    delete html['collection'];
+    expect(validateAgainst('export', html)).toEqual({ ok: true });
+    expect(validateAgainst('export', { ...html, includeSource: true }).ok).toBe(false);
+    expect(validateAgainst('export', { ...html, collection: { title: 'X', path: 'index.html' } }).ok).toBe(false);
+    expect(validateAgainst('export', { ...html, assetPacks: site['assetPacks'] }).ok).toBe(false);
   });
 
   it('trustStore: a key that is not a digest is rejected', () => {

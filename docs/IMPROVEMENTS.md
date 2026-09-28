@@ -10,7 +10,7 @@ change. Section 9 gives the order of work. Section 10 lists open questions.
 
 ## Inputs
 
-- `skills/visual-explain/SKILL.md` and the 10 catalogue guides.
+- `skills/visser-visual-explain/SKILL.md` and the 10 catalogue guides.
 - `packages/runtime/src/reader.css`, `reader.ts`, `mermaid.ts`, and
   `packages/core/src/compiler/svg.ts`.
 - `docs/ARCHITECTURE.md` §9, §10, §14.

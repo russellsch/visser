@@ -1,5 +1,5 @@
 // The component catalogue (§9.1, §17.1 `catalogue list|show`). Each pattern
-// has a guide in the toolkit at skills/visual-explain/references/catalogue/NAME.md.
+// has a guide in the toolkit at skills/visser-visual-explain/references/catalogue/NAME.md.
 // The guide holds the prose and one `markdown visser-template` fence; the
 // attribute rules come from the validator's TAG_SPECS, so they cannot drift.
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
@@ -53,7 +53,7 @@ export type TagSchema = {
 };
 
 export function catalogueDir(toolkitDir: string): string {
-  return join(toolkitDir, 'skills', 'visual-explain', 'references', 'catalogue');
+  return join(toolkitDir, 'skills', 'visser-visual-explain', 'references', 'catalogue');
 }
 
 export function findPattern(name: string): CataloguePattern | undefined {

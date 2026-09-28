@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://visser.invalid/schemas/visser-export-1.schema.json",
-  "title": "visser export --format site --json: the export report (§13.5)",
+  "title": "visser export --format html|site --json: the export report (§13.5)",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "format", "audience", "out", "includeSource", "documents", "sources", "mermaidPages", "assetPacks", "warnings"],
@@ -12,7 +12,7 @@
   },
   "properties": {
     "schema": { "const": "visser-export/1" },
-    "format": { "const": "site" },
+    "format": { "enum": ["html", "site"] },
     "audience": { "enum": ["private", "public"] },
     "out": { "type": "string", "minLength": 1 },
     "includeSource": { "type": "boolean" },
@@ -66,7 +66,6 @@
     "mermaidPages": { "type": "array", "items": { "$ref": "#/$defs/sitePath" } },
     "assetPacks": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -90,5 +89,19 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "format": { "const": "html" } }, "required": ["format"] },
+      "then": {
+        "properties": {
+          "includeSource": { "const": false },
+          "documents": { "type": "array", "maxItems": 1 },
+          "assetPacks": { "type": "array", "maxItems": 0 }
+        },
+        "not": { "properties": { "collection": true }, "required": ["collection"] }
+      },
+      "else": { "properties": { "assetPacks": { "type": "array", "minItems": 1 } } }
+    }
+  ]
 }

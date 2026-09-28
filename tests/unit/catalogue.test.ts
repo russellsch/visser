@@ -10,7 +10,7 @@ import { guideHeader, guideTemplate, PATTERNS } from '../../packages/core/src/ca
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { TAG_SPECS } from '../../packages/core/src/model/validate.ts';
 
-const DIR = new URL('../../skills/visual-explain/references/catalogue/', import.meta.url).pathname;
+const DIR = new URL('../../skills/visser-visual-explain/references/catalogue/', import.meta.url).pathname;
 const WRAPPER = [
   '---',
   'format: visser/1',

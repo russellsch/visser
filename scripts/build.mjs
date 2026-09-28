@@ -114,7 +114,7 @@ await bundle({
 });
 
 cpSync(join(root, 'schemas'), join(out, 'schemas'), { recursive: true });
-// skills/visual-explain/SKILL.md and skills/visual-explain/references/** (the format guide, §12.1).
+// skills/visser-visual-explain/SKILL.md and skills/visser-visual-explain/references/** (the format guide, §12.1).
 cpSync(join(root, 'skills'), join(out, 'skills'), { recursive: true });
 
 // LICENSES.txt (§12.1): generated from the license metadata of every bundled

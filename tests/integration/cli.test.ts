@@ -83,7 +83,7 @@ describe('Phase 0 CLI against the built release', () => {
     const dir = mkdtempSync(join(tmpdir(), 'visser-'));
     const copy = join(dir, 'release');
     cpSync(release, copy, { recursive: true });
-    appendFileSync(join(copy, 'skills/visual-explain/SKILL.md'), 'tampered\n');
+    appendFileSync(join(copy, 'skills/visser-visual-explain/SKILL.md'), 'tampered\n');
     const result = run('init', join(dir, 'doc'), '--kind', 'plan', '--title', 'T', '--toolkit-dir', copy);
     expect(result.status).toBe(4);
     expect(result.stderr).toContain('E_INTEGRITY');

@@ -40,9 +40,9 @@ async function catalogue(...argv: string[]): Promise<{ code: number; json: Recor
 
 describe('catalogue list|show (§17.1) @R16', () => {
   it('the release ships every guide, the handoff guide, and the canonical wrapper', () => {
-    for (const p of PATTERNS) expect(existsSync(join(release, 'skills/visual-explain/references/catalogue', `${p.name}.md`)), p.name).toBe(true);
-    expect(existsSync(join(release, 'skills/visual-explain/references/handoff.md'))).toBe(true);
-    expect(existsSync(join(release, 'skills/visual-explain/wrapper/SKILL.md'))).toBe(true);
+    for (const p of PATTERNS) expect(existsSync(join(release, 'skills/visser-visual-explain/references/catalogue', `${p.name}.md`)), p.name).toBe(true);
+    expect(existsSync(join(release, 'skills/visser-visual-explain/references/handoff.md'))).toBe(true);
+    expect(existsSync(join(release, 'skills/visser-visual-explain/wrapper/SKILL.md'))).toBe(true);
   });
 
   it('list prints every pattern with its question, from the resolved toolkit', async () => {

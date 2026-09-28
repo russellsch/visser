@@ -130,15 +130,17 @@ pre { overflow-x: auto; padding: 0.75rem; background: var(--vs-panel); border-ra
 /* ------------------------------------------------------------ layout */
 
 #vs-doc {
-  max-width: 74ch;
+  /* Keep ordinary windows at the established readable measure, then let the
+     page grow by about 25% when a larger window has room to spare. */
+  --vs-doc-width: clamp(74ch, 64vw, 92ch);
+  max-width: var(--vs-doc-width);
   margin: 0 auto;
   padding: 1rem 1rem 4rem;
 }
 
-/* F4c: the aside overlays the right edge instead of shifting the text column.
-   Above (column width ~78ch + aside 26rem + 3rem breathing room) the column
-   already clears the aside where it sits, so nothing needs to move; below
-   that width the aside still overlays (it never pushes #vs-doc). */
+/* F4c: the aside overlays the right edge instead of changing document flow.
+   When it opens, the wide-screen rule below moves and, if needed, narrows the
+   responsive document enough to preserve a 2rem gap. */
 
 .vs-snapshot { color: var(--vs-muted); font-size: 0.875rem; border-bottom: 1px solid var(--vs-rule); margin-bottom: 1rem; }
 .vs-snapshot-brief { margin: 0 0 0.5rem; }
@@ -493,7 +495,8 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
      the column and scrolls, instead of breaking out under the aside or past
      the left edge (dogfood-3 F4, follow-up). */
   body.vs-has-inspector #vs-doc {
-    margin-left: max(1rem, min(calc((100% - 74ch) / 2), calc(100% - 74ch - 29rem)));
+    max-width: min(var(--vs-doc-width), calc(100% - 30rem));
+    margin-left: max(1rem, min(calc((100% - var(--vs-doc-width)) / 2), calc(100% - var(--vs-doc-width) - 29rem)));
   }
   body.vs-has-inspector .vs-figure .vs-viewport {
     width: auto; max-width: 100%;

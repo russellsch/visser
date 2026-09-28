@@ -1,11 +1,13 @@
 // `visser export --format site` (§13.1, §13.5, §17.7 4b) through the built
 // CLI. Every test uses its own VISSER_HOME and a temporary repository.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { validateAgainst } from '../../packages/core/src/model/schemas.ts';
+import { canonicalJSON } from '../../packages/core/src/model/hash.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const release = join(root, 'dist/release');
@@ -62,6 +64,78 @@ function exportJson(result: { status: number | null; stdout: string; stderr: str
 }
 
 describe('export --format site', () => {
+  it('a single document defaults to one standalone HTML file', () => {
+    const ctx = context();
+    const index = initDoc(ctx, 'one');
+    const out = join(ctx.repo, 'notes.html');
+    const report = exportJson(ctx.run('export', index, '--out', out, '--json'));
+    expect(report.format).toBe('html');
+    expect(report.documents).toHaveLength(1);
+    expect(report.documents[0].path).toBe('notes.html');
+    expect(report.assetPacks).toEqual([]);
+    expect(report.warnings.map((w: { code: string }) => w.code)).not.toContain('W_STATIC_HOST_SRI');
+
+    const html = readFileSync(out, 'utf8');
+    expect(html).toMatch(/<link rel="stylesheet" href="data:text\/css;charset=utf-8;base64,[A-Za-z0-9+/]+=*">/);
+    expect(html).toMatch(/<script src="data:text\/javascript;charset=utf-8;base64,[A-Za-z0-9+/]+=*" defer><\/script>/);
+    expect(html).toContain('script-src data:');
+    expect(html).toContain('style-src data:');
+    expect(html).toContain('img-src data:');
+    expect(html).not.toContain('_visser/assets');
+    expect(readdirSync(ctx.repo).filter((name) => name.endsWith('.html'))).toEqual(['notes.html']);
+    expect(readdirSync(ctx.repo).filter((name) => name.includes('.export-'))).toEqual([]);
+  });
+
+  it('standalone HTML embeds captured images and never overwrites a file', () => {
+    const ctx = context();
+    const out = join(ctx.repo, 'image.html');
+    const example = join(root, 'examples/deadline-retry/index.md');
+    const first = ctx.run('export', example, '--out', out, '--dev-toolkit', release);
+    expect(first.status, first.stderr).toBe(0);
+    const html = readFileSync(out, 'utf8');
+    expect(html).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/]+=*"/);
+    expect(html).not.toContain('assets/retry-timeline.png');
+
+    const second = ctx.run('export', example, '--out', out, '--dev-toolkit', release);
+    expect(second.status).toBe(2);
+    expect(second.stderr).toContain('never overwrites');
+  });
+
+  it('rewrites only generated URL attributes, not matching literal text', () => {
+    const ctx = context();
+    const source = join(root, 'examples/deadline-retry');
+    const doc = join(ctx.repo, 'docs', 'literals');
+    cpSync(source, doc, { recursive: true });
+    const manifest = JSON.parse(readFileSync(join(release, 'release.json'), 'utf8'));
+    const digest = createHash('sha256').update(canonicalJSON(manifest)).digest('hex');
+    const index = join(doc, 'index.md');
+    const imageLiteral = 'src="assets/retry-timeline.png"';
+    const toolkitLiteral = `../../../../_visser/assets/${digest}/reader.js`;
+    writeFileSync(index, `${readFileSync(index, 'utf8')}\n<!-- vs:id literal_urls -->\nLiteral examples: \`${imageLiteral}\` and \`${toolkitLiteral}\`.\n`);
+
+    const out = join(ctx.repo, 'literals.html');
+    const result = ctx.run('export', index, '--out', out, '--dev-toolkit', release);
+    expect(result.status, result.stderr).toBe(0);
+    const html = readFileSync(out, 'utf8');
+    expect(html).toContain('src=&quot;assets/retry-timeline.png&quot;');
+    expect(html).toContain(toolkitLiteral);
+    expect(html).toMatch(/<img src="data:image\/png;base64,/);
+  });
+
+  it('standalone HTML rejects collection and source-bundle options', () => {
+    const ctx = context();
+    const index = initDoc(ctx, 'one');
+    const included = ctx.run('export', index, '--out', join(ctx.repo, 'one.html'), '--include-source');
+    expect(included.status).toBe(2);
+    expect(included.stderr).toContain('--include-source requires --format site');
+
+    const collection = join(ctx.repo, 'collection.json');
+    writeFileSync(collection, JSON.stringify({ schema: 'visser-collection/1', title: 'One', documents: [{ path: 'docs/one/index.md' }] }));
+    const result = ctx.run('export', '--collection', collection, '--format', 'html', '--out', join(ctx.repo, 'collection.html'));
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('exports exactly one DOC');
+  });
+
   it('@R10 twenty documents share one asset pack, and every page URL is relative and resolves', () => {
     const ctx = context();
     const docs = Array.from({ length: 20 }, (_, i) => initDoc(ctx, `doc${String(i).padStart(2, '0')}`));

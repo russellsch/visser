@@ -308,8 +308,8 @@ visser/
       server.ts
       installation.ts
   schemas/                        # normative runtime schemas
-  skills/visual-explain/SKILL.md
-  skills/visual-explain/references/       # short authoring/review/reference guides
+  skills/visser-visual-explain/SKILL.md
+  skills/visser-visual-explain/references/       # short authoring/review/reference guides
   catalogue/                      # human/agent guide per component family
   templates/                      # optional topic starters, not mandatory headings
   examples/                       # compilable source bundles
@@ -761,7 +761,7 @@ Every top-level visual requires `id`, `title`, and `question`; its leading Markd
 
 Each component guide must include: question answered; when to use; when not to use; required source material; minimal example; misleading example; narrow-screen behavior; text fallback; accessibility behavior; inspection targets; an attribute table generated from the JSON Schema (required/optional, enums); allowed child tags; family-specific validation rules; the likely diagnostics with fixes; and one example of its text projection. Contract tests compile every guide example.
 
-**Required format guide:** `skills/visual-explain/references/format.md` covers §6.2–6.6 and the §8.6 source tag rules (frontmatter, marker grammar and placement, one-line tag openings, primitive tags, source attributes), with one valid and one invalid snippet per rule. The skill loads it before any source write or edit. Contract tests compile its valid snippets and confirm that each invalid snippet fails with the stated diagnostic.
+**Required format guide:** `skills/visser-visual-explain/references/format.md` covers §6.2–6.6 and the §8.6 source tag rules (frontmatter, marker grammar and placement, one-line tag openings, primitive tags, source attributes), with one valid and one invalid snippet per rule. The skill loads it before any source write or edit. Contract tests compile its valid snippets and confirm that each invalid snippet fails with the stated diagnostic.
 
 ### 9.2 Common component contract
 
@@ -1045,7 +1045,7 @@ The page shows an indented list: the path in mono, the label, and the role cue (
 
 ### 10.1 Default page
 
-Use a restrained article layout: title and snapshot metadata (if the first block is a level-1 heading, it is the page title and the frontmatter `title` is metadata only; otherwise the renderer emits the frontmatter title); readable main column around 68–78 characters wide; optional table of contents on wide screens; figures integrated where relevant; glossary/evidence/details in a reachable appendix. A desktop inspector may occupy a right-side column only when there is room. Use a system font stack and one restrained accent. Do not ship remote fonts or a design framework.
+Use a restrained article layout: title and snapshot metadata (if the first block is a level-1 heading, it is the page title and the frontmatter `title` is metadata only; otherwise the renderer emits the frontmatter title); a readable main column capped at `74ch` on ordinary windows and growing responsively to `92ch` on large windows; optional table of contents on wide screens; figures integrated where relevant; glossary/evidence/details in a reachable appendix. A desktop inspector may occupy a right-side column only when there is room; opening it must shrink and move the main column enough to prevent overlap. Use a system font stack and one restrained accent. Do not ship remote fonts or a design framework.
 
 The page initially exposes the main argument, figure interpretations, uncertainty that changes decisions, and enough local vocabulary to understand the path. Supplementary details are collapsed but present in the static HTML.
 
@@ -1311,7 +1311,7 @@ visser-release/
   browser/reader.js
   browser/reader.css
   schemas/
-  skills/visual-explain/
+  skills/visser-visual-explain/
   catalogue/
   templates/
   LICENSES.txt
@@ -1325,7 +1325,7 @@ For v1, distribute `tar.gz`. The installer uses a small ustar reader written for
 
 **Release verification** (at install and at every resolution): `release.json` validates against its schema with the §7.4 bundle-path grammar; every listed file is a regular file (`lstat`, no symlinks) inside the release; the on-disk file set equals the manifest set (an unlisted file is `E_INTEGRITY`: the review showed an extra `workers/evil.cjs` and a symlinked `bin/visser.cjs` passing the Phase 3 check with an unchanged digest); and every digest matches.
 
-**Release contents:** besides the CLI, workers, browser assets, and schemas, a release ships `skills/visual-explain/SKILL.md`, `skills/visual-explain/references/format.md` (the §9.1 format guide, whose snippets the contract tests compile), and `LICENSES.txt`, generated from the bundled dependencies' license metadata. Catalogue guides and templates arrive in Phase 5.
+**Release contents:** besides the CLI, workers, browser assets, and schemas, a release ships `skills/visser-visual-explain/SKILL.md`, `skills/visser-visual-explain/references/format.md` (the §9.1 format guide, whose snippets the contract tests compile), and `LICENSES.txt`, generated from the bundled dependencies' license metadata. Catalogue guides and templates arrive in Phase 5.
 
 ### 12.2 Scope layouts
 
@@ -1440,8 +1440,8 @@ Install small adapter `SKILL.md` files in these supported locations:
 
 | Host | Repository | User |
 |---|---|---|
-| Claude Code | `.claude/skills/visual-explain/SKILL.md` | `~/.claude/skills/visual-explain/SKILL.md` |
-| Codex | `.agents/skills/visual-explain/SKILL.md` | `~/.agents/skills/visual-explain/SKILL.md` |
+| Claude Code | `.claude/skills/visser-visual-explain/SKILL.md` | `~/.claude/skills/visser-visual-explain/SKILL.md` |
+| Codex | `.agents/skills/visser-visual-explain/SKILL.md` | `~/.agents/skills/visser-visual-explain/SKILL.md` |
 
 These locations are documented by the respective products at the research date.[S13][S14] Host discovery and duplicate-name rules can differ; do not assume that a repository wrapper always overrides a user wrapper.
 
@@ -1468,6 +1468,8 @@ Do not build a distributed content registry, package solver, or runtime remote-i
 ### 13.1 Output layout
 
 ```text
+document.html                            # default single-document export; all required assets embedded
+
 site/
   index.html                             # optional collection index
   _visser/assets/TOOLKIT_DIGEST/
@@ -1484,7 +1486,14 @@ site/
 
 The source bundle and byte-level reference map are not exported by default. The Markdown projection includes everything visible or inspectable, including intentionally captured excerpts, but not unrelated source comments, local paths, tokens, or unreferenced private material. `--include-source` adds an explicitly labelled source bundle after preview. This distinction prevents “LLM-readable export” from becoming “publish every local input.”
 
-One site copies each required toolkit/extension asset pack once. Local serving may read identical verified pack files from user/repo storage through a manifest mapping without copying them into every build. Portable export copies them once because a different machine cannot rely on the author's cache.
+The default single-document export is one standalone HTML file. It embeds the
+verified toolkit CSS and JavaScript, an optional Mermaid runtime, and captured
+images as data URLs. It has no dependency on the author's installation and can
+open directly over `file://`. `--format site` retains the folder layout above:
+one site copies each required toolkit/extension asset pack once. Local serving
+may read identical verified pack files from user/repo storage through a manifest
+mapping without copying them into every build. Portable site export copies them
+once because a different machine cannot rely on the author's cache.
 
 ### 13.2 Static-first behavior
 
@@ -1530,20 +1539,24 @@ GitHub Pages publishes static HTML, CSS, and JavaScript from a repository.[S16] 
 
 Emit relative URLs for internal assets and document links. Test under a project prefix such as `/visser-demo/`, not just localhost `/`. Do not hardcode leading-slash asset URLs, depend on SPA rewrite rules, or fetch scripts from raw GitHub URLs.
 
-Publishing is not part of `build` or `serve`. `export --audience public` creates a previewable staging folder and a visibility report. The user decides whether to commit/upload/deploy it. The first release supplies an example GitHub Actions publication workflow, disabled by default, with minimal permissions and pinned action revisions chosen at implementation time.
+Publishing is not part of `build` or `serve`. `export --format site --audience public` creates a previewable staging folder and a visibility report; the default single-document export instead creates one standalone HTML file. The user decides whether to commit/upload/deploy either result. The first release supplies an example GitHub Actions publication workflow, disabled by default, with minimal permissions and pinned action revisions chosen at implementation time.
 
 Private origin repositories do not make exported excerpts private. An ordinary public static site cannot enforce the source repository's access controls. Show that warning in the export report, especially for `visibility: private` documents. `export --audience public` also lists every non-`example`/`supplied` source with its repository, whatever the document's `visibility`, and requires `--allow-private-content` unless each repository is in an explicit public-repository allowlist in user config; public exports omit `sourceHint`. A public export of a private document requires `--allow-private-content` and lists affected sources; the flag does not guarantee that publication is lawful or appropriate.
 
 **Export contract (revision 1.17):**
 
+- `export DOC --out FILE` defaults to `--format html` and writes one standalone
+  file with verified runtime assets and captured images embedded as data URLs.
+  It never depends on a path in the user account. A collection and
+  `--include-source` require `--format site`.
 - `export --format site` writes the §13.1 layout, one asset pack per toolkit digest (including `mermaid.js` only when a page needs it, with the per-page integrity check), and a collection index page with its own CSP meta and relative links. Collection input is `visser-collection/1`.
 - The export report is JSON (`visser-export/1`): the documents, their visibility, every non-`example` source with its repository, the Mermaid pages, and the warnings below.
 - Mermaid `%%` comment lines are removed from the source text that pages and `document.md` show (they do not affect rendering); the Phase 4 review found an internal hostname in a Mermaid comment in both `index.html` and `document.md`.
-- Public exports refuse development builds, and `build.json` records only the Node major version in them.
+- Public exports refuse development builds. In site exports, `build.json` records only the Node major version; standalone exports carry no `build.json`.
 - `--include-source` copies only declared bundle files, with the same rules as `fork`.
 - The public-repository allowlist is `publicRepositories` in user config, never repository config.
-- The report states the static-host limits: `frame-ancestors` cannot be set by a meta element, and a host that rewrites JavaScript breaks SRI (Mermaid pages then show their failure notice).
-- As implemented (revision 1.18): a `file` or `web` source has no repository, so it can never be on the allowlist and always needs `--allow-private-content` in a public export. Report warnings are `W_PRIVATE_ORIGIN` (a listed source is not on the allowlist), `W_STATIC_HOST_FRAMING`, and `W_STATIC_HOST_SRI` (always present). `--include-source` copies `index.md` unchanged, so whole-line Mermaid comments remain in the labelled source bundle. `--out` must be new or empty; the site is staged and moved into place with one rename.
+- Site-export reports state the static-host limits: `frame-ancestors` cannot be set by a meta element, and a host that rewrites JavaScript breaks SRI (Mermaid pages then show their failure notice). Those warnings do not apply to a standalone file.
+- As implemented (revision 1.18): a `file` or `web` source has no repository, so it can never be on the allowlist and always needs `--allow-private-content` in a public export. Report warnings are `W_PRIVATE_ORIGIN` (a listed source is not on the allowlist) and, for site exports, `W_STATIC_HOST_FRAMING` and `W_STATIC_HOST_SRI`. `--include-source` copies `index.md` unchanged, so whole-line Mermaid comments remain in the labelled source bundle. A standalone output file must be new and is published atomically; a site output must be new or empty and is staged and moved into place with one rename.
 
 ### 13.6 Why not remote CDN JavaScript by default?
 
@@ -1737,7 +1750,7 @@ No particular model API is required. The skill is ordinary instruction text plus
 
 ### 16.2 Authoring workflow
 
-Revision 1.25 replaced the workflow below (IMPROVEMENTS.md §6.2, §7, §11, §12, §13.6, §13.7). `skills/visual-explain/SKILL.md` gives the full text. `references/operations.md` gives the shim, the lock, a missing or untrusted toolkit, and `--dev-toolkit` inside the Visser repository.
+Revision 1.25 replaced the workflow below (IMPROVEMENTS.md §6.2, §7, §11, §12, §13.6, §13.7). `skills/visser-visual-explain/SKILL.md` gives the full text. `references/operations.md` gives the shim, the lock, a missing or untrusted toolkit, and `--dev-toolkit` inside the Visser repository.
 
 1. **Establish the task and the reader.** Identify what the reader must explain, predict, compare, or decide. Ask only if an open choice changes the document. Write `reader.profile`, `knows`, `new`, and 2 to 5 testable `mustUnderstand` items in the frontmatter.
 2. **Read established material.** Keep implementation evidence, observations, inferences, hypotheses, and examples apart. If two sources disagree and it matters, keep both. Do not start a separate root-cause investigation.
@@ -2384,11 +2397,11 @@ class BoundedQueue:
 
 ## Appendix B: initial skill instructions
 
-This is the initial skill text. The implementation materialized it as `skills/visual-explain/SKILL.md`. Since revision 1.25, that file is the canonical text, and §16.2 summarizes its workflow. If this draft and `SKILL.md` differ, `SKILL.md` wins. For example, `references/operations.md` now replaces "Load the correct toolkit". Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
+This is the initial skill text. The implementation materialized it as `skills/visser-visual-explain/SKILL.md`. Since revision 1.25, that file is the canonical text, and §16.2 summarizes its workflow. If this draft and `SKILL.md` differ, `SKILL.md` wins. For example, `references/operations.md` now replaces "Load the correct toolkit". Host-specific wrappers remain small and dispatch to the document-pinned version. It is not installed by creating this design bundle.
 
 ````markdown
 ---
-name: visual-explain
+name: visser-visual-explain
 description: Create or revise source-grounded visual explanations, architecture documents, plans, root-cause explanations, and teaching documents with the Visser toolkit. Use when a user requests this document workflow or provides a Visser reference packet. Do not turn every ordinary technical answer into a generated website.
 ---
 
@@ -2585,7 +2598,7 @@ companion files. This repository does not contain them. Materialize them as foll
 - Copy the fenced body of Appendix A to `examples/bounded-queue/index.md`: complete
   illustrative authoring fixture; its source code is explicitly an example, not
   attributed to a real repository. Confirm its captured-code digest matches.
-- Copy the fenced body of Appendix B to `skills/visual-explain/SKILL.md` (the §5.3 path):
+- Copy the fenced body of Appendix B to `skills/visser-visual-explain/SKILL.md` (the §5.3 path):
   canonical initial instruction text; host wrappers should load the version
   selected by the document/workspace lock.
 - `verification/` (Python reference model, `test-vectors.json`, and

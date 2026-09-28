@@ -1,5 +1,5 @@
 ---
-name: visual-explain
+name: visser-visual-explain
 description: Create or revise source-grounded visual explanations, architecture documents, plans, root-cause explanations, and teaching documents with the Visser toolkit. Use when a user requests this document workflow or provides a Visser reference packet. Do not turn every ordinary technical answer into a generated website.
 ---
 

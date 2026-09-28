@@ -2,7 +2,7 @@
 
 28 September 2026. Continued the interrupted Claude implementation in the same
 working tree. No commit or publication was made. The repository's
-`skills/visual-explain/SKILL.md` governed the authoring pass.
+`skills/visser-visual-explain/SKILL.md` governed the authoring pass.
 
 ## Real tasks and outcomes
 

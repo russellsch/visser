@@ -1,4 +1,4 @@
-// The format guide (§9.1, skills/visual-explain/references/format.md) is a contract:
+// The format guide (§9.1, skills/visser-visual-explain/references/format.md) is a contract:
 // every `visser-valid` snippet must check with no errors, and every
 // `visser-invalid E_CODE` snippet must fail with that code. A snippet without
 // frontmatter is wrapped in a minimal valid document.
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 
-const GUIDE = new URL('../../skills/visual-explain/references/format.md', import.meta.url).pathname;
+const GUIDE = new URL('../../skills/visser-visual-explain/references/format.md', import.meta.url).pathname;
 const WRAPPER = [
   '---',
   'format: visser/1',

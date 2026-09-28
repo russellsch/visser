@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
-import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, openSnapshot, showList, showMap, test } from './support.ts';
+import { byId, copiedTexts, denyClipboard, installClipboardSpy, isNarrow, isPrimaryDesktop, openSnapshot, showList, showMap, test } from './support.ts';
 
 const APPENDIX = 'vs-appendix';
 
@@ -140,6 +140,26 @@ test.describe('appendix and inspector (dogfood-3 F3, F4)', () => {
     await expect(detail.locator('details.vs-provenance')).not.toHaveAttribute('open', '');
   });
 
+  test('the document uses more horizontal space only when the window is large', async ({ page, offOrigin: _ }, info) => {
+    test.skip(!isPrimaryDesktop(info.project.name), 'one desktop serve and export project cover the responsive width');
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openSnapshot(page);
+    const widths = await page.locator('#vs-doc').evaluate((doc) => {
+      const legacy = document.createElement('div');
+      legacy.style.cssText = 'position:fixed;width:74ch;visibility:hidden';
+      document.body.append(legacy);
+      const measured = { document: doc.getBoundingClientRect().width, legacy: legacy.getBoundingClientRect().width };
+      legacy.remove();
+      return measured;
+    });
+    expect(widths.document).toBeGreaterThan(widths.legacy + 100);
+
+    await page.setViewportSize({ width: 1000, height: 900 });
+    const medium = await page.locator('#vs-doc').evaluate((doc) => doc.getBoundingClientRect().width);
+    expect(Math.abs(medium - widths.legacy)).toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1000);
+  });
+
   test('on a wide screen the open inspector does not cover the text column', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'narrow screens use a full-screen dialog');
     await openSnapshot(page);
@@ -150,7 +170,7 @@ test.describe('appendix and inspector (dogfood-3 F3, F4)', () => {
     const asideLeft = await aside.evaluate((a) => a.getBoundingClientRect().left);
     const docLeft = await page.locator('#vs-doc').evaluate((d) => d.getBoundingClientRect().left);
     expect(docLeft).toBeGreaterThanOrEqual(0);
-    // The text column may be narrower than 74ch when the window is small; then
+    // The text column may be narrower than its responsive cap when the window is small; then
     // it only has to start inside the window.
     if (docLeft > 16) expect(docRight).toBeLessThanOrEqual(asideLeft);
   });

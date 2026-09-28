@@ -16,7 +16,7 @@
 //   §2.3 exception. bin/, workers/, schemas/, skills/, and LICENSES.txt are
 //   CLI and authoring files; `build`, `serve`, and `export` never serve them.
 //   The pack that a build writes holds only those browser files.
-// - Core skill size: skills/visual-explain/SKILL.md in the release under 2,500 words.
+// - Core skill size: skills/visser-visual-explain/SKILL.md in the release under 2,500 words.
 // - Graph limits: a 201-node graph and a 401-edge graph fail both `check` and
 //   `build` with E_LAYOUT_LIMIT (exit 2). The 26-node warning is covered by
 //   tests/unit/validate.fixtures.test.ts; the other §2.3 build safety limits
@@ -172,7 +172,7 @@ gate('release browser assets: reader.js + reader.css (+ mermaid.js exception)', 
 gate('built pack: browser assets only', packFiles.every((f) => ['reader.js', 'reader.css', 'mermaid.js'].includes(f)), packFiles.join(', '), 'reader.js, reader.css, mermaid.js');
 
 // Core skill size.
-const skillWords = words(readFileSync(join(release, 'skills', 'visual-explain', 'SKILL.md'), 'utf8'));
+const skillWords = words(readFileSync(join(release, 'skills', 'visser-visual-explain', 'SKILL.md'), 'utf8'));
 gate('core skill words (release SKILL.md)', skillWords < LIMITS.skillWords, skillWords, `< ${LIMITS.skillWords}`);
 
 // Graph limits through the CLI.

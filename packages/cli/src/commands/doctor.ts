@@ -17,7 +17,7 @@ import { bundledReleaseDir, defaultPointerPath, findRepositoryRoot, readDefaultP
 const DIGEST = /^[0-9a-f]{64}$/;
 const WRAPPER_LIMIT = 1024 * 1024;
 /** The canonical wrapper text inside a toolkit pack; repository and user wrappers are compared with it by hash. */
-export const CANONICAL_WRAPPER = 'skills/visual-explain/wrapper/SKILL.md';
+export const CANONICAL_WRAPPER = 'skills/visser-visual-explain/wrapper/SKILL.md';
 
 type Resolution = {
   state: 'resolved' | 'none' | 'no-lock' | 'error';
@@ -226,7 +226,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
     const found: Wrapper[] = [];
     for (const [scope, base] of [['repository', repoRoot], ['user', userHome]] as const) {
       if (!base) continue;
-      const path = join(base, folder, 'skills', 'visual-explain', 'SKILL.md');
+      const path = join(base, folder, 'skills', 'visser-visual-explain', 'SKILL.md');
       let stat;
       try { stat = lstatSync(path); } catch { continue; }
       if (!stat.isFile()) {

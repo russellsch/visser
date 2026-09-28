@@ -206,7 +206,7 @@ An agent wrote "How Explain works" with only the skill and logged 10 problems (`
 
 ## Revision 1.23 — rename to Visser
 
-By user decision, the tool is named Visser, and the agent skill is named `visual-explain`. The rename is complete, because nothing was published yet:
+By user decision, the tool is named Visser, and the agent skill is named `visser-visual-explain`. The rename is complete, because nothing was published yet:
 
 - The command is `visser`, the release entry is `bin/visser.cjs`, and the installed user shim is `${VISSER_HOME:-~/.visser}/bin/visser.cjs`.
 - Every `EXPLAIN_*` environment variable is now `VISSER_*`. `GITHUB_TOKEN` stays as a fallback.
@@ -214,7 +214,7 @@ By user decision, the tool is named Visser, and the agent skill is named `visual
 - The frontmatter format is `format: visser/1`, schema names are `visser-*/1`, and the schema `$id` host is `visser.invalid`.
 - The URI scheme is `visser://`, and the ID marker is `<!-- vs:id X -->`.
 - DOM classes, CSS custom properties, and data attributes use the prefix `vs-`, for example `data-vs-target`.
-- The skill folder is `skills/visual-explain/`, and repository wrappers install at `.claude/skills/visual-explain/` and `.agents/skills/visual-explain/`.
+- The skill folder is `skills/visser-visual-explain/`, and repository wrappers install at `.claude/skills/visser-visual-explain/` and `.agents/skills/visser-visual-explain/`.
 - The release archive is `visser-VERSION.tar.gz`.
 
 Error and warning codes, Markdoc tag names, target ID formats, and the default document root `docs/explanations/` do not change. The hash vectors were regenerated with the same pipeline, because the source-manifest and build-input schema names and the URI scheme are hash inputs. Revisions 1.1–1.22 above use the old names.
@@ -291,3 +291,19 @@ This revision fixes the findings of `docs/reviews/phase6a-components-review-1.md
   retirement records. Dogfood evidence is in `docs/validation/dogfood-3.md`.
 - Test fixtures use zlib-stable compressed input, an actually empty executable
   search path, and server-assigned ports whose ready URL belongs to that child.
+
+## Revision 1.30 — wider large-window layout
+
+- The main document keeps its `74ch` measure on ordinary windows and grows
+  responsively to `92ch` on large windows.
+- The desktop inspector reserves its width from the wider document, so it does
+  not cover the page when opened.
+
+## Revision 1.31 — standalone HTML export
+
+- A one-document `export` defaults to `--format html` and writes one file whose
+  verified CSS, reader runtime, optional Mermaid runtime, and captured images
+  are embedded as data URLs. The file opens directly from local disk and does
+  not depend on the author's installed toolkit.
+- `--format site` keeps the shared-asset folder export for collections and
+  static hosting. `--include-source` remains a site-only option.

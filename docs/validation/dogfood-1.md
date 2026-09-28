@@ -1,10 +1,10 @@
 # Dogfood run 1: "How Visser works"
 
-> **Note (revision 1.23):** this run happened before the rename from Explain to Visser. The log now uses the new names (`visser`, `VISSER_HOME`, `skills/visual-explain/`). At the time of the run the command was `explain` and the page was `how-explain-works`.
+> **Note (revision 1.23):** this run happened before the rename from Explain to Visser. The log now uses the new names (`visser`, `VISSER_HOME`, `skills/visser-visual-explain/`). At the time of the run the command was `explain` and the page was `how-explain-works`.
 
 Date: 27 September 2026. Toolkit: `dist/release` built from commit `9fdeb25`,
 digest `9d3613f2e8fe…`. The author was an agent (Claude Opus 5.5) that
-followed `skills/visual-explain/SKILL.md`. The agent ran every `visser` command
+followed `skills/visser-visual-explain/SKILL.md`. The agent ran every `visser` command
 through the installed user shim, with a temporary `VISSER_HOME`.
 
 ## Result
@@ -67,14 +67,14 @@ with no error.
 - **Action:** the agent removed the lock, as the examples do, and then ran `visser check DOC` through the shim.
 - **Result:** `E_TOOLKIT_MISSING: no visser.lock.json …; run visser init or pass --dev-toolkit`, exit 3.
 - **Expected:** a documented path. The skill forbids any entry point other than the shim, and it never mentions `--dev-toolkit`.
-- **Fix:** in `skills/visual-explain/SKILL.md`, add one paragraph: "A document in the toolkit repository has no lock; run commands with `--dev-toolkit dist/release`." Alternatively, add `init --no-lock` in `packages/cli/src/commands/init.ts`.
+- **Fix:** in `skills/visser-visual-explain/SKILL.md`, add one paragraph: "A document in the toolkit repository has no lock; run commands with `--dev-toolkit dist/release`." Alternatively, add `init --no-lock` in `packages/cli/src/commands/init.ts`.
 
 ### P2 (major): a trace renders only as a list, at every width
 
 - **Action:** the agent chose `trace` for "what happens in one build, and whose code runs", as the catalogue guide advises.
 - **Result:** the page shows a numbered list with "Order layer N" on each event, and bare lists of actors and branches. No lane figure appears at 1440. The renderer also adds "Ordering, not duration." under the author's own text, so the agent's similar sentence was printed twice.
 - **Expected:** the guide describes a figure with waits and partial order. For a linear run, the result is only a longer numbered list, and the skill says to remove a visual that prose answers as well.
-- **Fix:** in `skills/visual-explain/references/catalogue/trace.md`, state that the trace renders as an ordered, layered list. Alternatively, draw lanes in `packages/core/src/compiler/compile.ts`. The guide should also say that the page already prints "Ordering, not duration."
+- **Fix:** in `skills/visser-visual-explain/references/catalogue/trace.md`, state that the trace renders as an ordered, layered list. Alternatively, draw lanes in `packages/core/src/compiler/compile.ts`. The guide should also say that the page already prints "Ordering, not duration."
 
 ### P3 (minor): `capture` puts each new source directly after the title, so citation numbers run backwards
 

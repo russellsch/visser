@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { expect } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
 import { EXAMPLES } from './examples.ts';
@@ -13,9 +14,35 @@ import { byId, copiedTexts, EXPORT_ORIGIN, EXPORT_PREFIX, exportedUrl, installCl
 
 const root = new URL('../..', import.meta.url).pathname;
 const cli = join(root, 'dist/release/bin/visser.cjs');
+const release = join(root, 'dist/release');
 const siteIndex = `${EXPORT_ORIGIN}${EXPORT_PREFIX}`;
 
 test.describe('@R10 exported site under a project prefix', () => {
+  test('standalone HTML opens from file:// with its runtime and Mermaid diagram', async ({ page }, info) => {
+    test.skip(info.project.name.includes('nojs'), 'the standalone runtime check needs JavaScript');
+    const repo = mkdtempSync(join(tmpdir(), 'visser-standalone-'));
+    mkdirSync(join(repo, '.git'));
+    const doc = join(repo, 'docs/mermaid-flowchart');
+    cpSync(join(root, 'examples/mermaid-flowchart'), doc, { recursive: true });
+    const out = join(repo, 'diagram.html');
+    const exported = spawnSync(process.execPath, [cli, 'export', join(doc, 'index.md'), '--out', out, '--dev-toolkit', release], { cwd: repo, encoding: 'utf8' });
+    expect(exported.status, exported.stderr).toBe(0);
+
+    const requests: string[] = [];
+    const cspErrors: string[] = [];
+    page.on('request', (request) => requests.push(request.url()));
+    page.on('console', (message) => {
+      if (/Content Security Policy|Refused to/i.test(message.text())) cspErrors.push(message.text());
+    });
+    await page.goto(pathToFileURL(out).href);
+    await expect(page.locator('.vs-toolbar')).toBeVisible();
+    await showMap(page, 'cdn_path');
+    await expect(page.locator('[id="m-cdn_path"] svg').first()).toBeAttached({ timeout: 20_000 });
+    await expect(byId(page, 'x-cdn_path').locator('.vs-mermaid-notice')).toBeHidden();
+    expect(requests.every((url) => url.startsWith('file:') || url.startsWith('data:')), requests.join('\n')).toBe(true);
+    expect(cspErrors).toEqual([]);
+  });
+
   test('@R10 the collection index links to every exported document, and each link opens its page', async ({ page, offOrigin: _ }) => {
     await page.goto(siteIndex);
     const links = page.locator('main a');

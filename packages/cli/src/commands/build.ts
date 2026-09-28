@@ -8,8 +8,10 @@ import { createHash } from 'node:crypto';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringFlag } from '../cli-util.ts';
 import { resolveForDocument, type ToolkitSelection } from '../toolkit.ts';
 import { bindExtensions } from '../../../core/src/extensions/registry.ts';
-import { HashError } from '../../../core/src/model/hash.ts';
+import { canonicalJSON, HashError } from '../../../core/src/model/hash.ts';
 import { findRepoRoot } from '../../../core/src/references/registry.ts';
+import { validateAgainst } from '../../../core/src/model/schemas.ts';
+import type { VerifiedRelease } from '../../../core/src/distribution/index.ts';
 
 export type BuildOutcome = {
   outDir: string;
@@ -21,21 +23,34 @@ export type BuildOutcome = {
   repository: string | undefined;
 };
 
+/** Read one browser asset from the exact release identity that was resolved. */
+export function readBrowserAsset(release: VerifiedRelease, name: string): Buffer {
+  const manifest = JSON.parse(readFileSync(join(release.dir, 'release.json'), 'utf8')) as { files: Array<{ path: string; sha256: string }> };
+  const check = validateAgainst('release', manifest);
+  if (!check.ok) throw new CliError('E_INTEGRITY', `release.json violates visser-release/1: ${check.errors.join('; ')}`, EXIT.security);
+  const manifestSha = createHash('sha256').update(canonicalJSON(manifest)).digest('hex');
+  if (manifestSha !== release.sha256) {
+    throw new CliError('E_INTEGRITY', `release.json no longer describes resolved toolkit ${release.sha256}`, EXIT.security);
+  }
+  const expected = manifest.files.find((f) => f.path === `browser/${name}`)?.sha256;
+  const bytes = readFileSync(join(release.dir, 'browser', name));
+  const actual = createHash('sha256').update(bytes).digest('hex');
+  if (!expected || actual !== expected) {
+    throw new CliError('E_INTEGRITY', `browser/${name} does not match release.json`, EXIT.security);
+  }
+  return bytes;
+}
+
 /**
  * Copy each named browser asset from the release into the output asset
  * directory unless an identical copy is already there. Each copy is checked
  * against the release manifest's digest and written through a temporary file.
  */
-export function copyAssets(releaseDir: string, assetDir: string, names: string[]): void {
-  const manifest = JSON.parse(readFileSync(join(releaseDir, 'release.json'), 'utf8')) as { files: Array<{ path: string; sha256: string }> };
+export function copyAssets(release: VerifiedRelease, assetDir: string, names: string[]): void {
   mkdirSync(assetDir, { recursive: true });
   for (const name of names) {
-    const expected = manifest.files.find((f) => f.path === `browser/${name}`)?.sha256;
-    const bytes = readFileSync(join(releaseDir, 'browser', name));
-    const actual = createHash('sha256').update(bytes).digest('hex');
-    if (!expected || actual !== expected) {
-      throw new CliError('E_INTEGRITY', `browser/${name} does not match release.json`, EXIT.security);
-    }
+    const bytes = readBrowserAsset(release, name);
+    const expected = createHash('sha256').update(bytes).digest('hex');
     const dest = join(assetDir, name);
     if (existsSync(dest) && createHash('sha256').update(readFileSync(dest)).digest('hex') === expected) continue;
     const tmp = join(assetDir, `.${name}.${process.pid}.tmp`);
@@ -61,11 +76,17 @@ export type CompileRequest = {
  */
 export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitSelection, request: CompileRequest): Promise<CompileResult> {
   const releaseDir = toolkit.release.dir;
-  const assetSha = (name: string) => createHash('sha256').update(readFileSync(join(releaseDir, 'browser', name))).digest('hex');
   const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
+  const mermaidBytes = existsSync(mermaidPath) ? readBrowserAsset(toolkit.release, 'mermaid.js') : undefined;
+  const browserAssets: Record<string, Buffer> = {
+    'reader.js': readBrowserAsset(toolkit.release, 'reader.js'),
+    'reader.css': readBrowserAsset(toolkit.release, 'reader.css'),
+    ...(mermaidBytes ? { 'mermaid.js': mermaidBytes } : {}),
+  };
+  const assetSha = (name: string) => createHash('sha256').update(browserAssets[name]!).digest('hex');
   // SRI value for the lazily loaded Mermaid asset (§9.12).
-  const integrity = existsSync(mermaidPath)
-    ? { 'mermaid.js': `sha384-${createHash('sha384').update(readFileSync(mermaidPath)).digest('base64')}` }
+  const integrity = mermaidBytes
+    ? { 'mermaid.js': `sha384-${createHash('sha384').update(mermaidBytes).digest('base64')}` }
     : undefined;
   // Workers come only from the running CLI's own release (§12.4 "Whose code
   // runs"); in source mode there is none, and layout runs in process.
@@ -97,7 +118,7 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
         assets: {
           'reader.js': assetSha('reader.js'),
           'reader.css': assetSha('reader.css'),
-          ...(existsSync(mermaidPath) ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
+          ...('mermaid.js' in browserAssets ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
         },
         ...(integrity ? { integrity } : {}),
       },
@@ -168,7 +189,7 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   if (result.needsMermaid && !existsSync(mermaidPath)) {
     throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${releaseDir} has no browser/mermaid.js; this document needs a toolkit with Mermaid support`, EXIT.unavailable);
   }
-  copyAssets(releaseDir, assetDir, needed);
+  copyAssets(toolkit.release, assetDir, needed);
 
   // Immutable snapshot: publish atomically; an existing snapshot is never
   // replaced. The development mark is part of the build ID (§7.4), so a

@@ -38,7 +38,7 @@ beforeAll(() => {
   fx = fixture();
   // The user default: a toolkit whose SKILL.md is the old text.
   const old = join(fx.root, 'old-toolkit');
-  toolkitCopy(old, (dir) => writeFileSync(join(dir, 'skills', 'visual-explain', 'SKILL.md'), OLD));
+  toolkitCopy(old, (dir) => writeFileSync(join(dir, 'skills', 'visser-visual-explain', 'SKILL.md'), OLD));
   oldDigest = installUser(fx, old);
   writeFileSync(join(fx.home, 'default'), `${oldDigest}\n`);
   // A temp copy of a repository that holds its own build in dist/release.
@@ -58,11 +58,11 @@ describe('skill show and catalogue honour --dev-toolkit (F1)', () => {
   it('skill show --dev-toolkit dist/release prints the dist/release skill text', async () => {
     const { code, out } = await capture(() => runSkill(parseArgs(['show', '--dev-toolkit', 'dist/release']), { env: fx.env, cwd: repo, ownRelease: undefined }));
     expect(code).toBe(0);
-    const dist = readFileSync(join(devRelease, 'skills', 'visual-explain', 'SKILL.md'), 'utf8');
+    const dist = readFileSync(join(devRelease, 'skills', 'visser-visual-explain', 'SKILL.md'), 'utf8');
     expect(out).toContain(`(dev-toolkit: ${devRelease})`);
     expect(out).toContain(dist);
     expect(out).not.toContain(OLD);
-    expect(out).toContain(join(devRelease, 'skills', 'visual-explain', 'references', 'format.md'));
+    expect(out).toContain(join(devRelease, 'skills', 'visser-visual-explain', 'references', 'format.md'));
   });
 
   it('skill show --json reports source dev-toolkit', async () => {
@@ -91,6 +91,6 @@ describe('skill show and catalogue honour --dev-toolkit (F1)', () => {
     const show = await capture(() => runCatalogue(parseArgs(['show', 'mermaid', '--dev-toolkit', 'dist/release', '--json']), { env: fx.env, cwd: repo, ownRelease: undefined }));
     const shown = JSON.parse(show.out) as { toolkit: { dir: string }; guide: string };
     expect(shown.toolkit.dir).toBe(devRelease);
-    expect(shown.guide).toBe(readFileSync(join(devRelease, 'skills', 'visual-explain', 'references', 'catalogue', 'mermaid.md'), 'utf8'));
+    expect(shown.guide).toBe(readFileSync(join(devRelease, 'skills', 'visser-visual-explain', 'references', 'catalogue', 'mermaid.md'), 'utf8'));
   });
 });

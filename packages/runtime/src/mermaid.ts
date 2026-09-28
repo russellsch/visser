@@ -172,11 +172,11 @@ export function noticeText(figure: Element): string {
   return `This diagram could not be drawn. Its source${parsed ? ' and lists are' : ' is'} shown instead.`;
 }
 
-function loadScript(src: string, integrity: string): Promise<void> {
+function loadScript(src: string, integrity?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = src;
-    script.integrity = integrity;
+    if (integrity) script.integrity = integrity;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error('mermaid.js failed to load'));
     document.head.append(script);
@@ -252,14 +252,23 @@ function addSourceToggle(figure: HTMLElement): void {
 /** Load mermaid.js and render every Mermaid figure on the page, if the page has any. */
 export async function renderMermaidFigures(): Promise<void> {
   const meta = document.querySelector<HTMLMetaElement>(`meta[name="${DOM.mermaidMeta}"]`);
+  const standalone = document.querySelector<HTMLMetaElement>(`meta[name="${DOM.mermaidSourceMeta}"]`);
   const figures = Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.mermaid}]`));
   if (!meta || figures.length === 0) return;
   const base = assetBase();
   try {
-    if (!base) throw new Error('no asset base');
-    // Never load the asset without a valid digest (fail closed).
-    if (!isValidIntegrity(meta.content)) throw new Error('missing or invalid integrity value');
-    await loadScript(`${base}mermaid.js`, meta.content);
+    if (standalone) {
+      // A standalone page contains the verified toolkit bytes in its own file.
+      // Accept only the data URL form emitted by the exporter; never turn this
+      // metadata into a general script URL escape hatch.
+      if (!/^data:text\/javascript;charset=utf-8;base64,[A-Za-z0-9+/]+={0,2}$/.test(standalone.content)) throw new Error('invalid standalone Mermaid source');
+      await loadScript(standalone.content);
+    } else {
+      if (!base) throw new Error('no asset base');
+      // Never load a separate asset without a valid digest (fail closed).
+      if (!isValidIntegrity(meta.content)) throw new Error('missing or invalid integrity value');
+      await loadScript(`${base}mermaid.js`, meta.content);
+    }
     const api = (window as unknown as { mermaid?: MermaidApi }).mermaid;
     if (!api) throw new Error('mermaid.js did not define mermaid');
     api.initialize(mermaidConfig(pageTokens()));
