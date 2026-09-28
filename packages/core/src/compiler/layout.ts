@@ -106,6 +106,11 @@ export const LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
   'elk.layered.spacing.nodeNodeBetweenLayers': '48',
   'elk.spacing.nodeNode': '24',
   'elk.spacing.edgeLabel': '4',
+  // Parallel edges keep 20 px apart, so a label (4 px from its own edge) is
+  // clearly closer to its own line than to a neighbour (dogfood-2 Q10).
+  'elk.spacing.edgeEdge': '20',
+  'elk.layered.spacing.edgeEdgeBetweenLayers': '20',
+  'elk.layered.spacing.edgeNodeBetweenLayers': '20',
   'elk.padding': '[top=12,left=12,bottom=12,right=12]',
   'elk.json.shapeCoords': 'ROOT',
   'elk.json.edgeCoords': 'ROOT',

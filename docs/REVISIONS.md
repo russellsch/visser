@@ -218,3 +218,7 @@ By user decision, the tool is named Visser, and the agent skill is named `visual
 - The release archive is `visser-VERSION.tar.gz`.
 
 Error and warning codes, Markdoc tag names, target ID formats, and the default document root `docs/explanations/` do not change. The hash vectors were regenerated with the same pipeline, because the source-manifest and build-input schema names and the URI scheme are hash inputs. Revisions 1.1–1.22 above use the old names.
+
+## Revision 1.24 — second authoring run and install pressure test
+
+A second authoring run ("The life of a target ID") and an install pressure test (108 checks, `docs/validation/install-pressure-1.md`) found 16 install problems and 11 authoring problems. Install fixes: the shim forwards signals; user-level commands work when the default toolkit is missing; `doctor --doc` reports resolution errors instead of stopping; `~/.visser` no longer makes the home folder a repository, and the root search stops at a folder every user can write; `VISSER_HOME` must be absolute, and a missing home is an error; interrupted installs are cleaned up; the trust lock is taken before activation; `--help` and `--version`; an untrusted repository copy is skipped when the user installed the same digest.

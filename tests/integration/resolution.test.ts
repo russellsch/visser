@@ -47,11 +47,22 @@ describe('resolution order (§12.4)', () => {
     expect(resolveDigest({ ...base, repoRoot: undefined, env: { ...fx.env, VISSER_HOME: join(fx.root, 'empty-home') } })).toMatchObject({ source: 'running', release: { dir: release } });
   });
 
-  it('an untrusted repository toolchain is E_TOOLKIT_UNTRUSTED (exit 4), even when a user copy exists', () => {
+  it('an untrusted repository toolchain is not needed when the user installed the same digest: the user copy runs, and the repository copy is never read', () => {
     const fx = fixture();
     const repo = join(fx.root, 'repo');
     toolkitCopy(join(repo, '.visser', 'toolchains', D));
+    // A corrupt repository copy: reading it would give E_INTEGRITY.
+    writeFileSync(join(repo, '.visser', 'toolchains', D, 'unlisted.txt'), 'x');
     installUser(fx, release);
+    const found = resolveDigest({ digest: D, repoRoot: repo, env: fx.env });
+    expect(found.source).toBe('user');
+    expect(found.release.dir).toBe(join(fx.home, 'toolchains', D));
+  });
+
+  it('an untrusted repository toolchain without a user copy is E_TOOLKIT_UNTRUSTED (exit 4)', () => {
+    const fx = fixture();
+    const repo = join(fx.root, 'repo');
+    toolkitCopy(join(repo, '.visser', 'toolchains', D));
     expect(codeOf(() => resolveDigest({ digest: D, repoRoot: repo, env: fx.env }))).toBe('E_TOOLKIT_UNTRUSTED/4');
   });
 

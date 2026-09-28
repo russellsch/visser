@@ -105,13 +105,42 @@ export function unifiedDiff(oldText: string, newText: string, name: string, cont
       else { ops.push(['+', bm[j]!]); j++; }
     }
   }
-  const before = a.slice(Math.max(0, pre - context), pre);
-  const after = a.slice(a.length - suf, Math.min(a.length, a.length - suf + context));
-  const lines = [...before.map((l) => ' ' + l), ...ops.map(([op, l]) => op + l), ...after.map((l) => ' ' + l)];
-  const oldStart = pre - before.length + 1;
-  const oldCount = before.length + ops.filter(([op]) => op !== '+').length + after.length;
-  const newCount = before.length + ops.filter(([op]) => op !== '-').length + after.length;
-  return [`--- a/${name}`, `+++ b/${name}`, `@@ -${oldStart},${oldCount} +${oldStart},${newCount} @@`, ...lines].join('\n') + '\n';
+  // Every line as an operation, then one hunk per group of changes that are at
+  // most 2 * context equal lines apart (dogfood-2 Q9: distant changes were one
+  // hunk over the whole file).
+  const all: Array<[' ' | '-' | '+', string]> = [
+    ...a.slice(0, pre).map((l): [' ', string] => [' ', l]),
+    ...ops,
+    ...a.slice(a.length - suf).map((l): [' ', string] => [' ', l]),
+  ];
+  const changed = all.flatMap(([op], i) => (op === ' ' ? [] : [i]));
+  const groups: Array<[number, number]> = [];
+  for (const i of changed) {
+    const last = groups[groups.length - 1];
+    if (last && i - last[1] - 1 <= 2 * context) last[1] = i;
+    else groups.push([i, i]);
+  }
+  // Line numbers before each operation, in the old and in the new text.
+  const oldLine: number[] = [];
+  const newLine: number[] = [];
+  let o = 1;
+  let nl = 1;
+  for (const [op] of all) {
+    oldLine.push(o);
+    newLine.push(nl);
+    if (op !== '+') o++;
+    if (op !== '-') nl++;
+  }
+  const out = [`--- a/${name}`, `+++ b/${name}`];
+  for (const [first, last] of groups) {
+    const from = Math.max(0, first - context);
+    const to = Math.min(all.length - 1, last + context);
+    const slice = all.slice(from, to + 1);
+    const oldCount = slice.filter(([op]) => op !== '+').length;
+    const newCount = slice.filter(([op]) => op !== '-').length;
+    out.push(`@@ -${oldLine[from]},${oldCount} +${newLine[from]},${newCount} @@`, ...slice.map(([op, l]) => op + l));
+  }
+  return out.join('\n') + '\n';
 }
 
 // ---------------------------------------------------------------------------

@@ -4,14 +4,14 @@
 // rename to toolchains/DIGEST/. Both scopes record the digest in the user trust
 // store. It never edits shell startup files or PATH.
 import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeSync } from 'node:fs';
+import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { distributionHosts } from '../export/user-config.ts';
 import { downloadAsset, type FetchPolicy, GITHUB_API_BASE, GITHUB_ASSET_HOSTS, githubToken, MAX_DOWNLOAD_BYTES, resolveReleaseAsset, validRepository, VERSION_PATTERN } from './fetch.ts';
 import { HashError } from '../model/hash.ts';
 import { verifyReleaseDir, type VerifiedRelease } from './release.ts';
-import { addTrust, visserHome } from './trust.ts';
+import { addTrust, probeTrustLock, processAlive, visserHome } from './trust.ts';
 import { type ArchiveLimits, DEFAULT_LIMITS, extractArchive } from './ustar.ts';
 
 export type InstallScope = 'user' | 'repo';
@@ -154,6 +154,40 @@ function pathExists(path: string): boolean {
   }
 }
 
+/** A staging folder of an install that did not finish is removed after this age, if its PID is unknown. */
+export const STAGING_MAX_AGE_MS = 3600_000;
+
+/** `.staging-PID-RANDOM` (current) or `.staging-RANDOM` (before PIDs were recorded). */
+export function stagingOwner(name: string): number | undefined {
+  const m = /^\.staging-(\d+)-[0-9a-f]+$/.exec(name);
+  return m ? Number(m[1]) : undefined;
+}
+
+/**
+ * True if `name` in a toolchains folder is the leftover of an install that
+ * stopped (killed, Ctrl-C, power loss): its process is gone, or it has no
+ * recorded process and is older than STAGING_MAX_AGE_MS.
+ */
+export function isStaleStaging(dir: string, name: string, now = Date.now()): boolean {
+  if (!name.startsWith('.staging-')) return false;
+  const pid = stagingOwner(name);
+  if (pid !== undefined) return !processAlive(pid);
+  try {
+    return now - lstatSync(join(dir, name)).mtimeMs > STAGING_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+/** Remove the leftovers of interrupted installs (install-pressure-1, M7). */
+function removeStaleStaging(base: string): void {
+  let names: string[];
+  try { names = readdirSync(base); } catch { return; }
+  for (const name of names) {
+    if (isStaleStaging(base, name)) rmSync(join(base, name), { recursive: true, force: true });
+  }
+}
+
 function trustSource(opts: InstallOptions): string {
   // A release install records the repository and version, never a URL or a token.
   const what = opts.release !== undefined ? `install --from-release ${opts.release.repository}@${opts.release.version}` : opts.fromDir !== undefined ? `install --from-dir ${resolve(opts.fromDir)}` : `install --archive ${resolve(opts.archive!)}`;
@@ -165,7 +199,9 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
   const env = opts.env ?? process.env;
   if ((opts.fromDir === undefined) === (opts.archive === undefined)) fail('E_USAGE', 'pass exactly one of --from-dir DIR or --archive FILE');
   if (opts.archiveSha256 !== undefined && opts.archive === undefined) fail('E_USAGE', '--sha256 applies to --archive only');
-  if (opts.archiveSha256 !== undefined && !/^[0-9a-f]{64}$/.test(opts.archiveSha256)) fail('E_USAGE', '--sha256 must be 64 lowercase hex characters');
+  // A digest is compared in lower case; an upper-case copy from a web page is the same digest.
+  const expected = opts.archiveSha256?.toLowerCase();
+  if (expected !== undefined && !/^[0-9a-f]{64}$/.test(expected)) fail('E_USAGE', '--sha256 must be 64 hex characters');
 
   const home = visserHome(env);
   let base: string;
@@ -195,15 +231,19 @@ export async function installRelease(opts: InstallOptions): Promise<InstallResul
     if (!stat.isFile()) fail('E_INTEGRITY', `${opts.archive} is not a regular file`);
     if (stat.size > limits.maxArchiveBytes) fail('E_INTEGRITY', `archive rejected: the archive is larger than ${limits.maxArchiveBytes} bytes`);
     archiveSha256 = sha256File(archive);
-    if (opts.archiveSha256 !== undefined && archiveSha256 !== opts.archiveSha256) {
-      fail('E_INTEGRITY', `the archive digest is ${archiveSha256}, but --sha256 expects ${opts.archiveSha256}; nothing was extracted`);
+    if (expected !== undefined && archiveSha256 !== expected) {
+      fail('E_INTEGRITY', `the archive digest is ${archiveSha256}, but --sha256 expects ${expected}; nothing was extracted`);
     }
   } else {
     const source = resolve(opts.fromDir!);
     if (!existsSync(source)) fail('E_SOURCE_UNAVAILABLE', `${opts.fromDir} does not exist`);
   }
 
-  const staging = join(base, `.staging-${randomBytes(8).toString('hex')}`);
+  // The trust store must be writable before anything is activated, so a stale
+  // lock cannot leave a toolchain active but untrusted (install-pressure-1, m3).
+  probeTrustLock(env);
+  removeStaleStaging(base);
+  const staging = join(base, `.staging-${process.pid}-${randomBytes(8).toString('hex')}`);
   mkdirSync(staging, { mode: 0o755 });
   let staged: VerifiedRelease;
   let target: string;
@@ -332,7 +372,8 @@ export async function installFromRelease(opts: ReleaseInstallOptions): Promise<I
   const env = opts.env ?? process.env;
   if (!validRepository(opts.repository)) fail('E_USAGE', '--from-release must be OWNER/REPO (letters, digits, and - . _; not . or ..)');
   if (!VERSION_PATTERN.test(opts.version)) fail('E_USAGE', '--version must be a version such as 1.2.3 or v1.2.3-rc.1');
-  if (!/^[0-9a-f]{64}$/.test(opts.archiveSha256)) fail('E_USAGE', '--sha256 must be 64 lowercase hex characters');
+  const expected = opts.archiveSha256.toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(expected)) fail('E_USAGE', '--sha256 must be 64 hex characters');
   const apiBase = opts.apiBase ?? GITHUB_API_BASE;
   let apiHost: string;
   try {
@@ -359,13 +400,13 @@ export async function installFromRelease(opts: ReleaseInstallOptions): Promise<I
   try {
     const file = join(dir, asset.name);
     const downloaded = await downloadAsset(asset.url, file, policy);
-    if (downloaded.sha256 !== opts.archiveSha256) {
-      fail('E_INTEGRITY', `the downloaded archive digest is ${downloaded.sha256}, but --sha256 expects ${opts.archiveSha256}; nothing was extracted`);
+    if (downloaded.sha256 !== expected) {
+      fail('E_INTEGRITY', `the downloaded archive digest is ${downloaded.sha256}, but --sha256 expects ${expected}; nothing was extracted`);
     }
     return await installRelease({
       scope: opts.scope,
       archive: file,
-      archiveSha256: opts.archiveSha256,
+      archiveSha256: expected,
       release: { repository: opts.repository, version: opts.version },
       env,
       ...(opts.setDefault !== undefined ? { setDefault: opts.setDefault } : {}),

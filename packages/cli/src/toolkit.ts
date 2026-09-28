@@ -9,6 +9,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { HashError } from '../../core/src/model/hash.ts';
 import { validateAgainst } from '../../core/src/model/schemas.ts';
 import { readBoundedJson } from '../../core/src/model/bounded-read.ts';
+import { findRepoRoot } from '../../core/src/references/registry.ts';
 import { visserHome, isTrusted, verifyReleaseDir, type VerifiedRelease } from '../../core/src/distribution/index.ts';
 import { CliError, EXIT } from './cli-util.ts';
 
@@ -50,15 +51,9 @@ export function resolveToolkitDir(explicit: string | undefined): VerifiedRelease
   return verifyRelease(dir);
 }
 
-/** Nearest ancestor with .git or .visser, else undefined. */
-export function findRepositoryRoot(start: string): string | undefined {
-  let dir = resolve(start);
-  for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.visser'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
-  }
+/** The repository that holds `start` (one rule for every command: core findRepoRoot). */
+export function findRepositoryRoot(start: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return findRepoRoot(start, env);
 }
 
 export type LockOrigin = { kind: string; repository?: string; tag?: string; asset?: string };
@@ -178,9 +173,13 @@ export function resolveDigest(opts: ResolveOptions): Resolved {
 
   // 2. A repository toolchain is repository-controlled code: eligible only
   // when the user trusts its digest. The trust check reads nothing from it.
+  // An untrusted repository copy is not needed when the user already installed
+  // the same digest: the user copy is used, and nothing is read from the
+  // repository copy (install-pressure-1, m8).
+  const userDir = join(visserHome(env), 'toolchains', digest);
   if (opts.repoRoot) {
     const dir = join(opts.repoRoot, '.visser', 'toolchains', digest);
-    if (present(dir)) {
+    if (present(dir) && !(present(userDir) && !trusted(digest, env))) {
       if (!trusted(digest, env)) {
         throw new CliError('E_TOOLKIT_UNTRUSTED', `the repository toolchain ${dir} (${digest}) is not in the user trust store; review it, then run: visser trust toolkit ${digest}`, EXIT.security);
       }
@@ -193,7 +192,6 @@ export function resolveDigest(opts: ResolveOptions): Resolved {
   }
 
   // 3. The user installation is trusted because the user installed it.
-  const userDir = join(visserHome(env), 'toolchains', digest);
   if (present(userDir)) return { release: verifyCandidate(userDir, digest, 'user toolchain'), source: 'user' };
 
   // 4. The release that contains the running CLI (a development convenience).

@@ -188,6 +188,22 @@ test.describe('layout and print', () => {
     expect(small).toEqual([]);
   });
 
+  test('narrow screens: the sticky toolbar is one row and scrolls sideways, not the page (dogfood-2 Q7)', async ({ page, offOrigin: _ }) => {
+    test.skip(!isNarrow(page), 'the one-row toolbar rule applies to narrow viewports');
+    await openSnapshot(page);
+    const bar = page.locator('.vs-toolbar');
+    await expect(bar).toBeVisible();
+    const box = await bar.boundingBox();
+    expect(box!.height).toBeLessThan(60);
+    const tops = await page.evaluate(() => Array.from(document.querySelectorAll('.vs-toolbar button')).map((b) => Math.round(b.getBoundingClientRect().top)));
+    expect(new Set(tops).size).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    // The last button is reachable by scrolling the toolbar.
+    const about = page.locator('.vs-toolbar button').last();
+    await about.scrollIntoViewIfNeeded();
+    await expect(about).toBeInViewport();
+  });
+
   test('narrow screens: interactive list links and toolbar buttons are at least 44x44', async ({ page, offOrigin: _ }) => {
     test.skip(!isNarrow(page), 'target-size oracle applies to mobile viewports');
     await openSnapshot(page);

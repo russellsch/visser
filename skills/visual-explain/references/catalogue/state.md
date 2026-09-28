@@ -47,7 +47,8 @@ verification.
 ## Narrow screens and text
 
 The text view lists each state with its outgoing transitions, their event,
-guard, and action. Arrow labels show the event and guard.
+guard, and action. Each arrow shows the transition's `label` and its guard,
+so put the words that matter in `label`; `event` appears in the list.
 
 ## Template
 

@@ -7,11 +7,10 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
-import { visserHome, readTrust, verifyReleaseDir, type TrustStore } from '../../../core/src/distribution/index.ts';
+import { isStaleStaging, visserHome, readTrust, verifyReleaseDir, type TrustStore } from '../../../core/src/distribution/index.ts';
 import { CliError, EXIT, type ParsedArgs, printJson, stringFlag } from '../cli-util.ts';
 import { bundledReleaseDir, defaultPointerPath, findRepositoryRoot, readDefaultPointer, readLock, resolveDigest, workspaceDefault, type Resolved } from '../toolkit.ts';
 
@@ -24,7 +23,7 @@ type Resolution = {
   state: 'resolved' | 'none' | 'no-lock' | 'error';
   sha256?: string; version?: string; source?: Resolved['source']; dir?: string; code?: string; message?: string;
 };
-type Toolchain = { scope: 'user' | 'repository'; path: string; name: string; state: 'verified' | 'corrupt' | 'untrusted'; trusted: boolean; version?: string; code?: string; message?: string };
+type Toolchain = { scope: 'user' | 'repository'; path: string; name: string; state: 'verified' | 'corrupt' | 'untrusted' | 'leftover'; trusted: boolean; version?: string; code?: string; message?: string };
 type Wrapper = { host: 'claude-code' | 'codex'; scope: 'repository' | 'user'; path: string; sha256: string; state: 'matches' | 'differs' | 'no-canonical' };
 
 export type DoctorReport = {
@@ -91,6 +90,27 @@ function portAvailable(port: number): Promise<boolean> {
   });
 }
 
+/**
+ * A `.staging-*` folder is an install in progress or the leftover of one that
+ * stopped. It is never a toolchain, so it is never "corrupt" and never makes
+ * the report fail (install-pressure-1, M7). The next install removes a stale one.
+ */
+function staging(base: string, name: string, scope: Toolchain['scope']): Toolchain | undefined {
+  if (!name.startsWith('.staging-')) return undefined;
+  const path = join(base, name);
+  const stale = isStaleStaging(base, name);
+  return {
+    scope,
+    path,
+    name,
+    state: 'leftover',
+    trusted: false,
+    message: stale
+      ? `the leftover of an interrupted install; the next install removes it, or remove it now: rm -rf ${path}`
+      : 'an install in progress (its process still runs)',
+  };
+}
+
 export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): Promise<DoctorReport> {
   const env = opts.env ?? process.env;
   const cwd = opts.cwd ?? process.cwd();
@@ -113,6 +133,11 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
   const userRoot = join(home, 'toolchains');
   for (const name of listDir(userRoot)) {
     const path = join(userRoot, name);
+    const leftover = staging(userRoot, name, 'user');
+    if (leftover) {
+      toolchains.push(leftover);
+      continue;
+    }
     const entry: Toolchain = { scope: 'user', path, name, state: 'verified', trusted: trusted(name) };
     try {
       if (!lstatSync(path).isDirectory()) throw new HashError('E_INTEGRITY', 'E_INTEGRITY', `${path} is not a directory`);
@@ -136,6 +161,11 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
     const repoToolchains = join(repoRoot, '.visser', 'toolchains');
     for (const name of listDir(repoToolchains)) {
       const path = join(repoToolchains, name);
+      const leftover = staging(repoToolchains, name, 'repository');
+      if (leftover) {
+        toolchains.push(leftover);
+        continue;
+      }
       const isTrusted = DIGEST.test(name) && trusted(name);
       const entry: Toolchain = { scope: 'repository', path, name, state: isTrusted ? 'verified' : 'untrusted', trusted: isTrusted };
       if (isTrusted) {
@@ -190,7 +220,7 @@ export async function doctorReport(args: ParsedArgs, opts: DoctorOptions = {}): 
   const canonical = canonicalPath && regularFile(canonicalPath) ? sha256File(canonicalPath) : undefined;
 
   const wrappers: Wrapper[] = [];
-  const userHome = env['HOME'] ?? homedir();
+  const userHome = env['HOME'] || undefined;
   const hosts = [['claude-code', '.claude'], ['codex', '.agents']] as const;
   for (const [host, folder] of hosts) {
     const found: Wrapper[] = [];
@@ -266,7 +296,11 @@ export async function runDoctor(args: ParsedArgs, opts: DoctorOptions = {}): Pro
       `user shim: ${report.userShim.present ? report.userShim.path : 'missing'}${report.userShim.matchesToolkit === false ? ' (differs from the selected toolkit)' : ''}`,
       `default toolkit: ${describe(report.defaultToolkit)}`,
     ];
-    for (const t of report.toolchains) out.push(`toolchain ${t.scope} ${t.name}: ${t.state}${t.version ? ` ${t.version}` : ''}${t.code ? ` ${t.code}: ${t.message}` : ''}`);
+    for (const t of report.toolchains) out.push(`toolchain ${t.scope} ${t.name}: ${t.state}${t.version ? ` ${t.version}` : ''}${t.code ? ` ${t.code}: ${t.message}` : t.state === 'leftover' && t.message ? ` (${t.message})` : ''}`);
+    // There is no uninstall command: removal is a folder delete (install-pressure-1, m7).
+    if (report.toolchains.some((t) => t.scope === 'user' && t.state !== 'leftover')) {
+      out.push(`to remove a toolkit: rm -rf ${join(report.visserHome, 'toolchains', 'DIGEST')} (make another toolkit the default first if it is the default)`);
+    }
     for (const t of report.trust) out.push(`trusted ${t.sha256} (${t.source}, ${t.addedAt})`);
     if (report.document) out.push(`document ${report.document.path}: ${describe(report.document.resolution)}`);
     if (report.workspace) out.push(`workspace ${report.workspace.root}: ${describe(report.workspace.resolution)}`);

@@ -206,7 +206,7 @@ Grows until memory runs out.
 {% /compare %}`);
 
 describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
-  it('state: initial and terminal marks, event [guard] arrows, action in the detail', async () => {
+  it('state: initial and terminal marks, label [guard] arrows, action in the detail', async () => {
     const { bundle, result, html } = await compile(STATE);
     commonChecks(bundle, result, html);
     relationshipViews(bundle, html, 'lifecycle');
@@ -215,7 +215,11 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     expect(text).toContain('(initial)');
     expect(text).toContain('(terminal)');
     expect(map).toMatch(/class="vs-node vs-terminal"/);
-    expect(text).toContain('connect [host reachable]');
+    // The arrow shows the transition's label, as the list does, with its guard (dogfood-2 Q4).
+    expect(text).toContain('connect succeeds [host reachable]');
+    const list = section(html, 'id="l-lifecycle.tr_connect"', '</li>');
+    expect(list).toContain('connect succeeds');
+    expect(list).toContain('event: connect');
     expect(section(html, 'id="x-tr_connect"', '</details>')).toMatch(/<dt>action<\/dt><dd>start heartbeat<\/dd>/);
   });
 
@@ -277,6 +281,10 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     // One link per option row: no generated "Details" link in the cards.
     expect(cards).not.toContain('>Details<');
     expect(cards).toContain('aria-label="Bounded queue: Failure behavior"');
+    // Table cells without a value: a small link after the cell text, not a "Details" line above it (dogfood-2 Q5).
+    expect(table).not.toContain('>Details<');
+    const bf = section(table, 'Producers wait.', '</td>');
+    expect(bf).toMatch(/<a class="vs-cell-link"[^>]*aria-label="Bounded queue: Failure behavior"[^>]*data-vs-target="cell_bf"|<a class="vs-cell-link"[^>]*data-vs-target="cell_bf"[^>]*aria-label="Bounded queue: Failure behavior"/);
     expect(html.toLowerCase()).not.toMatch(/winner|score/);
     expect(html).not.toMatch(/<figure[^>]*id="x-queues"[^>]*data-vs-views/);
   });

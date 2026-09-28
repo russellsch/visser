@@ -38,7 +38,8 @@ trust. Never run a script from a repository's `.visser/` directory.
    tell the user the digest and the install or trust command. Do not install
    or trust anything yourself. `visser doctor` shows the state.
    Exception: a document inside the Visser toolkit's own repository has no
-   lock, because every rebuild changes the toolkit digest. Run each command
+   lock, because every rebuild changes the toolkit digest. Create it with
+   `visser init PATH ... --no-lock`, and run each command
    with `--dev-toolkit dist/release` (for example `visser check DOC
    --dev-toolkit dist/release`). Such a build is a development build:
    `check --release` and public exports refuse it, so never publish it.
@@ -116,7 +117,10 @@ trust. Never run a script from a repository's `.visser/` directory.
     that add no explanation. Keep a caveat that changes the conclusion in the
     main sentence.
 12. **Deliver.** First reread each cited excerpt next to its sentence, and
-    remove or fix any sentence that the excerpt does not support. The checks
+    remove or fix any sentence that the excerpt does not support. For a claim
+    about what changes or does not change a result, test it on a copy (as
+    `references/handoff.md` shows) when you can: a reread checks the words,
+    not the reasoning. The checks
     prove structure and evidence hashes, not the truth of a sentence. Give the source path, the reading URL or path, the snapshot IDs
     that `build` prints, and any unverified assumption. State which checks you
     ran. Do not imply that a snapshot stays synchronized with the codebase.

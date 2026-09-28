@@ -3,8 +3,8 @@
 // or workspace config, so a repository cannot trust its own code.
 import { randomBytes } from 'node:crypto';
 import { closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { hostname } from 'node:os';
+import { isAbsolute, join } from 'node:path';
 import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
 
@@ -17,8 +17,23 @@ function fail(code: string, message: string): never {
   throw new HashError(code, code, message);
 }
 
+/**
+ * The user store: VISSER_HOME, else HOME/.visser. An empty VISSER_HOME means
+ * unset. A relative path is refused, because later commands run from other
+ * folders would not find it. With neither variable set, Visser never guesses a
+ * home folder (Node would fall back to the password database, which a script
+ * that clears HOME to isolate itself does not expect).
+ */
 export function visserHome(env: NodeJS.ProcessEnv = process.env): string {
-  return env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
+  const explicit = env['VISSER_HOME'];
+  if (explicit !== undefined && explicit !== '') {
+    if (!isAbsolute(explicit)) fail('E_USAGE', `VISSER_HOME must be an absolute path, not ${JSON.stringify(explicit)}; for example: export VISSER_HOME="$HOME/.visser"`);
+    return explicit;
+  }
+  const home = env['HOME'] || env['USERPROFILE'];
+  if (!home) fail('E_USAGE', 'set VISSER_HOME or HOME: neither is set, and Visser never guesses a home folder');
+  if (!isAbsolute(home)) fail('E_USAGE', `HOME must be an absolute path, not ${JSON.stringify(home)}`);
+  return join(home, '.visser');
 }
 
 export function trustPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -81,20 +96,14 @@ function withTrustLock<T>(env: NodeJS.ProcessEnv, change: () => T, waitMs = TRUS
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'EEXIST' && code !== 'ELOOP') throw error;
       if (Date.now() >= deadline) {
-        let holder = '';
-        try {
-          holder = lstatSync(lockPath).isSymbolicLink() ? ' (the lock path is a symbolic link)' : ` ${readFileSync(lockPath, 'utf8').trim()}`;
-        } catch {
-          // The lock disappeared after the last attempt.
-        }
-        fail('E_WRITE_CONFLICT', `the trust store is locked by another writer: ${lockPath}${holder}. If no writer is active, remove the lock file by hand.`);
+        fail('E_WRITE_CONFLICT', `the trust store is locked by another writer: ${lockPath}${describeHolder(lockPath)}. If no writer is active, remove the lock file by hand: rm ${lockPath}`);
       }
       sleepSync(delay);
       delay = Math.min(delay * 2, 50);
     }
   }
   try {
-    writeSync(fd, JSON.stringify({ pid: process.pid, token }) + '\n');
+    writeSync(fd, JSON.stringify({ pid: process.pid, host: hostname(), token }) + '\n');
   } finally {
     closeSync(fd);
   }
@@ -108,6 +117,38 @@ function withTrustLock<T>(env: NodeJS.ProcessEnv, change: () => T, waitMs = TRUS
       // Someone removed the lock by hand; nothing to release.
     }
   }
+}
+
+/** Who holds the lock, and whether that process still runs (same host only). */
+function describeHolder(lockPath: string): string {
+  try {
+    if (lstatSync(lockPath).isSymbolicLink()) return ' (the lock path is a symbolic link)';
+    const held = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: unknown; host?: unknown };
+    if (typeof held.pid !== 'number') return '';
+    const sameHost = held.host === undefined || held.host === hostname();
+    if (sameHost && !processAlive(held.pid)) return ` (held by PID ${held.pid}, which is not running: a stale lock from an interrupted process)`;
+    return ` (held by PID ${held.pid}${typeof held.host === 'string' ? ` on ${held.host}` : ''})`;
+  } catch {
+    return '';
+  }
+}
+
+export function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Take and release the trust-store lock. Install calls this before it
+ * activates anything, so a stale lock stops the install before a toolchain is
+ * half installed (active but not trusted).
+ */
+export function probeTrustLock(env: NodeJS.ProcessEnv = process.env, waitMs = TRUST_LOCK_WAIT_MS): void {
+  withTrustLock(env, () => undefined, waitMs);
 }
 
 function writeStore(store: TrustStore, env: NodeJS.ProcessEnv): void {

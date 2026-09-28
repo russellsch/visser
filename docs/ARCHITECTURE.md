@@ -1,7 +1,7 @@
 # Visser: architecture and implementation design
 
 > **Status:** implementation specification, not an implemented product.  
-> **Design revision:** 1.23, 27 September 2026 (the tool is renamed from Explain to Visser; fixes from the first real authoring run in 1.22; review fixes for Phases 4 and 5 in 1.21; Phase 5 implemented in 1.20; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
+> **Design revision:** 1.24, 27 September 2026 (the tool is renamed from Explain to Visser; fixes from the first real authoring run in 1.22; review fixes for Phases 4 and 5 in 1.21; Phase 5 implemented in 1.20; Phase 4 in 1.18–1.19; 1.17 reviewed the Phase 4 plan against the implemented code). Revisions 1.10 and 1.11 add Mermaid diagrams (§9.12, Phase 2b) by user decision, with review corrections; 1.7–1.9 add the Phase 0–2 amendments. See `REVISIONS.md`. The history of revisions 1.1–1.5 (model reviews and executed spikes) is in `REVISIONS.md`.  
 > **Audience:** an experienced systems engineer or a coding agent implementing this repository.  
 > **Working name:** `Visser`; executable: `visser`. This does not assert availability of an npm name, domain, or GitHub repository.  
 > **Authority:** this document supersedes provisional choices in the preceding discussion. Requirements marked **MUST** are release gates; **SHOULD** permits a documented exception. Numerical performance limits are proposed budgets, not measured results.
@@ -385,7 +385,7 @@ A full queue makes the producer wait. It does not imply that workers stopped.
 - It does not bound how long a producer can wait.
 ```
 
-This is an **Visser convention**, not a built-in Markdoc identity feature. Markdoc documents comment tokenization with `allowComments: true`; the parser adapter must characterize the exact pinned version.[S03] Only comments matching this reserved marker grammar are metadata. Ordinary comments are retained in source and excluded from the reader.
+This is a **Visser convention**, not a built-in Markdoc identity feature. Markdoc documents comment tokenization with `allowComments: true`; the parser adapter must characterize the exact pinned version.[S03] Only comments matching this reserved marker grammar are metadata. Ordinary comments are retained in source and excluded from the reader.
 
 Marker rules:
 
@@ -679,7 +679,7 @@ Support SHA-1 and SHA-256 repository object formats by asking Git for the resolv
 
 **Repository identity:** `repository` records a portable identity, never a local path: the credential-stripped `remote.origin.url` if one exists, otherwise a label given with `--repository-label`. An absolute path or a URL with credentials in `repository` is `E_UNSAFE_CONTENT` in `check`, because pages and exports print the value. `check --verify-origins` finds a local clone through a user-local mapping (`--repo-map LABEL=PATH`, or `repositories` in user config), never a committed one.
 
-**Writing the source block:** every capture is a guarded single-file write with the §11.9 lock, symlink refusal, whole-document validation in memory, raw-hash recheck, and atomic rename. A new `source` block goes after the last existing top-level `source` block, or at the end of the document, so the file order is the capture order and citations capture in reading order number 1, 2, 3 (revision 1.22); `--recapture` keeps the block's position. Attribute values are written with JSON string encoding. The fence is a backtick run one longer than the longest run in the excerpt (minimum three), so captured text cannot close the block; the review showed a plain three-backtick fence letting captured text inject a paragraph and a second `source` tag. `language` comes from an extension map or `--language`. An existing `--id` is `E_ID_DUPLICATE` unless `--recapture` is given; `--recapture` replaces that source's span, keeps its ID, and reports `annotated` line ranges that no longer fit as `E_SEMANTIC`.
+**Writing the source block:** every capture is a guarded single-file write with the §11.9 lock, symlink refusal, whole-document validation in memory, raw-hash recheck, and atomic rename. Citation numbers follow the first `cite` in document order, and sources that are not cited follow in file order; the page, the appendix, and the projection use the same order (revision 1.24). A new `source` block goes after the last existing top-level `source` block, or at the end of the document, so the file order is the capture order and citations capture in reading order number 1, 2, 3 (revision 1.22); `--recapture` keeps the block's position. Attribute values are written with JSON string encoding. The fence is a backtick run one longer than the longest run in the excerpt (minimum three), so captured text cannot close the block; the review showed a plain three-backtick fence letting captured text inject a paragraph and a second `source` tag. `language` comes from an extension map or `--language`. An existing `--id` is `E_ID_DUPLICATE` unless `--recapture` is given; `--recapture` replaces that source's span, keeps its ID, and reports `annotated` line ranges that no longer fit as `E_SEMANTIC`.
 
 Capture a minimal excerpt. Do not clone or copy the entire codebase into the document. An excerpt can be incomplete evidence even when its bytes are authentic; attach an explanatory note about scope.
 
@@ -845,6 +845,8 @@ Require at most one initial state unless the document explicitly declares multip
 
 Render arrow labels with event/guard; inspect transition actions, failure/timeout paths, and sources. Text/mobile view lists each state and outgoing transition, with its guard and action. Do not imply formal verification from a state diagram.
 
+As implemented (revision 1.24): an arrow shows the transition's `label` and its `[guard]`, the same text as the list; `event` appears in the list notes.
+
 ### 9.6 Data transformation/layout — `transform`
 
 **Question:** How do information, representation, dimensions, or ownership change?
@@ -854,6 +856,8 @@ Render arrow labels with event/guard; inspect transition actions, failure/timeou
 `shape` is a string or a list of named dimensions; it is not executed. Units are authored descriptive data. A pipeline can branch or merge through explicit conversions. A merge is several conversions with the same `to`; the renderer gives each incoming conversion its own port so two values are not conflated, and the stage detail explains how they combine. `loss` must be displayed in the main visual when material to the explanation, not hidden only in the inspector.
 
 Desktop: aligned stage boxes with transformations labelled on arrows; optional row for dimensions/units. Mobile: stage cards and explicit conversion statements, preserving branches. Do not use a generic flowchart where the explanatory point is a change of shape, encoding, or memory location.
+
+As implemented (revision 1.24): narrow screens show each stage and each conversion as a bordered card.
 
 ### 9.7 Causal explanation — `graph mode="cause"`
 
@@ -876,6 +880,8 @@ Mobile/text view lists mechanisms, basis, and evidence. A cause diagram never re
 Each option/criterion pair has at most one cell. Missing values render as **Not provided**, not zero. No default weighted score, winner badge, or arbitrary red/green ranking. Differences should be concrete: ownership, latency mechanism, failure behavior, constraints, or measured numbers with compatible conditions.
 
 Desktop: semantic HTML table with headers. Mobile: criteria in rows, alternatives stacked within each criterion; retain all option labels. Before/after uses two options labelled accordingly rather than a separate engine. Code diff comparison is a specialized annotated artifact, not inferred textual equivalence.
+
+As implemented (revision 1.24): each cell is a target and keeps its own inspection link; a cell without a value shows its text first, then a small "details" link labelled with its option and criterion. `check --review` gives `W_EVIDENCE_GAP` when more than a quarter of the cells are empty.
 
 ### 9.9 Plan/dependency view — `graph mode="plan"`
 
@@ -1006,6 +1012,8 @@ Interactive targets should be at least 44 by 44 CSS pixels where feasible as a p
 
 Keyboard users must be able to reach all inspectable content without tabbing through hundreds of unlabeled SVG primitives. The corresponding relationship/event list provides a standard link path; diagram controls use a small labelled focus surface. Automated accessibility checks are necessary but do not prove usability.
 
+As implemented (revision 1.24): at 899 px or less, the toolbar is one row that scrolls sideways.
+
 ### 10.6 Reference mode
 
 In normal reading, links, selection, scroll, and inspection behave normally. An unobtrusive reference button appears on focus/hover next to ordinary blocks on desktop. Mobile exposes reference selection through the toolbar and the inspector's actions.
@@ -1089,6 +1097,8 @@ This includes build identity so a renderer change does not replace a previously 
 All generated targets receive anchors, including visually represented relationships. A source link opens the snapshot's detail and its pinned origin, not a mutable default branch page.
 
 ### 11.5 Registry and lookup
+
+The repository root is the nearest ancestor with `.git` or `.visser`, with two exceptions (revision 1.24): the `.visser` folder that is `VISSER_HOME` does not count, and the search stops at a folder that every user can write, such as `/tmp`. Outside a repository, `build` writes to `DOC/.visser/output`, and `build` prints the repository root it uses.
 
 The resolver searches only explicitly configured document roots under the selected repository/workspace. Each root must be relative, NFC, and contained in the repository root after realpath; `../`, absolute, or symlink-escaping roots fail with `E_PATH_ESCAPE`. Default root: `docs/explanations`. It may build an ignored `.visser/registry.json` mapping doc IDs to primary files as an optimization. The registry is not authority: validate the doc ID in the actual file and rebuild when needed.
 
@@ -1189,6 +1199,8 @@ Algorithm:
 **Concurrency boundary:** replace, retire, and every other guarded write coordinate Visser writers and detect external edits observed at the final pre-write check. Portable filesystem rename is not compare-and-swap against a noncooperating editor. For guaranteed exclusion, use an exclusively owned worktree or require all writers to honor the lock. Do not claim CRDT, transactional multi-file edits, or protection against every uncooperative writer race.
 
 The coding agent may use its own editing tools, but must follow the same reference/revision/validation contract. Direct edits are not falsely advertised as having gone through Visser's guard.
+
+As implemented (revision 1.24): the printed diff has one hunk for each group of changes, with 3 lines of context.
 
 ### 11.10 Packet refresh
 
@@ -1317,6 +1329,8 @@ Config precedence for operational preferences: explicit CLI option > nearest wor
 
 Installation updates a default pointer only when requested: `install --scope user --default` writes `${VISSER_HOME}/default`, one digest line. The user shim reads it for commands without a document; it never picks an installed toolkit by itself. Old release directories remain usable until explicitly removed. Garbage collection operates only on generated caches or releases the user explicitly chooses; it must not infer that a release is unused across every repository on the machine. V1 has no garbage-collection command; the user removes an unwanted release directory manually, and `doctor` reports locks that then fail to resolve.
 
+**Installation and resolution details (revision 1.24).** `VISSER_HOME` must be an absolute path; an empty value means unset; with neither `VISSER_HOME` nor `HOME` set, commands stop with `E_USAGE` and never fall back to the password database. Staging folders are named `.staging-PID-RANDOM`; install removes stale ones, and `doctor` reports them as `leftover` with the removal command. Install takes the trust-store lock before it activates anything. If a repository toolchain copy is not trusted but the user installed the same digest, the user copy is used and the repository copy is never read. Revoking a toolkit that is installed in the user folder does not stop it from running; the command says so and prints the removal command. Digests are accepted in upper or lower case and stored in lower case.
+
 ### 12.5 GitHub acquisition
 
 Support `install --from-release OWNER/REPO --version VERSION --sha256 ARCHIVE_DIGEST --scope user|repo`, as well as `--archive PATH` and `--from-dir PATH` for offline/local installs. Resolve the release asset through GitHub's documented release-asset API, download over HTTPS, validate the expected archive digest, extract to a temporary directory, verify its file-tree digest, and atomically activate.[S12]
@@ -1359,6 +1373,8 @@ Install small adapter `SKILL.md` files in these supported locations:
 These locations are documented by the respective products at the research date.[S13][S14] Host discovery and duplicate-name rules can differ; do not assume that a repository wrapper always overrides a user wrapper.
 
 Both wrappers use the same location-independent dispatcher contract: always call the **user** shim (`${VISSER_HOME:-$HOME/.visser}/bin/visser.cjs`), which the user installed. A repository shim is never executed by a wrapper or by `doctor`: it is code chosen by whoever controls the repository, and a trust check inside it would run too late. The user shim resolves the document's locked toolkit by §12.4 (repository toolchains only when trusted) or fails with `E_TOOLKIT_UNTRUSTED`. The dispatcher then asks the resolved toolkit for the skill/guides corresponding to the **current document/workspace lock**. A user wrapper must not cause a newer global skill to ignore a repository's pinned format. Wrappers contain only minimal routing and the core safety boundary; the substantial skill text lives once in the toolkit pack.
+
+The shim forwards SIGINT, SIGTERM, and SIGHUP to the toolkit process and exits with its code (revision 1.24). `install`, `trust`, and `doctor` never resolve by document. If the default toolkit is missing, `install --from-dir DIR` runs DIR's own verified CLI, and the other two print a recovery command.
 
 `visser skill show --doc PATH` prints the pinned core skill and absolute local paths to relevant guides. With no document, it uses the workspace default. `doctor` reads versions from `release.json` files and never executes anything from a repository (an untrusted toolchain that no lock uses is reported, not an error); it reports conflicting adapters, repository wrappers whose text differs from the trusted pack's canonical wrapper (by hash), untrusted repository toolchains with their digests, and the toolkit/skill version selected. Do not modify `AGENTS.md` or `CLAUDE.md` automatically; offer a small routing note only as an explicit installer option.
 
@@ -1695,7 +1711,7 @@ The command names below are normative v1 interfaces. They may share implementati
 
 | Command | Purpose / important options |
 |---|---|
-| `init PATH` | Create source bundle, UUID, real toolkit lock; `--kind`, `--title`; do not overwrite existing content. |
+| `init PATH` | Create source bundle, UUID, real toolkit lock; `--kind`, `--title`; `--no-lock` for a document in the toolkit's own repository (built with `--dev-toolkit`); do not overwrite existing content. |
 | `ids assign DOC` | Insert missing ordinary-block IDs; `--check` reports without writing. |
 | `check DOC` | Validate source/IDs/semantics/capture consistency; `--json`, `--verify-origins` (local only, never fetches) with `--repo-map LABEL=PATH`, `--release` (refuses development builds and `--dev-toolkit`). |
 | `build DOC` | Immutable build; `--out`, `--allow-layout-fallback`, `--toolkit-dir`, `--dev-toolkit`; no source mutation/network. |

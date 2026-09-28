@@ -1,7 +1,6 @@
 // `check --verify-origins` (§8.5). Explicit, local only, never fetches. Pages
 // never show these states; they appear only in `check` output.
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Diagnostic } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
@@ -10,6 +9,7 @@ import { HashError, sha256Hex } from '../model/hash.ts';
 import { configValue, openRepository, readBlobAt, readWorkingTreeFile, resolveCommit } from './git.ts';
 import { identityProblem, portableRemote } from './identity.ts';
 import { excerptText, extractExcerpt } from './text.ts';
+import { visserHome } from '../distribution/trust.ts';
 
 export type OriginState =
   | 'origin-matched' // committed bytes equal the stored excerpt
@@ -31,7 +31,7 @@ export type RepositoryMap = ReadonlyMap<string, string>;
 
 /** The user-local repository map (§8.2): `${VISSER_HOME:-~/.visser}/config.json` `repositories`. */
 export function userRepositoryMap(env: NodeJS.ProcessEnv = process.env): Map<string, string> {
-  const home = env['VISSER_HOME'] ?? join(env['HOME'] ?? homedir(), '.visser');
+  const home = visserHome(env);
   const path = join(home, 'config.json');
   const map = new Map<string, string>();
   if (!existsSync(path)) return map;

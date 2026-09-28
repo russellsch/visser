@@ -57,7 +57,7 @@
           "scope": { "enum": ["user", "repository"] },
           "path": { "type": "string" },
           "name": { "type": "string" },
-          "state": { "enum": ["verified", "corrupt", "untrusted"] },
+          "state": { "enum": ["verified", "corrupt", "untrusted", "leftover"] },
           "trusted": { "type": "boolean" },
           "version": { "type": "string" },
           "code": { "type": "string", "pattern": "^[EW]_[A-Z_]+$" },

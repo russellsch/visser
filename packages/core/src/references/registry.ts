@@ -5,6 +5,7 @@ import { readBoundedJson } from '../model/bounded-read.ts';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { HashError } from '../model/hash.ts';
 import { validateAgainst } from '../model/schemas.ts';
+import { visserHome } from '../distribution/trust.ts';
 
 export const DEFAULT_DOCUMENT_ROOTS = ['docs/explanations'];
 
@@ -23,11 +24,45 @@ function escape(message: string): never {
   throw new HashError('E_PATH_ESCAPE', 'E_PATH_ESCAPE', message);
 }
 
-/** Nearest ancestor of `start` (inclusive) that contains `.git` or `.visser`. */
-export function findRepoRoot(start: string): string | undefined {
+function realOrSelf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
+/** The user store (VISSER_HOME), or undefined when it cannot be named. */
+function userStore(env: NodeJS.ProcessEnv): string | undefined {
+  try {
+    return realOrSelf(visserHome(env));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The repository that holds `start`: the nearest ancestor (inclusive) with
+ * `.git` or `.visser`. Two rules keep the search from choosing a folder that is
+ * not a repository (install-pressure-1, M4 and M5):
+ * - the `.visser` folder that is the user store (VISSER_HOME, usually
+ *   ~/.visser) is not a repository marker, so HOME is not a repository
+ *   because Visser is installed there;
+ * - the search stops at a folder that every user can write (such as /tmp),
+ *   so another user cannot choose where a private build goes by creating
+ *   `/tmp/.git` or `/tmp/.visser`.
+ * Undefined when no repository holds `start`.
+ */
+export function findRepoRoot(start: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const store = userStore(env);
   let dir = resolve(start);
   for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.visser'))) return dir;
+    let mode = 0;
+    try { mode = lstatSync(dir).mode; } catch { /* a missing start folder: keep climbing */ }
+    if (mode & 0o002) return undefined;
+    if (existsSync(join(dir, '.git'))) return dir;
+    const marker = join(dir, '.visser');
+    if (existsSync(marker) && realOrSelf(marker) !== store) return dir;
     const parent = dirname(dir);
     if (parent === dir) return undefined;
     dir = parent;

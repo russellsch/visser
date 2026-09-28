@@ -9,6 +9,7 @@ import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringF
 import { resolveForDocument, type ToolkitSelection } from '../toolkit.ts';
 import { bindExtensions } from '../../../core/src/extensions/registry.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
+import { findRepoRoot } from '../../../core/src/references/registry.ts';
 
 export type BuildOutcome = {
   outDir: string;
@@ -16,6 +17,8 @@ export type BuildOutcome = {
   toolkit: ToolkitSelection;
   snapshotPath: string; // site-relative path of index.html
   frontmatter: Record<string, unknown>;
+  /** The repository that holds the document, or undefined (output next to the document). */
+  repository: string | undefined;
 };
 
 /**
@@ -115,15 +118,13 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
   }
 }
 
-/** Nearest ancestor with .git or .visser, else the document folder. */
+/**
+ * The repository that holds `start`, else the document folder: a document
+ * outside any repository keeps its build output next to itself
+ * (DOC/.visser/output), never in an ancestor such as HOME or /tmp.
+ */
 export function repoRootFor(start: string): string {
-  let dir = resolve(start);
-  for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.visser'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return resolve(start);
-    dir = parent;
-  }
+  return findRepoRoot(start) ?? resolve(start);
 }
 
 export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
@@ -153,7 +154,10 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   });
   printDiagnostics(result.diagnostics.filter((d) => d.severity === 'warning'), false);
 
-  const outDir = resolve(stringFlag(args, 'out') ?? join(repoRootFor(bundle.root), '.visser', 'output'));
+  // Find the repository before anything is written: the first build outside a
+  // repository creates DOC/.visser, which would then look like a repository.
+  const repository = findRepoRoot(bundle.root);
+  const outDir = resolve(stringFlag(args, 'out') ?? join(repository ?? bundle.root, '.visser', 'output'));
   const snapshotDir = `d/${result.docId}/${result.sourceRevision}/${result.buildId}`;
   const finalDir = join(outDir, snapshotDir);
 
@@ -191,7 +195,7 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
       throw error;
     }
   }
-  return { outDir, result, toolkit, snapshotPath: `${snapshotDir}/index.html`, frontmatter: bundle.parsed.frontmatter };
+  return { outDir, result, toolkit, snapshotPath: `${snapshotDir}/index.html`, frontmatter: bundle.parsed.frontmatter, repository };
 }
 
 export async function runBuild(args: ParsedArgs): Promise<number> {
@@ -199,7 +203,7 @@ export async function runBuild(args: ParsedArgs): Promise<number> {
   const { result } = outcome;
   const dev = outcome.toolkit.development ? ' (development build)' : '';
   process.stdout.write(
-    `built ${outcome.snapshotPath}${dev}\n  out: ${outcome.outDir}\n  docId: ${result.docId}\n  source revision: ${result.sourceRevision}\n  build ID: ${result.buildId}\n`,
+    `built ${outcome.snapshotPath}${dev}\n  out: ${outcome.outDir}\n  ${outcome.repository ? `repository: ${outcome.repository}` : 'no repository holds this document: the output is next to it'}\n  docId: ${result.docId}\n  source revision: ${result.sourceRevision}\n  build ID: ${result.buildId}\n`,
   );
   return EXIT.ok;
 }

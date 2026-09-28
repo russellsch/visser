@@ -21,6 +21,7 @@ const EXPECTED: Record<string, Array<[string, string, string?]>> = {
   'chronology-as-causation': [['W_EVIDENCE_GAP', 'cl_1', 'order in time']],
   'hidden-caveat': [['W_EVIDENCE_GAP', 'd_caveat']],
   'uncited-certainty': [['W_EVIDENCE_GAP', 'p_claim']],
+  'sparse-compare': [['W_EVIDENCE_GAP', 'queues', '2 of 6 cells']],
 };
 
 function review(path: string) {

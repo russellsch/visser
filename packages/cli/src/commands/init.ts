@@ -1,5 +1,7 @@
-// `visser init PATH --kind K --title T [--toolkit-dir DIR]` (§17.1, §12.3).
+// `visser init PATH --kind K --title T [--toolkit-dir DIR] [--no-lock]` (§17.1, §12.3).
 // Creates index.md and visser.lock.json; never overwrites existing content.
+// `--no-lock` is for a document inside the toolkit's own repository, which is
+// built with `--dev-toolkit` and has no lock (dogfood-2 Q11).
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -13,8 +15,13 @@ export async function runInit(args: ParsedArgs): Promise<number> {
   const kind = stringFlag(args, 'kind');
   const title = stringFlag(args, 'title');
   if (!target || !kind || !title) {
-    throw new CliError('E_USAGE', 'usage: visser init PATH --kind KIND --title TITLE [--toolkit-dir DIR]', EXIT.invalid);
+    throw new CliError('E_USAGE', 'usage: visser init PATH --kind KIND --title TITLE [--toolkit-dir DIR] [--no-lock]', EXIT.invalid);
   }
+  const noLockFlag = args.flags.get('no-lock');
+  if (noLockFlag !== undefined && noLockFlag !== true) {
+    throw new CliError('E_USAGE', '--no-lock takes no value (put it last or before another flag)', EXIT.invalid);
+  }
+  const noLock = noLockFlag === true;
   if (!KINDS.includes(kind)) {
     throw new CliError('E_USAGE', `--kind must be one of ${KINDS.join(', ')}`, EXIT.invalid);
   }
@@ -52,6 +59,10 @@ export async function runInit(args: ParsedArgs): Promise<number> {
 
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.md'), index, { flag: 'wx' });
+  if (noLock) {
+    process.stdout.write(`created ${target}/index.md (docId ${docId})\nno lock written; run every command with --dev-toolkit DIR\n`);
+    return EXIT.ok;
+  }
   writeFileSync(join(dir, 'visser.lock.json'), JSON.stringify(lock, null, 2) + '\n', { flag: 'wx' });
   process.stdout.write(`created ${target}/index.md (docId ${docId})\nlocked toolkit ${release.version} ${release.sha256} (local-dir)\n`);
   return EXIT.ok;

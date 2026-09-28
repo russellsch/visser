@@ -5,6 +5,7 @@ import type { Diagnostic, TargetRecord } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
 import type { MNode } from '../model/targets.ts';
 import { projectText } from '../model/project.ts';
+import { inCitationOrder, sourceOrder } from '../model/citations.ts';
 import { buildId as computeBuildId, canonicalJSON, HashError, normalizedTextSha256, sha256Hex } from '../model/hash.ts';
 import { DOM } from './dom-contract.ts';
 import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
@@ -137,6 +138,7 @@ class Renderer {
   readonly nodes: Map<string, MNode>;
   readonly targetOfNode = new Map<MNode, string>();
   readonly citationNumber = new Map<string, number>();
+  readonly sourceOrder: string[];
   readonly images = new Map<string, OutputFile>(); // bundle path -> output asset
   readonly layout: LayoutFunction;
   readonly options: CompileOptions;
@@ -149,8 +151,9 @@ class Renderer {
     this.options = options;
     this.layout = options.layout ?? layoutGraph;
     for (const [id, node] of this.nodes) this.targetOfNode.set(node, id);
-    let n = 0;
-    for (const record of this.targets.values()) if (record.kind === 'source') this.citationNumber.set(record.id, ++n);
+    // Citation numbers follow the first citation in reading order (revision 1.24).
+    this.sourceOrder = sourceOrder(bundle.parsed.ast as MNode, this.targets);
+    this.sourceOrder.forEach((id, i) => this.citationNumber.set(id, i + 1));
   }
 
   error(code: string, message: string, targetId?: string) {
@@ -364,9 +367,9 @@ class Renderer {
     const a = (k: string) => attrString(n, k);
     switch (family) {
       case 'state': {
-        const head = a('event') ?? label;
+        // The arrow shows the author's label, as the list does; the event is in the list notes (dogfood-2 Q4).
         const guard = a('guard');
-        return guard ? `${head} [${guard}]` : head;
+        return guard ? `${label} [${guard}]` : label;
       }
       case 'cause': return `${label} (${a('basis') ?? 'unstated basis'})`;
       case 'plan': {
@@ -539,13 +542,23 @@ class Renderer {
       const units = attrString(this.nodes.get(c.id)!, 'units');
       return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
     };
-    const cellContent = (cell: TargetRecord | undefined, instanceId: string): Child => {
+    const cellContent = (cell: TargetRecord | undefined, instanceId: string, o: TargetRecord, c: TargetRecord): Child => {
       if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
       const n = this.nodes.get(cell.id)!;
       const value = n.attributes['value'];
       const status = attrString(n, 'valueStatus');
+      if (value === undefined) {
+        // No value: the cell text comes first, and a small link after it opens the
+        // cell's detail, so a table of short cells is not a column of "Details"
+        // links (dogfood-2 Q5). The link keeps the cell's one table instance (§10.3).
+        return [
+          h('div', { class: 'vs-cell-body' }, this.blocks(n)),
+          h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}`, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true },
+            h('span', { [DOM.attr.generated]: true }, 'details')),
+        ];
+      }
       return [
-        link(cell.id, instanceId, value !== undefined ? this.safeText(String(value), cell.id) : h('span', { [DOM.attr.generated]: true }, 'Details')),
+        link(cell.id, instanceId, this.safeText(String(value), cell.id)),
         status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
         h('div', { class: 'vs-cell-body' }, this.blocks(n)),
       ];
@@ -558,7 +571,7 @@ class Renderer {
         h('th', { scope: 'row' }, criterionLabel(c, DOM.svgInstanceId(id, c.id))),
         options.map((o) => {
           const cell = cellFor(o.id, c.id);
-          return h('td', {}, cellContent(cell, cell ? DOM.svgInstanceId(id, cell.id) : ''));
+          return h('td', {}, cellContent(cell, cell ? DOM.svgInstanceId(id, cell.id) : '', o, c));
         })))));
     // Narrow screens: criteria as rows, every option stacked inside each criterion (§9.8).
     // One link per option row: the option label opens that cell's detail, and the
@@ -1001,7 +1014,7 @@ class Renderer {
   }
 
   appendix(): HNode {
-    const details = [...this.targets.values()].filter((r) => r.inspectable).map((r) => this.detail(r));
+    const details = inCitationOrder([...this.targets.values()].filter((r) => r.inspectable), this.sourceOrder).map((r) => this.detail(r));
     return h('section', { id: DOM.appendix, 'aria-label': 'Details and evidence' },
       h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), details);
   }

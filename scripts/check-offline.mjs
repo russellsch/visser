@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 import { connect } from 'node:net';
 import { lookup } from 'node:dns/promises';
 import { get } from 'node:http';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +101,11 @@ function pass(step, detail = '') {
 
 const home = mkdtempSync(join(tmpdir(), 'visser-offline-home-'));
 const repo = mkdtempSync(join(tmpdir(), 'visser-offline-repo-'));
+// Remove both folders on every exit path, including fail().
+process.on('exit', () => {
+  rmSync(home, { recursive: true, force: true });
+  rmSync(repo, { recursive: true, force: true });
+});
 mkdirSync(join(repo, '.git'));
 const env = { ...process.env, VISSER_HOME: home };
 function visser(step, ...args) {

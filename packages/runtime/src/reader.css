@@ -91,6 +91,9 @@ html { scroll-padding-top: 3.5rem; }
 .vs-compare-table td { vertical-align: top; }
 .vs-cell-body > :first-child { margin-top: 0.25rem; }
 .vs-cell-body > :last-child { margin-bottom: 0; }
+/* A cell without a value: a small link after its text (dogfood-2 Q5). */
+.vs-cell-link { font-size: 0.875rem; color: var(--vs-muted, inherit); display: inline-block; margin-top: 0.25rem; }
+.vs-compare-table td, .vs-compare-table th[scope="row"] { min-width: 12rem; }
 .vs-not-provided { color: var(--vs-muted); font-style: italic; }
 .vs-compare-card { border: 1px solid var(--vs-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.75rem 0; }
 .vs-compare-criterion { font-weight: 600; margin: 0 0 0.25rem; }
@@ -231,6 +234,13 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
    centred on it, up to the window width, instead of being clipped (§9.3: do not
    shrink labels as the only way to fit). */
 @media (min-width: 900px) {
+  /* A compare table may also use more than the text column (dogfood-2 Q5). */
+  .vs-figure .vs-compare-table {
+    width: max-content;
+    max-width: min(calc(100vw - 4rem), 72rem);
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
   .vs-figure .vs-viewport {
     width: max-content;
     max-width: calc(100vw - 4rem);
@@ -285,8 +295,16 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-trace-events { list-style: none; padding-left: 0; }
   .vs-event { border: 1px solid var(--vs-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
   .vs-event-layer { display: block; }
-  /* The toolbar wraps to two rows on narrow screens. */
-  html { scroll-padding-top: 7rem; }
+  /* One toolbar row on narrow screens: the row scrolls sideways instead of
+     wrapping to two rows that stay on screen (dogfood-2 Q7). */
+  .vs-toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+  .vs-toolbar button { flex: none; white-space: nowrap; }
+  /* Transform (§9.6): stage cards, and one conversion statement per card (dogfood-2 Q8). */
+  .vs-family-transform .vs-node-list, .vs-family-transform .vs-rel-list { padding-left: 0; list-style: none; }
+  .vs-family-transform .vs-node-list > li, .vs-family-transform .vs-rel-list > li {
+    border: 1px solid var(--vs-rule); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+  }
+  html { scroll-padding-top: 4.25rem; }
   body.vs-has-inspector #vs-doc { margin-left: auto; }
 }
 

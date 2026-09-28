@@ -179,6 +179,16 @@ function evidence(ctx: Context): void {
       prompt(ctx, 'W_EVIDENCE_GAP', r.id, `${r.id} is marked observed but cites no evidence; cite the observation or mark it inferred or hypothesis`);
     }
   }
+  // A comparison with more than a quarter of its cells missing shows "Not
+  // provided" where a reader expects a fact (dogfood-2 Q6).
+  for (const compare of byTag('compare')) {
+    const owned = (tag: string) => byTag(tag).filter((t) => model.targets.get(t.id)?.ownerComponentId === compare.id);
+    const total = owned('option').length * owned('criterion').length;
+    const missing = total - owned('cell').length;
+    if (total > 0 && missing * 4 > total) {
+      prompt(ctx, 'W_EVIDENCE_GAP', compare.id, `${compare.id} leaves ${missing} of ${total} cells empty, and the page shows "Not provided" in each; fill them, or drop the option or criterion that has no facts`);
+    }
+  }
   for (const f of byTag('factor')) {
     const node = model.nodes.get(f.id);
     if (f.attributes['basis'] === 'observed' && node && !hasCite(node, ctx.isTarget)) {

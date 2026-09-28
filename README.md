@@ -35,7 +35,21 @@ The release goes to `dist/release`.
 
 2. Run all later commands through the user shim at `~/.visser/bin/visser.cjs`. A later install replaces the shim only with `--default`. If `VISSER_HOME` is set, the shim is at `$VISSER_HOME/bin/visser.cjs`.
 
-The installer does not change `PATH` or your shell startup files. Add an alias yourself if you want one.
+The installer does not change `PATH` or your shell startup files. To type `visser`, add this line to your shell startup file:
+
+```sh
+alias visser='node ~/.visser/bin/visser.cjs'
+```
+
+If you set `VISSER_HOME`, use an absolute path. Run `visser --help` for the commands and `visser --version` for the toolkit version.
+
+If the default toolkit is missing, install it again with the release's own CLI:
+
+```sh
+node dist/release/bin/visser.cjs install --from-dir dist/release --scope user --default
+```
+
+To remove a toolkit, delete its folder, for example `rm -rf ~/.visser/toolchains/DIGEST`. `visser doctor` lists the installed toolkits and prints the removal command for leftovers of an interrupted install.
 
 Other sources:
 
@@ -86,7 +100,7 @@ In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps in
    visser serve docs/explanations/queue/index.md
    ```
 
-   The server listens on `127.0.0.1:4310` by default. It prints the full URL of the page.
+   The server listens on `127.0.0.1:4310` by default. It prints the full URL of the page. Press Ctrl-C to stop it.
 
 8. Export a static site:
 

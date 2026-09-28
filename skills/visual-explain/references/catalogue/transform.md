@@ -37,14 +37,16 @@ loses detail, so the main view shows it.
 
 - `stage` and `conversion` go directly inside the `transform`.
 - `from` and `to` name stages in the same figure.
-- A merge is two or more conversions with the same `to`. Visser in the
+- A merge is two or more conversions with the same `to`. Explain in the
   stage body how the inputs combine.
 - `shape` and `units` are descriptive text. Nothing executes them.
 
 ## Narrow screens and text
 
-On a narrow screen stages become cards, and each conversion becomes a
-sentence with its loss and condition. Branches stay visible.
+On a narrow screen the page shows the list view: each stage is a card, and
+each conversion is one card that reads "from, label, to", followed by its loss
+and condition. A branch is a separate conversion card, so branches stay
+visible. The figure is one tap away in the view bar.
 
 ## Template
 

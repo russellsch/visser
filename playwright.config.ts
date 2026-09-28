@@ -76,6 +76,7 @@ const budgetProjects: Project[] = [{ name: 'budgets', testMatch: BUDGETS_SPEC, u
 export default defineConfig({
   testDir: 'tests/browser',
   testMatch: /.*\.spec\.ts$/,
+  globalSetup: './tests/browser/global-setup.ts',
   forbidOnly: Boolean(process.env['CI']),
   retries: 0,
   reporter: budgets

@@ -63,6 +63,11 @@ export async function runInstall(args: ParsedArgs): Promise<number> {
   if (scope === 'repo' && !root) {
     throw new CliError('E_SOURCE_UNAVAILABLE', 'no repository root (a directory with .git or .visser) found; pass --root DIR', EXIT.unavailable);
   }
+  if (archive !== undefined && sha256 === undefined) {
+    // Allowed: the release digest inside the archive is still verified. But
+    // nothing ties the archive to a published value (install-pressure-1, m4).
+    process.stderr.write('warning: the archive digest was not compared with a published value; pass --sha256 DIGEST to check it. The toolkit digest inside the archive is still verified.\n');
+  }
   try {
     const common = {
       scope: scope as 'user' | 'repo',

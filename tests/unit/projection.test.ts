@@ -9,7 +9,7 @@ const model = buildTargetRecords(parsed);
 const text = projectText(parsed);
 
 describe('semantic Markdown projection (§7.6) @R01 @R14', () => {
-  it('lists every target exactly once with an visser-text/1 ID line', () => {
+  it('lists every target exactly once with a visser-text/1 ID line', () => {
     const ids = [...text.matchAll(/<!-- vs:target ([a-z][a-z0-9_-]*) -->/g)].map((m) => m[1]);
     expect(ids.sort()).toEqual([...model.targets.keys()].sort());
   });

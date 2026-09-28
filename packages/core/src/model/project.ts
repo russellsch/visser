@@ -5,6 +5,7 @@ import type { ParsedSource, TargetId, TargetRecord } from '../types.ts';
 import { buildTargetRecords, inlineText, type MNode, type SemanticRelationship } from './targets.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
+import { inCitationOrder, sourceOrder } from './citations.ts';
 
 const idLine = (id: TargetId) => `<!-- vs:target ${id} -->`;
 
@@ -342,7 +343,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
   const title = typeof parsed.frontmatter['title'] === 'string' ? parsed.frontmatter['title'] : undefined;
   const docId = typeof parsed.frontmatter['docId'] === 'string' ? parsed.frontmatter['docId'] : undefined;
   const blocks: string[] = [`<!-- visser-text/1 docId=${docId ?? '?'} -->`];
-  const topLevel = [...ctx.targets.values()].filter((t) => t.parentId === undefined);
+  const topLevel = inCitationOrder([...ctx.targets.values()].filter((t) => t.parentId === undefined), sourceOrder(parsed.ast as MNode, ctx.targets));
   if (title && !(topLevel[0]?.kind === 'heading' && ctx.nodes.get(topLevel[0].id)?.attributes['level'] === 1)) {
     blocks.push(`# ${title}`);
   }
