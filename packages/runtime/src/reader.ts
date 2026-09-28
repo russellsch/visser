@@ -8,7 +8,7 @@ import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE
 const A = DOM.attr;
 const HISTORY_MAX = 20;
 
-type Moved = { el: HTMLDetailsElement; placeholder: HTMLTemplateElement; wasOpen: boolean };
+type Moved = { el: HTMLDetailsElement; placeholder: HTMLTemplateElement; wasOpen: boolean; wasHidden: boolean };
 
 type Inspector = {
   host: HTMLElement; // <aside> or <dialog>
@@ -105,6 +105,10 @@ function returnCurrent(): void {
   if (!moved) return;
   moved.placeholder.replaceWith(moved.el);
   moved.el.open = moved.wasOpen;
+  // F3c: a detail the appendix filter had hidden stays hidden once it comes
+  // home, so opening it through a citation elsewhere does not permanently
+  // pin it visible against the current filter query.
+  moved.el.hidden = moved.wasHidden;
   state.current = undefined;
 }
 
@@ -122,10 +126,15 @@ function showDetail(targetId: string, push: boolean): boolean {
   const placeholder = document.createElement('template');
   placeholder.setAttribute(A.placeholder, targetId);
   detail.before(placeholder);
-  state.current = { el: detail, placeholder, wasOpen: detail.open };
+  state.current = { el: detail, placeholder, wasOpen: detail.open, wasHidden: detail.hidden };
   detail.open = true;
+  detail.hidden = false;
   inspector.body.replaceChildren(detail);
-  inspector.title.textContent = detail.getAttribute(A.label) ?? targetId;
+  // F4b: the full title is always in the DOM and in `title` (native tooltip
+  // when the 2-line clamp truncates it); the clamp itself is CSS (reader.css).
+  const label = detail.getAttribute(A.label) ?? targetId;
+  inspector.title.textContent = label;
+  inspector.title.title = label;
   inspector.back.hidden = state.history.length === 0;
   if (modal) {
     const dialog = inspector.host as HTMLDialogElement;
@@ -134,6 +143,9 @@ function showDetail(targetId: string, push: boolean): boolean {
     inspector.host.hidden = false;
     document.body.classList.add('vs-has-inspector');
   }
+  // Initial focus moves to the title (§10.2), but not with a visible ring for
+  // this programmatic move; a reader who Tabs to it later still gets one
+  // (reader.css scopes `:focus:not(:focus-visible)` to this element only).
   inspector.title.focus();
   return true;
 }
@@ -215,7 +227,7 @@ function afterPrint(): void {
 // ---------------------------------------------------------------- definitions
 
 let tooltip: HTMLElement | undefined;
-let tooltipTerm: HTMLElement | undefined;
+let tooltipOwners: HTMLElement[] = [];
 let tooltipTimer: number | undefined;
 
 function firstSentence(text: string): string {
@@ -235,10 +247,8 @@ function definitionText(defId: string): string {
   return firstSentence(parts.join(' '));
 }
 
-function showTooltip(term: HTMLElement): void {
-  const defId = term.getAttribute(A.term);
-  if (!defId) return;
-  const text = definitionText(defId);
+/** Show one tooltip shared by `owners`, positioned after the last one. */
+function showTooltipFor(owners: HTMLElement[], text: string): void {
   if (!text) return;
   hideTooltip();
   const tip = el('span', 'vs-tooltip', text);
@@ -247,18 +257,50 @@ function showTooltip(term: HTMLElement): void {
   tip.setAttribute(A.generated, '');
   tip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
   tip.addEventListener('mouseleave', () => scheduleHide());
-  term.after(tip);
-  term.setAttribute('aria-describedby', tip.id);
+  owners[owners.length - 1]?.after(tip);
+  for (const owner of owners) owner.setAttribute('aria-describedby', tip.id);
   tooltip = tip;
-  tooltipTerm = term;
+  tooltipOwners = owners;
+}
+
+function showTooltip(term: HTMLElement): void {
+  const defId = term.getAttribute(A.term);
+  if (!defId) return;
+  showTooltipFor([term], definitionText(defId));
+}
+
+/** A run of adjacent `a.vs-cite` elements, separated only by whitespace text (F10). */
+function citeGroup(cite: HTMLElement): HTMLElement[] {
+  const group = [cite];
+  const isWhitespace = (node: ChildNode) => node.nodeType === Node.TEXT_NODE && !(node.textContent ?? '').trim();
+  const isCite = (node: ChildNode): node is HTMLElement => node instanceof HTMLElement && node.classList.contains('vs-cite');
+  let node: ChildNode | null = cite.previousSibling;
+  while (node) {
+    if (isWhitespace(node)) { node = node.previousSibling; continue; }
+    if (isCite(node)) { group.unshift(node); node = node.previousSibling; continue; }
+    break;
+  }
+  node = cite.nextSibling;
+  while (node) {
+    if (isWhitespace(node)) { node = node.nextSibling; continue; }
+    if (isCite(node)) { group.push(node); node = node.nextSibling; continue; }
+    break;
+  }
+  return group;
+}
+
+function showCiteTooltip(cite: HTMLElement): void {
+  const group = citeGroup(cite);
+  const titles = group.map((c) => c.getAttribute('data-vs-cite-title')).filter((t): t is string => Boolean(t));
+  showTooltipFor(group, titles.join('; '));
 }
 
 function hideTooltip(): void {
   window.clearTimeout(tooltipTimer);
   tooltip?.remove();
-  tooltipTerm?.removeAttribute('aria-describedby');
+  for (const owner of tooltipOwners) owner.removeAttribute('aria-describedby');
   tooltip = undefined;
-  tooltipTerm = undefined;
+  tooltipOwners = [];
 }
 
 function scheduleHide(): void {
@@ -589,7 +631,103 @@ function toggleAbout(): void {
     list.append(el('dt', undefined, term), el('dd', 'vs-mono', value ?? 'unknown'));
   }
   about.append(el('p', undefined, 'This page is an immutable snapshot. Editing the source produces a new revision.'), list);
+  // The full captured/revision/build/visibility line moves into the panel; a
+  // brief "Snapshot · <visibility>" line stays under the h1 for every reader (F11).
+  const meta = document.querySelector<HTMLElement>('header.vs-snapshot > .vs-meta');
+  if (meta) about.append(meta);
   root?.prepend(about);
+}
+
+// ---------------------------------------------------------------- appendix filter (F3c)
+
+function appendixDetails(): HTMLDetailsElement[] {
+  return Array.from(document.querySelectorAll<HTMLDetailsElement>(`#${DOM.appendix} details.vs-detail`));
+}
+
+/** Hide rows whose summary text does not contain `query`, and any group left empty. */
+function applyAppendixFilter(query: string, status: HTMLElement): void {
+  const q = query.trim().toLowerCase();
+  const rows = appendixDetails();
+  let shown = 0;
+  for (const row of rows) {
+    const match = q === '' || (row.querySelector('summary')?.textContent ?? '').toLowerCase().includes(q);
+    row.hidden = !match;
+    if (match) shown++;
+  }
+  for (const group of Array.from(document.querySelectorAll<HTMLElement>(`.${DOM.appendixGroup}`))) {
+    group.hidden = Array.from(group.querySelectorAll<HTMLDetailsElement>('details.vs-detail')).every((d) => d.hidden);
+  }
+  status.textContent = `${shown} of ${rows.length} shown`;
+}
+
+/**
+ * A filter box the runtime creates at the top of the appendix (F3c). Without
+ * JavaScript there is no box, and every row is present and unhidden, so a
+ * no-JS reader always gets the full list.
+ */
+function addAppendixFilter(): void {
+  const appendix = byId(DOM.appendix);
+  const heading = appendix?.querySelector('h2');
+  if (!appendix || !heading) return;
+  const wrap = el('div', 'vs-appendix-filter');
+  wrap.setAttribute(A.generated, '');
+  const inputId = 'vs-appendix-filter-input';
+  const label = el('label', undefined, 'Filter details and evidence');
+  label.htmlFor = inputId;
+  const input = el('input');
+  input.type = 'search';
+  input.id = inputId;
+  const status = el('p', 'vs-status');
+  status.id = 'vs-appendix-filter-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute(A.generated, '');
+  input.addEventListener('input', () => applyAppendixFilter(input.value, status));
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    if (input.value) {
+      input.value = '';
+      applyAppendixFilter('', status);
+    }
+  });
+  wrap.append(label, input, status);
+  heading.after(wrap);
+  applyAppendixFilter('', status);
+}
+
+// ---------------------------------------------------------------- figure overflow hint (F5c)
+
+/**
+ * Toggle `.vs-overflow-hint[hidden]` for every figure viewport that has one
+ * as its next sibling (compile.ts emits the pair together): shown only while
+ * the viewport actually overflows, and hidden again once the reader scrolls
+ * that viewport to its right end.
+ */
+function initOverflowHints(): void {
+  const pairs: Array<{ viewport: HTMLElement; hint: HTMLElement }> = [];
+  for (const viewport of Array.from(document.querySelectorAll<HTMLElement>(`[${A.viewport}]`))) {
+    const hint = viewport.nextElementSibling;
+    if (!(hint instanceof HTMLElement) || !hint.classList.contains('vs-overflow-hint')) continue;
+    pairs.push({ viewport, hint });
+    viewport.addEventListener('scroll', () => {
+      if (viewport.scrollLeft + viewport.clientWidth >= viewport.scrollWidth - 1) hint.hidden = true;
+    }, { passive: true });
+  }
+  if (pairs.length === 0) return;
+  const check = () => {
+    for (const { viewport, hint } of pairs) {
+      const overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
+      const atEnd = viewport.scrollLeft + viewport.clientWidth >= viewport.scrollWidth - 1;
+      hint.hidden = !overflowing || atEnd;
+    }
+  };
+  requestAnimationFrame(check);
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(check);
+    for (const { viewport } of pairs) observer.observe(viewport);
+  } else {
+    window.addEventListener('resize', check);
+  }
 }
 
 // ---------------------------------------------------------------- events
@@ -664,6 +802,8 @@ function init(): void {
 
   addReferenceButtons();
   addViewToggles();
+  addAppendixFilter();
+  initOverflowHints();
 
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKeydown);
@@ -674,6 +814,13 @@ function init(): void {
     term.addEventListener('mouseleave', () => scheduleHide());
     term.addEventListener('focus', () => showTooltip(term));
     term.addEventListener('blur', () => scheduleHide());
+  }
+
+  for (const cite of Array.from(document.querySelectorAll<HTMLElement>('a.vs-cite'))) {
+    cite.addEventListener('mouseenter', () => showCiteTooltip(cite));
+    cite.addEventListener('mouseleave', () => scheduleHide());
+    cite.addEventListener('focus', () => showCiteTooltip(cite));
+    cite.addEventListener('blur', () => scheduleHide());
   }
 
   window.addEventListener('hashchange', onHash);

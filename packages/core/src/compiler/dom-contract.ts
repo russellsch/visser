@@ -16,11 +16,20 @@
 //     </nav>
 //     <main id="vs-doc" data-vs-doc=UUID data-vs-rev=SHA data-vs-build=SHA>
 //       the first block when it is an h1 (it is the page title, §10.1)
-//       <header class="vs-snapshot"> generated h1 (only if no h1 block) + one
-//         compact <p class="vs-meta" data-vs-generated> snapshot line </header>
+//       <header class="vs-snapshot"> generated h1 (only if no h1 block),
+//         a permanent <p class="vs-snapshot-brief"> "Snapshot · VISIBILITY" line,
+//         and the full compact <p class="vs-meta" data-vs-generated> snapshot
+//         line, which the runtime moves into the "About this snapshot" panel
+//         and CSS hides in place once JavaScript runs (F11) </header>
 //       remaining canonical top-level blocks, in source order (see CANONICAL below)
 //       <section id="vs-appendix" aria-label="Details and evidence">
-//         canonical <details> for every inspectable target
+//         runtime-created filter box (search input + live region), then
+//         <div class="vs-appendix-group"><h3>Sources</h3> ... </div>,
+//         one group each for Sources (kind source), Definitions, Details
+//         (authored detail blocks), then one "Figure: TITLE" group per figure
+//         holding that figure's owned parts, in figure document order. A group
+//         with no rows is not emitted (F3). Each group holds the canonical
+//         <details> for its targets.
 //       </section>
 //     </main>
 //   </body>
@@ -83,6 +92,7 @@
 export const DOM = {
   root: 'vs-doc',
   appendix: 'vs-appendix',
+  appendixGroup: 'vs-appendix-group',
   toolbar: 'vs-toolbar',
   inspector: 'vs-inspector',
   inspectorDialog: 'vs-inspector-dialog',

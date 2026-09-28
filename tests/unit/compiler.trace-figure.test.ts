@@ -52,6 +52,7 @@ describe('trace figure @R04 @R06', () => {
       ],
       orders: [{ id: 'a~b', from: 'a', to: 'b' }, { id: 'a~c', from: 'a', to: 'c' }],
       messages: [],
+      branches: [],
       labelOf: (x) => x.toUpperCase(),
     }));
     const pathOf = (id: string) => {
@@ -60,5 +61,50 @@ describe('trace figure @R04 @R06', () => {
     };
     expect(pathOf('a~b').split('L').length).toBe(2); // straight down to the box directly below
     expect(pathOf('a~c').split('L').length).toBeGreaterThan(3); // around through the gutter
+  });
+
+  it('gives two exclusive branches on one actor their own sub-columns, so their boxes never interleave (dogfood-3 F2)', () => {
+    // A single prerequisite forks into a success and a failure branch on the
+    // same actor. Before the fix, both later events landed in the same
+    // column and simply stacked, so the failure box could render between two
+    // success boxes and read as part of the success chain.
+    const svg = render(traceSvg({
+      figureId: 'f', title: 'T',
+      actors: [{ id: 'p', label: 'Background index thread' }],
+      events: [
+        { id: 'acquire', actor: 'p', label: 'acquire_cutover', kind: 'compute', layer: 6, meta: [] },
+        { id: 'scan', actor: 'p', label: 'Scans again', kind: 'compute', layer: 7, meta: [], branch: 'b_ok' },
+        { id: 'abort', actor: 'p', label: 'Abort scan', kind: 'failure', layer: 7, meta: [], branch: 'b_fail' },
+      ],
+      orders: [{ id: 'acquire~scan', from: 'acquire', to: 'scan' }, { id: 'acquire~abort', from: 'acquire', to: 'abort' }],
+      messages: [],
+      branches: [
+        { id: 'b_ok', label: 'Scan succeeds', exclusiveWith: ['b_fail'] },
+        { id: 'b_fail', label: 'A step raised', exclusiveWith: ['b_ok'] },
+      ],
+      labelOf: (x) => x.toUpperCase(),
+    }));
+    const boxOf = (id: string) => {
+      const start = svg.indexOf(`id="v-f.${id}"`);
+      const rect = /<rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.-]+)" height="([\d.-]+)"/.exec(svg.slice(start))!;
+      const [, x, y, w, h] = rect.map(Number);
+      return { x: x!, y: y!, w: w!, h: h! };
+    };
+    const scan = boxOf('scan');
+    const abort = boxOf('abort');
+    // Different sub-columns: the boxes sit side by side, not one above the other.
+    expect(scan.x).not.toBe(abort.x);
+    const overlapsX = scan.x < abort.x + abort.w && abort.x < scan.x + scan.w;
+    expect(overlapsX).toBe(false);
+    // Same row (same order layer): neither box sits vertically between the
+    // other and the shared prerequisite.
+    expect(scan.y).toBe(abort.y);
+    // Every box keeps a visible layer-number badge.
+    expect(svg).toContain('class="vs-event-layer-badge"');
+    const badges = [...svg.matchAll(/class="vs-event-layer-badge"[^>]*>(\d+)</g)].map((m) => m[1]);
+    expect(badges).toEqual(['6', '7', '7']);
+    // A fork mark shows once, labelled with both branch names.
+    expect(svg).toContain('class="vs-trace-fork-label"');
+    expect(svg).toContain('Scan succeeds / A step raised');
   });
 });

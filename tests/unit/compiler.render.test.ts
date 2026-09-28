@@ -70,7 +70,9 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
     // Order layers are partial-order depth, marked generated so quotes skip them.
     expect(html).toContain('<span class="vs-event-layer" data-vs-generated="">Order layer 1 </span>');
     expect(html).toContain('<span class="vs-event-layer" data-vs-generated="">Order layer 4 </span>');
-    expect(html).toMatch(/<a class="vs-cite" href="#x-src_queue" title="Illustrative bounded queue" data-vs-generated="">\[1\]<\/a>/);
+    // The excerpt title lives in a data attribute; the runtime builds the tooltip
+    // from it so a native `title` attribute never doubles up (F10).
+    expect(html).toMatch(/<a class="vs-cite" href="#x-src_queue" data-vs-cite-title="Illustrative bounded queue" data-vs-generated="">\[1\]<\/a>/);
     expect(html).toContain('class="vs-term" href="#x-def_backpressure" data-vs-term="def_backpressure"');
     expect(html).toContain('data-vs-focus="enqueue event_wait event_remove"');
     expect(html).toMatch(/<svg[^>]*role="group" aria-label="[^"]+"/);
@@ -79,8 +81,13 @@ describe('static compiler output (§13.1, §10.3) @R14', () => {
     // Defect 3 (phase1-review.md): one compact snapshot line after the title.
     expect(html).toContain('<p class="vs-meta" data-vs-generated="">Snapshot captured ');
     expect(html.indexOf('id="x-overview"')).toBeLessThan(html.indexOf('class="vs-meta"'));
-    const listItem = html.slice(html.indexOf('id="l-handoff.enqueue"'));
-    expect(listItem.slice(0, listItem.indexOf('</a>'))).toMatch(/<span data-vs-generated=""> \u2192 <\/span>/);
+    // F9: only the relationship label is the link; endpoints are plain text and
+    // the kind is a separate muted badge, all within the same list item.
+    const liStart = html.lastIndexOf('<li>', html.indexOf('id="l-handoff.enqueue"'));
+    const listItem = html.slice(liStart, html.indexOf('</li>', liStart));
+    expect(listItem).toMatch(/<span class="vs-rel-endpoint">[^<]+<\/span><span data-vs-generated=""> \u2192 <\/span><a class="vs-rel-label"[^>]*id="l-handoff\.enqueue"/);
+    expect(listItem).toMatch(/<span data-vs-generated=""> \u2192 <\/span><span class="vs-rel-endpoint">[^<]+<\/span>/);
+    expect(listItem).toMatch(/<span class="vs-rel-kind" data-vs-generated="">[a-z-]+<\/span>/);
   });
 
   it('shows the capture-consistent state and the link-only state', () => {

@@ -9,9 +9,9 @@ import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, stringF
 const USAGE = [
   'usage: visser capture git --repo DIR --file PATH --lines START:END --doc DOC --id ID --title TITLE',
   '         [--rev REV | --working-tree] [--repository-label NAME] [--language LANG] [--symbol NAME]',
-  '         [--captured-at TIMESTAMP] [--recapture] [--allow-alternates] [--allow-external-gitdir] [--json]',
+  '         [--captured-at TIMESTAMP] [--recapture] [--allow-alternates] [--allow-external-gitdir] [--dry-run] [--json]',
   '       visser capture file --from PATH --kind file|web|supplied|example --doc DOC --id ID --title TITLE',
-  '         [--lines START:END] [--label NAME] [--url URL] [--language LANG] [--captured-at TIMESTAMP] [--recapture] [--json]',
+  '         [--lines START:END] [--label NAME] [--url URL] [--language LANG] [--captured-at TIMESTAMP] [--recapture] [--dry-run] [--json]',
 ].join('\n');
 
 function flag(args: ParsedArgs, name: string): boolean {
@@ -33,12 +33,30 @@ function optional(args: ParsedArgs, name: string): Record<string, string> {
 }
 
 function report(result: CaptureResult, json: boolean): void {
-  if (json) {
-    printJson('capture', { schema: 'visser-capture/1', ...result });
-    return;
-  }
+  // W_DUPLICATE_SOURCE and similar findings are printed regardless of mode:
+  // they are not part of the normative --json schema, only a note to the
+  // terminal running the command (dogfood-3 F13).
+  for (const warning of result.warnings) process.stderr.write(`warning: ${warning}\n`);
   const a = result.attributes;
   const where = a.asset ?? (a.start !== undefined ? `lines ${a.start}-${a.end}` : 'whole file');
+  if (result.dryRun) {
+    if (json) {
+      process.stdout.write(`${JSON.stringify({ schema: 'visser-capture-dry-run/1', dryRun: true, id: a.id, title: a.title, kind: a.kind, where, excerptSha256: a.excerptSha256, excerptPreview: result.excerptPreview ?? [] }, null, 2)}\n`);
+      return;
+    }
+    const preview = (result.excerptPreview ?? []).map((line) => `    ${line}`).join('\n');
+    process.stdout.write(
+      `would capture ${a.id} (${a.kind}, ${where})\n  title: ${a.title}\n${a.file ? `  file: ${a.file}\n` : ''}  sha256: ${a.excerptSha256}\n` +
+        (preview ? `  excerpt:\n${preview}\n` : ''),
+    );
+    return;
+  }
+  if (json) {
+    // The dry-run-only fields never reach the schema-checked payload.
+    const { warnings: _warnings, dryRun: _dryRun, excerptPreview: _preview, ...rest } = result;
+    printJson('capture', { schema: 'visser-capture/1', ...rest });
+    return;
+  }
   process.stdout.write(`${result.replaced ? 'recaptured' : 'captured'} ${a.id} (${a.kind}, ${where})\n  excerptSha256: ${a.excerptSha256}\n  source revision: ${result.oldRevision} -> ${result.newRevision}\n`);
 }
 
@@ -72,6 +90,7 @@ export async function runCapture(args: ParsedArgs): Promise<number> {
         ...(flag(args, 'recapture') ? { recapture: true } : {}),
         ...(flag(args, 'allow-alternates') ? { allowAlternates: true } : {}),
         ...(flag(args, 'allow-external-gitdir') ? { allowExternalGitdir: true } : {}),
+        ...(flag(args, 'dry-run') ? { dryRun: true } : {}),
       });
     } else if (mode === 'file') {
       const kind = required(args, 'kind');
@@ -88,6 +107,7 @@ export async function runCapture(args: ParsedArgs): Promise<number> {
         ...(stringFlag(args, 'language') !== undefined ? { language: stringFlag(args, 'language')! } : {}),
         ...(stringFlag(args, 'captured-at') !== undefined ? { capturedAt: stringFlag(args, 'captured-at')! } : {}),
         ...(flag(args, 'recapture') ? { recapture: true } : {}),
+        ...(flag(args, 'dry-run') ? { dryRun: true } : {}),
       });
     } else {
       throw new CliError('E_USAGE', USAGE, EXIT.invalid);

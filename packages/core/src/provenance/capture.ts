@@ -1,12 +1,42 @@
 // `capture git` and `capture file` (§8.1, §8.2, §8.4, §17.1).
 import { lstatSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { loadBundle } from '../model/bundle.ts';
 import { HashError, sha256Hex } from '../model/hash.ts';
 import type { FsContext } from '../references/fs-context.ts';
 import { headCommit, MAX_CAPTURE_BYTES, openRepository, parseLineRange, readBlobAt, readWorkingTreeFile, resolveCommit } from './git.ts';
 import { repositoryIdentity } from './identity.ts';
 import { extractExcerpt, wholeExcerpt } from './text.ts';
 import { languageFor, type SourceAttributes, writeSource, type WriteSourceResult } from './write.ts';
+
+/**
+ * A source already in the document that captures the same material: the same
+ * excerpt bytes, the same asset path, or the same file and line range. A
+ * match is a warning, not an error (dogfood-3 F13): a second capture of the
+ * same lines under a new ID is valid, just probably not what the author
+ * meant.
+ */
+function duplicateSourceWarning(doc: string, attrs: SourceAttributes): string | undefined {
+  let bundle;
+  try {
+    bundle = loadBundle(doc);
+  } catch {
+    return undefined;
+  }
+  const match = bundle.parsed.targets.find((t) => {
+    if (t.tagName !== 'source' || t.id === attrs.id) return false;
+    const a = t.attributes;
+    if (typeof a['excerptSha256'] === 'string' && a['excerptSha256'] === attrs.excerptSha256) return true;
+    if (attrs.asset !== undefined && a['asset'] === attrs.asset) return true;
+    return attrs.file !== undefined && a['file'] === attrs.file && a['start'] === attrs.start && a['end'] === attrs.end;
+  });
+  return match ? `W_DUPLICATE_SOURCE: ${attrs.id} captures the same file, lines, and content as existing source ${match.id}` : undefined;
+}
+
+/** The first three lines of an excerpt, for `--dry-run` (dogfood-3 F13). */
+function excerptPreview(text: string): string[] {
+  return text.split(/\r\n|\n/).slice(0, 3);
+}
 
 function fail(code: string, message: string): never {
   throw new HashError(code, code, message);
@@ -52,9 +82,18 @@ export type CaptureGitRequest = {
   allowAlternates?: boolean;
   allowExternalGitdir?: boolean;
   fsContext?: FsContext;
+  /** Compute and report what would be written, but write nothing (dogfood-3 F13). */
+  dryRun?: boolean;
 };
 
-export type CaptureResult = WriteSourceResult & { attributes: SourceAttributes };
+export type CaptureResult = WriteSourceResult & {
+  attributes: SourceAttributes;
+  /** Non-fatal findings, such as W_DUPLICATE_SOURCE, worth printing to stderr. */
+  warnings: string[];
+  dryRun?: boolean;
+  /** Only with `dryRun`: the first three lines of the excerpt (empty for an image asset). */
+  excerptPreview?: string[];
+};
 
 export function captureGit(req: CaptureGitRequest): CaptureResult {
   checkTitle(req.title);
@@ -107,8 +146,18 @@ export function captureGit(req: CaptureGitRequest): CaptureResult {
       capturedAt, excerptSha256: excerpt.excerptSha256, originFileSha256: sha256Hex(read.bytes),
     };
   }
+  const warning = duplicateSourceWarning(req.doc, attrs);
+  const warnings = warning ? [warning] : [];
+  if (req.dryRun) {
+    const bundle = loadBundle(req.doc);
+    return {
+      docId: bundle.docId ?? '', id: attrs.id, replaced: false,
+      oldRevision: bundle.sourceRevision ?? '', newRevision: bundle.sourceRevision ?? '',
+      attributes: attrs, warnings, dryRun: true, excerptPreview: excerptPreview(text),
+    };
+  }
   const result = writeSource({ indexPath: req.doc, attrs, body: { text }, recapture: req.recapture === true, ...(req.fsContext ? { fsContext: req.fsContext } : {}) });
-  return { ...result, attributes: attrs };
+  return { ...result, attributes: attrs, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +186,8 @@ export type CaptureFileRequest = {
   capturedAt?: string;
   recapture?: boolean;
   fsContext?: FsContext;
+  /** Compute and report what would be written, but write nothing (dogfood-3 F13). */
+  dryRun?: boolean;
 };
 
 function checkLabel(label: string): void {
@@ -183,8 +234,18 @@ export function captureFile(req: CaptureFileRequest): CaptureResult {
     if (req.lines !== undefined) fail('E_USAGE', '--lines does not apply to an image');
     const path = `assets/${req.id}.${raster}`;
     const attrs: SourceAttributes = { ...common, asset: path, excerptSha256: sha256Hex(bytes) };
+    const warning = duplicateSourceWarning(req.doc, attrs);
+    const warnings = warning ? [warning] : [];
+    if (req.dryRun) {
+      const bundle = loadBundle(req.doc);
+      return {
+        docId: bundle.docId ?? '', id: attrs.id, replaced: false,
+        oldRevision: bundle.sourceRevision ?? '', newRevision: bundle.sourceRevision ?? '',
+        attributes: attrs, warnings, dryRun: true, excerptPreview: [],
+      };
+    }
     const result = writeSource({ indexPath: req.doc, attrs, body: { asset: { path, bytes } }, recapture: req.recapture === true, ...(req.fsContext ? { fsContext: req.fsContext } : {}) });
-    return { ...result, attributes: attrs };
+    return { ...result, attributes: attrs, warnings };
   }
   const excerpt = req.lines !== undefined ? (() => { const r = parseLineRange(req.lines!); return extractExcerpt(bytes, r.start, r.end); })() : wholeExcerpt(bytes);
   const language = languageFor(label, req.language);
@@ -195,6 +256,16 @@ export function captureFile(req: CaptureFileRequest): CaptureResult {
     excerptSha256: excerpt.excerptSha256,
     ...(req.kind === 'file' ? { originFileSha256: sha256Hex(bytes) } : {}),
   };
+  const warning = duplicateSourceWarning(req.doc, attrs);
+  const warnings = warning ? [warning] : [];
+  if (req.dryRun) {
+    const bundle = loadBundle(req.doc);
+    return {
+      docId: bundle.docId ?? '', id: attrs.id, replaced: false,
+      oldRevision: bundle.sourceRevision ?? '', newRevision: bundle.sourceRevision ?? '',
+      attributes: attrs, warnings, dryRun: true, excerptPreview: excerptPreview(excerpt.text),
+    };
+  }
   const result = writeSource({ indexPath: req.doc, attrs, body: { text: excerpt.text }, recapture: req.recapture === true, ...(req.fsContext ? { fsContext: req.fsContext } : {}) });
-  return { ...result, attributes: attrs };
+  return { ...result, attributes: attrs, warnings };
 }

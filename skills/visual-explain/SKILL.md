@@ -5,9 +5,7 @@ description: Create or revise source-grounded visual explanations, architecture 
 
 # Visser
 
-Create an explanation that helps a reader reconstruct the mechanism, reason about
-its consequences, and locate the supporting material. Optimize understanding,
-not diagram count, word count, or decorative polish.
+Use a library of premade (and custom) visualizations to create an explanation to help reader understand deeply, reconstruct mechanisms, reason about consequences, and locate supporting material. Optimize understanding, not diagram count, word count, or decorative polish.
 
 ## Boundaries
 

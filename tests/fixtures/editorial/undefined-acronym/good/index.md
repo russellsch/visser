@@ -16,7 +16,7 @@ visibility: private
 # How the queue applies back pressure
 
 <!-- vs:id p_one -->
-The bounded queue window (BQW) limit stops producers when the queue holds 64
+The {% term ref="def_bqw" %}BQW{% /term %} limit stops producers when the queue holds 64
 items.
 
 <!-- vs:id p_two -->
@@ -24,3 +24,7 @@ A worker that removes an item lowers the BQW count by one.
 
 <!-- vs:id p_three -->
 When the BQW count falls below the limit, one waiting producer continues.
+
+{% definition id="def_bqw" term="BQW" %}
+Bounded queue window: the count of items allowed in the queue before producers wait.
+{% /definition %}

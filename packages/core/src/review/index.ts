@@ -104,31 +104,40 @@ function jargon(ctx: Context): void {
   }
   if (acronymBlocks.size === 0) return;
 
-  // An acronym counts as defined by a `definition`, a `term`, an expansion
-  // "Full Name (ABC)" or "ABC (full name)", or the reader's `knows` list.
-  const all = parsed.targets.map((t) => textOf(ctx, t.id)).join('\n');
-  const defined = new Set<string>();
+  // An acronym is cleared by the reader's `knows` list, or by a
+  // `{% definition %}` block whose `term` matches together with a
+  // `{% term %}` use that marks the first occurrence (dogfood-3 F14): an
+  // inline expansion in parentheses, such as "MCP (Model Context Protocol)",
+  // is not read as a definition, because it is not a target a citation or a
+  // second use can point back to.
+  const definitionFor = new Map<string, TargetId>();
   for (const t of parsed.targets) {
     if (t.tagName === 'definition' && typeof t.attributes['term'] === 'string') {
-      for (const m of (t.attributes['term'] as string).matchAll(ACRONYM)) defined.add(m[0]);
+      for (const m of (t.attributes['term'] as string).matchAll(ACRONYM)) definitionFor.set(m[0], t.id);
     }
   }
+  const wrapped = new Set<string>();
   const visitTerms = (n: MNode) => {
     if (n.type === 'tag' && n.tag === 'term') {
-      for (const child of n.children) if (child.type === 'text') for (const m of String(child.attributes['content'] ?? '').matchAll(ACRONYM)) defined.add(m[0]);
+      for (const child of n.children) if (child.type === 'text') for (const m of String(child.attributes['content'] ?? '').matchAll(ACRONYM)) wrapped.add(m[0]);
     }
     for (const child of n.children) visitTerms(child);
   };
   if (parsed.ast) visitTerms(parsed.ast as MNode);
+  const known = new Set<string>();
   const reader = parsed.frontmatter['reader'] as { knows?: unknown } | undefined;
-  for (const known of Array.isArray(reader?.knows) ? reader.knows : []) {
-    if (typeof known === 'string') for (const m of known.toUpperCase().matchAll(ACRONYM)) defined.add(m[0]);
+  for (const item of Array.isArray(reader?.knows) ? reader.knows : []) {
+    if (typeof item === 'string') for (const m of item.toUpperCase().matchAll(ACRONYM)) known.add(m[0]);
   }
   for (const [acronym, blocks] of [...acronymBlocks].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    if (blocks.length < ACRONYM_BLOCKS || defined.has(acronym)) continue;
-    const escaped = acronym.replace(/[^A-Z0-9]/g, '');
-    if (new RegExp(`\\(\\s*${escaped}\\s*\\)|\\b${escaped}\\s*\\(`).test(all)) continue;
-    prompt(ctx, 'W_JARGON', blocks[0], `${acronym} appears in ${blocks.length} blocks with no definition or expansion; define it where the reader first needs it`);
+    if (blocks.length < ACRONYM_BLOCKS || known.has(acronym)) continue;
+    const definitionId = definitionFor.get(acronym);
+    if (definitionId && wrapped.has(acronym)) continue;
+    if (definitionId) {
+      prompt(ctx, 'W_JARGON', blocks[0], `${acronym} has a {% definition %} block (${definitionId}) but its first use is never wrapped in {% term %}; mark it with {% term ref="${definitionId}" %}${acronym}{% /term %}`);
+    } else {
+      prompt(ctx, 'W_JARGON', blocks[0], `${acronym} appears in ${blocks.length} blocks with no definition block; add {% definition id=... term="${acronym}" %} and mark the first use with {% term ref=... %}`);
+    }
   }
 }
 

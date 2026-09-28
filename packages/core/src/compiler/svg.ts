@@ -88,7 +88,13 @@ export type TraceSvgEvent = {
   kind: string;
   layer: number; // 1-based order layer
   meta: string[]; // generated notes shown under the label: kind, branch, message target, time
+  branch?: string; // branch ID (dogfood-3 F2)
 };
+
+// A branch that mutually excludes one or more others (§9.4). Branches that do
+// not declare `exclusiveWith` render as before (no sub-column, no fork mark):
+// only a real fork needs the side-by-side treatment (dogfood-3 F2).
+export type TraceSvgBranch = { id: string; label: string; exclusiveWith: string[] };
 
 export type TraceSvgInput = {
   figureId: string;
@@ -97,16 +103,41 @@ export type TraceSvgInput = {
   events: TraceSvgEvent[];
   orders: Array<{ id: string; from: string; to: string }>; // relationship ID, prerequisite event, event
   messages: Array<{ event: string; to: string }>; // event ID, receiving actor ID
+  branches: TraceSvgBranch[];
   labelOf: (id: string) => string;
 };
 
 const AXIS_WIDTH = 64;
 const BOX_WIDTH = 170;
 const GUTTER = 40;
-const COLUMN_WIDTH = BOX_WIDTH + GUTTER;
+const SUB_GUTTER = 16; // gap between two exclusive-branch sub-columns in one lane
 const VGAP = 22;
 const PAD = 8;
 const TEXT_WIDTH = BOX_WIDTH - 2 * PAD;
+
+// Group each branch with every other branch it (transitively) excludes, in
+// authored order. A branch with no exclusive partner maps to a singleton
+// group, which callers treat as "no sub-column" (dogfood-3 F2).
+function branchGroups(branches: TraceSvgBranch[]): Map<string, string[]> {
+  const byId = new Map(branches.map((b) => [b.id, b]));
+  const groupOf = new Map<string, string[]>();
+  for (const b of branches) {
+    if (groupOf.has(b.id)) continue;
+    const group = new Set<string>([b.id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const id of [...group]) {
+        const bb = byId.get(id);
+        for (const ex of bb?.exclusiveWith ?? []) if (byId.has(ex) && !group.has(ex)) { group.add(ex); changed = true; }
+        for (const other of branches) if (other.exclusiveWith.includes(id) && !group.has(other.id)) { group.add(other.id); changed = true; }
+      }
+    }
+    const ordered = branches.filter((x) => group.has(x.id)).map((x) => x.id);
+    for (const id of ordered) groupOf.set(id, ordered);
+  }
+  return groupOf;
+}
 
 function traceText(lines: Array<{ text: string; className: string }>, x: number, top: number): HNode {
   return h('text', { class: 'vs-trace-text', x: n(x), y: n(top), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
@@ -115,7 +146,6 @@ function traceText(lines: Array<{ text: string; className: string }>, x: number,
 
 export function traceSvg(input: TraceSvgInput): HNode {
   const { figureId } = input;
-  const column = new Map(input.actors.map((a, i) => [a.id, i]));
   const layers = Math.max(1, ...input.events.map((e) => e.layer));
   const wrapped = new Map(input.events.map((e) => [e.id, [
     ...wrapText(e.label, TEXT_WIDTH).map((text) => ({ text, className: 'vs-trace-label' })),
@@ -123,18 +153,65 @@ export function traceSvg(input: TraceSvgInput): HNode {
   ]]));
   const boxHeight = (id: string) => 2 * PAD + LINE_HEIGHT * wrapped.get(id)!.length - 4;
 
-  // Events of one actor in one layer stack inside that layer's row.
-  const slotTop = new Map<string, number>(); // offset of the box inside its row
+  // Exclusive branches (dogfood-3 F2): each gets its own sub-column inside the
+  // actor's lane, side by side, so their events never interleave vertically
+  // with another branch's. A branch with no exclusive partner is not a real
+  // fork and keeps the single centered column (unchanged layout).
+  const groupOf = branchGroups(input.branches);
+  const branchLabel = new Map(input.branches.map((b) => [b.id, b.label]));
+  const slotInfo = (e: TraceSvgEvent): { slot: number; size: number } | null => {
+    if (!e.branch) return null;
+    const g = groupOf.get(e.branch);
+    return g && g.length > 1 ? { slot: g.indexOf(e.branch), size: g.length } : null;
+  };
+  const slotKey = (e: TraceSvgEvent): string => (slotInfo(e) ? `b:${e.branch}` : 'main');
+  const boxRegionWidth = (slots: number) => slots * BOX_WIDTH + (slots - 1) * SUB_GUTTER;
+  const laneWidth = (slots: number) => boxRegionWidth(slots) + GUTTER;
+  const actorSlots = new Map<string, number>();
+  for (const a of input.actors) {
+    let w = 1;
+    for (const e of input.events.filter((x) => x.actor === a.id)) {
+      const s = slotInfo(e);
+      if (s) w = Math.max(w, s.size);
+    }
+    actorSlots.set(a.id, w);
+  }
+  const colLeft = new Map<string, number>();
+  let laneX = MARGIN + AXIS_WIDTH;
+  for (const a of input.actors) {
+    colLeft.set(a.id, laneX);
+    laneX += laneWidth(actorSlots.get(a.id)!);
+  }
+  if (input.actors.length === 0) laneX += laneWidth(1); // keep a minimum width for an empty trace
+  const boxX = (e: TraceSvgEvent): number => {
+    const left = colLeft.get(e.actor) ?? MARGIN + AXIS_WIDTH;
+    const slots = actorSlots.get(e.actor) ?? 1;
+    const s = slotInfo(e);
+    return s ? left + GUTTER / 2 + s.slot * (BOX_WIDTH + SUB_GUTTER) : left + GUTTER / 2 + (boxRegionWidth(slots) - BOX_WIDTH) / 2;
+  };
+  const laneCenterX = (actor: string): number => (colLeft.get(actor) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2 + boxRegionWidth(actorSlots.get(actor) ?? 1) / 2;
+
+  // Events of one actor, in one layer, and in one branch sub-column (or the
+  // shared main column) stack inside that slot; different sub-columns never
+  // share vertical space, so one branch's box cannot sit between two of another's.
+  const slotTop = new Map<string, number>(); // offset of the box inside its row+sub-column
   const rowHeight = new Map<number, number>();
   for (let layer = 1; layer <= layers; layer++) {
     let tallest = 0;
     for (const a of input.actors) {
-      let offset = 0;
+      const bySlot = new Map<string, TraceSvgEvent[]>();
       for (const e of input.events.filter((x) => x.actor === a.id && x.layer === layer)) {
-        slotTop.set(e.id, offset);
-        offset += boxHeight(e.id) + VGAP;
+        const key = slotKey(e);
+        (bySlot.get(key) ?? bySlot.set(key, []).get(key)!).push(e);
       }
-      tallest = Math.max(tallest, offset);
+      for (const evs of bySlot.values()) {
+        let offset = 0;
+        for (const e of evs) {
+          slotTop.set(e.id, offset);
+          offset += boxHeight(e.id) + VGAP;
+        }
+        tallest = Math.max(tallest, offset);
+      }
     }
     rowHeight.set(layer, Math.max(tallest, LINE_HEIGHT + VGAP));
   }
@@ -146,14 +223,14 @@ export function traceSvg(input: TraceSvgInput): HNode {
     rowTop.set(layer, y);
     y += rowHeight.get(layer)!;
   }
-  const width = MARGIN * 2 + AXIS_WIDTH + Math.max(1, input.actors.length) * COLUMN_WIDTH;
+  const width = laneX + MARGIN;
   const height = y + MARGIN;
-  const colX = (actor: string) => MARGIN + AXIS_WIDTH + (column.get(actor) ?? 0) * COLUMN_WIDTH;
   const box = (id: string) => {
     const e = input.events.find((x) => x.id === id)!;
-    return { x: colX(e.actor) + GUTTER / 2, y: rowTop.get(e.layer)! + slotTop.get(e.id)!, w: BOX_WIDTH, h: boxHeight(e.id) };
+    return { x: boxX(e), y: rowTop.get(e.layer)! + slotTop.get(e.id)!, w: BOX_WIDTH, h: boxHeight(e.id) };
   };
   const marker = `m-${figureId}.arrow`;
+  const column = new Map(input.actors.map((a, i) => [a.id, i]));
 
   return h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${n(width)} ${n(height)}`, width: n(width), height: n(height), role: 'group', 'aria-label': input.title, focusable: 'false' },
     h('defs', {},
@@ -165,13 +242,30 @@ export function traceSvg(input: TraceSvgInput): HNode {
       h('text', { class: 'vs-trace-axis', x: n(MARGIN + AXIS_WIDTH / 2 - 8), y: n(rowTop.get(i + 1)! + 16), 'text-anchor': 'middle', 'font-size': 14, fill: '#3a4250' }, String(i + 1))),
     // Lifelines: a header and a dashed vertical line per actor; the header is an instance of the actor.
     input.actors.map((a) => {
-      const cx = colX(a.id) + COLUMN_WIDTH / 2;
+      const cx = laneCenterX(a.id);
+      const regionW = boxRegionWidth(actorSlots.get(a.id) ?? 1);
       const lines = headLines.get(a.id)!;
       return h('a', { class: 'vs-lane', href: `#${DOM.canonicalId(a.id)}`, id: DOM.svgInstanceId(figureId, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true, 'aria-label': `${a.label} (actor)` },
         h('path', { class: 'vs-lifeline', d: `M${n(cx)},${n(MARGIN + header)} L${n(cx)},${n(height - MARGIN)}`, fill: 'none', stroke: '#9aa3af', 'stroke-width': '1', 'stroke-dasharray': '4 4' }),
-        h('rect', { x: n(colX(a.id) + GUTTER / 2), y: n(MARGIN), width: n(BOX_WIDTH), height: n(header - 8), rx: '6', ry: '6', fill: '#eef1f5', stroke: '#2f3a4a', 'stroke-width': '1.5' }),
+        h('rect', { x: n((colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2), y: n(MARGIN), width: n(regionW), height: n(header - 8), rx: '6', ry: '6', fill: '#eef1f5', stroke: '#2f3a4a', 'stroke-width': '1.5' }),
         h('text', { class: 'vs-lane-label', x: n(cx), y: n(MARGIN + PAD - 2), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
           lines.map((line, j) => h('tspan', { x: n(cx), dy: j === 0 ? '1em' : String(LINE_HEIGHT) }, line))));
+    }),
+    // A branch label above the top-most box of its sub-column, shown once per
+    // actor/branch (dogfood-3 F2b): the reader sees which fork they are in
+    // without re-reading every box's meta line.
+    input.actors.flatMap((a) => {
+      const byBranch = new Map<string, TraceSvgEvent[]>();
+      for (const e of input.events.filter((x) => x.actor === a.id)) {
+        if (!slotInfo(e)) continue;
+        (byBranch.get(e.branch!) ?? byBranch.set(e.branch!, []).get(e.branch!)!).push(e);
+      }
+      return [...byBranch.entries()].map(([branchId, evs]) => {
+        const boxes = evs.map((e) => box(e.id));
+        const top = Math.min(...boxes.map((bb) => bb.y));
+        const cx = boxes[0]!.x + BOX_WIDTH / 2;
+        return h('text', { class: 'vs-trace-branch-heading', x: n(cx), y: n(top - 6), 'text-anchor': 'middle', 'font-size': 14, fill: '#3a4250' }, branchLabel.get(branchId) ?? branchId);
+      });
     }),
     // Messages: a dashed arrow from the event to the receiving actor's lifeline.
     // Decoration only; the event box and the lists carry the relationship.
@@ -179,7 +273,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
       const e = input.events.find((x) => x.id === m.event);
       if (!e || e.actor === m.to || !column.has(m.to)) return null;
       const b = box(m.event);
-      const toX = colX(m.to) + COLUMN_WIDTH / 2;
+      const toX = laneCenterX(m.to);
       const right = toX > b.x;
       const x1 = right ? b.x + b.w : b.x;
       const yy = b.y + b.h / 2;
@@ -197,12 +291,15 @@ export function traceSvg(input: TraceSvgInput): HNode {
       const ym = y2 - VGAP / 2;
       // A straight line down the source column must not pass through another
       // box: it would read as a step that follows that box. Such an arrow
-      // leaves through the column's right gutter instead.
+      // leaves through the column's right gutter instead. Sub-columns already
+      // keep exclusive branches apart in x, so only a box actually under this
+      // vertical line (same sub-column) can block it (dogfood-3 F2d).
       const fromActor = input.events.find((x) => x.id === r.from)!.actor;
       const bottom = x1 === x2 ? y2 : ym;
       const blocked = input.events.some((x) => {
         if (x.id === r.from || x.id === r.to || x.actor !== fromActor) return false;
         const o = box(x.id);
+        if (x1 < o.x || x1 > o.x + o.w) return false;
         return o.y < bottom && o.y + o.h > y1;
       });
       const gx = a.x + a.w + GUTTER / 4;
@@ -213,6 +310,37 @@ export function traceSvg(input: TraceSvgInput): HNode {
       return h('a', { class: 'vs-edge vs-kind-order', href: `#${DOM.canonicalId(r.to)}`, id: DOM.svgInstanceId(figureId, r.id), [DOM.attr.target]: r.to, [DOM.attr.rel]: r.id, [DOM.attr.interactive]: true, 'aria-label': `${input.labelOf(r.to)}, after ${input.labelOf(r.from)}` },
         h('path', { class: 'vs-hit', d, fill: 'none', stroke: 'transparent', 'stroke-width': '12', 'stroke-linecap': 'round' }),
         h('path', { class: 'vs-line', d, fill: 'none', stroke: '#444444', 'stroke-width': '1.25', 'marker-end': `url(#${marker})` }));
+    }),
+    // Fork/split marks (dogfood-3 F2c): a labelled bracket where one shared
+    // prerequisite's children fan out into different exclusive-branch columns.
+    (() => {
+      const forkChildren = new Map<string, TraceSvgEvent[]>();
+      for (const r of input.orders) {
+        const child = input.events.find((x) => x.id === r.to);
+        if (!child || !slotInfo(child)) continue;
+        (forkChildren.get(r.from) ?? forkChildren.set(r.from, []).get(r.from)!).push(child);
+      }
+      return [...forkChildren.entries()]
+        .filter(([, children]) => new Set(children.map((c) => slotInfo(c)!.slot)).size > 1)
+        .map(([fromId, children]) => {
+          const a = box(fromId);
+          const xs = children.map((c) => box(c.id).x + BOX_WIDTH / 2);
+          const minX = Math.min(...xs), maxX = Math.max(...xs);
+          const yTop = a.y + a.h + VGAP / 2 - 5;
+          const labels = [...new Set(children.map((c) => branchLabel.get(c.branch!) ?? c.branch!))];
+          return h('g', { class: 'vs-trace-fork', 'aria-hidden': 'true' },
+            h('path', { class: 'vs-trace-fork-bracket', d: `M${n(minX)},${n(yTop - 5)} L${n(minX)},${n(yTop)} L${n(maxX)},${n(yTop)} L${n(maxX)},${n(yTop - 5)}`, fill: 'none', stroke: '#6b7686', 'stroke-width': '1.25' }),
+            h('text', { class: 'vs-trace-fork-label', x: n((minX + maxX) / 2), y: n(yTop + 14), 'text-anchor': 'middle', 'font-size': 14, fill: '#3a4250' }, labels.join(' / ')));
+        });
+    })(),
+    // The order layer stays visible on every box regardless of stacking or
+    // fork position, so it never reads as following an unrelated neighbour
+    // (dogfood-3 F2a); the axis column gives the same number once per row.
+    // Drawn outside the event's <a> so each event keeps exactly one <text>
+    // (the label), which the reader/inspector click target relies on.
+    input.events.map((e) => {
+      const b = box(e.id);
+      return h('text', { class: 'vs-event-layer-badge', x: n(b.x - 6), y: n(b.y + 14), 'text-anchor': 'end', 'font-size': 14, fill: '#3a4250', 'aria-hidden': 'true' }, String(e.layer));
     }),
     input.events.map((e) => {
       const b = box(e.id);

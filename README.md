@@ -102,6 +102,16 @@ In these steps, `visser` means `node ~/.visser/bin/visser.cjs`. Run the steps in
 
    The server listens on `127.0.0.1:4310` by default. It prints the full URL of the page. Press Ctrl-C to stop it.
 
+   | Flag | What it does |
+   |---|---|
+   | `--port N` | Listen on port N (`0` picks a free port). |
+   | `--host H` | Listen on host H instead of `127.0.0.1`. |
+   | `--public-origin URL` | Also accept this origin in the Host allowlist. |
+   | `--base-path P` | Serve under path P instead of `/`. |
+   | `--cache-private` | Cache the page like a public export, instead of `no-store`. |
+   | `--watch` | Rebuild when `index.md`, `visser.lock.json`, or any declared bundle file changes, and keep serving the latest build at `<base-path>latest/`. A failed rebuild prints its error and keeps the previous build serving. |
+   | `--toolkit-dir DIR` / `--dev-toolkit DIR` | Use this toolkit release instead of the locked one. |
+
 8. Export a static site:
 
    ```sh

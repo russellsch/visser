@@ -20,9 +20,12 @@ async function expectInspectorOpen(page: import('@playwright/test').Page, target
   await expect(page.locator(`template[data-vs-placeholder="${targetId}"]`)).toHaveCount(1);
 }
 
+// The detail's direct parent is now its "Figure: ..."/kind group (F3a), not
+// the appendix section itself; check it came home to the appendix, not the
+// exact grandparent.
 async function expectDetailHome(page: import('@playwright/test').Page, targetId: string) {
-  const parent = await byId(page, `x-${targetId}`).evaluate((d) => d.parentElement?.id);
-  expect(parent).toBe(APPENDIX);
+  const home = await byId(page, `x-${targetId}`).evaluate((d, id) => d.closest(`#${id}`)?.id, APPENDIX);
+  expect(home).toBe(APPENDIX);
   await expect(page.locator('template[data-vs-placeholder]')).toHaveCount(0);
 }
 
@@ -52,7 +55,7 @@ test.describe('inspection', () => {
     const host = isNarrow(page) ? page.locator('dialog#vs-inspector-dialog') : page.locator('aside#vs-inspector');
     await host.locator('a.vs-cite').click();
     await expect(host.locator('details[id="x-src_queue"][open]')).toBeVisible();
-    expect(await byId(page, 'x-enqueue').evaluate((d) => d.parentElement?.id)).toBe(APPENDIX);
+    expect(await byId(page, 'x-enqueue').evaluate((d, id) => d.closest(`#${id}`)?.id, APPENDIX)).toBe(APPENDIX);
     await host.getByRole('button', { name: 'Back' }).click();
     await expect(host.locator('details[id="x-enqueue"][open]')).toBeVisible();
     await host.getByRole('button', { name: 'Close' }).click();

@@ -104,6 +104,9 @@ const MERMAID_KIND_TEXT: Record<string, string> = {
 
 const ENTITY_KINDS = new Set(['definition', 'source', 'detail']);
 const COMPONENTS = new Set(['graph', 'trace', 'annotated', 'transform', 'compare']);
+// Figure/component root kinds (matches COMPONENT_ROOTS in model/targets.ts): a
+// figure's owned parts group under "Figure: <title>" in the appendix (F3).
+const FIGURE_KINDS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'mermaid', 'extension']);
 
 // Graph-like families share one kernel (§9.1): graph modes plus transform.
 type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform';
@@ -254,7 +257,10 @@ class Renderer {
       case 'cite': {
         const ref = attrString(node, 'ref')!;
         const n = this.citationNumber.get(ref);
-        return h('a', { class: 'vs-cite', href: `#${DOM.canonicalId(ref)}`, title: this.label(ref), [DOM.attr.generated]: true }, `[${n ?? ref}]`);
+        // The excerpt title lives in a data attribute, not `title`: a run of
+        // adjacent citations shows one merged tooltip built by the runtime, so a
+        // native per-anchor tooltip would double up (F10).
+        return h('a', { class: 'vs-cite', href: `#${DOM.canonicalId(ref)}`, 'data-vs-cite-title': this.label(ref), [DOM.attr.generated]: true }, `[${n ?? ref}]`);
       }
       case 'focus': {
         const ids = Array.isArray(node.attributes['targets']) ? (node.attributes['targets'] as unknown[]).filter((x): x is string => typeof x === 'string') : [];
@@ -292,8 +298,8 @@ class Renderer {
       case 'thead': return h('thead', {}, this.blocks(node));
       case 'tbody': return h('tbody', {}, this.blocks(node));
       case 'tr': return h('tr', {}, this.blocks(node));
-      case 'th': return h('th', { scope: 'col', align: tableAlign(node) }, this.inlines(node));
-      case 'td': return h('td', { align: tableAlign(node) }, this.inlines(node));
+      case 'th': return h('th', { scope: 'col', align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.inlines(node));
+      case 'td': return h('td', { align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.inlines(node));
       case 'comment': return null;
       case 'tag': return null; // entity tags render in their own places
       default: return this.blocks(node);
@@ -316,8 +322,11 @@ class Renderer {
     const question = attrString(node, 'question') ?? '';
     const title = attrString(node, 'title') ?? this.label(id);
     return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
+      h('p', { class: 'vs-figure-eyebrow', [DOM.attr.generated]: true }, 'Figure'),
       h('figcaption', {}, this.safeText(title, id)),
-      h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.safeText(question, id)),
+      // The authored question, visible under the caption (F7); the empty case
+      // collapses via CSS (:empty), and this element stays the aria-describedby target.
+      h('p', { id: `vs-q-${id}`, class: 'vs-figure-question' }, this.safeText(question, id)),
       this.blocks(node),
       content,
     );
@@ -465,10 +474,17 @@ class Renderer {
     const relList = h('ol', { class: 'vs-rel-list', 'aria-label': REL_LIST_LABEL[family] },
       edges.map((e) => {
         const r = this.relationship(e.id)!;
+        // Only the relationship label is the link; endpoints render in body
+        // colour as plain text, and the kind is a muted badge after it (F9).
+        const [kind, ...extra] = this.edgeNotes(family, e.id);
         return h('li', {},
-          h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true },
-            this.label(r.from), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(e.id), h('span', { [DOM.attr.generated]: true }, ' → '), this.label(r.to)),
-          h('span', { class: 'vs-rel-kind', [DOM.attr.generated]: true }, ` (${this.edgeNotes(family, e.id).map((x) => this.safeText(x, e.id)).join('; ')})`));
+          h('span', { class: 'vs-rel-endpoint' }, this.label(r.from)),
+          h('span', { [DOM.attr.generated]: true }, ' → '),
+          h('a', { class: 'vs-rel-label', href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true }, this.label(e.id)),
+          h('span', { [DOM.attr.generated]: true }, ' → '),
+          h('span', { class: 'vs-rel-endpoint' }, this.label(r.to)),
+          kind ? h('span', { class: 'vs-rel-kind', [DOM.attr.generated]: true }, this.safeText(kind, e.id)) : null,
+          extra.length > 0 ? h('span', { class: 'vs-rel-notes', [DOM.attr.generated]: true }, ` (${extra.map((x) => this.safeText(x, e.id)).join('; ')})`) : null);
       }));
     const nodeList = h('ul', { class: 'vs-node-list', 'aria-label': NODE_LIST_LABEL[family] },
       [...groups, ...nodes].map((n) => {
@@ -480,6 +496,10 @@ class Renderer {
 
     return this.figureShell(id, node, `vs-graph vs-family-${family}`, [
       svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      // The runtime unhides this when the viewport actually overflows (F5c);
+      // it is not the only signal (the scrollbar itself remains), but a
+      // scrollbar alone is easy to miss on a trackpad or a narrow window.
+      svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
       h('div', { class: 'vs-lists' }, nodeList, relList),
     ], svg !== null);
   }
@@ -707,16 +727,22 @@ class Renderer {
                 ...(branch ? [`branch: ${this.label(branch)}`] : []),
                 ...(scale === 'time' && time !== undefined ? [`at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`] : []),
               ],
+              ...(branch ? { branch } : {}),
             };
           }),
           orders: orders.map((r) => ({ id: r.id, from: r.from, to: r.to })),
           messages: this.bundle.model.relationships.filter((r) => r.kind === 'message' && events.some((e) => e.id === r.id)).map((r) => ({ event: r.id, to: r.to })),
+          branches: branches.map((b) => {
+            const excl = this.nodes.get(b.id)!.attributes['exclusiveWith'];
+            return { id: b.id, label: this.label(b.id), exclusiveWith: Array.isArray(excl) ? excl.map(String) : [] };
+          }),
           labelOf: (x) => this.label(x),
         })
       : null;
     return this.figureShell(id, node, 'vs-trace', [
       scaleNote,
       svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
       h('div', { class: 'vs-lists' }, actorList, branchList, eventList, byActor),
     ], svg !== null);
   }
@@ -889,6 +915,67 @@ class Renderer {
       ids.map((s, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(s)}` }, this.label(s))]));
   }
 
+  /** Muted mono origin shown on the appendix row's summary, after the title (F3b). */
+  sourceOriginSummary(node: MNode, id: string): string | undefined {
+    const kind = attrString(node, 'kind') ?? 'supplied';
+    if (kind === 'git' || kind === 'working-tree' || kind === 'file') {
+      const file = attrString(node, 'file');
+      if (!file) return undefined;
+      const start = node.attributes['start'], end = node.attributes['end'];
+      const range = start !== undefined && end !== undefined ? `:${String(start)}\u2013${String(end)}` : '';
+      return this.safeText(`${file}${range}`, id);
+    }
+    if (kind === 'web') {
+      const url = attrString(node, 'url');
+      try {
+        return url ? this.safeText(new URL(url).host, id) : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    if (kind === 'example') return 'example';
+    return undefined;
+  }
+
+  /** The one-line origin shown first in a source detail, after the excerpt (F4a). */
+  sourceOriginLine(node: MNode, id: string): Child {
+    const kind = attrString(node, 'kind') ?? 'supplied';
+    const file = attrString(node, 'file');
+    const start = node.attributes['start'], end = node.attributes['end'];
+    const range = start !== undefined && end !== undefined ? ` ${String(start)}\u2013${String(end)}` : '';
+    if (kind === 'git') {
+      const commit = attrString(node, 'commit');
+      if (!file || !commit) return null;
+      const short = shortCommit(commit);
+      const repository = attrString(node, 'repository');
+      const href = repository ? sourcePermalink(repository, commit, file, typeof start === 'number' ? start : undefined, typeof end === 'number' ? end : undefined) : undefined;
+      const check = href ? checkLink(href) : undefined;
+      const commitChild: Child = check?.ok ? h('a', { href: check.href, rel: check.external ? 'noopener noreferrer' : undefined }, short) : short;
+      return h('p', { class: 'vs-source-origin', [DOM.attr.generated]: true }, this.safeText(`${file}${range} @ `, id), commitChild);
+    }
+    if (kind === 'working-tree') {
+      if (!file) return null;
+      return h('p', { class: 'vs-source-origin', [DOM.attr.generated]: true }, this.safeText(`${file}${range} (uncommitted)`, id));
+    }
+    if (kind === 'file') {
+      if (!file) return null;
+      return h('p', { class: 'vs-source-origin', [DOM.attr.generated]: true }, this.safeText(`${file}${range}`, id));
+    }
+    if (kind === 'web') {
+      const url = attrString(node, 'url');
+      if (!url) return null;
+      let host: string | undefined;
+      try {
+        host = new URL(url).host;
+      } catch {
+        host = undefined;
+      }
+      return h('p', { class: 'vs-source-origin', [DOM.attr.generated]: true }, this.safeText(host ?? url, id));
+    }
+    if (kind === 'example') return h('p', { class: 'vs-source-origin', [DOM.attr.generated]: true }, 'example');
+    return null;
+  }
+
   sourceDetail(id: string, node: MNode): Child[] {
     const availability = attrString(node, 'availability') ?? 'captured';
     const captured = this.sourceText(id);
@@ -923,9 +1010,16 @@ class Renderer {
       if (check.ok) meta.push(['origin', h('a', { href: check.href, rel: check.external ? 'noopener noreferrer' : undefined }, url)]);
       else this.error('E_UNSAFE_CONTENT', `source ${id} url rejected (${check.reason})`, id);
     }
+    // F4a: the excerpt comes first, then a one-line origin, then the full
+    // key/value list collapsed behind "Provenance" \u2014 a reader sees the
+    // evidence before the metadata dump, in the appendix and in the inspector
+    // (the same element moves between the two).
     return [
-      h('dl', { class: 'vs-source-meta', [DOM.attr.generated]: true }, meta.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
       captured ? this.codeLines(id, captured.text, new Map()) : h('p', { class: 'vs-link-only', [DOM.attr.generated]: true }, 'No captured excerpt; this origin link is not self-contained evidence.'),
+      this.sourceOriginLine(node, id),
+      h('details', { class: 'vs-provenance' },
+        h('summary', {}, 'Provenance'),
+        h('dl', { class: 'vs-source-meta', [DOM.attr.generated]: true }, meta.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))),
     ];
   }
 
@@ -978,8 +1072,13 @@ class Renderer {
       }
     }
     const body = record.kind === 'source' ? this.sourceDetail(record.id, node) : this.blocks(node);
+    // F3b: a source row's summary shows its origin, in muted mono, after the title.
+    const origin = record.kind === 'source' ? this.sourceOriginSummary(node, record.id) : undefined;
     return h('details', { class: `vs-detail vs-kind-${record.kind}`, ...this.canonical(record.id) },
-      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${record.kind}`)),
+      h('summary', {},
+        this.label(record.id),
+        h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` ${record.kind}`),
+        origin ? h('span', { class: 'vs-source-origin-summary vs-mono', [DOM.attr.generated]: true }, ` ${origin}`) : null),
       h('div', { class: 'vs-detail-body' }, specifics, body, this.evidence(record.id)));
   }
 
@@ -1013,10 +1112,51 @@ class Renderer {
     return out;
   }
 
+  /** Figure (component-root) target IDs in document order (F3a). */
+  figureIds(): string[] {
+    return [...this.targets.values()]
+      .filter((r) => FIGURE_KINDS.has(r.kind))
+      .sort((a, b) => a.span.startByte - b.span.startByte)
+      .map((r) => r.id);
+  }
+
+  figureTitle(id: string): string {
+    const node = this.nodes.get(id);
+    const title = node ? attrString(node, 'title') : undefined;
+    return this.safeText(title ?? this.label(id), id);
+  }
+
+  /** One `<h3>` group of the appendix, or null when it would be empty (F3a). */
+  appendixGroup(label: string, records: TargetRecord[]): HNode | null {
+    if (records.length === 0) return null;
+    return h('div', { class: DOM.appendixGroup }, h('h3', {}, label), records.map((r) => this.detail(r)));
+  }
+
   appendix(): HNode {
-    const details = inCitationOrder([...this.targets.values()].filter((r) => r.inspectable), this.sourceOrder).map((r) => this.detail(r));
+    const inspectable = inCitationOrder([...this.targets.values()].filter((r) => r.inspectable), this.sourceOrder);
+    const sources = inspectable.filter((r) => r.kind === 'source');
+    const definitions = inspectable.filter((r) => r.kind === 'definition');
+    const authoredDetails = inspectable.filter((r) => r.kind === 'detail');
+    const grouped = new Set([...sources, ...definitions, ...authoredDetails].map((r) => r.id));
+    // Every other inspectable record belongs to a figure (§10.3: only source,
+    // definition, and detail are entities without an owning component).
+    const byFigure = new Map<string, TargetRecord[]>();
+    for (const r of inspectable) {
+      if (grouped.has(r.id)) continue;
+      const fig = r.ownerComponentId;
+      if (fig === undefined) continue;
+      const list = byFigure.get(fig);
+      if (list) list.push(r);
+      else byFigure.set(fig, [r]);
+    }
+    const groups = [
+      this.appendixGroup('Sources', sources),
+      this.appendixGroup('Definitions', definitions),
+      this.appendixGroup('Details', authoredDetails),
+      ...this.figureIds().map((id) => this.appendixGroup(`Figure: ${this.figureTitle(id)}`, byFigure.get(id) ?? [])),
+    ].filter((g): g is HNode => g !== null);
     return h('section', { id: DOM.appendix, 'aria-label': 'Details and evidence' },
-      h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), details);
+      h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), groups);
   }
 }
 
@@ -1041,6 +1181,11 @@ function tableAlign(node: MNode): string | undefined {
   return a === 'left' || a === 'right' || a === 'center' ? a : undefined;
 }
 
+/** True if a table cell (or any descendant) holds inline `code` (F8: wider column, no wrap squeeze). */
+function hasInlineCode(node: MNode): boolean {
+  return node.children.some((c) => c.type === 'code' || hasInlineCode(c));
+}
+
 function magicMatches(bytes: Uint8Array, ext: string): boolean {
   const b = (i: number) => bytes[i];
   if (ext === 'png') return b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47;
@@ -1051,6 +1196,36 @@ function magicMatches(bytes: Uint8Array, ext: string): boolean {
 
 function abbreviate(hex: string): string {
   return hex.slice(0, 12);
+}
+
+/** Conventional short commit form for the F4 one-line origin. */
+function shortCommit(commit: string): string {
+  return commit.slice(0, 7);
+}
+
+/**
+ * A GitHub/GitLab https permalink for a captured line range (§8.3), or
+ * `undefined` when `repository` is not one of those hosts over https. The
+ * caller still runs the result through `checkLink` before using it as an href.
+ */
+function sourcePermalink(repository: string, commit: string, file: string, start: number | undefined, end: number | undefined): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(repository);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'https:') return undefined;
+  const path = url.pathname.replace(/\/+$/, '').replace(/\.git$/, '');
+  if (url.hostname === 'github.com') {
+    const anchor = start !== undefined && end !== undefined ? `#L${start}-L${end}` : '';
+    return `https://github.com${path}/blob/${commit}/${file}${anchor}`;
+  }
+  if (url.hostname === 'gitlab.com' || url.hostname.endsWith('.gitlab.com')) {
+    const anchor = start !== undefined && end !== undefined ? `#L${start}-${end}` : '';
+    return `https://${url.hostname}${path}/-/blob/${commit}/${file}${anchor}`;
+  }
+  return undefined;
 }
 
 /** Compile one loaded bundle (§17.9 compileDocument). Throws CompileError on any error diagnostic. */
@@ -1099,6 +1274,9 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const snapshotLine = h('p', { class: 'vs-meta', [DOM.attr.generated]: true },
       `Snapshot captured ${capturedAt} \u00b7 revision `, h('code', { title: sourceRevision }, abbreviate(sourceRevision)),
       ' \u00b7 build ', h('code', { title: buildId }, abbreviate(buildId)), ` \u00b7 ${visibility}`);
+    // A permanent one-line summary under the h1; the full line above moves into
+    // the "About this snapshot" panel once the runtime is present (F11).
+    const snapshotBrief = h('p', { class: 'vs-snapshot-brief', [DOM.attr.generated]: true }, `Snapshot \u00b7 ${visibility}`);
     const [firstBlock, ...restBlocks] = mainContent;
     const titleBlocks: Child[] = firstIsH1 ? [firstBlock] : [];
     const bodyBlocks: Child[] = firstIsH1 ? restBlocks : mainContent;
@@ -1121,14 +1299,17 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
         r.usesMermaid ? h('meta', { name: DOM.mermaidMeta, content: mermaidIntegrity }) : null),
       h('body', {},
         h('nav', { class: DOM.toolbar, 'aria-label': 'Document tools', hidden: true },
-          h('button', { type: 'button', id: DOM.buttons.contents }, 'Contents'),
-          h('button', { type: 'button', id: DOM.buttons.refmode, 'aria-pressed': 'false' }, 'Reference mode'),
-          h('button', { type: 'button', id: DOM.buttons.expand }, 'Expand details'),
-          h('button', { type: 'button', id: DOM.buttons.about }, 'About this snapshot')),
+          // "Contents" is the one primary-styled action; the rest are plain-text
+          // buttons that keep their IDs and aria-pressed handling (F11).
+          h('button', { type: 'button', id: DOM.buttons.contents, class: 'vs-btn--primary' }, 'Contents'),
+          h('button', { type: 'button', id: DOM.buttons.refmode, 'aria-pressed': 'false', class: 'vs-btn--plain' }, 'Reference mode'),
+          h('button', { type: 'button', id: DOM.buttons.expand, class: 'vs-btn--plain' }, 'Expand details'),
+          h('button', { type: 'button', id: DOM.buttons.about, class: 'vs-btn--plain' }, 'About this snapshot')),
         h('main', { id: DOM.root, [DOM.attr.doc]: docId, [DOM.attr.rev]: sourceRevision, [DOM.attr.build]: buildId },
           titleBlocks,
           h('header', { class: 'vs-snapshot' },
             firstIsH1 ? null : h('h1', {}, r.safeText(title)),
+            snapshotBrief,
             snapshotLine),
           bodyBlocks,
           appendix)));

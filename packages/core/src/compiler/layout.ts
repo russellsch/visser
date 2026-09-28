@@ -171,6 +171,122 @@ function collect(node: ElkNode, groupIds: Set<string>, lines: Map<string, string
   }
 }
 
+/**
+ * Two or more self-transitions on the same node (dogfood-3 F6): ELK's default
+ * self-loop routing does not reliably keep every label apart (it spreads a
+ * single node's loops by depth, not by the label's own size), so two loops on
+ * one node can draw their labels on top of each other. When a node has more
+ * than one self-loop, give each one a distinct side of the node — top, right,
+ * bottom, left, in that order, then repeating further out — so their label
+ * boxes never overlap. A node with only one self-loop keeps ELK's own output
+ * (unchanged bytes, §7.5). Pure function of the already-rounded layout, so
+ * output stays deterministic.
+ */
+const SELF_LOOP_SIDES = ['top', 'right', 'bottom', 'left'] as const;
+type SelfLoopSide = (typeof SELF_LOOP_SIDES)[number];
+const SELF_LOOP_GAP = 10;
+const SELF_LOOP_REACH = 8;
+
+function selfLoopGeometry(
+  side: SelfLoopSide, depth: number,
+  node: { x: number; y: number; width: number; height: number },
+  label: { width: number; height: number },
+): { points: Point[]; label: { x: number; y: number; width: number; height: number } } {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  const reach = Math.min(SELF_LOOP_REACH, Math.max(node.width, node.height) / 3);
+  const dist = SELF_LOOP_GAP + depth * (label.height + 4);
+  switch (side) {
+    case 'top': {
+      const apex = node.y - dist;
+      return {
+        points: [{ x: cx - reach, y: node.y }, { x: cx - reach, y: apex }, { x: cx + reach, y: apex }, { x: cx + reach, y: node.y }],
+        label: { x: cx - label.width / 2, y: apex - label.height, width: label.width, height: label.height },
+      };
+    }
+    case 'bottom': {
+      const bottom = node.y + node.height;
+      const apex = bottom + dist;
+      return {
+        points: [{ x: cx - reach, y: bottom }, { x: cx - reach, y: apex }, { x: cx + reach, y: apex }, { x: cx + reach, y: bottom }],
+        label: { x: cx - label.width / 2, y: apex, width: label.width, height: label.height },
+      };
+    }
+    case 'right': {
+      const right = node.x + node.width;
+      const apex = right + dist;
+      return {
+        points: [{ x: right, y: cy - reach }, { x: apex, y: cy - reach }, { x: apex, y: cy + reach }, { x: right, y: cy + reach }],
+        label: { x: apex, y: cy - label.height / 2, width: label.width, height: label.height },
+      };
+    }
+    case 'left': {
+      const apex = node.x - dist;
+      return {
+        points: [{ x: node.x, y: cy - reach }, { x: apex, y: cy - reach }, { x: apex, y: cy + reach }, { x: node.x, y: cy + reach }],
+        label: { x: apex - label.width, y: cy - label.height / 2, width: label.width, height: label.height },
+      };
+    }
+  }
+}
+
+function placeSelfLoops(graph: GraphInput, layout: GraphLayout): void {
+  const byNode = new Map<string, string[]>(); // node id -> self-loop edge ids, authored order
+  for (const e of graph.edges) {
+    if (e.from !== e.to) continue;
+    (byNode.get(e.from) ?? byNode.set(e.from, []).get(e.from)!).push(e.id);
+  }
+  const multi = [...byNode.entries()].filter(([, ids]) => ids.length > 1);
+  if (multi.length === 0) return; // single self-loop on every node: keep ELK's own output
+  const nodeById = new Map(layout.nodes.map((n) => [n.id, n]));
+  const edgeById = new Map(layout.edges.map((e) => [e.id, e]));
+  const edgeInputById = new Map(graph.edges.map((e) => [e.id, e]));
+  for (const [nodeId, edgeIds] of multi) {
+    const node = nodeById.get(nodeId);
+    if (!node) continue;
+    edgeIds.forEach((edgeId, i) => {
+      const edge = edgeById.get(edgeId);
+      const input = edgeInputById.get(edgeId)!;
+      if (!edge) return;
+      const side = SELF_LOOP_SIDES[i % SELF_LOOP_SIDES.length]!;
+      const depth = Math.floor(i / SELF_LOOP_SIDES.length);
+      const b = box(input.label, EDGE_LABEL_WIDTH, 2, 1);
+      const g = selfLoopGeometry(side, depth, node, { width: b.width, height: b.height });
+      edge.points = g.points.map((p) => ({ x: round3(p.x), y: round3(p.y) }));
+      edge.label = { ...g.label, x: round3(g.label.x), y: round3(g.label.y), lines: edge.label?.lines ?? b.lines };
+    });
+  }
+  // These loops can protrude past the figure's previous bounds; recompute the
+  // bounding box over every node, group, edge point, and label, and shift/grow
+  // the layout to cover it (still a pure function of the rounded input).
+  let minX = 0, minY = 0, maxX = layout.width, maxY = layout.height;
+  const consider = (x: number, y: number) => {
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  };
+  for (const [nodeId] of multi) {
+    for (const e of byNode.get(nodeId)!) {
+      const edge = edgeById.get(e);
+      if (!edge) continue;
+      for (const p of edge.points) consider(p.x, p.y);
+      if (edge.label) { consider(edge.label.x, edge.label.y); consider(edge.label.x + edge.label.width, edge.label.y + edge.label.height); }
+    }
+  }
+  if (minX < 0 || minY < 0 || maxX > layout.width || maxY > layout.height) {
+    const dx = round3(-Math.min(0, minX));
+    const dy = round3(-Math.min(0, minY));
+    const shift = (x: number) => round3(x);
+    for (const n of layout.nodes) { n.x = shift(n.x + dx); n.y = shift(n.y + dy); }
+    for (const g of layout.groups) { g.x = shift(g.x + dx); g.y = shift(g.y + dy); }
+    for (const e of layout.edges) {
+      e.points = e.points.map((p) => ({ x: shift(p.x + dx), y: shift(p.y + dy) }));
+      if (e.label) { e.label.x = shift(e.label.x + dx); e.label.y = shift(e.label.y + dy); }
+    }
+    layout.width = round3(maxX - minX);
+    layout.height = round3(maxY - minY);
+  }
+}
+
 /** Convert ELK output to the rounded, ordered layout the renderer uses. */
 export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, string[]>): GraphLayout {
   const layout: GraphLayout = { width: round3(result.width ?? 0), height: round3(result.height ?? 0), nodes: [], groups: [], edges: [] };
@@ -194,6 +310,7 @@ export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, s
   layout.nodes.sort((a, b) => nodeOrder.get(a.id)! - nodeOrder.get(b.id)!);
   const groupOrder = new Map(graph.groups.map((g, i) => [g.id, i]));
   layout.groups.sort((a, b) => groupOrder.get(a.id)! - groupOrder.get(b.id)!);
+  placeSelfLoops(graph, layout);
   return layout;
 }
 

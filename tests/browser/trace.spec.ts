@@ -60,7 +60,7 @@ test.describe('@R06 trace figure', () => {
     expect(await sideways()).toBe(0);
   });
 
-  test('narrow screens: a relationship list number and its kind label stay on the link line', async ({ page, offOrigin: _ }) => {
+  test('narrow screens: a relationship list number stays on the link line, and the kind badge follows', async ({ page, offOrigin: _ }) => {
     test.skip(!isNarrow(page), 'the wrapping problem occurs on narrow screens');
     await openSnapshot(page);
     const items = page.locator('[id="x-handoff"] .vs-rel-list li');
@@ -70,19 +70,20 @@ test.describe('@R06 trace figure', () => {
       const kind = li.querySelector('.vs-rel-kind')!;
       const lines = [...link.getClientRects()];
       const first = lines[0]!;
-      const last = lines[lines.length - 1]!;
       const liTop = li.getBoundingClientRect().top;
       const k = kind.getBoundingClientRect();
       return {
         // The list number is drawn on the li's first line box; the link's first line must start there.
         firstLine: Math.abs((first.top + first.bottom) / 2 - (liTop + parseFloat(getComputedStyle(li).lineHeight) / 2)),
-        // The kind label follows the link's last line, on the same line.
-        kindLine: Math.abs((k.top + k.bottom) / 2 - (last.top + last.bottom) / 2),
+        // The kind badge is a rounded chip after the endpoints and link (F9): it
+        // may wrap to its own line at narrow widths, but it must still sit
+        // inside this same list item, never overlapping the li above it.
+        kindWithinItem: k.top >= liTop - 1,
       };
     }));
     for (const g of gaps) {
       expect(g.firstLine).toBeLessThan(6);
-      expect(g.kindLine).toBeLessThan(6);
+      expect(g.kindWithinItem).toBe(true);
     }
   });
 

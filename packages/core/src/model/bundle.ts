@@ -42,6 +42,11 @@ function listBundleFiles(root: string, dir = root): string[] {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
     if (name === 'visser.lock.json' && dir === root) continue;
+    // `.visser/` holds the build's own output (build.json, document.md,
+    // index.html, and the shared asset pack); it is never a declared bundle
+    // file and is not read as source, so it never earns a warning here
+    // (dogfood-3 F12a: `visser serve` used to warn about its own output).
+    if (name === '.visser' && dir === root) continue;
     if (lstatSync(full).isDirectory()) out.push(...listBundleFiles(root, full));
     else out.push(relative(root, full).split(sep).join('/'));
   }
