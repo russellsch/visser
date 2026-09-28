@@ -199,9 +199,10 @@ html { scroll-padding-top: 3.5rem; }
 .vs-compare-table td { vertical-align: top; }
 .vs-cell-body > :first-child { margin-top: 0.25rem; }
 .vs-cell-body > :last-child { margin-bottom: 0; }
-/* A cell without a value: a small "›" link inline after its text, only when
-   the inspector holds more than the cell shows (dogfood-2 Q5, IMPROVEMENTS
-   §4.6). The compiler puts the link inside the last paragraph. */
+/* A body-only cell: a small "›" link inline after its text, only when the
+   inspector holds more than the cell shows (dogfood-2 Q5, IMPROVEMENTS §4.6).
+   Value cells link their displayed value only when they have added detail.
+   The compiler puts the "›" link inside the last paragraph. */
 .vs-cell-link {
   display: inline-block; min-width: 1.5rem;
   font-size: 1.125rem; line-height: 1; text-align: center; text-decoration: none;

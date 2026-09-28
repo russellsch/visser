@@ -33,9 +33,10 @@ State the recommendation in prose with its reasons.
 | `compare` | `id`, `title`, `question` | — |
 | `option` | `id`, `label` | — |
 | `criterion` | `id`, `label` | `units` |
-| `cell` | `id`, `option`, `criterion` | `value`, `valueStatus` |
+| `cell` | `id`, `option`, `criterion` | `value`, `valueStatus`, `evidence` |
 
 - `valueStatus`: `measured`, `estimated`, `illustrative`.
+- `evidence=["src_measurement"]` names the captured sources that support the cell.
 
 ## Rules
 

@@ -1059,6 +1059,10 @@ class Renderer {
       const units = attrString(this.nodes.get(c.id)!, 'units');
       return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
     };
+    const cellHasDetails = (cell: TargetRecord): boolean => {
+      const n = this.nodes.get(cell.id)!;
+      return compareCellHasDetails(n, (x) => this.isTargetNode(x), this.ownEvidenceIds(cell.id).length > 0);
+    };
     const cellContent = (cell: TargetRecord | undefined, instanceId: string, o: TargetRecord, c: TargetRecord): Child => {
       if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
       const n = this.nodes.get(cell.id)!;
@@ -1073,7 +1077,7 @@ class Renderer {
         // and the full word "details" is in its aria-label. With no link, the
         // cell body carries the table instance.
         const body = [...this.blocks(n)];
-        if (!compareCellHasDetails(n, (x) => this.isTargetNode(x), this.ownEvidenceIds(cell.id).length > 0)) {
+        if (!cellHasDetails(cell)) {
           return h('div', { class: 'vs-cell-body', id: instanceId, [DOM.attr.target]: cell.id }, body);
         }
         const cellLink = h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}, details`, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true },
@@ -1089,8 +1093,12 @@ class Renderer {
         }
         return h('div', { class: 'vs-cell-body' }, body);
       }
+      const valueAttrs = { class: 'vs-cell-value', id: instanceId, [DOM.attr.target]: cell.id };
+      const shownValue = cellHasDetails(cell)
+        ? h('a', { ...valueAttrs, href: `#${DOM.canonicalId(cell.id)}`, [DOM.attr.interactive]: true }, this.safeText(String(value), cell.id))
+        : h('span', valueAttrs, this.safeText(String(value), cell.id));
       return [
-        link(cell.id, instanceId, this.safeText(String(value), cell.id)),
+        shownValue,
         status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
         h('div', { class: 'vs-cell-body' }, this.blocks(n)),
       ];
@@ -1127,9 +1135,12 @@ class Renderer {
       h('p', { class: 'vs-compare-criterion' }, criterionLabel(c, DOM.listInstanceId(id, c.id))),
       h('dl', {}, options.map((o) => {
         const cell = cellFor(o.id, c.id);
+        const instanceId = cell ? DOM.listInstanceId(id, cell.id) : '';
         return [
           h('dt', {}, cell
-            ? h('a', { href: `#${DOM.canonicalId(cell.id)}`, id: DOM.listInstanceId(id, cell.id), [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}` }, this.label(o.id))
+            ? cellHasDetails(cell)
+              ? h('a', { href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}` }, this.label(o.id))
+              : h('span', { id: instanceId, [DOM.attr.target]: cell.id }, this.label(o.id))
             : h('span', {}, this.label(o.id))),
           h('dd', {}, cardValue(cell)),
         ];
@@ -2136,7 +2147,8 @@ function linkableDefinitions(bundle: LoadedBundle): LinkableDefinition[] {
  * True when the inspector holds more than a compare cell shows in the table
  * (docs/IMPROVEMENTS.md §4.6). The first block of a cell with no value is its
  * value, so the cell has details when it has evidence, a second block, a
- * `cite`, or a nested `detail`.
+ * `cite`, or a nested `detail`. When `value` is present, the table already
+ * shows it, and any authored body block is additional detail.
  */
 export function compareCellHasDetails(cell: MNode, isTarget: (n: MNode) => boolean, hasEvidence = false): boolean {
   if (hasEvidence) return true;
@@ -2153,7 +2165,7 @@ export function compareCellHasDetails(cell: MNode, isTarget: (n: MNode) => boole
   visit(cell);
   if (more) return true;
   const blocks = cell.children.filter((c) => !isTarget(c) && c.type !== 'comment' && hasBody({ children: [c] } as unknown as MNode, isTarget));
-  return blocks.length > 1;
+  return blocks.length > (cell.attributes['value'] === undefined ? 1 : 0);
 }
 
 /** True when a target node has authored body content: a block with text, not only nested targets or comments. */

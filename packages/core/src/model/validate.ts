@@ -121,7 +121,7 @@ const SPECS: Record<string, TagSpec> = {
   option: { required: { id: 'id', label: 'string' }, optional: {}, parents: ['compare'] },
   criterion: { required: { id: 'id', label: 'string' }, optional: { units: 'string' }, parents: ['compare'] },
   cell: {
-    required: { id: 'id', option: 'id', criterion: 'id' }, optional: { value: 'stringOrNumber', valueStatus: 'string' },
+    required: { id: 'id', option: 'id', criterion: 'id' }, optional: { value: 'stringOrNumber', valueStatus: 'string', ...PART_EVIDENCE },
     enums: { valueStatus: ['measured', 'estimated', 'illustrative'] }, parents: ['compare'],
   },
   // `before` names a second captured source; the page shows a line diff
@@ -205,7 +205,7 @@ const ENTITY_CHILDREN: Record<string, readonly string[]> = {
  * The part tags that take an `evidence` attribute (docs/IMPROVEMENTS.md §4.4),
  * with a measure `reading` and a tree `entry` (§14.4, §14.5).
  */
-export const PART_EVIDENCE_TAGS: ReadonlySet<string> = new Set(['node', 'event', 'state', 'stage', 'task', 'reading', 'entry']);
+export const PART_EVIDENCE_TAGS: ReadonlySet<string> = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry']);
 /** The relationship tags that take a `quantity` and its `evidence` (docs/IMPROVEMENTS.md §14.9). */
 export const QUANTITY_TAGS: ReadonlySet<string> = new Set(['edge', 'conversion', 'dependency']);
 const GRAPH_WARN_NODES = 25;

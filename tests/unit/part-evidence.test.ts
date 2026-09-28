@@ -74,7 +74,7 @@ const LINK_ONLY = '{% source id="src_link" kind="web" title="Ticket" url="https:
 const SOURCES = `${source('src_b', 'Queue code', 'const queue = [];')}\n${source('src_a', 'Worker code', 'take(queue);')}\n${source('src_c', 'Design note', 'The queue is bounded.')}`;
 
 describe('`evidence` on a part: validation (IMPROVEMENTS.md §4.4)', () => {
-  it('is accepted on node, event, state, stage, and task when each ID names a source', () => {
+  it('is accepted on node, event, state, stage, task, and cell when each ID names a source', () => {
     const text = doc(`${SOURCES}
 {% graph id="g_arch" mode="architecture" title="Map" question="What calls what?" %}
 {% node id="n_q" role="storage" label="Queue" evidence=["src_b"] /%}
@@ -96,6 +96,12 @@ describe('`evidence` on a part: validation (IMPROVEMENTS.md §4.4)', () => {
 {% transform id="tf" title="Value" question="How does it change?" %}
 {% stage id="st_a" label="Raw" representation="bytes" evidence=["src_c"] /%}
 {% /transform %}
+
+{% compare id="cmp" title="Queues" question="Which queue has a measured bound?" %}
+{% option id="op_a" label="Bounded" /%}
+{% criterion id="cr_a" label="Capacity" /%}
+{% cell id="cl_a" option="op_a" criterion="cr_a" value=100 evidence=["src_c"] /%}
+{% /compare %}
 `);
     expect(errors(text)).toEqual([]);
   });

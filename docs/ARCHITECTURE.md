@@ -784,7 +784,7 @@ interface ComponentDefinition<T> {
 
 `SemanticRelationship` minimally contains `id`, `from`, `to`, `kind`, `label`, `basis?`, and `evidenceIds`. Relationships are not inferred from coordinates.
 
-`evidenceIds` is the sorted, deduplicated union of an explicit `evidence` attribute (where the family has one) and every `cite ref` in the target's body. Since revision 1.25, a part (`node`, `event`, `state`, `stage`, `task`) has the same optional `evidence` attribute and the same union rule (IMPROVEMENTS.md §4.4). `evidence` names the source that shows the part (for a node or an event, the code; for a task, the source of its `due` date; for a state or a stage, the code that defines it); `cite` supports one sentence in the body. The inspector lists the `evidence` sources first, then the cited ones, and for a part with `evidence` it shows the Evidence section before the body; a `causal-link` is a relationship and keeps its Evidence section last. A link-only source is allowed in `evidence`, and the inspector shows the same notice as the appendix. Relationship `kind` comes from each family as follows:
+`evidenceIds` is the sorted, deduplicated union of an explicit `evidence` attribute (where the family has one) and every `cite ref` in the target's body. Since revision 1.25, a part (`node`, `event`, `state`, `stage`, `task`) has the same optional `evidence` attribute and the same union rule (IMPROVEMENTS.md §4.4); later components add it to `cell`, `reading`, and `entry`. `evidence` names the source that shows the part (for a node or an event, the code; for a task, the source of its `due` date; for a state or a stage, the code that defines it); `cite` supports one sentence in the body. The inspector lists the `evidence` sources first, then the cited ones, and for a part with `evidence` it shows the Evidence section before the body; a `causal-link` is a relationship and keeps its Evidence section last. A link-only source is allowed in `evidence`, and the inspector shows the same notice as the appendix. Relationship `kind` comes from each family as follows:
 
 | Family / child | Emitted `kind` |
 |---|---|
@@ -879,13 +879,13 @@ Mobile/text view lists mechanisms, basis, and evidence. A cause diagram never re
 
 **Question:** Which relevant property differs, and what follows from the difference?
 
-`option`: `id`, `label`; optional descriptive body. `criterion`: `id`, `label`; optional `units`. `cell`: `id`, `option`, `criterion`; Markdown body, citations, optional `value` and `valueStatus="measured" | "estimated" | "illustrative"`.
+`option`: `id`, `label`; optional descriptive body. `criterion`: `id`, `label`; optional `units`. `cell`: `id`, `option`, `criterion`; Markdown body, citations, optional `value`, `valueStatus="measured" | "estimated" | "illustrative"`, and `evidence` source IDs.
 
 Each option/criterion pair has at most one cell. Missing values render as **Not provided**, not zero. No default weighted score, winner badge, or arbitrary red/green ranking. Differences should be concrete: ownership, latency mechanism, failure behavior, constraints, or measured numbers with compatible conditions.
 
 Desktop: semantic HTML table with headers. Mobile: criteria in rows, alternatives stacked within each criterion; retain all option labels. Before/after uses two options labelled accordingly rather than a separate engine. Code diff comparison is a specialized annotated artifact, not inferred textual equivalence.
 
-As implemented (revision 1.24): each cell is a target and keeps its own inspection link; a cell without a value shows its text first, then a small "details" link labelled with its option and criterion. `check --review` gives `W_EVIDENCE_GAP` when more than a quarter of the cells are empty.
+As implemented in revision 1.24 and tightened in revision 1.32: each cell remains a target, but it is interactive only when its inspector contains content beyond the value already shown. A cell without `value` uses its first body block as the displayed value; a later block, evidence, a `cite`, or a nested `detail` enables its small inspection link. A cell with `value` needs a body block or the same evidence/detail content before its displayed value or card label becomes a link. `check --review` gives `W_EVIDENCE_GAP` when more than a quarter of the cells are empty.
 
 ### 9.9 Plan/dependency view — `graph mode="plan"`
 

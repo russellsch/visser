@@ -294,7 +294,7 @@ describe('compare cell link (IMPROVEMENTS.md §4.6)', () => {
   // `detail`. It sits inline after the text. With no link, the cell body
   // keeps the cell's one table instance (§10.3).
   it('shows a "›" link only when the inspector holds more than the cell', async () => {
-    const { main } = await compile(`${source('src_a', 'Queue code', 'const queue = [];')}
+    const { main, markdown, appendix } = await compile(`${source('src_a', 'Queue code', 'const queue = [];')}
 {% compare id="cmp" title="Queues" question="Which one?" %}
 {% option id="o_a" label="Bounded" /%}
 {% criterion id="c_x" label="Memory" /%}
@@ -302,6 +302,8 @@ describe('compare cell link (IMPROVEMENTS.md §4.6)', () => {
 {% criterion id="c_z" label="Cost" /%}
 {% criterion id="c_w" label="Latency" /%}
 {% criterion id="c_c" label="Order" /%}
+{% criterion id="c_v" label="Capacity" /%}
+{% criterion id="c_e" label="Measured capacity" /%}
 {% cell id="cl_x" option="o_a" criterion="c_x" value="fixed" /%}
 {% cell id="cl_y" option="o_a" criterion="c_y" %}
 Producers wait.
@@ -315,6 +317,10 @@ The producer sees the wait as latency.
 {% cell id="cl_c" option="o_a" criterion="c_c" %}
 First in, first out. {% cite ref="src_a" /%}
 {% /cell %}
+{% cell id="cl_v" option="o_a" criterion="c_v" value="100" %}
+The limit is configurable.
+{% /cell %}
+{% cell id="cl_e" option="o_a" criterion="c_e" value="96" evidence=["src_a"] /%}
 {% /compare %}
 `);
     const table = main.slice(main.indexOf('<table class="vs-compare-table"'), main.indexOf('</table>'));
@@ -328,7 +334,23 @@ First in, first out. {% cite ref="src_a" /%}
     // A one-sentence cell and an empty cell: no link, and the cell body is the table instance.
     expect(table).toContain('<div class="vs-cell-body" id="v-cmp.cl_y" data-vs-target="cl_y"><p>Producers wait.</p></div>');
     expect(table).toContain('<div class="vs-cell-body" id="v-cmp.cl_z" data-vs-target="cl_z"></div>');
+    // A value-only cell is still a target instance, but it is not a link.
+    expect(table).toContain('<span class="vs-cell-value" id="v-cmp.cl_x" data-vs-target="cl_x">fixed</span>');
+    expect(table).not.toMatch(/<a[^>]*data-vs-target="cl_x"/);
+    // A value with additional authored detail remains interactive.
+    expect(table).toMatch(/<a class="vs-cell-value" id="v-cmp\.cl_v" data-vs-target="cl_v" href="#x-cl_v" data-vs-interactive="">100<\/a>/);
+    // Explicit evidence is also additional detail, even without a body.
+    expect(table).toMatch(/<a class="vs-cell-value" id="v-cmp\.cl_e" data-vs-target="cl_e" href="#x-cl_e" data-vs-interactive="">96<\/a>/);
     // Every cell has exactly one table instance.
-    for (const cell of ['cl_x', 'cl_y', 'cl_z', 'cl_w', 'cl_c']) expect(table.split(`id="v-cmp.${cell}"`).length - 1).toBe(1);
+    for (const cell of ['cl_x', 'cl_y', 'cl_z', 'cl_w', 'cl_c', 'cl_v', 'cl_e']) expect(table.split(`id="v-cmp.${cell}"`).length - 1).toBe(1);
+
+    const cards = main.slice(main.indexOf('<div class="vs-compare-cards"'), main.indexOf('</figure>'));
+    expect(cards).toContain('<span id="l-cmp.cl_x" data-vs-target="cl_x">Bounded</span>');
+    expect(cards).not.toMatch(/<a[^>]*data-vs-target="cl_x"/);
+    expect(cards).toMatch(/<a[^>]*id="l-cmp\.cl_v"[^>]*data-vs-target="cl_v"[^>]*data-vs-interactive/);
+    expect(cards).toMatch(/<a[^>]*id="l-cmp\.cl_e"[^>]*data-vs-target="cl_e"[^>]*data-vs-interactive/);
+    expect(markdown).toContain('Evidence: Queue code (src_a)');
+    const evidenceDetail = appendix.slice(appendix.indexOf('id="x-cl_e"'), appendix.indexOf('</details>', appendix.indexOf('id="x-cl_e"')));
+    expect(evidenceDetail.indexOf('vs-detail-evidence')).toBeLessThan(evidenceDetail.indexOf('vs-detail-text'));
   });
 });

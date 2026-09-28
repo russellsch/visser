@@ -186,7 +186,7 @@ function evidenceLine(ctx: Context, id: string): string | undefined {
 }
 
 /** Parts that take an `evidence` attribute (docs/IMPROVEMENTS.md §4.4). */
-const PART_EVIDENCE_KINDS = new Set(['node', 'event', 'state', 'stage', 'task', 'reading', 'entry']);
+const PART_EVIDENCE_KINDS = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry']);
 
 function idList(value: unknown): string[] {
   const all = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
@@ -417,7 +417,8 @@ function compareBlocks(ctx: Context, record: TargetRecord): string[] {
       const text = [value !== undefined ? String(value) : '', status ? `(${status})` : ''].filter(Boolean).join(' ');
       const body = bodyOf(ctx, n);
       const detail = [text, body.replace(/\s*\n+\s*/g, ' ')].filter((x) => x !== '').join(' — ');
-      rows.push([idLine(cell.id), `- ${o.label}: ${detail || 'Not provided'}`].join('\n'));
+      const evidence = idList(n.attributes['evidence']).map((id) => `Evidence: ${labelOf(ctx, id)} (${id})`);
+      rows.push([idLine(cell.id), `- ${o.label}: ${detail || 'Not provided'}`, ...evidence].join('\n'));
     }
     out.push(rows.join('\n'));
   }

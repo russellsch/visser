@@ -312,6 +312,9 @@ document, a part whose sources are all link-only counts as a part without
 evidence. The inspector lists `evidence` sources first, then the
 cited ones. `evidenceIds` (§9.2) is the union of both, as today.
 
+A compare `cell` also accepts `evidence` under §4.6. It supports the displayed
+value or explanation and enables inspection when the excerpt adds information.
+
 `task` also gains an optional `due` date (ISO 8601). A `due` without
 `evidence` is `W_EVIDENCE_GAP`. The date renders as text under the label,
 never as a bar length, so the plan stays a dependency graph. This replaces the
@@ -329,12 +332,14 @@ one use of Mermaid Gantt that `plan` did not cover.
 
 ### 4.6 Compare cells
 
-Show the "details" link only when the inspector holds more than the table
-cell shows: a second block, evidence, a `cite`, or a nested `detail`. A cell
-whose whole body is the one sentence in the table gets no link, because the
-link would open a copy. Render the link as a small "›" inline after the text,
-with the full "details" word in the `aria-label`. The cell keeps its target
-identity (§10.3) on the cell body when there is no link.
+Show an inspection link only when the inspector holds more than the table or
+card shows. For a cell with `value`, additional content is a body block,
+evidence, a `cite`, or a nested `detail`. For a cell without `value`, the first
+body block is the displayed value, so an additional block also enables the
+link. A cell whose inspector only repeats its displayed value gets no link.
+Render the link for a body-only cell as a small "›" inline after the text, with
+the full "details" word in the `aria-label`. A non-interactive cell keeps its
+target identity (§10.3) on its displayed value, body, or option label.
 
 ### 4.7 Tooltips on edges
 

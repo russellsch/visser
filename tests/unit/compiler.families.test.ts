@@ -323,9 +323,12 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
       expect(cards.split(`data-vs-target="${option}"`).length - 1).toBe(1); // the options line
     }
     expect(cards).toContain('Not provided');
-    // One link per option row: no generated "Details" link in the cards.
+    // Cards link only cells whose inspector adds information. The one-sentence
+    // body of cell_bf is already shown in full, so its label is a plain target.
     expect(cards).not.toContain('>Details<');
-    expect(cards).toContain('aria-label="Bounded queue: Failure behavior"');
+    expect(cards).toContain('<span id="l-queues.cell_bf" data-vs-target="cell_bf">Bounded queue</span>');
+    expect(cards).not.toContain('aria-label="Bounded queue: Failure behavior"');
+    expect(cards).toContain('aria-label="Bounded queue: Memory under overload"');
     // Table cells without a value: no "Details" line above the text (dogfood-2 Q5).
     expect(table).not.toContain('>Details<');
     // The whole body of cell_bf is the one sentence in the table, so it gets
