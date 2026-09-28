@@ -278,8 +278,14 @@ When the inspector opens on a part, it shows, in this order:
    data that `relationships()` already emits.
 4. **Appears in**: trace actors, nodes in other figures, and concepts that
    reference this part through `entity` or `definition`.
-5. **Evidence**: each cited source, excerpt first, with the origin line.
+5. **Evidence**, collapsed and last: each cited source, excerpt first, with the
+   origin line. A sources-only target first shows direct source links, then the
+   same collapsed excerpts.
 6. The "Copy reference" action.
+
+The heading names the drill-down depth: Explanation, Additional context, or
+Sources. Back names its destination. Locate reveals and focuses the visible
+instance and the page marks every instance of the inspected target.
 
 For a source, the order stays as the Penpot inspector board shows (excerpt,
 origin, Provenance collapsed).
@@ -297,8 +303,8 @@ holds the same data for touch screens.
 
 Add an optional `evidence` attribute (an array of `source` IDs) to `node`,
 `event`, `state`, `stage`, and `task`, as `causal-link` has today. A click on
-the part opens the inspector with the excerpt first. This is the "click a step
-to see the code" behaviour from the project goals. `check` validates the IDs
+the part opens useful explanation and context before a collapsed evidence
+excerpt. This is the "click a step to see the code" behaviour from the project goals. `check` validates the IDs
 as `E_REF_BROKEN`, and `W_EVIDENCE_GAP` can count parts without evidence in a
 root-cause document.
 
@@ -327,8 +333,10 @@ one use of Mermaid Gantt that `plan` did not cover.
   Definitions come first, open by default, as the Penpot layout shows.
 - Name a part row by its label and its cue word: "Charge queue · storage",
   not "Charge queue node".
-- Skip the row for a part with no body and no evidence. The part still exists
-  as a target; the inspector and the list reach it.
+- Skip the normal drill-down for a part whose canonical detail adds nothing
+  beyond that instance. It remains a target for references. Keep a row when
+  generated relationships, appearances, Mermaid structure, or sources add
+  useful information.
 
 ### 4.6 Compare cells
 
@@ -337,9 +345,23 @@ card shows. For a cell with `value`, additional content is a body block,
 evidence, a `cite`, or a nested `detail`. For a cell without `value`, the first
 body block is the displayed value, so an additional block also enables the
 link. A cell whose inspector only repeats its displayed value gets no link.
-Render the link for a body-only cell as a small "›" inline after the text, with
-the full "details" word in the `aria-label`. A non-interactive cell keeps its
+Render the link for a body-only cell as the shared depth cue inline after the
+text, with the action in the `aria-label`. A non-interactive cell keeps its
 target identity (§10.3) on its displayed value, body, or option label.
+
+### 4.8 Drill-down depth and value
+
+The compiler classifies a target as explanation, generated context,
+sources-only, or bare. Each rendered instance subtracts facts already visible
+there. Explanation and context use the same two-bar cue because both promise
+more understanding. Sources-only uses one muted bar. Bare instances are not
+links. A short static key explains the bars; the About panel owns it when the
+runtime is active.
+
+`check --review` emits one `W_DETAIL_VALUE` for a figure when sources-only
+drill-downs are at least as numerous as targets with explanation or additional
+context. The prompt asks for mechanisms, invariants, constraints, contrasts,
+failure behaviour, or consequences where readers need more than provenance.
 
 ### 4.7 Tooltips on edges
 

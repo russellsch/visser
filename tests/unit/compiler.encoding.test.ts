@@ -33,7 +33,15 @@ ${figure}
 }
 
 function tagOf(html: string, instanceId: string): string {
-  return new RegExp(`<a [^>]*id="${instanceId.replace(/[.~]/g, '\\$&')}"[^>]*>`).exec(html)?.[0] ?? '';
+  return new RegExp(`<(?:a|g) [^>]*id="${instanceId.replace(/[.~]/g, '\\$&')}"[^>]*>`).exec(html)?.[0] ?? '';
+}
+
+function instanceOf(html: string, instanceId: string): string {
+  const tag = tagOf(html, instanceId);
+  if (!tag) return '';
+  const name = tag.startsWith('<a ') ? 'a' : 'g';
+  const start = html.indexOf(tag);
+  return html.slice(start, html.indexOf(`</${name}>`, start) + name.length + 3);
 }
 
 function nodeRect(html: string, instanceId: string): { width: number; height: number } {
@@ -143,8 +151,8 @@ describe('category hue and paired cues (IMPROVEMENTS §3.2)', () => {
     expect(tagOf(html, 'v-intake.route')).toContain('class="vs-node vs-role-decision vs-cat vs-cat-green"');
     // A concept has no hue: no fill and a dotted stroke.
     expect(tagOf(html, 'v-intake.idea')).toContain('class="vs-node vs-role-concept"');
-    expect(tagOf(html, 'v-intake.api')).toContain('aria-label="Order API (interface)"');
-    const inside = (id: string) => html.slice(html.indexOf(`id="v-intake.${id}"`), html.indexOf('</a>', html.indexOf(`id="v-intake.${id}"`)));
+    expect(tagOf(html, 'v-intake.api')).toContain('aria-label="Order API (interface); opens more detail"');
+    const inside = (id: string) => instanceOf(html, `v-intake.${id}`);
     expect(inside('api')).toMatch(/<rect [^>]*rx="12"/); // pill corners
     expect(inside('worker')).toMatch(/<rect [^>]*rx="6"/);
     expect(inside('queue')).toContain('class="vs-mark"'); // the drum line
@@ -153,7 +161,7 @@ describe('category hue and paired cues (IMPROVEMENTS §3.2)', () => {
     expect(inside('idea')).toContain('stroke-dasharray="2 4"');
     // The role word does not show in the box.
     expect(inside('queue')).not.toContain('>storage<');
-    expect(html).toMatch(/<a href="#x-queue"[^>]*>Charge queue<\/a><span class="vs-role" data-vs-generated=""> \(storage\)<\/span>/);
+    expect(html).toMatch(/<a [^>]*href="#x-queue"[^>]*>Charge queue<span class="vs-depth-cue[^>]*>.*?<\/span><\/a><span class="vs-role" data-vs-generated=""> \(storage\)<\/span>/);
     // Edge kind is a line pattern, and feedback has a loop mark.
     expect(inside('e_put')).toContain('stroke-dasharray="6 4"');
     expect(inside('e_ctl')).toContain('stroke-dasharray="2 4"');
@@ -178,20 +186,24 @@ describe('category hue and paired cues (IMPROVEMENTS §3.2)', () => {
     expect(html).toMatch(/<div class="vs-figure-lead"><div class="vs-figure-text"><p>The queue holds orders until a worker takes them\.<\/p><\/div><ul class="vs-legend"/);
   });
 
-  it('an edge aria-label carries the word for its line cue: kind, basis, dependency kind, or loss (review F-07)', async () => {
+  it('an interactive edge aria-label carries the cue word, while fully visible edges are inert (review F-07)', async () => {
     const html = await compile(ARCH);
-    expect(tagOf(html, 'v-intake.e_put')).toContain('aria-label="Order API, enqueue, Charge queue (data)"');
-    expect(tagOf(html, 'v-intake.e_fb')).toContain('aria-label="Payment provider, declined, Retry? (feedback)"');
+    expect(tagOf(html, 'v-intake.e_put')).toContain('<g ');
+    expect(tagOf(html, 'v-intake.e_put')).not.toContain('data-vs-interactive');
+    expect(tagOf(html, 'v-intake.e_fb')).toContain('<g ');
+    expect(html).toMatch(/data-vs-rel="e_put"[^>]*>enqueue<\/span>.*?<span class="vs-rel-kind"[^>]*>data<\/span>/s);
+    expect(html).toMatch(/data-vs-rel="e_fb"[^>]*>declined<\/span>.*?<span class="vs-rel-kind"[^>]*>feedback<\/span>/s);
     const plan = await compile(PLAN);
-    expect(tagOf(plan, 'v-steps.d_in')).toContain('aria-label="Write schema, schema exists, Backfill existing rows (input)"');
+    expect(tagOf(plan, 'v-steps.d_in')).toContain('data-vs-depth="bare"');
+    expect(tagOf(plan, 'v-steps.d_in')).not.toContain('data-vs-interactive');
   });
 
   it('state: a transition basis other than observed is a pattern, a word on the arrow, and a legend chip (review F-08)', async () => {
     const html = await compile(STATE);
-    const inside = (id: string) => html.slice(html.indexOf(`id="v-life.${id}"`), html.indexOf('</a>', html.indexOf(`id="v-life.${id}"`)));
+    const inside = (id: string) => instanceOf(html, `v-life.${id}`);
     expect(inside('t_guess')).toContain('stroke-dasharray="6 4"');
     expect(inside('t_guess')).toContain('>times out (inferred)<');
-    expect(tagOf(html, 'v-life.t_guess')).toContain('(inferred)"');
+    expect(tagOf(html, 'v-life.t_guess')).toContain('(inferred); opens more detail"');
     // An observed transition is solid and keeps its plain label.
     expect(inside('t_seen')).not.toContain('stroke-dasharray');
     expect(inside('t_seen')).toContain('>opens<');
@@ -203,7 +215,7 @@ describe('category hue and paired cues (IMPROVEMENTS §3.2)', () => {
 
   it('plan: proposed has a dotted outline and no fill, so it differs from ready without hue (review F-01)', async () => {
     const html = await compile(PLAN);
-    const inside = (id: string) => html.slice(html.indexOf(`id="v-steps.${id}"`), html.indexOf('</a>', html.indexOf(`id="v-steps.${id}"`)));
+    const inside = (id: string) => instanceOf(html, `v-steps.${id}`);
     expect(tagOf(html, 'v-steps.t_later')).toContain('vs-nofill');
     expect(inside('t_later')).toContain('stroke-dasharray="2 4"');
     expect(inside('t_back')).not.toContain('stroke-dasharray');
@@ -240,8 +252,7 @@ describe('box content and figure heading (IMPROVEMENTS §3.4, §3.6)', () => {
 
   it('the check mark of a complete task stays clear of the label (review F-11)', async () => {
     const html = await compile(PLAN);
-    const start = html.indexOf('id="v-steps.t_schema"');
-    const part = html.slice(start, html.indexOf('</a>', start));
+    const part = instanceOf(html, 'v-steps.t_schema');
     const [, x, w] = /<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/.exec(part)!.map(Number);
     const label = [...part.matchAll(/<tspan [^>]*>([^<]+)<\/tspan>/g)].map((m) => m[1]!);
     const labelRight = x! + w! / 2 + Math.max(...label.map((l) => textWidth(l))) / 2;

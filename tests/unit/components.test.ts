@@ -254,8 +254,9 @@ describe('rendering', () => {
     expect(bar('rd_before')[1]).toBe('vs-bar');
     expect(bar('rd_after')[1]).toBe('vs-bar-outline');
     expect(Number(bar('rd_after')[3]) / Number(bar('rd_before')[3])).toBeCloseTo(120 / 800, 3);
-    expect(page).toMatch(/id="v-m_wait\.rd_after"[^>]*aria-label="After: 120 ms \(estimated\)"[\s\S]*?<path class="vs-bar-hatch"/);
-    expect(page).not.toMatch(/id="v-m_wait\.rd_before"[^>]*>(?:(?!<\/a>)[\s\S])*vs-bar-hatch/);
+    expect(page).toMatch(/id="v-m_wait\.rd_after"[^>]*aria-label="After: 120 ms \(estimated\); opens more detail"[\s\S]*?<path class="vs-bar-hatch"/);
+    const beforeBar = page.slice(page.indexOf('id="v-m_wait.rd_before"'), page.indexOf('id="v-m_wait.rd_after"'));
+    expect(beforeBar).not.toContain('vs-bar-hatch');
     expect(page).toContain('data-vs-views="map list"');
     expect(page).toMatch(/<table class="vs-measure-table">[\s\S]*?id="l-m_wait\.rd_after"[\s\S]*?120 ms<\/td><td data-vs-generated="">estimated<\/td>/);
     // The axis shows zero and the maximum only.
@@ -265,15 +266,15 @@ describe('rendering', () => {
   it('a tree nests entries in details, open at the top two levels, with the role cue and the evidence mark; no link is in a summary (phase 6a review C4)', async () => {
     const deep = `{% tree id="code_map" title="Files" question="Where?" %}\nThree levels.\n\n{% entry id="t_a" path="a" role="process" label="A" %}\n{% entry id="t_b" path="a/b" role="storage" label="B" %}\n{% entry id="t_c" path="a/b/c" label="C" %}\n{% entry id="t_d" path="a/b/c/d" label="D" evidence=["src_x"] /%}\n{% /entry %}\n{% /entry %}\n{% /entry %}\n{% /tree %}\n\n${source('src_x', ['x'])}`;
     const page = await html(doc(deep));
-    expect(page).toMatch(/<li class="vs-tree-item"><div class="vs-tree-line"><a class="vs-tree-entry" href="#x-t_a" id="l-code_map\.t_a"[\s\S]*?<\/div><details class="vs-tree-node vs-tree-open" open><summary class="vs-tree-toggle" data-vs-generated="">1 entry<span class="vs-sr"> in a<\/span><\/summary>/);
-    expect(page).toMatch(/<div class="vs-tree-line"><a class="vs-tree-entry" href="#x-t_b"[\s\S]*?<\/div><details class="vs-tree-node vs-tree-open" open><summary class="vs-tree-toggle"/);
-    expect(page).toMatch(/<div class="vs-tree-line"><a class="vs-tree-entry" href="#x-t_c"[\s\S]*?<\/div><details class="vs-tree-node"><summary class="vs-tree-toggle"/);
+    expect(page).toMatch(/<li class="vs-tree-item"><div class="vs-tree-line"><span class="vs-tree-entry" id="l-code_map\.t_a"[\s\S]*?<\/div><details class="vs-tree-node vs-tree-open" open><summary class="vs-tree-toggle" data-vs-generated="">1 entry<span class="vs-sr"> in a<\/span><\/summary>/);
+    expect(page).toMatch(/<div class="vs-tree-line"><span class="vs-tree-entry"[^>]*id="l-code_map\.t_b"[\s\S]*?<\/div><details class="vs-tree-node vs-tree-open" open><summary class="vs-tree-toggle"/);
+    expect(page).toMatch(/<div class="vs-tree-line"><span class="vs-tree-entry"[^>]*id="l-code_map\.t_c"[\s\S]*?<\/div><details class="vs-tree-node"><summary class="vs-tree-toggle"/);
     // No interactive element inside a summary.
     expect(page).not.toMatch(/<summary[^>]*>(?:(?!<\/summary>)[\s\S])*<a /);
     expect(page).toMatch(/id="l-code_map\.t_a"[\s\S]*?<span class="vs-tree-role" data-vs-generated=""><svg [^>]*class="vs-legend-swatch"[\s\S]*?vs-cat-slate[\s\S]*?<\/svg>process<\/span>/);
     expect(page).toMatch(/id="l-code_map\.t_d"[\s\S]*?<span class="vs-tree-evidence" data-vs-generated="">evidence<\/span>/);
-    // The entry detail shows the evidence first (§4.4).
-    expect(page).toMatch(/<details class="vs-detail vs-kind-entry" id="x-t_d"[^>]*><summary>[\s\S]*?<div class="vs-detail-body"><section class="vs-detail-section vs-detail-evidence"/);
+    // Evidence is last and collapsed so the inspector leads with useful detail.
+    expect(page).toMatch(/<details class="vs-detail vs-kind-entry" id="x-t_d"[^>]*>[\s\S]*?<details class="vs-detail-section vs-detail-evidence"/);
   });
 
   it('a walkthrough is a numbered list under its figure, with its parts as links', async () => {
@@ -282,7 +283,7 @@ describe('rendering', () => {
     expect(walk).toContain('<p class="vs-steps-note" data-vs-generated="">Reading order, not execution order.</p>');
     expect(walk).toContain('<li class="vs-step" id="x-wk_charge" data-vs-target="wk_charge"');
     expect(walk).toContain('data-vs-step-targets="n_worker e_take n_queue"');
-    expect(walk).toContain('<a href="#x-n_worker" id="l-intake.wk_charge.n_worker" data-vs-target="n_worker" data-vs-interactive="">Charge worker</a>');
+    expect(walk).toMatch(/<a id="l-intake\.wk_charge\.n_worker"[^>]*data-vs-target="n_worker"[^>]*href="#x-n_worker"[^>]*data-vs-interactive=""[^>]*>Charge worker<span class="vs-depth-cue/);
     // A walkthrough in a compare or a trace has no reading-order sentence;
     // a graph of any mode and a domain have it (phase 6a review S1).
     const state = await html(doc(`{% graph id="g" mode="state" title="Two states" question="Which states?" %}\nStates.\n\n{% state id="s_a" label="Open" initial=true /%}\n{% state id="s_b" label="Closed" terminal=true /%}\n{% transition id="t_ab" from="s_a" to="s_b" event="close" label="closes" /%}\n\n{% steps id="walk" %}\n{% step id="wk" label="Start" targets=["s_a"] %}\nOpen is the initial state.\n{% /step %}\n{% step id="wk_end" label="Finish" targets=["s_b", "t_ab"] %}\nThe close transition reaches the terminal state.\n{% /step %}\n{% /steps %}\n{% /graph %}`));
@@ -296,7 +297,7 @@ describe('rendering', () => {
     const page = await html(readFileSync(FIXTURE, 'utf8'));
     expect(page).toContain('class="vs-lifeline vs-lane-implicit"');
     expect(page).not.toMatch(/<a class="vs-lane"[^>]*id="v-log\./);
-    expect(page).toMatch(/id="v-log\.ob_fill"[^>]*aria-label="Pool at 100 percent \(\[observation\]; at 12 s\)"[\s\S]*?class="vs-mark vs-mark-evidence"/);
+    expect(page).toMatch(/id="v-log\.ob_fill"[^>]*aria-label="Pool at 100 percent \(\[observation\]; at 12 s\); opens sources"[\s\S]*?class="vs-mark vs-mark-evidence"/);
     expect(page).toMatch(/<section class="vs-actor-group" aria-label="Events">[\s\S]*?id="l-log\.ob_fill\.card"/);
   });
 
@@ -315,7 +316,7 @@ describe('rendering', () => {
 
   it('a removed line is marked on the before side', async () => {
     const page = await html(doc(`{% annotated id="d" title="Change" question="What changed?" source="src_after" before="src_before" %}\nOne.\n\n{% annotation id="an" label="Old wait" lines=[2, 2] side="before" /%}\n{% /annotated %}\n\n${source('src_before', ['a', 'old', 'c'])}\n${source('src_after', ['a', 'new', 'c'])}`));
-    expect(page).toMatch(/<div class="vs-diff-side vs-diff-before">[\s\S]*?<span class="vs-line vs-line-removed vs-annotated" data-vs-ann="an"><span class="vs-ln" data-vs-generated="">2<\/span><span class="vs-diff-sign" data-vs-generated="" aria-hidden="true">−<\/span><span class="vs-sr vs-diff-sr" data-vs-generated="">removed: <\/span><span class="vs-ann-col" data-vs-generated=""><a class="vs-annotation-marker"/);
+    expect(page).toMatch(/<div class="vs-diff-side vs-diff-before">[\s\S]*?<span class="vs-line vs-line-removed vs-annotated" data-vs-ann="an"><span class="vs-ln" data-vs-generated="">2<\/span><span class="vs-diff-sign" data-vs-generated="" aria-hidden="true">−<\/span><span class="vs-sr vs-diff-sr" data-vs-generated="">removed: <\/span><span class="vs-ann-col" data-vs-generated=""><span class="vs-annotation-marker"/);
     // Every line has the marker column, so the code starts in one column (phase 6a review S3).
     const side = /<div class="vs-diff-side vs-diff-before">[\s\S]*?<\/pre><\/div>/.exec(page)![0];
     const lines = [...side.matchAll(/<span class="vs-line(?! vs-line-gap)[^"]*"/g)].length;
@@ -521,6 +522,23 @@ The request becomes durable before later work begins.
     const check = '{% self-check id="ck" question="What ends the wait?" %}\nA take frees a slot.\n{% /self-check %}';
     expect(codes(doc(check, 'teaching')).filter(([c]) => c === 'W_SELF_CHECK')).toEqual([]);
     expect(codes(doc(check, 'reference')).filter(([c]) => c === 'W_SELF_CHECK')).toEqual([['W_SELF_CHECK', 'ck']]);
+  });
+
+  it('W_DETAIL_VALUE: warns once per figure when sources-only drill-downs dominate useful detail', () => {
+    const text = doc(`{% compare id="cmp" title="Queues" question="Which queue?" %}
+{% option id="opt" label="Bounded" /%}
+{% criterion id="c_a" label="Capacity" /%}
+{% criterion id="c_b" label="Throughput" /%}
+{% criterion id="c_c" label="Failure" /%}
+{% cell id="a" option="opt" criterion="c_a" value="100" evidence=["src_x"] /%}
+{% cell id="b" option="opt" criterion="c_b" value="40" evidence=["src_x"] /%}
+{% cell id="c" option="opt" criterion="c_c" value="waits" %}
+Producers block instead of consuming memory without bound.
+{% /cell %}
+{% /compare %}
+
+${source('src_x', ['limit=100'])}`);
+    expect(codes(text).filter(([code]) => code === 'W_DETAIL_VALUE')).toEqual([['W_DETAIL_VALUE', 'cmp']]);
   });
 });
 

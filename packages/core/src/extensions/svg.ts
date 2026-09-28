@@ -7,6 +7,7 @@
 import { DOM } from '../compiler/dom-contract.ts';
 import { h, type Child, type HNode } from '../compiler/html.ts';
 import { HashError } from '../model/hash.ts';
+import { depthAction, type InspectionDepth } from '../model/inspection.ts';
 import type { SvgNode } from './run.ts';
 
 const MAX_NODES = 10_000;
@@ -49,6 +50,7 @@ export type SvgContext = {
   title: string;
   parts: ReadonlyMap<string, string>; // part ID -> label
   text: (s: string) => string; // the renderer's safe-text function (bidi controls made visible)
+  depthOf?: (id: string) => InspectionDepth;
 };
 
 /** Rebuild an extension's SVG tree through the allowlist; each part must appear exactly once. */
@@ -91,7 +93,8 @@ export function extensionSvg(root: SvgNode, ctx: SvgContext): HNode {
     if (label === undefined) bad(`${where}: target ${node.target} is not a part of this component`);
     if (seen.has(node.target)) bad(`${where}: part ${node.target} appears twice in the figure`);
     seen.add(node.target);
-    return h('a', { class: 'vs-ext-part', href: `#${DOM.canonicalId(node.target)}`, id: DOM.svgInstanceId(ctx.figureId, node.target), [DOM.attr.target]: node.target, [DOM.attr.interactive]: true, 'aria-label': label }, element);
+    const depthValue = ctx.depthOf?.(node.target) ?? 'explanation';
+    return h(depthValue === 'bare' ? 'g' : 'a', { class: 'vs-ext-part', href: depthValue === 'bare' ? undefined : `#${DOM.canonicalId(node.target)}`, id: DOM.svgInstanceId(ctx.figureId, node.target), [DOM.attr.target]: node.target, [DOM.attr.depth]: depthValue, [DOM.attr.interactive]: depthValue === 'bare' ? undefined : true, 'aria-label': depthValue === 'bare' ? undefined : `${label}; ${depthAction(depthValue)}` }, element);
   };
 
   if (root.tag !== 'svg') bad(`${where}: the output root must be <svg>, not <${root.tag}>`);

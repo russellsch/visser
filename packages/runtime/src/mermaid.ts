@@ -131,6 +131,7 @@ export function attachTargets(figure: Element, svg: Element, renderId: string): 
     const key = instance.getAttribute(A.mermaidKey) ?? '';
     const target = instance.getAttribute(A.target);
     const rel = instance.getAttribute(A.rel);
+    const depth = instance.getAttribute(A.depth);
     const drawn = findDrawn(svg, renderId, key);
     if (drawn.length === 0) missing++;
     // A derived relationship (no edge ID of its own) points at the figure: its
@@ -139,8 +140,10 @@ export function attachTargets(figure: Element, svg: Element, renderId: string): 
     for (const element of drawn) {
       if (target) element.setAttribute(A.target, target);
       if (rel) element.setAttribute(A.rel, rel);
+      if (depth) element.setAttribute(A.depth, depth);
       if (derived) element.setAttribute('data-vs-mermaid-derived', '');
-      else element.setAttribute(A.interactive, '');
+      else if (instance.hasAttribute(A.interactive)) element.setAttribute(A.interactive, '');
+      else element.removeAttribute(A.interactive);
       element.setAttribute('data-vs-mermaid-drawn', '');
       // No aria-label here: drawn elements have no role and are not keyboard
       // targets; the lists are the keyboard path (§10.5) and the drawing has

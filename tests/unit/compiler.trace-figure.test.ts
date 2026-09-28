@@ -254,6 +254,6 @@ describe('trace figure @R04 @R06', () => {
       ['vs-trace-meta', '\u2192 Server'],
       ['vs-trace-meta vs-trace-time', 'at 5 ms'],
     ]);
-    expect(part).toContain('aria-label="Sends (c; \u2192 Server; at 5 ms)"');
+    expect(part).toContain('aria-label="Sends (c; \u2192 Server; at 5 ms); opens more detail"');
   });
 });

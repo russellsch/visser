@@ -12,7 +12,7 @@ const FIGURE = 'x-components';
 async function nearAndDim(page: Page): Promise<{ near: string[]; dim: string[] }> {
   return page.evaluate((id) => {
     const figure = document.getElementById(id)!;
-    const ids = (cls: string) => Array.from(figure.querySelectorAll(`.vs-viewport svg a.${cls}`)).map((a) => a.getAttribute('data-vs-target') ?? '').sort();
+    const ids = (cls: string) => Array.from(figure.querySelectorAll(`.vs-viewport svg [data-vs-target].${cls}`)).map((a) => a.getAttribute('data-vs-target') ?? '').sort();
     return { near: ids('vs-near'), dim: ids('vs-dim') };
   }, FIGURE);
 }
@@ -70,7 +70,7 @@ test.describe('@R06 steps walkthrough (IMPROVEMENTS.md §14.1)', () => {
     await expect(figure.locator('.vs-step-bar')).toBeHidden();
     await expect(figure.locator('li.vs-step')).toHaveCount(3);
     for (const id of ['x-wk_accept', 'x-wk_charge', 'x-wk_record']) await expect(byId(page, id)).toBeVisible();
-    await expect(byId(page, 'l-components.wk_charge.n_provider')).toHaveText('Payment provider');
+    await expect(byId(page, 'l-components.wk_charge.n_provider')).toContainText('Payment provider');
   });
 
   test('@nojs without JavaScript the walkthrough is a numbered list under the figure', async ({ page }) => {
@@ -146,16 +146,16 @@ test.describe('@R06 tree (IMPROVEMENTS.md §14.5, phase 6a review C4)', () => {
     expect(result.violations.filter((v) => v.id === 'nested-interactive' || ['serious', 'critical'].includes(v.impact ?? '')).map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
   });
 
-  test('the keyboard reaches each entry link once, and the toggle of its children', async ({ page }, info) => {
+  test('the keyboard skips bare entries and reaches the child entry with detail once', async ({ page }, info) => {
     test.skip(info.project.name.includes('nojs'), 'the keyboard check runs with JavaScript');
     await openTree(page);
-    const entry = page.locator('a.vs-tree-entry').first();
-    await entry.focus();
-    await expect(entry).toBeFocused();
+    await expect(page.locator('span.vs-tree-entry[data-vs-depth="bare"]')).toHaveCount(2);
+    const toggle = page.locator('summary.vs-tree-toggle').first();
+    await toggle.focus();
+    await expect(toggle).toBeFocused();
     await page.keyboard.press('Tab');
     const next = await page.evaluate(() => ({ tag: document.activeElement?.tagName, cls: document.activeElement?.className ?? '' }));
-    expect(next).toEqual({ tag: 'SUMMARY', cls: 'vs-tree-toggle' });
-    await page.keyboard.press('Tab');
-    expect(await page.evaluate(() => document.activeElement?.className)).toBe('vs-tree-entry');
+    expect(next).toEqual({ tag: 'A', cls: 'vs-tree-entry' });
+    await expect(page.locator('a.vs-tree-entry')).toHaveCount(1);
   });
 });

@@ -5,10 +5,11 @@ import type { Diagnostic, TargetRecord } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
 import type { MNode } from '../model/targets.ts';
 import { firstSentence, noteWord, projectText, READING_ORDER, readingOrderFigure, withUnit } from '../model/project.ts';
+import { depthAction, depthLabel, inspectionBodyText, inspectionProfile, instanceDepth, type InspectionDepth, type InspectionProfile, type VisibleInspectionContent } from '../model/inspection.ts';
 import { diffPairs, excerptLines, lineDiff, type DiffRow } from '../model/diff.ts';
 import { swatch as cueSwatch } from './encoding.ts';
 import { measureSvg } from './measure-svg.ts';
-import { PART_EVIDENCE_TAGS, QUANTITY_TAGS } from '../model/validate.ts';
+import { QUANTITY_TAGS } from '../model/validate.ts';
 import { inCitationOrder, sourceOrder } from '../model/citations.ts';
 import { buildId as computeBuildId, canonicalJSON, HashError, normalizedTextSha256, sha256Hex } from '../model/hash.ts';
 import { DOM } from './dom-contract.ts';
@@ -157,6 +158,7 @@ class Renderer {
   readonly nodes: Map<string, MNode>;
   readonly targetOfNode = new Map<MNode, string>();
   readonly citationNumber = new Map<string, number>();
+  readonly inspectionProfiles = new Map<string, InspectionProfile>();
   readonly sourceOrder: string[];
   readonly images = new Map<string, OutputFile>(); // bundle path -> output asset
   readonly layout: LayoutFunction;
@@ -210,7 +212,37 @@ class Renderer {
       [DOM.attr.body]: r.bodySha256,
       [DOM.attr.kind]: r.kind,
       [DOM.attr.label]: this.safeText(r.label, id),
+      [DOM.attr.depth]: r.inspectable ? this.profile(id).depth : 'bare',
     };
+  }
+
+  profile(id: string): InspectionProfile {
+    let profile = this.inspectionProfiles.get(id);
+    if (!profile) {
+      profile = inspectionProfile(this.bundle.model, id);
+      this.inspectionProfiles.set(id, profile);
+    }
+    return profile;
+  }
+
+  depth(id: string, visible: VisibleInspectionContent = {}): InspectionDepth {
+    return instanceDepth(this.profile(id), visible);
+  }
+
+  depthCue(depth: InspectionDepth): Child {
+    if (depth === 'bare') return null;
+    const bars = depth === 'evidence' ? '\u258e' : '\u258e\u258e';
+    return h('span', { class: `vs-depth-cue vs-depth-${depth}`, [DOM.attr.generated]: true, 'aria-hidden': 'true', title: depthLabel(depth) }, bars);
+  }
+
+  instance(id: string, instanceId: string, content: Child, visible: VisibleInspectionContent = {}, attrs: Record<string, unknown> = {}, plainTag: 'span' | 'div' = 'span'): HNode {
+    const depth = this.depth(id, visible);
+    const { 'aria-label': suppliedLabel, ...instanceAttrs } = attrs;
+    const common = { ...instanceAttrs, id: instanceId, [DOM.attr.target]: id, [DOM.attr.depth]: depth };
+    if (depth === 'bare') return h(plainTag, common, content);
+    const action = depthAction(depth)!;
+    const accessible = typeof suppliedLabel === 'string' ? suppliedLabel : this.label(id);
+    return h('a', { ...common, href: `#${DOM.canonicalId(id)}`, [DOM.attr.interactive]: true, 'aria-label': `${accessible}; ${action}` }, content, this.depthCue(depth));
   }
 
   label(id: string): string {
@@ -463,7 +495,7 @@ class Renderer {
           h('div', { class: 'vs-step-body' }, this.blocks(n)),
           targets.length > 0
             ? h('p', { class: 'vs-step-targets', [DOM.attr.generated]: true }, 'Parts: ',
-                targets.map((t, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(t)}`, id: DOM.listInstanceId(figureId, `${s.id}.${t}`), [DOM.attr.target]: t, [DOM.attr.interactive]: true }, this.label(t))]))
+                targets.map((t, i) => [i > 0 ? ', ' : '', this.instance(t, DOM.listInstanceId(figureId, `${s.id}.${t}`), this.label(t))]))
             : null);
       })));
   }
@@ -511,7 +543,7 @@ class Renderer {
       const n = this.nodes.get(r.id)!;
       const value = typeof n.attributes['value'] === 'number' ? (n.attributes['value'] as number) : 0;
       const status = attrString(n, 'valueStatus') ?? 'measured';
-      return { id: r.id, label: this.label(r.id), value, status, text: this.safeText(`${withUnit(value, unit, attrString(n, 'display'))}${status === 'measured' ? '' : ` (${status})`}`, r.id) };
+      return { id: r.id, label: this.label(r.id), value, status, text: this.safeText(`${withUnit(value, unit, attrString(n, 'display'))}${status === 'measured' ? '' : ` (${status})`}`, r.id), depth: this.depth(r.id, { context: ['fact:value', 'fact:valueStatus'] }) };
     });
     // The axis maximum prints as the largest reading prints, with its `display` text (phase 6a review S4).
     const top = rows.reduce<(typeof rows)[number] | undefined>((best, r) => (best === undefined || r.value > best.value ? r : best), undefined);
@@ -524,7 +556,7 @@ class Renderer {
         const n = this.nodes.get(r.id)!;
         const evidence = this.ownEvidenceIds(r.id);
         return h('tr', { class: r.status === 'measured' ? undefined : 'vs-reading-unmeasured' },
-          h('th', { scope: 'row' }, h('a', { href: `#${DOM.canonicalId(r.id)}`, id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: r.id, [DOM.attr.interactive]: true }, r.label)),
+          h('th', { scope: 'row' }, this.instance(r.id, DOM.listInstanceId(id, r.id), r.label, { context: ['fact:value', 'fact:valueStatus'] })),
           h('td', { class: 'vs-reading-value' }, this.safeText(withUnit(n.attributes['value'], unit, attrString(n, 'display')), r.id)),
           h('td', { [DOM.attr.generated]: true }, r.status),
           h('td', {}, evidence.length > 0
@@ -541,9 +573,9 @@ class Renderer {
    * A tree (§14.5): an indented list of entries, each with its path in mono,
    * its label, and its role cue (the architecture role swatch and word). The
    * children of an entry are in a native `details` under its line; the top
-   * two levels are open. The entry link is outside the `summary`, so no
-   * link is inside another control (phase 6a review C4, WCAG 4.1.2). A click
-   * on an entry opens it in the inspector, with its evidence first.
+   * two levels are open. An interactive entry is outside the `summary`, so
+   * no link is inside another control (phase 6a review C4, WCAG 4.1.2).
+   * Entries with no additional inspector depth stay inert.
    */
   tree(id: string, node: MNode): HNode {
     const all = [...this.targets.values()].filter((t) => t.kind === 'entry' && t.ownerComponentId === id);
@@ -556,9 +588,10 @@ class Renderer {
       const kids = this.childTargets(entry.id).filter((c) => c.kind === 'entry');
       const evidence = this.ownEvidenceIds(entry.id).length > 0;
       const line: Child[] = [
-        h('a', { class: 'vs-tree-entry', href: `#${DOM.canonicalId(entry.id)}`, id: DOM.listInstanceId(id, entry.id), [DOM.attr.target]: entry.id, [DOM.attr.interactive]: true },
+        this.instance(entry.id, DOM.listInstanceId(id, entry.id), [
           h('code', { class: 'vs-tree-path' }, this.safeText(attrString(n, 'path') ?? '', entry.id)),
-          h('span', { class: 'vs-tree-label' }, this.label(entry.id))),
+          h('span', { class: 'vs-tree-label' }, this.label(entry.id)),
+        ], { context: ['fact:path', ...(role ? ['fact:role'] : [])] }, { class: 'vs-tree-entry' }),
         cue ? h('span', { class: 'vs-tree-role', [DOM.attr.generated]: true }, cueSwatch(cue, hue), cue.word) : null,
         evidence ? h('span', { class: 'vs-tree-evidence', [DOM.attr.generated]: true }, 'evidence') : null,
       ];
@@ -590,6 +623,28 @@ class Renderer {
     if (this.targets.get(id)?.kind === 'domain') return 'domain';
     const mode = attrString(node, 'mode') ?? 'architecture';
     return GRAPH_MODES.has(mode as GraphFamily) ? (mode as GraphFamily) : 'architecture';
+  }
+
+  graphVisibleContext(id: string, _family: GraphFamily, view: 'map' | 'list'): string[] {
+    const node = this.nodes.get(id);
+    const record = this.targets.get(id);
+    if (!node || !record) return [];
+    const out = new Set<string>();
+    const shownFacts: Readonly<Record<string, readonly string[]>> = {
+      node: ['role'], state: ['initial', 'terminal'], factor: ['basis'],
+      task: view === 'map' ? ['status', 'due'] : ['status', 'owner', 'due'],
+      stage: view === 'map' ? ['representation', 'location'] : ['representation', 'shape', 'units', 'location'],
+      concept: ['category'],
+      edge: ['quantity'], dependency: ['kind', 'quantity'], 'causal-link': ['basis'],
+      conversion: view === 'map' ? ['loss', 'quantity'] : ['loss', 'condition', 'quantity'],
+      transition: view === 'map' ? ['guard', 'basis'] : ['event', 'guard', 'action', 'basis'],
+      relation: ['kind', 'cardinality'],
+    };
+    for (const key of shownFacts[record.kind] ?? []) if (node.attributes[key] !== undefined || (record.kind === 'task' && key === 'status')) out.add(`fact:${key}`);
+    for (const relationship of this.bundle.model.relationships) {
+      if (relationship.from === id || relationship.to === id) out.add(`relationship:${relationship.id}`);
+    }
+    return [...out];
   }
 
   /** Secondary lines shown inside a node box and after it in the list. */
@@ -770,6 +825,7 @@ class Renderer {
             collapsed,
             parentOf: (x: string) => attrString(this.nodes.get(x)!, this.targets.get(x)?.kind === 'group' ? 'parent' : 'group'),
           } : {}),
+          depthOf: (x) => this.depth(x, { context: this.graphVisibleContext(x, family, 'map') }),
         })
       : null;
 
@@ -782,7 +838,7 @@ class Renderer {
         return h('li', {},
           h('span', { class: 'vs-rel-endpoint' }, this.label(r.from)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
-          h('a', { class: 'vs-rel-label', href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.interactive]: true }, this.label(e.id)),
+          this.instance(e.id, DOM.listInstanceId(id, e.id), this.label(e.id), { context: this.graphVisibleContext(e.id, family, 'list') }, { class: 'vs-rel-label', [DOM.attr.rel]: e.id }),
           ((q) => (q === undefined ? null : h('span', { class: 'vs-rel-quantity', [DOM.attr.generated]: true }, ` (${this.safeText(q, e.id)})`)))(this.quantity(e.id)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
           h('span', { class: 'vs-rel-endpoint' }, this.label(r.to)),
@@ -793,7 +849,7 @@ class Renderer {
       [...groups, ...nodes].map((n) => {
         const note = family === 'architecture' ? (roles.get(n.id) ? [roles.get(n.id)!] : []) : (notes.get(n.id) ?? []);
         return h('li', {},
-          h('a', { href: `#${DOM.canonicalId(n.id)}`, id: DOM.listInstanceId(id, n.id), [DOM.attr.target]: n.id, [DOM.attr.interactive]: true }, this.label(n.id)),
+          this.instance(n.id, DOM.listInstanceId(id, n.id), this.label(n.id), { context: this.graphVisibleContext(n.id, family, 'list') }),
           note.length > 0 ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
       }));
 
@@ -977,15 +1033,19 @@ class Renderer {
           const defId = attrString(this.nodes.get(c.id)!, 'definition');
           const category = attrString(this.nodes.get(c.id)!, 'category');
           const label = this.label(c.id);
+          const definitionFullyShown = defId !== undefined
+            && inspectionBodyText(this.bundle.model, defId).trim() === this.definitionSentence(defId).trim()
+            && inspectionBodyText(this.bundle.model, c.id).trim() === '';
+          const visible = { explanation: definitionFullyShown, context: category ? ['fact:category'] : [] };
           return h('tr', {},
             h('th', { scope: 'row' },
-              h('a', { class: 'vs-glossary-term', href: `#${DOM.canonicalId(c.id)}`, id: DOM.listInstanceId(figureId, c.id), [DOM.attr.target]: c.id, [DOM.attr.interactive]: true }, label),
+              this.instance(c.id, DOM.listInstanceId(figureId, c.id), label, visible, { class: 'vs-glossary-term' }),
               // The category word, as in the node list: the list view has no
               // map and no legend (docs/IMPROVEMENTS.md §3.3, phase 4 review D5).
               category ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(category, c.id)})`) : null),
             h('td', {}, this.withTermScope(() => this.withOwnDefinition(defId, () => this.linkText(defId ? this.definitionSentence(defId) : '', defId)))),
-            h('td', { class: 'vs-glossary-more' },
-              h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(c.id)}`, 'aria-label': `Read more: ${label}`, [DOM.attr.generated]: true }, 'Read more')));
+            h('td', { class: 'vs-glossary-more' }, this.depth(c.id, visible) === 'bare' ? null
+              : h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(c.id)}`, 'aria-label': `Read more: ${label}`, [DOM.attr.generated]: true }, 'Read more')));
         }))));
   }
 
@@ -1026,6 +1086,7 @@ class Renderer {
         svg = extensionSvg(output.svg, {
           extension: use, figureId: id, title: attrString(node, 'title') ?? this.label(id),
           parts: new Map(parts.map((p) => [p.id, this.label(p.id)])), text: (x) => this.safeText(x, id),
+          depthOf: (partId) => this.depth(partId),
         });
       } catch (error) {
         const e = error as { code?: string; message: string };
@@ -1035,7 +1096,7 @@ class Renderer {
     }
     const list = h('ul', { class: 'vs-node-list vs-ext-parts', 'aria-label': 'Parts' },
       parts.map((p) => h('li', {},
-        h('a', { href: `#${DOM.canonicalId(p.id)}`, id: DOM.listInstanceId(id, p.id), [DOM.attr.target]: p.id, [DOM.attr.interactive]: true }, this.label(p.id)),
+        this.instance(p.id, DOM.listInstanceId(id, p.id), this.label(p.id)),
         texts.has(p.id) ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(texts.get(p.id)!, p.id)})`) : null)));
     return this.figureShell(id, node, `vs-extension vs-ext-${use}`, [
       svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
@@ -1053,15 +1114,11 @@ class Renderer {
       const n = this.nodes.get(x.id)!;
       return attrString(n, 'option') === o && attrString(n, 'criterion') === c;
     });
-    const link = (target: string, instanceId: string, content: Child) =>
-      h('a', { href: `#${DOM.canonicalId(target)}`, id: instanceId, [DOM.attr.target]: target, [DOM.attr.interactive]: true }, content);
+    const link = (target: string, instanceId: string, content: Child, visible: VisibleInspectionContent = {}) =>
+      this.instance(target, instanceId, content, visible);
     const criterionLabel = (c: TargetRecord, instanceId: string): Child => {
       const units = attrString(this.nodes.get(c.id)!, 'units');
-      return [link(c.id, instanceId, this.label(c.id)), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
-    };
-    const cellHasDetails = (cell: TargetRecord): boolean => {
-      const n = this.nodes.get(cell.id)!;
-      return compareCellHasDetails(n, (x) => this.isTargetNode(x), this.ownEvidenceIds(cell.id).length > 0);
+      return [link(c.id, instanceId, this.label(c.id), { context: units ? ['fact:units'] : [] }), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
     };
     const cellContent = (cell: TargetRecord | undefined, instanceId: string, o: TargetRecord, c: TargetRecord): Child => {
       if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
@@ -1076,12 +1133,14 @@ class Renderer {
         // cell's one table instance (§10.3); it sits inline after the text,
         // and the full word "details" is in its aria-label. With no link, the
         // cell body carries the table instance.
-        const body = [...this.blocks(n)];
-        if (!cellHasDetails(cell)) {
+        const allBody = this.blocks(n);
+        const first = allBody.find((block) => block !== null && block !== undefined && block !== false);
+        const body = first === undefined ? [] : [first];
+        const depth = this.depth(cell.id, { context: status ? ['fact:valueStatus'] : [] });
+        if (depth === 'bare') {
           return h('div', { class: 'vs-cell-body', id: instanceId, [DOM.attr.target]: cell.id }, body);
         }
-        const cellLink = h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}, details`, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true },
-          h('span', { [DOM.attr.generated]: true, 'aria-hidden': 'true' }, '›'));
+        const cellLink = h('a', { class: 'vs-cell-link', href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}; ${depthAction(depth)}`, [DOM.attr.target]: cell.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: true }, this.depthCue(depth));
         let last = body.length - 1;
         while (last >= 0 && !body[last]) last--;
         const end = body[last];
@@ -1093,14 +1152,13 @@ class Renderer {
         }
         return h('div', { class: 'vs-cell-body' }, body);
       }
-      const valueAttrs = { class: 'vs-cell-value', id: instanceId, [DOM.attr.target]: cell.id };
-      const shownValue = cellHasDetails(cell)
-        ? h('a', { ...valueAttrs, href: `#${DOM.canonicalId(cell.id)}`, [DOM.attr.interactive]: true }, this.safeText(String(value), cell.id))
-        : h('span', valueAttrs, this.safeText(String(value), cell.id));
+      const visibleContext = ['fact:value', ...(status ? ['fact:valueStatus'] : [])];
+      const shownValue = this.instance(cell.id, instanceId, this.safeText(String(value), cell.id), { context: visibleContext }, {
+        class: 'vs-cell-value', 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}, ${this.safeText(String(value), cell.id)}`,
+      });
       return [
         shownValue,
         status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, ` (${status})`) : null,
-        h('div', { class: 'vs-cell-body' }, this.blocks(n)),
       ];
     };
     const table = h('table', { class: 'vs-compare-table' },
@@ -1128,7 +1186,7 @@ class Renderer {
       return [
         value !== undefined ? h('span', { class: 'vs-cell-value' }, this.safeText(String(value), cell.id)) : null,
         status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, `${value !== undefined ? ' ' : ''}(${status})`) : null,
-        h('div', { class: 'vs-cell-body' }, this.blocks(n)),
+        value === undefined ? h('div', { class: 'vs-cell-body' }, this.blocks(n).find((block) => block !== null && block !== undefined && block !== false) ?? null) : null,
       ];
     };
     const cards = h('div', { class: 'vs-compare-cards' }, optionLine, criteria.map((c) => h('section', { class: 'vs-compare-card', 'aria-label': this.label(c.id) },
@@ -1138,9 +1196,9 @@ class Renderer {
         const instanceId = cell ? DOM.listInstanceId(id, cell.id) : '';
         return [
           h('dt', {}, cell
-            ? cellHasDetails(cell)
-              ? h('a', { href: `#${DOM.canonicalId(cell.id)}`, id: instanceId, [DOM.attr.target]: cell.id, [DOM.attr.interactive]: true, 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}` }, this.label(o.id))
-              : h('span', { id: instanceId, [DOM.attr.target]: cell.id }, this.label(o.id))
+            ? this.instance(cell.id, instanceId, this.label(o.id), { context: ['fact:value', ...(attrString(this.nodes.get(cell.id)!, 'valueStatus') ? ['fact:valueStatus'] : [])] }, {
+                'aria-label': `${this.label(o.id)}: ${this.label(c.id)}`,
+              })
             : h('span', {}, this.label(o.id))),
           h('dd', {}, cardValue(cell)),
         ];
@@ -1155,6 +1213,17 @@ class Renderer {
     const branches = children.filter((c) => c.kind === 'branch');
     const scale = attrString(node, 'scale') ?? 'ordinal';
     const timeUnit = attrString(node, 'timeUnit');
+    const visibleContext = (targetId: string, view: 'map' | 'list'): string[] => {
+      const targetNode = this.nodes.get(targetId);
+      const out = new Set<string>();
+      if (!targetNode) return [];
+      if (this.targets.get(targetId)?.kind === 'actor' && view === 'list' && targetNode.attributes['entity'] !== undefined) out.add('fact:entity');
+      if (this.targets.get(targetId)?.kind === 'event') {
+        for (const key of ['actor', 'to', 'time', 'branch']) if (targetNode.attributes[key] !== undefined) out.add(`fact:${key}`);
+        for (const relationship of this.bundle.model.relationships) if (relationship.from === targetId || relationship.to === targetId) out.add(`relationship:${relationship.id}`);
+      }
+      return [...out];
+    };
     const scaleNote = scale === 'ordinal'
       ? h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, 'Ordering, not duration.')
       : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, `Event times${timeUnit ? ` in ${timeUnit}` : ''}; vertical position shows order layer.`);
@@ -1162,7 +1231,7 @@ class Renderer {
       actors.map((a) => {
         const entity = attrString(this.nodes.get(a.id)!, 'entity');
         return h('li', {},
-          h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
+          this.instance(a.id, DOM.listInstanceId(id, a.id), this.label(a.id), { context: visibleContext(a.id, 'list') }),
           entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
       }));
     // Order layer: the longest `after` chain before an event. Events in one layer
@@ -1190,10 +1259,11 @@ class Renderer {
       const message = this.bundle.model.relationships.find((r) => r.kind === 'message' && r.id === e.id);
       return [
         h('span', { class: 'vs-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
-        h('a', { href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: message ? e.id : undefined, [DOM.attr.interactive]: true },
+        this.instance(e.id, DOM.listInstanceId(id, e.id) + suffix, [
           showActor && actor ? h('span', { class: 'vs-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
           this.label(e.id),
-          message ? h('span', { class: 'vs-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null),
+          message ? h('span', { class: 'vs-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null,
+        ], { context: visibleContext(e.id, 'list') }, { [DOM.attr.rel]: message ? e.id : undefined }),
         h('span', { class: 'vs-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
         scale === 'time' && time !== undefined ? h('span', { class: 'vs-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
         branch ? h('span', { class: 'vs-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
@@ -1218,7 +1288,7 @@ class Renderer {
       const own = events.filter((e) => attrString(this.nodes.get(e.id)!, 'actor') === a.id);
       return h('section', { class: 'vs-actor-group', 'aria-label': this.label(a.id) },
         h('p', { class: 'vs-actor-heading' },
-          h('a', { href: `#${DOM.canonicalId(a.id)}`, id: `${DOM.listInstanceId(id, a.id)}.card`, [DOM.attr.target]: a.id, [DOM.attr.interactive]: true }, this.label(a.id)),
+          this.instance(a.id, `${DOM.listInstanceId(id, a.id)}.card`, this.label(a.id), { context: visibleContext(a.id, 'list') }),
           entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null),
         own.length > 0
           ? h('ol', { class: 'vs-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
@@ -1235,7 +1305,7 @@ class Renderer {
     })());
     const branchList = branches.length > 0
       ? h('ul', { class: 'vs-branch-list', 'aria-label': 'Branches' }, branches.map((b) => h('li', {},
-          h('a', { href: `#${DOM.canonicalId(b.id)}`, id: DOM.listInstanceId(id, b.id), [DOM.attr.target]: b.id, [DOM.attr.interactive]: true }, this.label(b.id)))))
+          this.instance(b.id, DOM.listInstanceId(id, b.id), this.label(b.id)))))
       : null;
     // Wide screens: lifelines and event rows (§9.4). The lists stay the complete
     // form and the narrow-screen and no-map view, as for graphs. Above the graph
@@ -1287,6 +1357,7 @@ class Renderer {
           labelOf: (x) => this.label(x),
           hue: showsHue(kindValues),
           termsOf: (x) => this.labelTerms(x),
+          depthOf: (x) => this.depth(x, { context: visibleContext(x, 'map') }),
         })
       : null;
     return this.figureShell(id, node, 'vs-trace', [
@@ -1339,7 +1410,10 @@ class Renderer {
    */
   markerColumn(figureId: string, annotations: string[], number: number): HNode {
     return h('span', { class: 'vs-ann-col', [DOM.attr.generated]: true },
-      annotations.map((a) => h('a', { class: 'vs-annotation-marker', href: `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.interactive]: true, [DOM.attr.generated]: true, 'aria-label': this.label(a) }, '\u25cf')));
+      annotations.map((a) => {
+        const depth = this.depth(a, { context: ['fact:lines', 'fact:side'] });
+        return h(depth === 'bare' ? 'span' : 'a', { class: 'vs-annotation-marker', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(a)}`, id: DOM.svgInstanceId(figureId, `${a}.${number}`), [DOM.attr.target]: a, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, [DOM.attr.generated]: true, 'aria-label': depth === 'bare' ? undefined : `${this.label(a)}; ${depthAction(depth)}` }, '\u25cf');
+      }));
   }
 
   /**
@@ -1382,9 +1456,8 @@ class Renderer {
       const where = beforeId
         ? `${sideOf(a) === 'before' ? 'Before' : 'After'}${lines ? `, ${lines}` : ''}: `
         : lines ? `L${lines.slice(1)}: ` : '';
-      return h('li', {},
-        h('a', { href: `#${DOM.canonicalId(a.id)}`, id: DOM.listInstanceId(id, a.id), [DOM.attr.target]: a.id, [DOM.attr.interactive]: true },
-          h('span', { [DOM.attr.generated]: true }, where), this.label(a.id)));
+      return h('li', {}, this.instance(a.id, DOM.listInstanceId(id, a.id),
+        [h('span', { [DOM.attr.generated]: true }, where), this.label(a.id)], { context: ['fact:lines', 'fact:side'] }));
     }));
     if (beforeId) {
       const before = this.sourceText(beforeId);
@@ -1439,7 +1512,9 @@ class Renderer {
       });
       return h('div', { class: `vs-diff-side vs-diff-${which}` },
         h('p', { class: 'vs-diff-heading', [DOM.attr.generated]: true }, which === 'before' ? 'Before: ' : 'After: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
-        h('pre', { class: 'vs-code' }, h('code', {}, rows)));
+        // At narrow widths this region scrolls independently; make it
+        // keyboard-focusable so its complete code remains reachable.
+        h('pre', { class: 'vs-code', tabindex: '0' }, h('code', {}, rows)));
     };
     const removed = pairs.filter((p) => p.changed && p.before !== undefined).length;
     const added = pairs.filter((p) => p.changed && p.after !== undefined).length;
@@ -1488,19 +1563,14 @@ class Renderer {
     if (figure.parsed) {
       const nodeList = h('ul', { class: 'vs-node-list', 'aria-label': 'Elements' },
         figure.elements.map((e) => h('li', {},
-          h('a', {
-            href: `#${DOM.canonicalId(e.id)}`, id: DOM.listInstanceId(id, e.id), [DOM.attr.target]: e.id,
-            [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: e.renderKey,
-          }, this.label(e.id)),
+          this.instance(e.id, DOM.listInstanceId(id, e.id), this.label(e.id), { context: [
+            ...(e.initial ? ['mermaid:initial'] : []), ...(e.terminal ? ['mermaid:terminal'] : []), ...(e.members?.length ? ['mermaid:members'] : []),
+          ] }, { [DOM.attr.mermaidKey]: e.renderKey }),
           h('span', { class: 'vs-note', [DOM.attr.generated]: true }, ` (${MERMAID_KIND_TEXT[e.kind] ?? e.kind}${e.initial ? ', initial' : ''}${e.terminal ? ', terminal' : ''})`))));
       const relList = h('ol', { class: 'vs-rel-list', 'aria-label': 'Relationships' },
-        figure.relationships.map((r) => h('li', {},
-          h('a', {
-            href: `#${DOM.canonicalId(r.referenceable ? r.id : r.from)}`, id: DOM.listInstanceId(id, r.id),
-            // A derived relationship is not referenceable; a reference resolves to its figure (§9.12).
-            [DOM.attr.target]: r.referenceable ? r.id : id, [DOM.attr.rel]: r.id,
-            [DOM.attr.interactive]: true, [DOM.attr.mermaidKey]: r.renderKey,
-          }, this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
+        figure.relationships.map((r) => h('li', {}, r.referenceable
+          ? this.instance(r.id, DOM.listInstanceId(id, r.id), [this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)], { context: [`mermaid:${r.id}`] }, { [DOM.attr.rel]: r.id, [DOM.attr.mermaidKey]: r.renderKey })
+          : h('span', { id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: id, [DOM.attr.rel]: r.id, [DOM.attr.mermaidKey]: r.renderKey }, this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
       lists = h('div', { class: 'vs-lists' }, nodeList, relList);
     }
     return h('figure', {
@@ -1542,10 +1612,11 @@ class Renderer {
       specifics.push(h('p', { class: 'vs-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
         element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
     }
-    // A Mermaid part has no authored body, so it gets no visible appendix row
-    // (docs/IMPROVEMENTS.md §4.5); the inspector still shows this detail.
+    // Mermaid parts have no authored body, but generated relationships and
+    // state markers can still make their inspector useful.
     const cue = this.cueWord(record);
-    return h('details', { class: `vs-detail vs-kind-${record.kind} vs-detail-bare`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
+    const bare = this.profile(record.id).depth === 'bare';
+    return h('details', { class: `vs-detail vs-kind-${record.kind}${bare ? ' vs-detail-bare' : ''}`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
       h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`)),
       h('div', { class: 'vs-detail-body' }, specifics));
   }
@@ -1856,8 +1927,10 @@ class Renderer {
   evidenceSection(ids: string[], observations: string[] = []): Child {
     if (ids.length === 0 && observations.length === 0) return null;
     const EXCERPT_LINES = 6;
-    return h('section', { class: 'vs-detail-section vs-detail-evidence', [DOM.attr.generated]: true },
-      h('h3', {}, 'Evidence'),
+    const count = new Set([...ids, ...observations]).size;
+    return h('details', { class: 'vs-detail-section vs-detail-evidence', [DOM.attr.generated]: true },
+      h('summary', {}, `Evidence (${count})`),
+      h('div', { class: 'vs-detail-evidence-body' },
       // A causal link can name an observation of a trace (docs/IMPROVEMENTS.md
       // §14.6): the event comes first, and its sources follow as excerpts.
       observations.length > 0
@@ -1878,7 +1951,16 @@ class Renderer {
           more > 0 ? h('p', { class: 'vs-evidence-more' }, `${more} more line${more === 1 ? '' : 's'} in the source.`) : null,
           this.sourceOriginLine(node, sourceId),
           h('p', { class: 'vs-evidence-open' }, this.inspectLink(sourceId, this.label(sourceId))));
-      }));
+      })));
+  }
+
+  /** Direct authored detail children are additional drill-down destinations. */
+  nestedDetailsSection(id: string): Child {
+    const details = this.childTargets(id).filter((target) => target.kind === 'detail');
+    if (details.length === 0) return null;
+    return h('section', { class: 'vs-detail-section vs-detail-nested', [DOM.attr.generated]: true },
+      h('h3', {}, 'Details'),
+      h('ul', {}, details.map((detail) => h('li', {}, this.inspectLink(detail.id, this.label(detail.id))))));
   }
 
   detail(record: TargetRecord): HNode {
@@ -1965,28 +2047,27 @@ class Renderer {
         summary,
         h('div', { class: 'vs-detail-body' }, specifics, body, this.evidence(record.id)));
     }
-    // A figure part (docs/IMPROVEMENTS.md §4.2): the body, the facts, then
-    // the Relationships, Appears-in, and Evidence sections. A part with an
-    // `evidence` attribute names the source that shows the part (§4.4), so
-    // its Evidence section comes first: a click on the part shows the
-    // excerpt with no scroll. Only the 5 part tags do this; a `causal-link`
-    // is a relationship, and its Evidence section stays last. A part with no
-    // body and no evidence gets no visible appendix row (§4.5); its detail
-    // stays in the DOM, so the inspector and a link still reach it.
+    // A figure part: explanation and generated context lead; evidence proves
+    // them and therefore stays last. Sources themselves retain their
+    // provenance-first layout above.
     const evidence = this.evidenceIds(record.id);
-    const evidenceFirst = node.type === 'tag' && PART_EVIDENCE_TAGS.has(node.tag ?? '') && this.ownEvidenceIds(record.id).length > 0;
-    const bare = !hasBody(node, (x) => this.isTargetNode(x)) && evidence.length === 0;
+    const profile = this.profile(record.id);
+    const bare = profile.depth === 'bare';
+    const sourcesOnly = profile.depth === 'evidence';
     return h('details', { class: `vs-detail vs-kind-${record.kind}${bare ? ' vs-detail-bare' : ''}`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
       summary,
       h('div', { class: 'vs-detail-body' },
-        evidenceFirst ? this.evidenceSection(evidence) : null,
-        h('div', { class: 'vs-detail-text' }, body),
+        profile.depth === 'explanation' ? h('section', { class: 'vs-detail-section vs-detail-explanation' }, h('h3', { [DOM.attr.generated]: true }, 'Explanation'), h('div', { class: 'vs-detail-text' }, body)) : h('div', { class: 'vs-detail-text' }, body),
         // A concept's label is the term of its own definition, shown above.
         record.kind === 'concept' ? null : this.labelTermsLine(record.id),
         specifics,
+        this.nestedDetailsSection(record.id),
         this.relationshipSection(record.id),
         this.appearsInSection(record.id),
-        evidenceFirst ? null : this.evidenceSection(evidence, this.observationIds(record.id))));
+        sourcesOnly ? h('section', { class: 'vs-detail-section vs-detail-source-links', [DOM.attr.generated]: true },
+          h('h3', {}, 'Sources'),
+          h('ul', {}, evidence.map((sourceId) => h('li', {}, this.inspectLink(sourceId, this.label(sourceId)))))) : null,
+        this.evidenceSection(evidence, this.observationIds(record.id))));
   }
 
   // --- Page -----------------------------------------------------------------
@@ -2089,7 +2170,11 @@ class Renderer {
       ...this.figureIds().map((id) => this.figureGroup(id, byFigure.get(id) ?? [])),
     ].filter((g): g is HNode => g !== null);
     return h('section', { id: DOM.appendix, 'aria-label': 'Details and evidence' },
-      h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'), groups);
+      h('h2', { [DOM.attr.generated]: true }, 'Details and evidence'),
+      h('details', { class: 'vs-depth-key', [DOM.attr.generated]: true },
+        h('summary', {}, 'Drill-down key'),
+        h('p', {}, this.depthCue('explanation'), ' more detail; ', this.depthCue('evidence'), ' sources only; no bars means no normal drill-down.')),
+      groups);
   }
 }
 

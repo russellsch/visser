@@ -6,10 +6,11 @@
 // pure function of the readings, so the figure needs no layout engine.
 import { DOM } from './dom-contract.ts';
 import { h, type HNode } from './html.ts';
+import { depthAction, type InspectionDepth } from '../model/inspection.ts';
 import { INK_STROKE, NODE_FILL } from './encoding.ts';
 import { LINE_HEIGHT, round3, textWidth, wrapText } from './layout.ts';
 
-export type MeasureRow = { id: string; label: string; value: number; status: string; text: string };
+export type MeasureRow = { id: string; label: string; value: number; status: string; text: string; depth?: InspectionDepth };
 
 export type MeasureSvgInput = {
   figureId: string;
@@ -73,7 +74,9 @@ export function measureSvg(input: MeasureSvgInput): HNode {
       const measured = r.status === 'measured';
       const lines = labelLines[i]!;
       const labelTop = top + (rowH[i]! - lines.length * LINE_HEIGHT) / 2;
-      return h('a', { class: `vs-measure-row${measured ? '' : ' vs-unmeasured'}`, href: `#${DOM.canonicalId(r.id)}`, id: DOM.svgInstanceId(figureId, r.id), [DOM.attr.target]: r.id, [DOM.attr.interactive]: true, 'aria-label': `${r.label}: ${r.text}` },
+      const depth = r.depth ?? 'explanation';
+      const tag = depth === 'bare' ? 'g' : 'a';
+      return h(tag, { class: `vs-measure-row${measured ? '' : ' vs-unmeasured'}`, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(r.id)}`, id: DOM.svgInstanceId(figureId, r.id), [DOM.attr.target]: r.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${r.label}: ${r.text}; ${depthAction(depth)}` },
         h('text', { class: 'vs-measure-label', x: n(barX - LABEL_GAP), y: n(labelTop), 'text-anchor': 'end', 'font-size': 14, fill: '#1a1a1a' },
           lines.map((line, j) => h('tspan', { x: n(barX - LABEL_GAP), dy: j === 0 ? '1em' : String(LINE_HEIGHT) }, line))),
         measured
@@ -82,6 +85,7 @@ export function measureSvg(input: MeasureSvgInput): HNode {
               h('rect', { class: 'vs-bar-outline', x: n(barX), y: n(barY), width: n(w), height: n(BAR_H), fill: NODE_FILL, stroke: INK_STROKE, 'stroke-width': '1.5' }),
               w > 0 ? h('path', { class: 'vs-bar-hatch', d: hatch(barX, barY, w, BAR_H), fill: 'none', stroke: INK_STROKE, 'stroke-width': '1.25' }) : null,
             ],
-        h('text', { class: 'vs-measure-value', x: n(barX + w + VALUE_GAP), y: n(barY + BAR_H / 2 + 5), 'font-size': 14, fill: '#1a1a1a' }, r.text));
+        h('text', { class: 'vs-measure-value', x: n(barX + w + VALUE_GAP), y: n(barY + BAR_H / 2 + 5), 'font-size': 14, fill: '#1a1a1a' }, r.text),
+        depth === 'bare' ? null : h('text', { class: `vs-depth-cue vs-depth-${depth}`, x: n(width - MARGIN - 10), y: n(barY + BAR_H / 2 + 4), 'font-size': 10, fill: 'currentColor', [DOM.attr.generated]: true, 'aria-hidden': 'true' }, depth === 'evidence' ? '\u258e' : '\u258e\u258e'));
     }));
 }

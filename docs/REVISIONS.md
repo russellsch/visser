@@ -327,3 +327,21 @@ This revision fixes the findings of `docs/reviews/phase6a-components-review-1.md
 - The catalogue and canonical example frame steps as conceptual phases that
   add an invariant, boundary, contrast, or consequence. The runtime and its
   stepper interaction are unchanged.
+
+## Revision 1.34 — useful drill-down depth
+
+- The compiler derives explanation, additional-context, sources-only, and bare
+  inspection depth, then subtracts content already visible in each instance.
+  Bare instances retain target identity but are not links.
+- Explanation and context share a two-bar “more detail” cue. Sources-only uses
+  one muted bar. The static drill-down key moves into About when JavaScript is
+  active and is hidden in print.
+- The inspector leads with explanation and generated context. Evidence is last
+  and collapsed; sources-only targets also show immediate source links.
+- Inspector history names the Back destination. Locate reveals and focuses the
+  visible instance, and all instances of the current target are highlighted.
+- `check --review` adds one `W_DETAIL_VALUE` per figure when sources-only
+  drill-downs dominate explanation or additional context.
+- `data-vs-depth` is additive DOM metadata. Consumers must select SVG parts by
+  class and target attributes, because bare nodes, groups, and edges are `<g>`
+  elements instead of `<a>` elements.

@@ -69,11 +69,16 @@ describe('Mermaid kernel (§9.12)', () => {
     expect(html).toContain('<div class="vs-viewport" id="m-flow" data-vs-viewport="" data-vs-mermaid-render=""></div>');
     expect(html).toContain('<pre class="vs-mermaid-source"><code class="language-mermaid">flowchart LR');
     expect(html).toContain('Producer[Producer] --&gt;|put waits| Queue');
-    expect(html).toMatch(/id="l-flow\.producer"[^>]*data-vs-target="producer"[^>]*data-vs-mermaid-key="node:Producer"/);
+    const opening = (id: string) => new RegExp(`<(?:a|span) [^>]*id="${id.replace('.', '\\.')}"[^>]*>`).exec(html)?.[0] ?? '';
+    expect(opening('l-flow.producer')).toContain('data-vs-target="producer"');
+    expect(opening('l-flow.producer')).toContain('data-vs-mermaid-key="node:Producer"');
     // A derived relationship is not referenceable: its instance targets the figure.
-    expect(html).toMatch(/id="l-flow\.flow~producer~queue~0"[^>]*data-vs-target="flow"[^>]*data-vs-rel="flow~producer~queue~0"[^>]*data-vs-mermaid-key="edge:L_Producer_Queue_0"/);
+    expect(opening('l-flow.flow~producer~queue~0')).toContain('data-vs-target="flow"');
+    expect(opening('l-flow.flow~producer~queue~0')).toContain('data-vs-rel="flow~producer~queue~0"');
+    expect(opening('l-flow.flow~producer~queue~0')).toContain('data-vs-mermaid-key="edge:L_Producer_Queue_0"');
     // An explicit edge ID is a relationship target.
-    expect(html).toMatch(/id="l-flow\.e1"[^>]*data-vs-target="e1"[^>]*data-vs-rel="e1"/);
+    expect(opening('l-flow.e1')).toContain('data-vs-target="e1"');
+    expect(opening('l-flow.e1')).toContain('data-vs-rel="e1"');
     expect(html).toContain('<p class="vs-mermaid-notice" role="status" hidden data-vs-generated=""></p>');
     expect(html).toContain('data-vs-views="map list"');
     expect(html).toContain('<figcaption id="vs-t-flow">');
@@ -82,8 +87,7 @@ describe('Mermaid kernel (§9.12)', () => {
   it('gives every Mermaid element a canonical detail in the appendix', async () => {
     const { html } = await page();
     for (const id of ['producer', 'queue', 'worker', 'e1']) {
-      // A Mermaid part has no authored body, so its row is bare (docs/IMPROVEMENTS.md §4.5); the detail stays.
-      expect(html).toMatch(new RegExp(`<details class="vs-detail vs-kind-mermaid-[a-z]+ vs-detail-bare" id="x-${id}" data-vs-target="${id}"`));
+      expect(html).toMatch(new RegExp(`<details class="vs-detail vs-kind-mermaid-[a-z]+" id="x-${id}" data-vs-target="${id}"[^>]*data-vs-depth="context"`));
     }
     expect(html).toContain('In diagram <a href="#x-flow">');
   });

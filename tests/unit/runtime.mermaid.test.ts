@@ -84,7 +84,7 @@ describe('Mermaid element mapping (§9.12)', () => {
   it('copies target and relationship attributes from list instances onto the drawing', () => {
     const doc = dom(`<figure id="x-flow">
       ${FLOW_SVG}
-      <a data-vs-target="producer" data-vs-mermaid-key="node:Producer">Producer</a>
+      <a data-vs-target="producer" data-vs-depth="context" data-vs-interactive="" data-vs-mermaid-key="node:Producer">Producer</a>
       <a data-vs-target="flow" data-vs-rel="flow~producer~queue~0" data-vs-mermaid-key="edge:L_Producer_Queue_0">Producer to Queue</a>
       <a data-vs-target="gone" data-vs-mermaid-key="node:Gone">Gone</a>
     </figure>`);
@@ -107,7 +107,7 @@ describe('Mermaid element mapping (§9.12)', () => {
   });
 
   it('keeps an explicit edge ID interactive', () => {
-    const doc = dom(`<figure id="x-flow">${FLOW_SVG}<a data-vs-target="e1" data-vs-rel="e1" data-vs-mermaid-key="edge:e1">e1</a></figure>`);
+    const doc = dom(`<figure id="x-flow">${FLOW_SVG}<a data-vs-target="e1" data-vs-rel="e1" data-vs-depth="context" data-vs-interactive="" data-vs-mermaid-key="edge:e1">e1</a></figure>`);
     const figure = doc.querySelector('figure')!;
     attachTargets(figure, figure.querySelector('svg')!, FLOW);
     const edge = figure.querySelector('[data-id="e1"]')!;

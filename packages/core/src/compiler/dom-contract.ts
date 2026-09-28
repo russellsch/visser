@@ -205,6 +205,10 @@ export const DOM = {
     rel: 'data-vs-rel',
     question: 'data-vs-question',
     interactive: 'data-vs-interactive',
+    // The inspector delta of a canonical target or repeated instance. A
+    // renderer may give two instances of one target different depths because
+    // their visible payload differs.
+    depth: 'data-vs-depth',
     viewport: 'data-vs-viewport',
     generated: 'data-vs-generated',
     term: 'data-vs-term',

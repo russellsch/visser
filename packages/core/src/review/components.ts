@@ -13,11 +13,13 @@
 // - W_WALKTHROUGH_VALUE: a walkthrough on a small figure, or a walkthrough
 //   that merely visits one different part per step (§14.1).
 import { type Context, mainPath, prompt } from './context.ts';
+import { inspectionProfile } from '../model/inspection.ts';
 
 /** A note for each this many main-path words (IMPROVEMENTS.md §14.2). */
 export const WORDS_PER_NOTE = 300;
 /** Four or fewer drawn parts are clearer without a walkthrough control. */
 export const WALKTHROUGH_MIN_PARTS = 5;
+export const DETAIL_VALUE_NAMES = 5;
 
 const WALKTHROUGH_NON_PARTS = new Set(['steps', 'step', 'detail']);
 
@@ -50,6 +52,25 @@ function walkthroughRules(ctx: Context): void {
   }
 }
 
+function detailValueRules(ctx: Context): void {
+  const figures = ctx.bundle.parsed.targets.filter((target) => target.tagName && ['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension'].includes(target.tagName));
+  for (const figure of figures) {
+    const profiles = [...ctx.bundle.model.targets.values()]
+      .filter((target) => target.ownerComponentId === figure.id && target.id !== figure.id && !['source', 'definition', 'detail', 'steps', 'step'].includes(target.kind))
+      .map((target) => inspectionProfile(ctx.bundle.model, target.id));
+    // Attribute facts are normally already printed in the figure or list.
+    // Evidence on a target whose only other payload is such facts is still a
+    // sources-only drill-down. Relationships, appearances, nested detail,
+    // and Mermaid structure are genuinely additional context.
+    const evidence = profiles.filter((profile) => !profile.explanation && profile.evidenceIds.length > 0 && profile.context.every((key) => key.startsWith('fact:')));
+    const useful = profiles.filter((profile) => profile.explanation || profile.context.some((key) => !key.startsWith('fact:')));
+    if (evidence.length === 0 || evidence.length < useful.length) continue;
+    const shown = evidence.slice(0, DETAIL_VALUE_NAMES).map((profile) => profile.targetId).join(', ');
+    const more = evidence.length > DETAIL_VALUE_NAMES ? `, and ${evidence.length - DETAIL_VALUE_NAMES} more` : '';
+    prompt(ctx, 'W_DETAIL_VALUE', figure.id, `${figure.id} has ${evidence.length} sources-only drill-down target${evidence.length === 1 ? '' : 's'} and ${useful.length} target${useful.length === 1 ? '' : 's'} with explanation or additional context (${shown}${more}); add a mechanism, invariant, constraint, contrast, failure behavior, or consequence where readers need more than provenance`);
+  }
+}
+
 export function componentRules(ctx: Context): void {
   const { parsed } = ctx.bundle;
   for (const t of parsed.targets) {
@@ -78,4 +99,5 @@ export function componentRules(ctx: Context): void {
   }
 
   walkthroughRules(ctx);
+  detailValueRules(ctx);
 }

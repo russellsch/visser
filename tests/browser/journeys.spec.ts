@@ -384,7 +384,7 @@ test.describe('without JavaScript', () => {
 
   test('@nojs deep link brings the detail summary into view', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page, '#x-enqueue');
-    await expect(byId(page, 'x-enqueue').locator('summary')).toBeInViewport();
+    await expect(byId(page, 'x-enqueue').locator(':scope > summary')).toBeInViewport();
   });
 
   test('@nojs static HTML has unique ids and labelled summaries', async ({ page, offOrigin: _ }) => {

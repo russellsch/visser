@@ -108,3 +108,6 @@ await db.transaction(async (tx) => {
 - `W_WALKTHROUGH_VALUE`: the walkthrough is on a figure with four or fewer
   drawn parts, or every step merely visits one different part. Add conceptual
   grouping and explanation, or remove the walkthrough.
+- `W_DETAIL_VALUE`: sources-only drill-downs dominate the figure. Add useful
+  explanation or context to the parts that need it; do not add prose merely
+  to silence the prompt.

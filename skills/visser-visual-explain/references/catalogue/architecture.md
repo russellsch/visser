@@ -48,11 +48,11 @@ charge request", and a `trace` for order. Both share node IDs through `entity`.
 - `entity` names an existing `node` that has no `entity` itself.
 - `evidence=["src_handler"]` names `source` targets: the code that shows
   this node. A `cite` supports one sentence in the body.
-- `collapsed=true` on a `group`: with JavaScript, the group starts folded into
-  one box with a count, and a click unfolds it. The dashed boundary of the
-  group stays, with the box at its centre. Use it on a map above 25 nodes.
-  Without JavaScript and in print the group shows unfolded, and the lists
-  always show every node.
+- A clickable part body explains a mechanism, boundary, failure, or
+  consequence. Evidence does not replace that explanation.
+- `collapsed=true` starts a group folded into one counted box. Its dashed
+  boundary stays. Use it above 25 nodes. No-JavaScript, print, and lists show
+  every node.
 - `quantity="1,200 req/s"` on an `edge` shows after its label. Name the
   source of the number in `evidence` on the edge.
 - Above 25 nodes you get `W_VISUAL_DENSITY`. A collapsed group counts as one

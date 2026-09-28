@@ -178,7 +178,7 @@ test.describe('inspector sections for a part (IMPROVEMENTS.md §4.2)', () => {
     if (isNarrow(page)) await byId(page, `l-${FIGURE}.n_api`).click();
     else await byId(page, `v-${FIGURE}.n_api`).click();
     const host = page.locator(isNarrow(page) ? 'dialog#vs-inspector-dialog' : 'aside#vs-inspector');
-    await expect(host.locator('#vs-inspector-title')).toHaveText('Order API · interface');
+    await expect(host.locator('#vs-inspector-title')).toHaveText('Order API · interface · Explanation');
     const detail = host.locator('details[id="x-n_api"]');
     const order = await detail.evaluate((d) => ['.vs-detail-text', '.vs-detail-rels', '.vs-detail-appears']
       .map((sel) => d.querySelector(sel)).map((n) => (n ? n.getBoundingClientRect().top : -1)));
@@ -193,12 +193,12 @@ test.describe('inspector sections for a part (IMPROVEMENTS.md §4.2)', () => {
     // A relationship link opens that relationship in the inspector; Back returns.
     await detail.locator('.vs-detail-rels a', { hasText: 'insert order as pending' }).click();
     await expect(host.locator('details[id="x-e_insert"]')).toBeVisible();
-    await expect(host.locator('#vs-inspector-title')).toHaveText('insert order as pending · call');
-    await host.getByRole('button', { name: 'Back' }).click();
+    await expect(host.locator('#vs-inspector-title')).toHaveText('insert order as pending · call · Explanation');
+    await host.getByRole('button', { name: 'Back to Order API' }).click();
     await expect(host.locator('details[id="x-n_api"]')).toBeVisible();
   });
 
-  test('a click on a part with `evidence` shows its excerpt with no scroll on a 900 px window (IMPROVEMENTS.md §4.4)', async ({ page, offOrigin: _ }) => {
+  test('a click shows explanation first and keeps evidence collapsed last (IMPROVEMENTS.md §4.4)', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'the 900 px rule is for the wide-screen inspector');
     await page.setViewportSize({ width: page.viewportSize()!.width, height: 900 });
     await openSnapshot(page, '', 'order-intake');
@@ -207,17 +207,19 @@ test.describe('inspector sections for a part (IMPROVEMENTS.md §4.2)', () => {
     await byId(page, `v-${FIGURE}.n_api`).click();
     await host.evaluate((n) => { n.scrollTop = n.scrollHeight; });
     await byId(page, `v-${FIGURE}.n_worker`).click();
-    await expect(host.locator('#vs-inspector-title')).toHaveText('Charge worker · process');
+    await expect(host.locator('#vs-inspector-title')).toHaveText('Charge worker · process · Explanation');
     const detail = host.locator('details[id="x-n_worker"]');
+    const evidence = detail.locator('.vs-detail-evidence');
     const excerpt = detail.locator('.vs-detail-evidence .vs-evidence-item .vs-code').first();
+    await expect(evidence).not.toHaveAttribute('open', /.+/);
+    await expect(excerpt).toBeHidden();
+    await expect(detail.locator('.vs-detail-text')).toBeVisible();
+    await evidence.locator('summary').click();
     await expect(excerpt).toBeVisible();
     await expect(excerpt).toContainText('idempotencyKey: request.orderId');
     expect(await host.evaluate((n) => n.scrollTop)).toBe(0);
-    const [code, aside] = [await box(excerpt), await box(host)];
-    expect(code.y).toBeGreaterThanOrEqual(aside.y);
-    expect(code.y + code.height).toBeLessThanOrEqual(Math.min(aside.y + aside.height, 900));
-    // The excerpt comes before the body, and the source link names the source.
-    const order = await detail.evaluate((d) => ['.vs-detail-evidence', '.vs-detail-text', '.vs-detail-rels']
+    // Evidence comes after explanation and context, and names the source.
+    const order = await detail.evaluate((d) => ['.vs-detail-text', '.vs-detail-rels', '.vs-detail-evidence']
       .map((sel) => d.querySelector(sel)?.getBoundingClientRect().top ?? -1));
     expect(order.every((y) => y >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
@@ -290,17 +292,52 @@ test.describe('phase-2 review fixes (docs/reviews/phase2-depth-review-1.md)', ()
     if (isNarrow(page)) await byId(page, `l-${FIGURE}.n_api`).click();
     else await byId(page, `v-${FIGURE}.n_api`).click();
     const host = page.locator(isNarrow(page) ? 'dialog#vs-inspector-dialog' : 'aside#vs-inspector');
-    await expect(host.getByRole('heading', { level: 2, name: 'Order API · interface' })).toBeVisible();
+    await expect(host.getByRole('heading', { level: 2, name: 'Order API · interface · Explanation' })).toBeVisible();
     await expect(host.getByRole('heading', { level: 3, name: 'Relationships' })).toBeVisible();
     await expect(host.locator('h4')).toHaveCount(0);
     await expect(host.locator('.vs-facts dt', { hasText: 'role' })).toHaveCount(0);
   });
 
-  test('a compare cell whose body is one sentence has no "›" link, and its body is the table instance (R1)', async ({ page, offOrigin: _ }) => {
+  test('a compare cell whose body is one sentence is bare, and its body is the table instance (R1)', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'the table is the wide-screen view');
     await openSnapshot(page, '', 'order-intake');
     const table = page.locator('[id="x-retry_choice"] .vs-compare-table');
     await expect(table.locator('a.vs-cell-link')).toHaveCount(0);
     await expect(table.locator('.vs-cell-body[data-vs-target]')).toHaveCount(4);
+  });
+});
+
+test.describe('drill-down depth cues', () => {
+  test('two bars mark explanation while a bare SVG part is inert and still markable', async ({ page, offOrigin: _ }) => {
+    test.skip(isNarrow(page), 'the drawing is the wide-screen view');
+    await openSnapshot(page, '', 'order-intake');
+    const explained = byId(page, `v-${FIGURE}.n_api`);
+    await expect(explained).toHaveAttribute('data-vs-depth', 'explanation');
+    await expect(explained.locator('.vs-depth-bar')).toHaveCount(2);
+    const bare = byId(page, `v-${FIGURE}.e_take`);
+    await expect(bare).toHaveAttribute('data-vs-depth', 'bare');
+    await expect(bare).not.toHaveAttribute('href', /.+/);
+    await expect(bare.locator('.vs-depth-bar')).toHaveCount(0);
+    await byId(page, `v-${FIGURE}.n_queue`).hover();
+    await expect(bare).toHaveClass(/vs-near/);
+  });
+
+  test('Locate returns to and highlights every visible instance of the target', async ({ page, offOrigin: _ }) => {
+    test.skip(isNarrow(page), 'the persistent inspector is the wide-screen view');
+    await openSnapshot(page, '', 'order-intake');
+    await byId(page, `v-${FIGURE}.n_api`).click();
+    const host = page.locator('aside#vs-inspector');
+    await host.getByRole('button', { name: 'Locate in figure' }).click();
+    await expect(host).toBeHidden();
+    await expect(byId(page, `v-${FIGURE}.n_api`)).toBeFocused();
+    const visible = page.locator('[data-vs-target="n_api"].vs-inspected:visible');
+    expect(await visible.count()).toBeGreaterThan(0);
+  });
+
+  test('print hides the depth key and depth cues', async ({ page, offOrigin: _ }) => {
+    await openSnapshot(page, '', 'order-intake');
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('.vs-depth-key')).toBeHidden();
+    await expect(page.locator('.vs-depth-cue').first()).toBeHidden();
   });
 });

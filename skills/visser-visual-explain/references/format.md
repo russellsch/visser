@@ -381,6 +381,12 @@ A `source` tag records evidence. Required: `id`, `kind`, `title`. Optional:
 `availability` (`captured`, the default, or `link-only`). Any other attribute
 is `E_SYNTAX`.
 
+Evidence is provenance, not explanation. Put the mechanism, invariant,
+constraint, contrast, failure behavior, or consequence in the owning part's
+body or nested `detail`. Use `evidence` to show why that content is credible.
+A sources-only drill-down is useful when the reader's next question is “where
+did this come from?”, but `W_DETAIL_VALUE` warns when it dominates a figure.
+
 Each `kind` needs more attributes:
 
 | `kind` | Also required |

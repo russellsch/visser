@@ -10,18 +10,22 @@ const A = DOM.attr;
 const HISTORY_MAX = 20;
 
 type Moved = { el: HTMLDetailsElement; placeholder: HTMLTemplateElement; wasOpen: boolean; wasHidden: boolean };
+type HistoryEntry = { targetId: string; preferredInstanceId?: string; depth?: string };
 
 type Inspector = {
   host: HTMLElement; // <aside> or <dialog>
   body: HTMLElement;
   title: HTMLElement;
   back: HTMLButtonElement;
+  locate: HTMLButtonElement;
   modal: boolean;
 };
 
 const state = {
   current: undefined as Moved | undefined,
-  history: [] as string[],
+  history: [] as HistoryEntry[],
+  preferredInstanceId: undefined as string | undefined,
+  currentDepth: undefined as string | undefined,
   origin: undefined as HTMLElement | SVGElement | undefined,
   inspector: undefined as Inspector | undefined,
   refmode: false,
@@ -84,11 +88,12 @@ function ensureInspector(modal: boolean): Inspector {
   // The Copy reference action comes last, after the body and its sections
   // (docs/IMPROVEMENTS.md §4.2).
   const footer = el('div', 'vs-inspector__footer');
+  const locate = button('Locate in figure', 'vs-btn', () => locateCurrent());
   const copy = button('Copy reference', 'vs-btn', () => {
     const id = state.current?.el.getAttribute(A.target);
     if (id) void copyReference(id, false);
   });
-  footer.append(copy);
+  footer.append(locate, copy);
   const status = el('p', 'vs-status');
   status.setAttribute('role', 'status');
   host.append(bar, body, footer, status);
@@ -100,7 +105,7 @@ function ensureInspector(modal: boolean): Inspector {
     });
   }
   document.body.append(host);
-  state.inspector = { host, body, title, back, modal };
+  state.inspector = { host, body, title, back, locate, modal };
   return state.inspector;
 }
 
@@ -117,13 +122,13 @@ function returnCurrent(): void {
   state.current = undefined;
 }
 
-function showDetail(targetId: string, push: boolean): boolean {
+function showDetail(targetId: string, push: boolean, preferredInstanceId?: string, depth?: string): boolean {
   const detail = canonical(targetId);
   if (!(detail instanceof HTMLDetailsElement)) return false;
   const modal = isNarrow() && typeof HTMLDialogElement !== 'undefined' && 'showModal' in HTMLDialogElement.prototype;
   const previous = state.current?.el.getAttribute(A.target);
   if (push && previous && previous !== targetId) {
-    state.history.push(previous);
+    state.history.push({ targetId: previous, preferredInstanceId: state.preferredInstanceId, depth: state.currentDepth });
     if (state.history.length > HISTORY_MAX) state.history.shift();
   }
   returnCurrent();
@@ -134,12 +139,14 @@ function showDetail(targetId: string, push: boolean): boolean {
   placeholder.setAttribute(A.placeholder, targetId);
   detail.before(placeholder);
   state.current = { el: detail, placeholder, wasOpen: detail.open, wasHidden: detail.hidden };
+  state.preferredInstanceId = preferredInstanceId;
+  state.currentDepth = depth ?? detail.getAttribute(A.depth) ?? undefined;
   detail.open = true;
   detail.hidden = false;
   inspector.body.replaceChildren(detail);
-  // A new target starts at the top of the inspector. A part with `evidence`
-  // shows its excerpt first, so the excerpt is visible with no scroll
-  // (docs/IMPROVEMENTS.md §4.4), also after the reader scrolled another part.
+  // A new target starts at the top of the inspector, also after the reader
+  // scrolled another part. Evidence stays collapsed after explanation and
+  // context, so opening a target begins with its value-added detail.
   inspector.host.scrollTop = 0;
   // F4b: the full title is always in the DOM and in `title` (native tooltip
   // when the 2-line clamp truncates it); the clamp itself is CSS (reader.css).
@@ -149,8 +156,15 @@ function showDetail(targetId: string, push: boolean): boolean {
   const cue = detail.getAttribute(A.cue);
   inspector.title.replaceChildren(document.createTextNode(label));
   if (cue) inspector.title.append(el('span', 'vs-inspector__cue', ` \u00b7 ${cue}`));
+  const depthText = state.currentDepth === 'explanation' ? 'Explanation' : state.currentDepth === 'context' ? 'Additional context' : state.currentDepth === 'evidence' ? 'Sources' : undefined;
+  if (depthText) inspector.title.append(el('span', 'vs-inspector__depth', ` \u00b7 ${depthText}`));
   inspector.title.title = cue ? `${label} \u00b7 ${cue}` : label;
   inspector.back.hidden = state.history.length === 0;
+  inspector.back.setAttribute('aria-label', state.history.length > 0
+    ? `Back to ${canonical(state.history[state.history.length - 1]!.targetId)?.getAttribute(A.label) ?? state.history[state.history.length - 1]!.targetId}`
+    : 'Back');
+  inspector.locate.hidden = !hasLocatableInstance(targetId);
+  highlightInstances(targetId, 'vs-inspected');
   if (modal) {
     const dialog = inspector.host as HTMLDialogElement;
     if (!dialog.open) dialog.showModal();
@@ -171,12 +185,43 @@ function openInspector(targetId: string, origin: HTMLElement | SVGElement | unde
     state.history = [];
     state.origin = origin;
   }
-  return showDetail(targetId, true);
+  return showDetail(targetId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined);
 }
 
 function goBack(): void {
   const previous = state.history.pop();
-  if (previous) showDetail(previous, false);
+  if (previous) showDetail(previous.targetId, false, previous.preferredInstanceId, previous.depth);
+}
+
+function visibleInstances(targetId: string): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(`[${A.target}="${CSS.escape(targetId)}"]`))
+    .filter((node) => node.id !== DOM.canonicalId(targetId) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}, [hidden]`) && node.getClientRects().length > 0);
+}
+
+function hasLocatableInstance(targetId: string): boolean {
+  return Array.from(document.querySelectorAll<HTMLElement>(`[${A.target}="${CSS.escape(targetId)}"]`))
+    .some((node) => node.id !== DOM.canonicalId(targetId) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}`));
+}
+
+function locateCurrent(): void {
+  const targetId = state.current?.el.getAttribute(A.target);
+  if (!targetId) return;
+  revealParts([targetId]);
+  const candidates = visibleInstances(targetId);
+  const preferred = state.preferredInstanceId ? candidates.find((node) => node.id === state.preferredInstanceId) : undefined;
+  const chosen = preferred ?? candidates.find((node) => node.matches('a, button, [tabindex]')) ?? candidates[0];
+  if (!chosen) return;
+  closeInspector(false);
+  highlightInstances(targetId, 'vs-inspected');
+  scrollIntoView(chosen);
+  if (chosen.matches('a, button, [tabindex]')) chosen.focus();
+  else {
+    const figure = chosen.closest<HTMLElement>('figure');
+    if (figure) {
+      figure.tabIndex = -1;
+      figure.focus();
+    }
+  }
 }
 
 function closeInspector(restoreFocus = true): void {
@@ -193,6 +238,9 @@ function closeInspector(restoreFocus = true): void {
   }
   document.body.classList.remove('vs-has-inspector');
   state.history = [];
+  state.preferredInstanceId = undefined;
+  state.currentDepth = undefined;
+  clearHighlight('vs-inspected');
   const origin = state.origin;
   state.origin = undefined;
   if (restoreFocus && origin && origin.isConnected) origin.focus();
@@ -453,6 +501,13 @@ function highlight(ids: string[], className: string): void {
   clearHighlight(className);
   for (const id of ids) {
     for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) node.classList.add(className);
+  }
+}
+
+function highlightInstances(id: string, className: string): void {
+  clearHighlight(className);
+  for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) {
+    if (node.id !== DOM.canonicalId(id) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}`)) node.classList.add(className);
   }
 }
 
@@ -728,7 +783,7 @@ function addViewToggles(): void {
  * neighbourhood of the focused node comes back, else the other marks do.
  */
 function addNeighbourhoods(): void {
-  for (const node of Array.from(document.querySelectorAll(`.vs-viewport svg a.vs-node[${A.target}]`))) {
+  for (const node of Array.from(document.querySelectorAll(`.vs-viewport svg .vs-node[${A.target}]`))) {
     const st = figureMarks(node);
     if (!st) continue;
     node.addEventListener('pointerenter', () => {
@@ -752,7 +807,7 @@ function addNeighbourhoods(): void {
 
 // ---------------------------------------------------------------- figure interactions (§14.9)
 
-const ENTITY_PARTS = `.vs-viewport svg a.vs-node[${A.target}], .vs-viewport svg a.vs-lane[${A.target}]`;
+const ENTITY_PARTS = `.vs-viewport svg .vs-node[${A.target}], .vs-viewport svg .vs-lane[${A.target}]`;
 
 /**
  * Cross-figure highlight: on hover or focus of a node, an actor, or a
@@ -860,7 +915,7 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
     const g = toggle.getAttribute(A.foldToggle)!;
     show(toggle, !folded.has(g) && !hidden.has(g));
   }
-  for (const part of Array.from(svg.querySelectorAll(`a.vs-group[${A.target}]`))) {
+  for (const part of Array.from(svg.querySelectorAll(`.vs-group[${A.target}]`))) {
     const id = part.getAttribute(A.target)!;
     const boundary = folded.has(id) && !hidden.has(id);
     show(part, !hidden.has(id));
@@ -873,7 +928,7 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
       part.removeAttribute('aria-hidden');
     }
   }
-  for (const part of Array.from(svg.querySelectorAll(`a.vs-node[${A.target}]`))) {
+  for (const part of Array.from(svg.querySelectorAll(`.vs-node[${A.target}]`))) {
     show(part, !hidden.has(part.getAttribute(A.target)!));
   }
   const proxies = new Map<string, Element[]>();
@@ -881,7 +936,7 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
     const id = proxy.getAttribute(A.proxyFor)!;
     proxies.set(id, [...(proxies.get(id) ?? []), proxy]);
   }
-  for (const edge of Array.from(svg.querySelectorAll(`a.vs-edge[${A.rel}]:not([${A.proxyFor}])`))) {
+  for (const edge of Array.from(svg.querySelectorAll(`.vs-edge[${A.rel}]:not([${A.proxyFor}])`))) {
     const id = edge.getAttribute(A.rel)!;
     const own = proxies.get(id) ?? [];
     const [from, to] = words(own[0]?.getAttribute(A.proxyEnds) ?? null);
@@ -988,7 +1043,7 @@ function addTermAndEdgeBubbles(): void {
   // Edges in a figure: the first sentence of the edge body. A trace order
   // arrow links to its later event, not to itself (its target is not its
   // relationship), so it has no body of its own and gets no bubble.
-  for (const edge of Array.from(document.querySelectorAll(`.vs-viewport svg a.vs-edge[${A.target}]`))) {
+  for (const edge of Array.from(document.querySelectorAll(`.vs-viewport svg .vs-edge[${A.target}]`))) {
     const id = edge.getAttribute(A.target)!;
     if (edge.getAttribute(A.rel) !== id || !bodyText(id)) continue;
     edge.addEventListener('pointerenter', (e) => {
@@ -1064,6 +1119,8 @@ function toggleAbout(): void {
     list.append(el('dt', undefined, term), el('dd', 'vs-mono', value ?? 'unknown'));
   }
   about.append(el('p', undefined, 'This page is an immutable snapshot. Editing the source produces a new revision.'), list);
+  const depthKey = document.querySelector<HTMLElement>('.vs-depth-key');
+  if (depthKey) about.append(depthKey);
   // The full captured/revision/build/visibility line moves into the panel; a
   // brief "Snapshot · <visibility>" line stays under the h1 for every reader (F11).
   const meta = document.querySelector<HTMLElement>('header.vs-snapshot > .vs-meta');
@@ -1203,7 +1260,7 @@ function onClick(e: MouseEvent): void {
       const concept = canonical(defId)?.getAttribute(A.concept);
       const openId = concept && canonical(concept) instanceof HTMLDetailsElement ? concept : defId;
       // --- end domain
-      if (state.current) showDetail(openId, true);
+      if (state.current) showDetail(openId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined);
       else openInspector(openId, origin);
       return;
     }
@@ -1225,13 +1282,13 @@ function onClick(e: MouseEvent): void {
   // Generated inspector links (a part's Relationships, Appears in, and
   // Evidence sections) and the bubble's "Open definition" link open their
   // target in the inspector as well.
-  const link = target.closest<HTMLElement>(`a.vs-cite, a.vs-inspect-link, a.vs-tooltip__open, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn]:not([data-vs-mermaid-derived])`);
+  const link = target.closest<HTMLElement>(`a.vs-cite, a.vs-inspect-link, a.vs-tooltip__open, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn][${A.interactive}]:not([data-vs-mermaid-derived])`);
   if (link && !link.closest(`.${DOM.toolbar}, #vs-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {
       e.preventDefault();
       if (link.classList.contains('vs-tooltip__open')) hideTooltip();
-      if (state.current) showDetail(id, true);
+      if (state.current) showDetail(id, true, link.id || undefined, link.getAttribute(A.depth) ?? undefined);
       else openInspector(id, link);
     }
   }

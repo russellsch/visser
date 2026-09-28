@@ -14,7 +14,7 @@ const REVIEW_CODES = ['W_JARGON', 'W_VISUAL_DENSITY', 'W_EVIDENCE_GAP', 'W_WALKT
 const ALL_REVIEW_CODES = [...REVIEW_CODES, 'W_SENTENCE_LENGTH', 'W_PASSIVE', 'W_CONTRACTION', 'W_VAGUE_QUANTITY', 'W_SYNONYM', 'W_READER',
   'W_LENGTH', 'W_FIGURE_COUNT', 'W_LATE_FIGURE', 'W_LABEL_LENGTH', 'W_DUPLICATE', 'W_HEADING', 'W_MERMAID', 'W_TERM_UNUSED', 'W_TERM_COLLISION',
   // The component prompts of IMPROVEMENTS.md §14; tests/unit/components.test.ts covers them.
-  'W_NOTE_DENSITY', 'W_SELF_CHECK'];
+  'W_NOTE_DENSITY', 'W_SELF_CHECK', 'W_DETAIL_VALUE'];
 
 // Expected prompts on each bad draft: code, target, and text the message must name.
 const EXPECTED: Record<string, Array<[string, string, string?]>> = {

@@ -74,7 +74,7 @@ type Mark = 'near' | 'dim';
 function stepParts(st: FigureMarks, section: HTMLElement): Array<{ el: Element; ids: string[] }> {
   const out: Array<{ el: Element; ids: string[] }> = [];
   const own = (el: Element) => !section.contains(el);
-  for (const el of Array.from(st.figure.querySelectorAll(`.vs-viewport svg a[${A.target}]`))) {
+  for (const el of Array.from(st.figure.querySelectorAll(`.vs-viewport svg [${A.target}]`))) {
     if (own(el)) out.push({ el, ids: [el.getAttribute(A.target) ?? '', el.getAttribute(A.rel) ?? ''].filter(Boolean) });
   }
   for (const cell of Array.from(st.figure.querySelectorAll('.vs-compare-table td, .vs-compare-table th, .vs-glossary tbody tr'))) {
@@ -170,7 +170,9 @@ function figureMarkMap(st: FigureMarks, entity: ReturnType<typeof entityParts>):
 
 /** Every element that can hold a mark in a figure. */
 function markable(st: FigureMarks): Element[] {
-  const out = st.svg ? Array.from(st.svg.querySelectorAll(`a[${A.target}], [${A.fold}]`)) : [];
+  // Bare SVG parts are deliberately rendered as <g>, not <a>. They still
+  // participate in neighbourhood, walkthrough, and filter marks.
+  const out = st.svg ? Array.from(st.svg.querySelectorAll(`[${A.target}], [${A.fold}]`)) : [];
   out.push(...Array.from(st.figure.querySelectorAll('.vs-compare-table td, .vs-compare-table th, .vs-glossary tbody tr, .vs-viewport .vs-code .vs-line')));
   return out;
 }

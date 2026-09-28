@@ -125,11 +125,17 @@ describe('edge quantities (IMPROVEMENTS.md §14.9)', () => {
     const label = /<text class="vs-edge-label"[^>]*>((?:(?!<\/text>).)*create invoice(?:(?!<\/text>).)*)<\/text>/.exec(svg)![1]!;
     expect(label.replace(/<[^>]+>/g, '')).toBe('create invoice (40req/s)');
     expect(label).toMatch(/<tspan class="vs-edge-quantity" fill-opacity="0.72">\(40<\/tspan>/);
-    expect(element(svg, 'v-map.e_invoice')).toContain('aria-label="Order API, create invoice (40 req/s), Billing API (call)"');
-    expect(html).toContain('<a class="vs-rel-label" href="#x-e_invoice" id="l-map.e_invoice" data-vs-target="e_invoice" data-vs-rel="e_invoice" data-vs-interactive="">create invoice</a><span class="vs-rel-quantity" data-vs-generated=""> (40 req/s)</span>');
+    expect(element(svg, 'v-map.e_invoice')).toContain('aria-label="Order API, create invoice (40 req/s), Billing API (call); opens sources"');
+    const listAt = html.indexOf('id="l-map.e_invoice"');
+    const listTag = html.slice(html.lastIndexOf('<a ', listAt), html.indexOf('>', listAt) + 1);
+    expect(listTag).toContain('class="vs-rel-label"');
+    expect(listTag).toContain('data-vs-target="e_invoice"');
+    expect(listTag).toContain('data-vs-rel="e_invoice"');
+    expect(listTag).toContain('data-vs-interactive=""');
+    expect(html.slice(listAt, html.indexOf('</li>', listAt))).toMatch(/create invoice<span class="vs-depth-cue[^>]*>[\s\S]*?<\/span><\/a><span class="vs-rel-quantity" data-vs-generated=""> \(40 req\/s\)<\/span>/);
     const detail = html.slice(html.indexOf('id="x-e_invoice"'), html.indexOf('</details>', html.indexOf('id="x-e_invoice"')));
     expect(detail).toContain('<dt>quantity</dt><dd>40 req/s</dd>');
-    expect(detail).toContain('<h3>Evidence</h3>');
+    expect(detail).toContain('<summary>Evidence (1)</summary>');
   });
 });
 
@@ -182,7 +188,7 @@ describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
 
   it('puts the fold box and the Fold control right after their group, under the edges (phase 6b review F3, F9)', async () => {
     const { svg } = await compile(fixture);
-    expect(svg).toMatch(/<a class="vs-group" href="#x-g_orders"[^>]*>(?:(?!<\/a>)[\s\S])*<\/a><g class="vs-fold" data-vs-fold="g_orders"[\s\S]*?<\/g><g class="vs-fold-toggle" data-vs-fold-toggle="g_orders"/);
+    expect(svg).toMatch(/<g class="vs-group"[^>]*id="v-map\.g_orders"[^>]*>(?:(?!<\/g>)[\s\S])*<\/g><g class="vs-fold" data-vs-fold="g_orders"[\s\S]*?<\/g><g class="vs-fold-toggle" data-vs-fold-toggle="g_orders"/);
     expect(svg.indexOf('class="vs-fold"')).toBeLessThan(svg.indexOf('class="vs-edge'));
     expect(svg.lastIndexOf('class="vs-fold-toggle"')).toBeLessThan(svg.indexOf('class="vs-node'));
   });

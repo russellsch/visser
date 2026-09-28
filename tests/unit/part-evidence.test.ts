@@ -252,7 +252,7 @@ Takes the next request. {% cite ref="src_a" /%}
 });
 
 describe('the inspector of a part with `evidence` (IMPROVEMENTS.md §4.2, §4.4)', () => {
-  it('lists the `evidence` sources first, then the cited ones, excerpt first, before the body', async () => {
+  it('lists the `evidence` sources first, then the cited ones, excerpt first, after useful detail', async () => {
     const { appendix } = await compile(doc(`${SOURCES}
 {% graph id="g" mode="architecture" title="Map" question="What calls what?" %}
 {% node id="n_q" role="storage" label="Queue" evidence=["src_b", "src_a"] %}
@@ -267,8 +267,8 @@ Holds requests. {% cite ref="src_c" /%} {% cite ref="src_a" /%}
     const items = [...queue.matchAll(/<div class="vs-evidence-item">([\s\S]*?)<a class="vs-inspect-link" href="#x-(src_[a-z])">/g)];
     expect(items.map((m) => m[2])).toEqual(['src_b', 'src_a', 'src_c']);
     for (const m of items) expect(m[1]).toMatch(/^<pre class="vs-code">/);
-    // The Evidence section comes first, then the body, then the Relationships.
-    const order = ['vs-detail-evidence', 'vs-detail-text', 'vs-detail-rels'].map((c) => queue.indexOf(c));
+    // The inspector leads with explanation and context; collapsed evidence is last.
+    const order = ['vs-detail-text', 'vs-detail-rels', 'vs-detail-evidence'].map((c) => queue.indexOf(c));
     expect(order.every((i) => i > 0)).toBe(true);
     expect([...order].sort((x, y) => x - y)).toEqual(order);
   });
@@ -336,9 +336,10 @@ describe('a task `due` date on the page (IMPROVEMENTS.md §3.4, §4.4)', () => {
     const box = main.slice(main.indexOf('id="v-g.t_b"'), main.indexOf('</a>', main.indexOf('id="v-g.t_b"')));
     expect(box).toMatch(/<tspan[^>]*>Ship<\/tspan><tspan class="vs-node-meta"[^>]*fill-opacity="0.72"[^>]*>due 2026-10-03<\/tspan>/);
     // A task with no date shows its label only.
-    const other = main.slice(main.indexOf('id="v-g.t_a"'), main.indexOf('</a>', main.indexOf('id="v-g.t_a"')));
+    const otherStart = main.indexOf('id="v-g.t_a"');
+    const other = main.slice(otherStart, main.indexOf('</g>', otherStart));
     expect(other).not.toContain('vs-node-meta');
-    expect(main).toMatch(/id="l-g\.t_b"[^>]*>Ship<\/a><span class="vs-role"[^>]*> \(status: proposed; due: 2026-10-03\)<\/span>/);
+    expect(main).toMatch(/id="l-g\.t_b"[^>]*>Ship<span class="vs-depth-cue[^>]*>[\s\S]*?<\/span><\/a><span class="vs-role"[^>]*> \(status: proposed; due: 2026-10-03\)<\/span>/);
     const detail = appendix.slice(appendix.indexOf('id="x-t_b"'));
     expect(detail).toMatch(/<dt>due<\/dt><dd>2026-10-03<\/dd>/);
     expect(markdown).toContain('due: 2026-10-03');

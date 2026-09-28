@@ -45,6 +45,9 @@ State the recommendation in prose with its reasons.
   the same figure.
 - Each option and criterion pair has at most one cell.
 - `value` is a string or a number. Put the explanation in the cell body.
+- A displayed value alone is not a useful drill-down. Add a body or nested
+  `detail` only when it explains a condition, tradeoff, failure behavior, or
+  consequence. Use `evidence` to prove the value.
 
 ## Narrow screens and text
 

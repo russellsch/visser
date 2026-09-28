@@ -172,7 +172,7 @@ Keeps each target.
     expect(main).toMatch(/class="vs-figure-question">Which part holds the <a class="vs-term"[^>]*>target<\/a>\?<\/p>/);
     expect(main).toContain('<figcaption>Where a target lives</figcaption>');
     // The node list entry is a link, so it holds no term link.
-    expect(main).toMatch(/<a href="#x-n_store" id="l-g_map\.n_store"[^>]*>Target store<\/a>/);
+    expect(main).toMatch(/<a id="l-g_map\.n_store"[^>]*href="#x-n_store"[^>]*>Target store<span class="vs-depth-cue[^>]*>[\s\S]*?<\/span><\/a>/);
     // The part body links the term. A Terms section under the part gives each
     // term of its label with the first sentence of its definition (§13.4,
     // phase-2 review R8), and links to the full definition.
@@ -237,20 +237,22 @@ Holds charge requests. {% cite ref="src_a" /%}
     expect(appendix).toMatch(/<details class="vs-appendix-group vs-appendix-parts" data-vs-figure="g_map">/);
     // A row is named by its label and its cue word.
     expect(appendix).toMatch(/<summary>Charge queue<span class="vs-kind" data-vs-generated=""> · storage<\/span><\/summary>/);
-    // A part with no body and no evidence keeps its detail, marked bare.
-    expect(appendix).toMatch(/<details class="vs-detail vs-kind-node vs-detail-bare" id="x-n_worker"/);
+    // A part with no body can still add relationship context; the relationship
+    // itself has no information beyond its visible row and remains bare.
+    expect(appendix).toMatch(/<details class="vs-detail vs-kind-node" id="x-n_worker"[^>]*data-vs-depth="context"/);
     expect(appendix).toMatch(/<details class="vs-detail vs-kind-edge vs-detail-bare" id="x-e_take"/);
     expect(appendix).not.toMatch(/id="x-n_queue"[^>]*vs-detail-bare/);
   });
 
-  it('marks a figure group bare when none of its parts has a row', async () => {
+  it('keeps a figure group non-bare when its parts add relationship context', async () => {
     const { appendix } = await compile(`{% graph id="g_bare" mode="architecture" title="Bare" question="What is here?" %}
 {% node id="n_a" role="process" label="A" /%}
 {% node id="n_b" role="process" label="B" /%}
 {% edge id="e_ab" from="n_a" to="n_b" kind="call" label="calls" /%}
 {% /graph %}
 `);
-    expect(appendix).toContain('<details class="vs-appendix-group vs-appendix-parts vs-appendix-group-bare" data-vs-figure="g_bare">');
+    expect(appendix).toContain('<details class="vs-appendix-group vs-appendix-parts" data-vs-figure="g_bare">');
+    expect(appendix).not.toContain('vs-appendix-group-bare');
     // The static count is every row; the runtime shows the visible count.
     expect(appendix).toContain("Parts of 'Bare' <span class=\"vs-appendix-count\" data-vs-generated=\"\">(3)</span>");
   });
@@ -280,7 +282,7 @@ Holds charge requests. {% cite ref="src_a" /%}
     expect(queue).toMatch(/<li data-vs-edge="e_take" data-vs-other="n_worker">.*take next.*Worker.*<\/li>/);
     // The sections are h3 under the inspector's h2 title (phase-2 review R7).
     expect(queue).toMatch(/<h3>Appears in<\/h3><ul><li data-vs-entity="a_queue"><a class="vs-inspect-link" href="#x-a_queue">Charge queue<\/a> in <a href="#x-t_run">One run<\/a><\/li><\/ul>/);
-    expect(queue).toMatch(/<h3>Evidence<\/h3><div class="vs-evidence-item"><pre class="vs-code">[\s\S]*const queue = \[\];[\s\S]*<a class="vs-inspect-link" href="#x-src_a">Queue code<\/a>/);
+    expect(queue).toMatch(/<details class="vs-detail-section vs-detail-evidence"[^>]*><summary>Evidence \(1\)<\/summary><div class="vs-detail-evidence-body"><div class="vs-evidence-item"><pre class="vs-code">[\s\S]*const queue = \[\];[\s\S]*<a class="vs-inspect-link" href="#x-src_a">Queue code<\/a>/);
     expect(queue).toContain('data-vs-cue="storage"');
     // The title already shows the cue word, so the facts list does not repeat it (phase-2 review S1).
     expect(queue).not.toContain('<dt>role</dt>');
@@ -304,6 +306,7 @@ describe('compare cell link (IMPROVEMENTS.md §4.6)', () => {
 {% criterion id="c_c" label="Order" /%}
 {% criterion id="c_v" label="Capacity" /%}
 {% criterion id="c_e" label="Measured capacity" /%}
+{% criterion id="c_n" label="Ordering" /%}
 {% cell id="cl_x" option="o_a" criterion="c_x" value="fixed" /%}
 {% cell id="cl_y" option="o_a" criterion="c_y" %}
 Producers wait.
@@ -321,36 +324,45 @@ First in, first out. {% cite ref="src_a" /%}
 The limit is configurable.
 {% /cell %}
 {% cell id="cl_e" option="o_a" criterion="c_e" value="96" evidence=["src_a"] /%}
+{% cell id="cl_n" option="o_a" criterion="c_n" value="FIFO" %}
+{% detail id="nested_reason" label="Why FIFO" %}
+One writer preserves insertion order.
+{% /detail %}
+{% /cell %}
 {% /compare %}
 `);
     const table = main.slice(main.indexOf('<table class="vs-compare-table"'), main.indexOf('</table>'));
     const links = [...table.matchAll(/<a class="vs-cell-link"[^>]*data-vs-target="([^"]+)"[^>]*>(.*?)<\/a>/g)];
     expect(links.map((m) => m[1])).toEqual(['cl_w', 'cl_c']);
-    expect(links[0]![0]).toContain('aria-label="Bounded: Latency, details"');
-    expect(links[0]![2]).toContain('›');
+    expect(links[0]![0]).toContain('aria-label="Bounded: Latency; opens more detail"');
+    expect(links[0]![2]).toContain('vs-depth-cue vs-depth-explanation');
     expect(table).not.toContain('>details<');
-    // The link is inline, inside the last paragraph, after the text.
-    expect(table).toMatch(/<p>The producer sees the wait as latency\. <a class="vs-cell-link"[^>]*id="v-cmp\.cl_w"/);
+    // Only the first block is the visible value; the link opens the later explanation.
+    expect(table).toMatch(/<p>Grows with the lag\. <a class="vs-cell-link"[^>]*id="v-cmp\.cl_w"/);
+    expect(table).not.toContain('The producer sees the wait as latency.');
     // A one-sentence cell and an empty cell: no link, and the cell body is the table instance.
     expect(table).toContain('<div class="vs-cell-body" id="v-cmp.cl_y" data-vs-target="cl_y"><p>Producers wait.</p></div>');
     expect(table).toContain('<div class="vs-cell-body" id="v-cmp.cl_z" data-vs-target="cl_z"></div>');
     // A value-only cell is still a target instance, but it is not a link.
-    expect(table).toContain('<span class="vs-cell-value" id="v-cmp.cl_x" data-vs-target="cl_x">fixed</span>');
+    expect(table).toContain('<span class="vs-cell-value" id="v-cmp.cl_x" data-vs-target="cl_x" data-vs-depth="bare">fixed</span>');
     expect(table).not.toMatch(/<a[^>]*data-vs-target="cl_x"/);
     // A value with additional authored detail remains interactive.
-    expect(table).toMatch(/<a class="vs-cell-value" id="v-cmp\.cl_v" data-vs-target="cl_v" href="#x-cl_v" data-vs-interactive="">100<\/a>/);
+    expect(table).toMatch(/<a class="vs-cell-value"[^>]*id="v-cmp\.cl_v"[^>]*data-vs-target="cl_v"[^>]*href="#x-cl_v"[^>]*data-vs-interactive=""[^>]*>100<span class="vs-depth-cue/);
+    expect(table).not.toContain('The limit is configurable.');
     // Explicit evidence is also additional detail, even without a body.
-    expect(table).toMatch(/<a class="vs-cell-value" id="v-cmp\.cl_e" data-vs-target="cl_e" href="#x-cl_e" data-vs-interactive="">96<\/a>/);
+    expect(table).toMatch(/<a class="vs-cell-value"[^>]*id="v-cmp\.cl_e"[^>]*data-vs-target="cl_e"[^>]*href="#x-cl_e"[^>]*data-vs-interactive=""[^>]*aria-label="Bounded: Measured capacity, 96; opens sources"[^>]*>96<span class="vs-depth-cue/);
     // Every cell has exactly one table instance.
-    for (const cell of ['cl_x', 'cl_y', 'cl_z', 'cl_w', 'cl_c', 'cl_v', 'cl_e']) expect(table.split(`id="v-cmp.${cell}"`).length - 1).toBe(1);
+    for (const cell of ['cl_x', 'cl_y', 'cl_z', 'cl_w', 'cl_c', 'cl_v', 'cl_e', 'cl_n']) expect(table.split(`id="v-cmp.${cell}"`).length - 1).toBe(1);
 
     const cards = main.slice(main.indexOf('<div class="vs-compare-cards"'), main.indexOf('</figure>'));
-    expect(cards).toContain('<span id="l-cmp.cl_x" data-vs-target="cl_x">Bounded</span>');
+    expect(cards).toContain('<span id="l-cmp.cl_x" data-vs-target="cl_x" data-vs-depth="bare">Bounded</span>');
     expect(cards).not.toMatch(/<a[^>]*data-vs-target="cl_x"/);
     expect(cards).toMatch(/<a[^>]*id="l-cmp\.cl_v"[^>]*data-vs-target="cl_v"[^>]*data-vs-interactive/);
     expect(cards).toMatch(/<a[^>]*id="l-cmp\.cl_e"[^>]*data-vs-target="cl_e"[^>]*data-vs-interactive/);
+    expect(cards).not.toContain('The limit is configurable.');
+    expect(appendix).toContain('<section class="vs-detail-section vs-detail-nested"');
     expect(markdown).toContain('Evidence: Queue code (src_a)');
     const evidenceDetail = appendix.slice(appendix.indexOf('id="x-cl_e"'), appendix.indexOf('</details>', appendix.indexOf('id="x-cl_e"')));
-    expect(evidenceDetail.indexOf('vs-detail-evidence')).toBeLessThan(evidenceDetail.indexOf('vs-detail-text'));
+    expect(evidenceDetail.indexOf('vs-detail-evidence')).toBeGreaterThan(evidenceDetail.indexOf('vs-detail-text'));
   });
 });

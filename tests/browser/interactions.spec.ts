@@ -65,6 +65,19 @@ test.describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
     await expect(page.locator(`[id="x-${MAP}"] [data-vs-proxy-for]:visible`)).toHaveCount(2);
   });
 
+  test('Locate remains available for an inspected target hidden by a fold', async ({ page }, info) => {
+    test.skip(info.project.name.includes('nojs') || isNarrow(page), 'the persistent inspector and hidden list instance are the wide interactive path');
+    await openFixture(page);
+    await byId(page, 'l-map.n_api').evaluate((node) => (node as HTMLElement).click());
+    const inspector = page.locator('aside#vs-inspector');
+    const locate = inspector.getByRole('button', { name: 'Locate in figure' });
+    await expect(locate).toBeVisible();
+    await locate.click();
+    await expect(fold(page, 'g_orders')).toBeHidden();
+    await expect(byId(page, svgId('n_api'))).toBeVisible();
+    await expect(byId(page, svgId('n_api'))).toBeFocused();
+  });
+
   test('a click unfolds a group in place, and "Fold" folds it again', async ({ page }) => {
     await openFixture(page);
     await fold(page, 'g_orders').click();
@@ -183,7 +196,7 @@ test.describe('cross-figure highlight (IMPROVEMENTS.md §14.9)', () => {
     expect(await near(page, 'v-one_order.a_worker')).toBe(false);
     await page.mouse.move(2, 2);
     expect(await near(page, 'v-one_order.a_api')).toBe(false);
-    await byId(page, 'v-one_order.a_worker').locator('rect').hover();
+    await byId(page, 'v-one_order.a_worker').locator('rect').first().hover();
     expect(await near(page, 'v-components.n_worker')).toBe(true);
     expect(await near(page, 'v-components.n_api')).toBe(false);
     await page.mouse.move(2, 2);
@@ -203,7 +216,7 @@ test.describe('cross-figure highlight (IMPROVEMENTS.md §14.9)', () => {
   test('a part inside a folded group lights the fold box', async ({ page }) => {
     test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
     await openFixture(page);
-    await byId(page, 'v-flow.a_bill').locator('rect').hover();
+    await byId(page, 'v-flow.a_bill').locator('rect').first().hover();
     await expect(fold(page, 'g_billing')).toHaveClass(/vs-near/);
     await page.mouse.move(2, 2);
     await expect(fold(page, 'g_billing')).not.toHaveClass(/vs-near/);
@@ -270,7 +283,7 @@ test.describe('one owner for the marks (phase 6a review C2, C3; phase 6b review 
     await openFixture(page);
     await bar(page).locator('.vs-step-next').click();
     await bar(page).locator('.vs-step-next').click();
-    await expect(bar(page).locator('.vs-step-status')).toHaveText('2 of 2 · The client submits');
+    await expect(bar(page).locator('.vs-step-status')).toHaveText('2 of 2 · Submission crosses the boundary once');
     await chip(page, 'storage').click();
     // The step wins: its target is near and not dim.
     expect(await marks(page, [svgId('n_client'), svgId('e_submit~-~g_orders')])).toEqual({ [svgId('n_client')]: 'vs-near', [svgId('e_submit~-~g_orders')]: 'vs-near' });
@@ -285,7 +298,7 @@ test.describe('one owner for the marks (phase 6a review C2, C3; phase 6b review 
     test.skip(isNarrow(page), 'the step bar is the wide-screen view');
     await openFixture(page);
     await bar(page).locator('.vs-step-next').click();
-    await expect(bar(page).locator('.vs-step-status')).toHaveText('1 of 2 · The API saves the order');
+    await expect(bar(page).locator('.vs-step-status')).toHaveText('1 of 2 · Saving stays inside the order boundary');
     expect(await foldMark(page, 'g_orders')).toBe('vs-near');
     expect(await foldMark(page, 'g_billing')).toBe('vs-dim');
     expect(await marks(page, [svgId('n_client')])).toEqual({ [svgId('n_client')]: 'vs-dim' });
@@ -328,7 +341,7 @@ test.describe('one owner for the marks (phase 6a review C2, C3; phase 6b review 
     await fold(page, 'g_billing').click();
     await byId(page, svgId('n_api')).focus();
     expect(await marks(page, [svgId('n_bill')])).toEqual({ [svgId('n_bill')]: 'vs-near' });
-    await byId(page, 'v-flow.a_bill').locator('rect').hover();
+    await byId(page, 'v-flow.a_bill').locator('rect').first().hover();
     await page.mouse.move(2, 2);
     expect(await marks(page, [svgId('n_bill'), svgId('n_store')])).toEqual({ [svgId('n_bill')]: 'vs-near', [svgId('n_store')]: 'vs-near' });
   });

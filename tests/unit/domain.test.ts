@@ -146,7 +146,7 @@ describe('domain relationships and projection (IMPROVEMENTS.md §5.4, ARCHITECTU
 describe('domain rendering (IMPROVEMENTS.md §3.2, §5.4)', () => {
   it('hue and shape follow the category; one category shows no hue', async () => {
     const page = await html(readFileSync(FIXTURE, 'utf8'));
-    const node = (id: string) => new RegExp(`<a class="([^"]*)" href="#x-${id}" id="v-orders_model\\.${id}"[^>]*>(<(?:rect|path)[^>]*>)`).exec(page);
+    const node = (id: string) => new RegExp(`<(?:a|g) class="([^"]*)"[^>]*id="v-orders_model\\.${id}"[^>]*>(<(?:rect|path)[^>]*>)`).exec(page);
     expect(node('c_customer')![1]).toContain('vs-cat-teal');
     expect(node('c_customer')![2]).toContain('rx="12"');
     expect(node('c_order')![1]).toContain('vs-cat-slate');
@@ -185,7 +185,7 @@ describe('domain rendering (IMPROVEMENTS.md §3.2, §5.4)', () => {
     // The cardinality follows the label, so the layout reserves its space (phase 4 review D7).
     expect(page).toMatch(/id="v-orders_model\.r_has"[\s\S]*?<text class="vs-edge-label"[^>]*><tspan[^>]*>contains \u00b7 1\.\.\*<\/tspan>/);
     expect(page).not.toContain('vs-edge-end');
-    expect(page).toContain('aria-label="Order, contains, Invoice line (has, cardinality 1..*)"');
+    expect(page).toContain('aria-label="Order, contains, Invoice line (has, cardinality 1..*); opens more detail"');
     // A figure with no is-a and no has relation defines no extra markers.
     const plain = await html(doc(domain(`${TWO}\n{% relation id="r_x" from="c_order" to="c_line" kind="produces" label="emits" /%}`)));
     expect(plain).not.toContain('arrow-triangle');
@@ -205,8 +205,15 @@ describe('domain rendering (IMPROVEMENTS.md §3.2, §5.4)', () => {
     const body = /<div class="vs-domain-body">[\s\S]*?<\/table><\/div><\/div>/.exec(page)![0];
     expect(body.indexOf('class="vs-viewport"')).toBeLessThan(body.indexOf('class="vs-glossary"'));
     // The term cell names the category in muted text (phase 4 review D5).
-    const rows = [...body.matchAll(/<tr><th scope="row"><a class="vs-glossary-term" href="#x-(\w+)" id="l-orders_model\.(\w+)" data-vs-target="(\w+)" data-vs-interactive="">([^<]+)<\/a>(?:<span class="vs-role" data-vs-generated=""> \((\w+)\)<\/span>)?<\/th><td>([\s\S]*?)<\/td><td class="vs-glossary-more"><a class="vs-inspect-link" href="#x-(\w+)"/g)]
-      .map((m) => [m[1], m[4], m[5], m[6]!.replace(/<[^>]+>/g, ''), m[7]]);
+    const tbody = /<tbody>([\s\S]*?)<\/tbody>/.exec(body)![1]!;
+    const rows = [...tbody.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((row) => {
+      const markup = row[1]!;
+      const term = /<a class="vs-glossary-term"[^>]*data-vs-target="([^"]+)"[^>]*>([^<]+)[\s\S]*?<\/a>/.exec(markup)!;
+      const category = /<span class="vs-role" data-vs-generated=""> \((\w+)\)<\/span>/.exec(markup)?.[1];
+      const meaning = /<\/th><td>([\s\S]*?)<\/td>/.exec(markup)![1]!.replace(/<[^>]+>/g, '');
+      const more = /<td class="vs-glossary-more"><a class="vs-inspect-link" href="#x-([^"]+)"/.exec(markup)![1];
+      return [term[1], term[2], category, meaning, more];
+    });
     expect(rows).toEqual([
       ['c_customer', 'Customer', 'actor', 'A customer is a person or a company that places orders.', 'c_customer'],
       ['c_prepaid', 'Prepaid customer', 'actor', 'A prepaid customer pays before the order ships.', 'c_prepaid'],
@@ -221,6 +228,33 @@ describe('domain rendering (IMPROVEMENTS.md §3.2, §5.4)', () => {
     expect(lists).toContain('aria-label="Relations"');
     expect(lists).not.toContain('vs-node-list');
     expect(lists).toContain('(cardinality: 1..*)');
+  });
+
+  it('keeps a definition reachable from the map but avoids a redundant one-sentence glossary drill-down', async () => {
+    const page = await html(doc(`{% definition id="def_only" term="queue" %}
+A queue stores work.
+{% /definition %}
+
+{% domain id="dm" title="Queue" question="What is it?" %}
+{% concept id="c_queue" label="Queue" definition="def_only" category="thing" /%}
+{% /domain %}`));
+    expect(page).toMatch(/<a class="vs-node"[^>]*id="v-dm\.c_queue"[^>]*data-vs-depth="explanation"/);
+    expect(page).toContain('<span class="vs-glossary-term" id="l-dm.c_queue" data-vs-target="c_queue" data-vs-depth="bare">Queue</span>');
+    const row = /<tr>[\s\S]*?id="l-dm\.c_queue"[\s\S]*?<\/tr>/.exec(page)![0];
+    expect(row).not.toContain('Read more');
+
+    const withConceptBody = await html(doc(`{% definition id="def_only" term="queue" %}
+A queue stores work.
+{% /definition %}
+
+{% domain id="dm" title="Queue" question="What is it?" %}
+{% concept id="c_queue" label="Queue" definition="def_only" category="thing" %}
+Its bound controls producer backpressure.
+{% /concept %}
+{% /domain %}`));
+    const bodyRow = /<tr>[\s\S]*?id="l-dm\.c_queue"[\s\S]*?<\/tr>/.exec(withConceptBody)![0];
+    expect(bodyRow).toContain('data-vs-depth="explanation"');
+    expect(bodyRow).toContain('Read more');
   });
 
   it('the domain direction rule counts the glossary height (phase 4 review D2)', async () => {

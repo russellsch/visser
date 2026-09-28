@@ -44,7 +44,7 @@ function svgText(markup: string): string {
 
 /** The opening tag of the SVG instance with the given ID. */
 function tagOf(html: string, instanceId: string): string {
-  return new RegExp(`<a [^>]*id="${instanceId.replace(/[.~]/g, '\\$&')}"[^>]*>`).exec(html)?.[0] ?? '';
+  return new RegExp(`<(?:a|g) [^>]*id="${instanceId.replace(/[.~]/g, '\\$&')}"[^>]*>`).exec(html)?.[0] ?? '';
 }
 
 /** Markup between a start marker and the next marker that closes the view. */
@@ -284,6 +284,16 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     expect(section(markup, 'id="v-rollout.d_input"', '</a>')).toContain('stroke-dasharray="6 4"');
     expect(map).toContain('rows complete (input)');
     expect(map).not.toMatch(/\d+%/);
+
+    const factsOnly = await compile(PLAN
+      .replace('Migration merged.\n', '')
+      .replace('Runs in batches.\n', '')
+      .replace('Reads use the new column.\n', '')
+      .replace('The backfill writes the new column.\n', '')
+      .replace('The switch needs every row.\n', ''));
+    expect(tagOf(factsOnly.html, 'v-rollout.t_backfill')).toContain('data-vs-depth="context"');
+    expect(factsOnly.html).toMatch(/id="l-rollout\.t_backfill"[^>]*data-vs-depth="bare"/);
+    expect(tagOf(factsOnly.html, 'v-rollout.d_input')).toContain('data-vs-depth="bare"');
   });
 
   it('transform: representation rows and loss in the main visual; merges keep separate arrows', async () => {
@@ -304,6 +314,17 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     expect(markup).toContain('id="v-pipe.cv_threshold"');
     expect(markup).toContain('id="v-pipe.cv_orientation"');
     expect(markup).not.toContain('vs-role-');
+
+    const factsOnly = await compile(TRANSFORM
+      .replace('As received.\n', '')
+      .replace('Normalized to 0..1.\n', '')
+      .replace('One byte per pixel.\n', '')
+      .replace('Decoding is lossy upstream.\n', '')
+      .replace('Values above 0.5 become 1.\n', '')
+      .replace('EXIF orientation is carried separately.\n', ''));
+    expect(tagOf(factsOnly.html, 'v-pipe.s_tensor')).toContain('data-vs-depth="context"');
+    expect(factsOnly.html).toMatch(/id="l-pipe\.s_tensor"[^>]*data-vs-depth="bare"/);
+    expect(tagOf(factsOnly.html, 'v-pipe.cv_decode')).toContain('data-vs-depth="bare"');
   });
 
   it('compare: semantic table, stacked cards, Not provided, value status, no ranking', async () => {
@@ -326,9 +347,9 @@ describe('Phase 2 rendering kernels (§9.3–9.10) @R06 @R14', () => {
     // Cards link only cells whose inspector adds information. The one-sentence
     // body of cell_bf is already shown in full, so its label is a plain target.
     expect(cards).not.toContain('>Details<');
-    expect(cards).toContain('<span id="l-queues.cell_bf" data-vs-target="cell_bf">Bounded queue</span>');
+    expect(cards).toContain('<span id="l-queues.cell_bf" data-vs-target="cell_bf" data-vs-depth="bare">Bounded queue</span>');
     expect(cards).not.toContain('aria-label="Bounded queue: Failure behavior"');
-    expect(cards).toContain('aria-label="Bounded queue: Memory under overload"');
+    expect(cards).toContain('aria-label="Bounded queue: Memory under overload; opens more detail"');
     // Table cells without a value: no "Details" line above the text (dogfood-2 Q5).
     expect(table).not.toContain('>Details<');
     // The whole body of cell_bf is the one sentence in the table, so it gets
