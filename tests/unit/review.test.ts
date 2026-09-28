@@ -9,7 +9,7 @@ import { reviewDocument } from '../../packages/core/src/review/index.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const fixtures = join(root, 'tests/fixtures/editorial');
-const REVIEW_CODES = ['W_JARGON', 'W_VISUAL_DENSITY', 'W_EVIDENCE_GAP'];
+const REVIEW_CODES = ['W_JARGON', 'W_VISUAL_DENSITY', 'W_EVIDENCE_GAP', 'W_WALKTHROUGH_VALUE'];
 // The prose, shape, and term prompts (IMPROVEMENTS.md §6.2, §11.3, §12.4, §13.6); tests/unit/review.prose.test.ts covers them.
 const ALL_REVIEW_CODES = [...REVIEW_CODES, 'W_SENTENCE_LENGTH', 'W_PASSIVE', 'W_CONTRACTION', 'W_VAGUE_QUANTITY', 'W_SYNONYM', 'W_READER',
   'W_LENGTH', 'W_FIGURE_COUNT', 'W_LATE_FIGURE', 'W_LABEL_LENGTH', 'W_DUPLICATE', 'W_HEADING', 'W_MERMAID', 'W_TERM_UNUSED', 'W_TERM_COLLISION',
@@ -27,6 +27,7 @@ const EXPECTED: Record<string, Array<[string, string, string?]>> = {
   'hidden-caveat': [['W_EVIDENCE_GAP', 'd_caveat']],
   'uncited-certainty': [['W_EVIDENCE_GAP', 'p_claim']],
   'sparse-compare': [['W_EVIDENCE_GAP', 'queues', '2 of 6 cells']],
+  'low-value-walkthrough': [['W_WALKTHROUGH_VALUE', 'walk', 'one different part']],
 };
 
 function review(path: string) {
@@ -68,7 +69,7 @@ describe('@R16 editorial review prompts on the editorial fixtures', () => {
       }
       for (const d of prompts) if (REVIEW_CODES.includes(d.code)) found.push(`${name}:${d.code}:${d.targetId}`);
     }
-    // A precision check for the three original prompts: every other example
+    // A precision check for the original prompts and walkthrough value: every other example
     // is clean of them. These six are real
     // gaps in the example (observed with no cited evidence), not false alarms.
     expect(found).toEqual([

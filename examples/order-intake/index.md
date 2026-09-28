@@ -66,15 +66,15 @@ A retry with the same key cannot charge twice.
 {% edge id="e_update" from="n_worker" to="n_store" kind="call" label="mark paid or failed" /%}
 
 {% steps id="walk_components" %}
-{% step id="wk_accept" label="The API accepts the order" targets=["n_api", "e_insert", "e_enqueue", "n_store", "n_queue"] %}
-The API writes the order and the charge request, then answers the client. {% cite ref="src_accept_order" /%}
+{% step id="wk_accept" label="Acceptance is atomic" targets=["n_api", "e_insert", "e_enqueue", "n_store", "n_queue"] %}
+The order and its charge request share one transaction, so neither can exist without the other. {% cite ref="src_accept_order" /%}
 {% /step %}
 
-{% step id="wk_charge" label="The worker charges the card" targets=["n_worker", "e_take", "e_charge", "n_provider"] %}
-The worker uses the order ID as the idempotency key. {% cite ref="src_charge_next" /%}
+{% step id="wk_charge" label="Charging is retry-safe" targets=["n_worker", "e_take", "e_charge", "n_provider"] %}
+The durable request and order ID let the worker retry without charging twice. {% cite ref="src_charge_next" /%}
 {% /step %}
 
-{% step id="wk_record" label="The worker records the result" targets=["n_worker", "e_update", "n_store"] %}
+{% step id="wk_record" label="Only the result write changes payment state" targets=["n_worker", "e_update", "n_store"] %}
 Only this write changes the payment state of the order.
 {% /step %}
 {% /steps %}

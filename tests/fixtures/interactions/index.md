@@ -40,8 +40,12 @@ Each boundary is one deployable service.
 {% edge id="e_post" from="n_bill" to="n_ledger" kind="data" label="post entry" /%}
 
 {% steps id="walk_map" %}
-{% step id="wk_inside" label="The API saves the order" targets=["n_api", "e_save"] /%}
-{% step id="wk_client" label="The client submits" targets=["n_client", "e_submit"] /%}
+{% step id="wk_inside" label="Saving stays inside the order boundary" targets=["n_api", "e_save"] %}
+The API and store own the durable acceptance path.
+{% /step %}
+{% step id="wk_client" label="Submission crosses the boundary once" targets=["n_client", "e_submit"] %}
+The client knows only the API contract, not the storage path.
+{% /step %}
 {% /steps %}
 {% /graph %}
 

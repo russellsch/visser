@@ -18,6 +18,11 @@ The arrow is a data flow.
 {% edge id="e_enqueue" from="n_api" to="n_queue" kind="data" label="enqueues charge request" /%}
 
 {% steps id="walk" %}
-{% step id="wk_1" label="The API stores the request" targets=["n_missing"] /%}
+{% step id="wk_1" label="The API stores the request" targets=["n_missing"] %}
+This step deliberately names a missing part.
+{% /step %}
+{% step id="wk_2" label="The queue is durable" targets=["n_queue", "e_enqueue"] %}
+The data edge crosses into durable storage.
+{% /step %}
 {% /steps %}
 {% /graph %}

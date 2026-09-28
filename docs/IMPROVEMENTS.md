@@ -898,8 +898,8 @@ meets it or says why it is not a component.
 
 ### 14.1 `steps`: a walkthrough inside a figure
 
-**Question:** in what order does the reader look at the parts of this figure,
-and what happens at each one?
+**Question:** which sequence of observations helps the reader understand this
+figure?
 
 A `steps` child of any figure, with `step` children. Each step names the
 targets it is about and holds text with citations.
@@ -912,7 +912,9 @@ targets it is about and holds text with citations.
 {% step id="wk_1" targets=["n_api", "e_insert"] label="The API stores the order" %}
 One transaction, so an order never exists without its charge request. {% cite ref="src_insert" /%}
 {% /step %}
-{% step id="wk_2" targets=["n_worker", "e_charge"] label="The worker charges later" /%}
+{% step id="wk_2" targets=["n_worker", "e_charge"] label="Charging is retry-safe" %}
+The durable request separates acceptance from a retryable charge attempt.
+{% /step %}
 {% /steps %}
 {% /graph %}
 ```
@@ -929,9 +931,18 @@ about execution order; a `trace` makes that claim. The guide says so, and a
 `steps` inside an `architecture` gets the sentence "Reading order, not
 execution order" in its bar.
 
+A walkthrough has at least two steps. Every step names at least one target,
+names each target once, and has non-citation explanatory text. It earns its
+control by grouping related parts into conceptual phases and adding an
+invariant, boundary, contrast, or consequence. If replacing every step with
+its target labels loses no meaning, remove it. `check --review` gives one
+`W_WALKTHROUGH_VALUE` for the walkthrough when its figure has four or fewer
+drawn parts, or when every step names exactly one different part.
+
 Pressure test: the risk is a second trace in disguise. The mitigation is the
 sentence above and the `after` rule that only `trace` has. A `steps` with
-more than 8 steps gets `W_VISUAL_DENSITY`.
+more than 8 steps gets `W_VISUAL_DENSITY`. The value review is deliberately
+structural: it does not guess from word counts or text similarity.
 
 ### 14.2 `note`: a limit, an assumption, or a warning
 

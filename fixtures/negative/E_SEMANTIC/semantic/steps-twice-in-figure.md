@@ -18,10 +18,20 @@ The arrow is a data flow.
 {% edge id="e_enqueue" from="n_api" to="n_queue" kind="data" label="enqueues charge request" /%}
 
 {% steps id="walk_a" %}
-{% step id="wk_a" label="The API stores the request" targets=["n_api"] /%}
+{% step id="wk_a" label="The API stores the request" targets=["n_api"] %}
+The API owns the request boundary.
+{% /step %}
+{% step id="wk_a2" label="The queue is durable" targets=["n_queue", "e_enqueue"] %}
+The data edge crosses into durable storage.
+{% /step %}
 {% /steps %}
 
 {% steps id="walk_b" %}
-{% step id="wk_b" label="The queue holds it" targets=["n_queue"] /%}
+{% step id="wk_b" label="The queue holds it" targets=["n_queue"] %}
+The queue owns the durable request.
+{% /step %}
+{% step id="wk_b2" label="The API writes it" targets=["n_api", "e_enqueue"] %}
+The API and edge form the write path.
+{% /step %}
 {% /steps %}
 {% /graph %}

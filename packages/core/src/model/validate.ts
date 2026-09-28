@@ -6,7 +6,7 @@
 import { identityProblem } from '../provenance/identity.ts';
 import type { Diagnostic, ParsedSource, ParsedTarget, TargetId } from '../types.ts';
 import { normalizeText, sha256Hex } from './hash.ts';
-import type { MNode, TargetModel } from './targets.ts';
+import { inlineText, type MNode, type TargetModel } from './targets.ts';
 import { DIFF_MAX_LINES, excerptLines } from './diff.ts';
 
 type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'strings' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region' | 'date';
@@ -313,6 +313,7 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
   const diagnostics: Diagnostic[] = [];
   if (model.targets.size === 0 || parsed.diagnostics.some((d) => d.severity === 'error')) return diagnostics;
   const byId = new Map<TargetId, ParsedTarget>(parsed.targets.map((t) => [t.id, t]));
+  const targetNodes = new Set(model.nodes.values());
   const tagOf = (id: string | undefined) => (id === undefined ? undefined : byId.get(id)?.tagName);
   // The top-level target (the figure) that holds a target.
   const rootOf = (t: ParsedTarget): string => {
@@ -688,7 +689,7 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
       // the figure that holds them. One walkthrough for each figure.
       const owner = figure.parentId;
       const steps = children(figure.id, 'step');
-      if (steps.length === 0) report('E_SYNTAX', `steps ${figure.id} needs at least one step`, figure);
+      if (steps.length < 2) report('E_SYNTAX', `steps ${figure.id} needs at least two steps; use figure prose or a focus link for one observation`, figure);
       if (steps.length > STEPS_WARN) {
         report('W_VISUAL_DENSITY', `steps ${figure.id} has ${steps.length} steps; split the figure by question (warning above ${STEPS_WARN})`, figure, 'warning');
       }
@@ -696,15 +697,27 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
         const first = children(owner, 'steps')[0];
         if (first && first.id !== figure.id) report('E_SEMANTIC', `steps ${figure.id}: figure ${owner} already has the walkthrough ${first.id}; one figure has one \`steps\``, figure);
         for (const s of steps) {
-          for (const id of ids(s.attributes['targets'])) {
-            const ref = byId.get(id);
-            if (!ref) continue; // E_REF_BROKEN from targets.ts
-            if (ref.id === owner || ref.tagName === 'steps' || ref.tagName === 'step' || rootOf(ref) !== owner) {
-              report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${id}, which is not a part of figure ${owner}`, s);
-            } else if (ref.tagName !== undefined && UNMARKED_TAGS.has(ref.tagName)) {
-              // A detail is not drawn, so a step about it marks nothing (phase 6a review C10).
-              report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${ref.tagName} ${id}, which the figure does not draw; name a drawn part`, s);
+          const rawTargets = s.attributes['targets'];
+          const targets = ids(rawTargets);
+          if (typeOk(rawTargets, 'ids')) {
+            if (targets.length === 0) report('E_SYNTAX', `step ${s.id} needs at least one \`targets\` ID`, s);
+            const duplicates = [...new Set(targets.filter((id, index) => targets.indexOf(id) !== index))];
+            if (duplicates.length > 0) report('E_SEMANTIC', `step ${s.id}: \`targets\` repeats ${duplicates.join(', ')}; name each part once`, s);
+            for (const id of targets) {
+              const ref = byId.get(id);
+              if (!ref) continue; // E_REF_BROKEN from targets.ts
+              if (ref.id === owner || ref.tagName === 'steps' || ref.tagName === 'step' || rootOf(ref) !== owner) {
+                report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${id}, which is not a part of figure ${owner}`, s);
+              } else if (ref.tagName !== undefined && UNMARKED_TAGS.has(ref.tagName)) {
+                // A detail is not drawn, so a step about it marks nothing (phase 6a review C10).
+                report('E_REF_BROKEN', `step ${s.id}: \`targets\` names ${ref.tagName} ${id}, which the figure does not draw; name a drawn part`, s);
+              }
             }
+          }
+          const node = model.nodes.get(s.id);
+          const explanation = node ? inlineText(node, (candidate) => targetNodes.has(candidate)) : '';
+          if (!/[\p{L}\p{N}]/u.test(explanation)) {
+            report('E_SYNTAX', `step ${s.id} has no explanation; write what the targeted parts show together, beyond the step label`, s);
           }
         }
       }

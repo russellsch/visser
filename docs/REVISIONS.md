@@ -307,3 +307,23 @@ This revision fixes the findings of `docs/reviews/phase6a-components-review-1.md
   not depend on the author's installed toolkit.
 - `--format site` keeps the shared-asset folder export for collections and
   static hosting. `--include-source` remains a site-only option.
+
+## Revision 1.32 — compare-cell interaction
+
+- A compare cell is interactive only when its inspector contains body detail,
+  evidence, a citation, or nested detail beyond the value already displayed.
+- A cell accepts `evidence` source IDs; the page, inspector, and text projection
+  preserve them.
+- Value-only cells remain target instances for references and walkthroughs,
+  but the desktop table and narrow card view no longer present them as links.
+
+## Revision 1.33 — explanatory walkthroughs
+
+- A walkthrough now requires at least two steps. Every step requires a target
+  and non-citation explanatory body text, and duplicate targets are rejected.
+- `check --review` adds one `W_WALKTHROUGH_VALUE` per low-value walkthrough:
+  a figure with four or fewer drawn parts, or a part-by-part tour whose steps
+  each name one different part.
+- The catalogue and canonical example frame steps as conceptual phases that
+  add an invariant, boundary, contrast, or consequence. The runtime and its
+  stepper interaction are unchanged.

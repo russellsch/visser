@@ -1,32 +1,29 @@
 # Walkthrough — `steps`
 
-**Question:** In what order does the reader look at the parts of this figure, and what happens at each one?
+**Question:** Which sequence of observations helps the reader understand this figure?
 
-**Confused with:** `trace` (an execution order, with `after`) and a numbered list in prose (no link to the parts).
+**Confused with:** `trace` (execution order) and a numbered list (no links to parts).
 
 ## Use it when
 
-- A figure has more parts than the reader can take in at once, and one path
-  through it explains it.
-- Each step names two or three parts and says one thing about them.
-- The prose after the figure would say "first look at A, then at B".
+- A figure has more parts than the reader can take in at once.
+- Each step groups related parts and adds an invariant, boundary, contrast, or
+  consequence that the labels do not already say.
 
 ## Do not use it when
 
-- The order is an order of events at run time. Use a `trace`; only a trace
-  claims an execution order.
-- The walkthrough spans two figures. Use two `steps`, one in each, and a sentence
-  between them.
+- The order is events at run time. Use a `trace`.
+- The walkthrough spans two figures. Use one per figure.
 - The figure has four parts or fewer. The prose after it is enough.
+- Replacing every step with its target labels loses no meaning. Remove the
+  walkthrough; the figure already says it.
 
 ## Misleading example
 
-**Reject:** a walkthrough of an architecture map whose steps say "then the
-worker charges", read as the order of events in one run.
+**Reject:** architecture steps that replay "then the worker charges."
 
-**Prefer:** steps that say what each part does, and a `trace` when the order
-in time matters. In a `graph` of any mode and in a `domain`, the page prints
-"Reading order, not execution order."
+**Prefer:** conceptual observations; use a `trace` for time order. Graph and
+domain walkthroughs print "Reading order, not execution order."
 
 ## Tags and attributes
 
@@ -39,23 +36,30 @@ in time matters. In a `graph` of any mode and in a `domain`, the page prints
 
 ## Rules
 
-- `steps` goes directly inside a figure: `graph` (any mode), `trace`,
-  `transform`, `compare`, `annotated`, or `domain`. One figure has one
-  `steps`.
-- `step` goes directly inside the `steps`. The body of a step is one or two
-  sentences, with citations.
-- `targets` names parts of the same figure: nodes, edges, events, cells,
-  annotations, or concepts. A `detail` is not drawn, so a step cannot name it.
+- `steps` goes inside `graph`, `trace`, `transform`, `compare`, `annotated`, or
+  `domain`. One figure has one `steps`.
+- `steps` has at least two `step` children. `step` goes directly inside the
+  `steps`, names at least one target without duplicates, and has a body. The
+  body is one or two sentences of explanation; a citation alone is not a body.
+- `targets` names drawn parts of the same figure, never a `detail`.
 - Above 8 steps you get `W_VISUAL_DENSITY`. Split the figure by question.
+- `check --review` gives `W_WALKTHROUGH_VALUE` when the figure has four or
+  fewer drawn parts, or when every step visits exactly one different part.
+
+## Shape the explanation for the figure
+
+- **Architecture/domain:** group a boundary or relationship; explain its rule.
+- **Transform:** combine input, conversion, and output into a change of shape,
+  encoding, location, or owner.
+- **Compare:** group cells or options into a contrast.
+- **Trace:** group events into explanatory phases; do not replay the trace.
+- **Annotated:** connect annotations into one claim about the source.
 
 ## Narrow screens and text
 
-Without JavaScript, in print, and on a narrow screen, the page shows a
-numbered list under the figure. Each item has its label, its text, and a
-link to each part. On a wide screen with JavaScript, a step bar shows
-"1 of 4 · label" with **Previous** and **Next**, and the arrow keys work in
-the bar. The parts of the active step stay bright, the other parts fade, and
-the step text shows beside the bar. The text projection is the numbered list.
+Without JavaScript, in print, and on narrow screens, a numbered list shows each
+label, explanation, and part link. Wide screens add a keyboard-operable step
+bar; active parts stay bright and the rest fade. Text uses the numbered list.
 
 ## Template
 
@@ -73,10 +77,12 @@ The arrows are calls and data flows, not an order of events.
 {% edge id="e_charge" from="n_worker" to="n_db" kind="call" label="reads open charge requests" /%}
 
 {% steps id="walk_order" %}
-{% step id="wk_1" targets=["n_api", "e_insert"] label="The API stores the order" %}
+{% step id="wk_1" targets=["n_api", "e_insert"] label="Acceptance is atomic" %}
 One transaction writes the order and its charge request. {% cite ref="src_insert" /%}
 {% /step %}
-{% step id="wk_2" targets=["n_worker", "e_charge"] label="The worker charges later" /%}
+{% step id="wk_2" targets=["n_worker", "e_charge"] label="Charging is retry-safe" %}
+The worker reads durable requests, so retrying the work does not repeat acceptance.
+{% /step %}
 {% /steps %}
 {% /graph %}
 
@@ -94,7 +100,11 @@ await db.transaction(async (tx) => {
 
 - `E_REF_BROKEN`: a `targets` ID is not a drawn part of this figure. Name a
   part of the figure that holds the `steps`.
-- `E_SYNTAX`: `steps` is outside a figure, or it has no `step`.
-- `E_SEMANTIC`: the figure has a second `steps`. Merge them, or split the
-  figure.
+- `E_SYNTAX`: `steps` is outside a figure, has fewer than two steps, or a step
+  has no target or explanatory body.
+- `E_SEMANTIC`: the figure has a second `steps`, or a step repeats a target.
+  Merge the walkthroughs or remove the duplicate.
 - `W_VISUAL_DENSITY`: more than 8 steps.
+- `W_WALKTHROUGH_VALUE`: the walkthrough is on a figure with four or fewer
+  drawn parts, or every step merely visits one different part. Add conceptual
+  grouping and explanation, or remove the walkthrough.

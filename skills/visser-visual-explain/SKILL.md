@@ -106,7 +106,7 @@ Visser repository. Use `--dev-toolkit` only for a document in that repository.
    | What must the reader notice in exact code, text, or an image? | `annotated` | How services interact is an `architecture`. One line is a `cite`. |
    | How large is it, and how did it change? | `measure` | A time series is a table. |
    | Where is what, and who owns it? | `tree` | Calls are an `architecture`. |
-   | In what order does the reader read a figure? | `steps` | Run order is a `trace`. |
+   | Which observations explain a figure? | `steps` | Run order is a `trace`; skip part-by-part tours. |
    | What must the reader not miss? | `note` | A main caveat is in the sentence. |
    | Can the reader predict it without the page? | `self-check` | Only `kind: teaching`. |
    | What did the team decide, and why? | `decision` guide | No winner in `compare`. |

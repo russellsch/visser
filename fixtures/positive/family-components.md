@@ -31,7 +31,9 @@ The arrow is a data flow, not an order of events.
 {% step id="wk_store" label="The API stores the request" targets=["n_api", "e_enqueue"] %}
 One call puts the request in the queue. {% cite ref="src_handler" /%}
 {% /step %}
-{% step id="wk_charge" label="The worker charges later" targets=["n_worker", "e_take", "n_queue"] /%}
+{% step id="wk_charge" label="The worker charges later" targets=["n_worker", "e_take", "n_queue"] %}
+The durable queue separates acceptance from retryable charge work.
+{% /step %}
 {% /steps %}
 {% /graph %}
 

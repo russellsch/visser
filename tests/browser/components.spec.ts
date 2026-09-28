@@ -30,7 +30,7 @@ test.describe('@R06 steps walkthrough (IMPROVEMENTS.md §14.1)', () => {
     expect(await nearAndDim(page)).toEqual({ near: [], dim: [] });
     await expect(figure.locator('li.vs-step')).toHaveCount(3);
     await bar.locator('.vs-step-next').click();
-    await expect(bar.locator('.vs-step-status')).toHaveText('1 of 3 · The API accepts the order');
+    await expect(bar.locator('.vs-step-status')).toHaveText('1 of 3 · Acceptance is atomic');
     const first = await nearAndDim(page);
     expect(first.near).toEqual(['e_enqueue', 'e_insert', 'n_api', 'n_queue', 'n_store']);
     expect(first.dim).toContain('n_worker');
@@ -44,7 +44,7 @@ test.describe('@R06 steps walkthrough (IMPROVEMENTS.md §14.1)', () => {
     // The arrow keys move between the steps when the bar has focus.
     await bar.locator('.vs-step-next').focus();
     await page.keyboard.press('ArrowRight');
-    await expect(bar.locator('.vs-step-status')).toHaveText('2 of 3 · The worker charges the card');
+    await expect(bar.locator('.vs-step-status')).toHaveText('2 of 3 · Charging is retry-safe');
     expect((await nearAndDim(page)).near).toEqual(['e_charge', 'e_take', 'n_provider', 'n_worker']);
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');

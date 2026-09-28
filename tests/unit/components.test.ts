@@ -69,16 +69,82 @@ describe('validation (IMPROVEMENTS.md §14)', () => {
   });
 
   it('more than 8 steps is W_VISUAL_DENSITY; 8 is not', () => {
-    const steps = (n: number) => `{% steps id="walk" %}\n${Array.from({ length: n }, (_, i) => `{% step id="wk_${i}" label="Step ${i}" targets=["n_api"] /%}`).join('\n')}\n{% /steps %}`;
+    const steps = (n: number) => `{% steps id="walk" %}\n${Array.from({ length: n }, (_, i) => `{% step id="wk_${i}" label="Step ${i}" targets=["n_api"] %}\nStep ${i} explains the boundary.\n{% /step %}`).join('\n')}\n{% /steps %}`;
     expect(found(doc(MAP(steps(8))), 'warning')).toEqual([]);
     expect(found(doc(MAP(steps(9))), 'warning')).toEqual(['W_VISUAL_DENSITY']);
     expect(found(doc(MAP(steps(9))), 'error')).toEqual([]);
   });
 
+  it('a walkthrough needs two explained steps with non-empty targets', () => {
+    const one = `{% steps id="walk" %}\n{% step id="wk_1" label="One" targets=["n_api"] %}\nThe API owns the boundary.\n{% /step %}\n{% /steps %}`;
+    expect(found(doc(MAP(one)), 'error')).toEqual(['E_SYNTAX']);
+
+    const invalid = (first: string) => `{% steps id="walk" %}
+${first}
+{% step id="wk_ok" label="Explained" targets=["n_queue", "e_enqueue"] %}
+The queue and edge make the handoff durable.
+{% /step %}
+{% /steps %}`;
+    const noTargets = load(doc(MAP(invalid(`{% step id="wk_no_targets" label="No target" %}
+This explanation names no part.
+{% /step %}`)))).diagnostics.filter((d) => d.severity === 'error');
+    expect(noTargets).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_no_targets' }]);
+
+    const wrongTargets = load(doc(MAP(invalid(`{% step id="wk_wrong_targets" label="Wrong target shape" targets=3 %}
+This explanation has the wrong target shape.
+{% /step %}`)))).diagnostics.filter((d) => d.severity === 'error');
+    expect(wrongTargets).toHaveLength(1);
+    expect(wrongTargets).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_wrong_targets' }]);
+
+    const mixedTargets = load(doc(MAP(invalid(`{% step id="wk_mixed_targets" label="Mixed target shape" targets=["intake", 3] %}
+This explanation has a mixed target list.
+{% /step %}`)))).diagnostics.filter((d) => d.severity === 'error');
+    expect(mixedTargets).toHaveLength(1);
+    expect(mixedTargets).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_mixed_targets' }]);
+
+    const noBody = load(doc(MAP(invalid('{% step id="wk_empty_body" label="No explanation" targets=["n_api"] /%}')))).diagnostics.filter((d) => d.severity === 'error');
+    expect(noBody).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_empty_body' }]);
+
+    const citationOnly = `{% step id="wk_citation_only" label="Citation only" targets=["n_api"] %}
+_{% cite ref="src_x" /%}_
+{% /step %}`;
+    const citationErrors = load(doc(`${MAP(invalid(citationOnly))}\n${source('src_x', ['evidence'])}`)).diagnostics.filter((d) => d.severity === 'error');
+    expect(citationErrors).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_citation_only' }]);
+
+    const citationAndPunctuation = `{% step id="wk_citation_punctuation" label="Citation and punctuation" targets=["n_api"] %}
+_{% cite ref="src_x" /%}_. —
+{% /step %}`;
+    const punctuationErrors = load(doc(`${MAP(invalid(citationAndPunctuation))}\n${source('src_x', ['evidence'])}`)).diagnostics.filter((d) => d.severity === 'error');
+    expect(punctuationErrors).toMatchObject([{ code: 'E_SYNTAX', targetId: 'wk_citation_punctuation' }]);
+
+    const duplicate = `{% steps id="walk" %}
+{% step id="wk_1" label="One" targets=["n_api", "n_api"] %}
+The API owns the boundary.
+{% /step %}
+{% step id="wk_2" label="Two" targets=["n_queue"] %}
+The queue makes work durable.
+{% /step %}
+{% /steps %}`;
+    expect(load(doc(MAP(duplicate))).diagnostics.filter((d) => d.severity === 'error').map((d) => [d.code, d.targetId])).toEqual([
+      ['E_SEMANTIC', 'wk_1'],
+    ]);
+
+    const valid = `{% steps id="walk" %}
+{% step id="wk_1" label="One" targets=["n_api", "e_enqueue"] %}
+The API and edge form the write boundary.
+{% /step %}
+{% step id="wk_2" label="Two" targets=["n_queue"] %}
+The queue makes the handoff durable.
+{% /step %}
+{% /steps %}`;
+    expect(found(doc(MAP(valid)), 'error')).toEqual([]);
+  });
+
   it('a step names only parts of its own figure, not the figure itself', () => {
     const other = `{% tree id="code_map" title="Files" question="Where?" %}\nOne.\n\n{% entry id="t_a" path="a" label="A" /%}\n{% /tree %}`;
-    expect(found(doc(MAP('{% steps id="walk" %}\n{% step id="wk" label="Look" targets=["t_a"] /%}\n{% /steps %}') + other), 'error')).toEqual(['E_REF_BROKEN']);
-    expect(found(doc(MAP('{% steps id="walk" %}\n{% step id="wk" label="Look" targets=["intake"] /%}\n{% /steps %}')), 'error')).toEqual(['E_REF_BROKEN']);
+    const walkthrough = (target: string) => `{% steps id="walk" %}\n{% step id="wk" label="Look" targets=["${target}"] %}\nThis tests the invalid reference.\n{% /step %}\n{% step id="wk_ok" label="Stay here" targets=["n_api", "e_enqueue"] %}\nThese parts form the local boundary.\n{% /step %}\n{% /steps %}`;
+    expect(found(doc(MAP(walkthrough('t_a')) + other), 'error')).toEqual(['E_REF_BROKEN']);
+    expect(found(doc(MAP(walkthrough('intake'))), 'error')).toEqual(['E_REF_BROKEN']);
   });
 
   it('more than 40 tree entries is W_VISUAL_DENSITY, counting nested entries', () => {
@@ -219,9 +285,9 @@ describe('rendering', () => {
     expect(walk).toContain('<a href="#x-n_worker" id="l-intake.wk_charge.n_worker" data-vs-target="n_worker" data-vs-interactive="">Charge worker</a>');
     // A walkthrough in a compare or a trace has no reading-order sentence;
     // a graph of any mode and a domain have it (phase 6a review S1).
-    const state = await html(doc(`{% graph id="g" mode="state" title="Two states" question="Which states?" %}\nStates.\n\n{% state id="s_a" label="Open" initial=true /%}\n{% state id="s_b" label="Closed" terminal=true /%}\n{% transition id="t_ab" from="s_a" to="s_b" event="close" label="closes" /%}\n\n{% steps id="walk" %}\n{% step id="wk" label="Start" targets=["s_a"] /%}\n{% /steps %}\n{% /graph %}`));
+    const state = await html(doc(`{% graph id="g" mode="state" title="Two states" question="Which states?" %}\nStates.\n\n{% state id="s_a" label="Open" initial=true /%}\n{% state id="s_b" label="Closed" terminal=true /%}\n{% transition id="t_ab" from="s_a" to="s_b" event="close" label="closes" /%}\n\n{% steps id="walk" %}\n{% step id="wk" label="Start" targets=["s_a"] %}\nOpen is the initial state.\n{% /step %}\n{% step id="wk_end" label="Finish" targets=["s_b", "t_ab"] %}\nThe close transition reaches the terminal state.\n{% /step %}\n{% /steps %}\n{% /graph %}`));
     expect(state).toContain('<p class="vs-steps-note" data-vs-generated="">Reading order, not execution order.</p>');
-    const compare = await html(doc(`{% compare id="c" title="Two queues" question="Which one waits?" %}\nFacts.\n\n{% option id="o_a" label="A" /%}\n{% criterion id="cr" label="Wait" /%}\n{% cell id="cl_a" option="o_a" criterion="cr" value="yes" /%}\n\n{% steps id="walk" %}\n{% step id="wk" label="Read the wait" targets=["cl_a"] /%}\n{% /steps %}\n{% /compare %}`));
+    const compare = await html(doc(`{% compare id="c" title="Two queues" question="Which one waits?" %}\nFacts.\n\n{% option id="o_a" label="A" /%}\n{% criterion id="cr" label="Wait" /%}\n{% cell id="cl_a" option="o_a" criterion="cr" value="yes" /%}\n\n{% steps id="walk" %}\n{% step id="wk" label="Read the wait" targets=["cl_a"] %}\nThe cell records whether this option waits.\n{% /step %}\n{% step id="wk_context" label="Read the criterion" targets=["o_a", "cr"] %}\nThe option and criterion define what the value compares.\n{% /step %}\n{% /steps %}\n{% /compare %}`));
     expect(compare).toContain('id="x-walk"');
     expect(compare).not.toContain('vs-steps-note');
   });
@@ -359,7 +425,7 @@ describe('phase 6a review fixes', () => {
   });
 
   it('C10: a step cannot name a detail, which the figure does not draw', () => {
-    const map = MAP('{% detail id="dt" label="More" %}\nMore text.\n{% /detail %}\n\n{% steps id="walk" %}\n{% step id="wk" label="Look" targets=["dt"] /%}\n{% /steps %}');
+    const map = MAP('{% detail id="dt" label="More" %}\nMore text.\n{% /detail %}\n\n{% steps id="walk" %}\n{% step id="wk" label="Look" targets=["dt"] %}\nThis deliberately names hidden detail.\n{% /step %}\n{% step id="wk_ok" label="Look here" targets=["n_api", "e_enqueue"] %}\nThese drawn parts form the write boundary.\n{% /step %}\n{% /steps %}');
     expect(load(doc(map)).diagnostics.filter((d) => d.severity === 'error').map((d) => d.message)).toEqual(['step wk: `targets` names detail dt, which the figure does not draw; name a drawn part']);
   });
 
@@ -381,6 +447,51 @@ describe('phase 6a review fixes', () => {
 
 describe('review prompts', () => {
   const codes = (text: string) => reviewDocument(load(text)).map((d) => [d.code, d.targetId]);
+
+  it('W_WALKTHROUGH_VALUE: warns once for a small figure or a part-by-part tour', () => {
+    const small = MAP(`{% steps id="walk" %}
+{% step id="wk_1" label="Write boundary" targets=["n_api", "e_enqueue"] %}
+The API owns the write boundary.
+{% /step %}
+{% step id="wk_2" label="Durable handoff" targets=["e_enqueue", "n_queue"] %}
+The edge and queue make the handoff durable.
+{% /step %}
+{% /steps %}`);
+    expect(codes(doc(small)).filter(([c]) => c === 'W_WALKTHROUGH_VALUE')).toEqual([['W_WALKTHROUGH_VALUE', 'walk']]);
+
+    const map = (steps: string) => `{% graph id="g" mode="architecture" title="Order boundary" question="Where is work durable?" %}
+Every arrow names a data dependency.
+
+{% node id="n_client" label="Client" role="external" /%}
+{% node id="n_api" label="API" role="interface" /%}
+{% node id="n_queue" label="Queue" role="storage" /%}
+{% edge id="e_submit" from="n_client" to="n_api" kind="call" label="submits order" /%}
+{% edge id="e_enqueue" from="n_api" to="n_queue" kind="data" label="stores request" /%}
+${steps}
+{% /graph %}`;
+    const tour = `{% steps id="walk" %}
+{% step id="wk_1" label="Client" targets=["n_client"] %}
+The client begins outside the boundary.
+{% /step %}
+{% step id="wk_2" label="API" targets=["n_api"] %}
+The API accepts the request.
+{% /step %}
+{% step id="wk_3" label="Queue" targets=["n_queue"] %}
+The queue stores the request.
+{% /step %}
+{% /steps %}`;
+    expect(codes(doc(map(tour))).filter(([c]) => c === 'W_WALKTHROUGH_VALUE')).toEqual([['W_WALKTHROUGH_VALUE', 'walk']]);
+
+    const explanation = `{% steps id="walk" %}
+{% step id="wk_1" label="Contract boundary" targets=["n_client", "e_submit", "n_api"] %}
+The client depends only on the API contract.
+{% /step %}
+{% step id="wk_2" label="Durability boundary" targets=["n_api", "e_enqueue", "n_queue"] %}
+The request becomes durable before later work begins.
+{% /step %}
+{% /steps %}`;
+    expect(codes(doc(map(explanation))).filter(([c]) => c === 'W_WALKTHROUGH_VALUE')).toEqual([]);
+  });
 
   it('W_NOTE_DENSITY: in a decision record the assumption notes do not count (phase 6a review C12)', () => {
     const note = (i: number, kind: string) => `{% note id="nt_${i}" kind="${kind}" %}\nOne ${kind}.\n{% /note %}\n`;
