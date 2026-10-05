@@ -1,0 +1,161 @@
+import { expect } from '@playwright/test';
+import { test, isNarrow, openSnapshot } from './support.ts';
+
+test('document Text view replaces routine figure controls @R06', async ({ page }) => {
+  await openSnapshot(page, '', 'order-intake');
+  await expect(page.locator('.vs-view-toggle, .vs-step-bar')).toHaveCount(0);
+  const figure = page.locator('.vs-viewer-capable').first();
+  await expect(figure.locator('.vs-viewport')).toBeVisible();
+  await page.getByRole('button', {name:'Text view', exact:true}).click();
+  await expect(figure.locator('.vs-viewport')).toBeHidden();
+  await expect(figure.locator('.vs-lists')).toBeVisible();
+});
+
+test('viewer moves canonical figure, preserves zoom across sheet close and restores geometry @R06 @R12', async ({ page }) => {
+  test.skip(!isNarrow(page), 'narrow viewer');
+  await openSnapshot(page, '', 'order-intake');
+  const id = await page.locator('.vs-viewer-capable').first().getAttribute('id');
+  const figure = page.locator(`[id="${id}"]`);
+  const original = await figure.locator('.vs-viewport svg').first().getAttribute('viewBox');
+  await figure.getByRole('button',{name:'Explore full diagram'}).click();
+  const dialog = page.locator('.vs-figure-viewer');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+  await expect(dialog.locator('.vs-inspector')).toHaveCount(0);
+  await dialog.locator('.vs-viewer-menu > summary').click();
+  await dialog.getByRole('button',{name:'Zoom in',exact:true}).click();
+  await dialog.locator('.vs-viewer-menu > summary').click();
+  const zoomed = await figure.locator('.vs-viewport svg').first().getAttribute('viewBox');
+  expect(zoomed).not.toBe(original);
+  await dialog.locator('.vs-viewer-parts > summary').click();
+  const link = dialog.locator('.vs-viewer-parts a[data-vs-depth="explanation"]').first();
+  await link.click();
+  await expect(dialog.locator('.vs-inspector--sheet')).toBeVisible();
+  const detailId = await dialog.locator('.vs-inspector details.vs-detail').getAttribute('id');
+  await expect(page.locator(`[id="${detailId}"]`)).toHaveCount(1);
+  const targetId = await link.getAttribute('data-vs-target');
+  await expect.poll(async () => figure.locator(`.vs-viewport svg [data-vs-target="${targetId}"]`).first().evaluate(target => {
+    const bounds=target.getBoundingClientRect();
+    const header=document.querySelector('.vs-viewer-tools')!.getBoundingClientRect();
+    const sheet=document.querySelector('.vs-inspector--sheet')!.getBoundingClientRect();
+    const cx=(bounds.left+bounds.right)/2, cy=(bounds.top+bounds.bottom)/2;
+    return cx>0 && cx<innerWidth && cy>header.bottom && cy<sheet.top;
+  })).toBe(true);
+  const selected = await figure.locator('.vs-viewport svg').first().getAttribute('viewBox');
+  expect(selected!.split(' ').slice(2)).toEqual(zoomed!.split(' ').slice(2));
+  await dialog.locator('.vs-inspector__close').click();
+  expect(await figure.locator('.vs-viewport svg').first().getAttribute('viewBox')).toBe(selected);
+  await dialog.getByRole('button',{name:'Back to article'}).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.locator(`[id="${id}"] .vs-viewport svg`).first().getAttribute('viewBox')).toBe(original);
+  await expect(page.locator('.vs-viewer-placeholder')).toHaveCount(0);
+});
+
+test('first touch and real multi-pointer gestures do not inspect parts @R06 @R12', async ({ page }) => {
+  test.skip(!isNarrow(page), 'touch viewer');
+  await openSnapshot(page, '', 'order-intake');
+  const figure = page.locator('[id="x-components"]');
+  const articleBox = await figure.locator('.vs-viewport svg').getAttribute('viewBox');
+  await figure.locator('[id="v-components.n_api"]').tap();
+  const dialog = page.locator('.vs-figure-viewer');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.vs-inspector, .vs-tooltip')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Back to article' })).toBeFocused();
+  const svg = dialog.locator('.vs-viewport svg');
+  const original = await svg.getAttribute('viewBox');
+  const bounds = await svg.boundingBox();
+  expect(bounds).not.toBeNull();
+  const cx = bounds!.x + bounds!.width / 2, cy = bounds!.y + bounds!.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (id: number, x: number, y: number) => ({ id, x, y, radiusX: 2, radiusY: 2, force: 1 });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch(0,cx,cy)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [touch(0,cx+40,cy+30)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const panned = await svg.getAttribute('viewBox');
+  expect(panned).not.toBe(original);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch(0,cx-30,cy),touch(1,cx+30,cy)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [touch(0,cx-60,cy),touch(1,cx+60,cy)] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  const pinched = (await svg.getAttribute('viewBox'))!.split(' ').map(Number);
+  expect(pinched[2]).toBeLessThan(Number(panned!.split(' ')[2]));
+  await expect(dialog.locator('.vs-inspector, .vs-tooltip')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Back to article' }).click();
+  expect(await figure.locator('.vs-viewport svg').getAttribute('viewBox')).toBe(articleBox);
+  await cdp.detach();
+});
+
+test('viewer references keep exact edge identity and dismiss one Escape layer @R03 @R12', async ({ page }) => {
+  test.skip(!isNarrow(page), 'touch viewer');
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } }));
+  await openSnapshot(page, '', 'order-intake');
+  await page.locator('[id="x-components"]').getByRole('button', { name: 'Explore full diagram' }).click();
+  const dialog = page.locator('.vs-figure-viewer');
+  await dialog.locator('.vs-viewer-menu > summary').click();
+  await dialog.getByRole('button', {name:'Reference mode',exact:true}).click();
+  await dialog.locator('.vs-viewer-menu > summary').click();
+  await dialog.locator('.vs-viewer-parts > summary').click();
+  await dialog.locator('[id="l-components.e_charge"]').click();
+  const panel = dialog.locator('#vs-refpanel');
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button',{name:'Copy reference',exact:true}).click();
+  const fallback = dialog.locator('.vs-copy-fallback textarea');
+  await expect(fallback).toBeVisible();
+  await expect(fallback).toHaveValue(/targetId: "e_charge"/);
+  await page.keyboard.press('Escape');
+  await expect(fallback).toHaveCount(0);
+  await expect(panel.getByRole('button',{name:'Copy reference',exact:true})).toBeFocused();
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button',{name:'Open detail',exact:true}).click();
+  await expect(dialog.locator('.vs-inspector--sheet [id="x-e_charge"]')).toBeVisible();
+  await expect(page.locator('[id="x-e_charge"]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(dialog.locator('.vs-inspector--sheet')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog.locator('.vs-inspector--sheet')).toBeHidden();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('#vs-btn-refmode')).toHaveAttribute('aria-pressed','false');
+});
+
+test('parsed Mermaid viewer retains its keyboard list and returns its original drawing @R06 @R12', async ({ page }) => {
+  test.skip(!isNarrow(page), 'touch viewer');
+  await openSnapshot(page, '', 'mermaid-flowchart');
+  const figure = page.locator('[id="x-cdn_path"]');
+  await expect(figure).toHaveAttribute('data-vs-viewer-ready', 'true');
+  const original = await figure.locator('.vs-viewport svg').getAttribute('viewBox');
+  await figure.getByRole('button',{name:'Explore full diagram'}).click();
+  const dialog = page.locator('.vs-figure-viewer');
+  await dialog.locator('.vs-viewer-parts > summary').click();
+  const part = dialog.locator('.vs-viewer-parts [data-vs-target="edgecache"]').first();
+  await part.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog.locator('.vs-inspector--sheet [id="x-edgecache"]')).toBeVisible();
+  await dialog.getByRole('button',{name:'Back to article'}).click();
+  expect(await figure.locator('.vs-viewport svg').getAttribute('viewBox')).toBe(original);
+  await expect(page.locator('[id="x-edgecache"]')).toHaveCount(1);
+});
+
+test('a mouse on a narrow touch-capable device opens local detail directly @R04 @R06', async ({ page }) => {
+  test.skip(!isNarrow(page), 'hybrid input');
+  await openSnapshot(page, '', 'order-intake');
+  await page.locator('[id="v-components.n_api"]').click();
+  await expect(page.locator('.vs-figure-viewer')).toHaveCount(0);
+  await expect(page.locator('[id="x-components"] .vs-inspector--local [id="x-n_api"]')).toBeVisible();
+});
+
+test('viewer Back preserves the figure reading position after width reflow @R06 @R12', async ({ page }) => {
+  test.skip(!isNarrow(page), 'narrow resize');
+  await openSnapshot(page, '', 'order-intake');
+  const figure = page.locator('[id="x-components"]');
+  const open = figure.getByRole('button',{name:'Explore full diagram'});
+  await open.scrollIntoViewIfNeeded();
+  const top = await figure.evaluate(node=>node.getBoundingClientRect().top);
+  await open.click();
+  const viewport = page.viewportSize()!;
+  await page.setViewportSize({width:viewport.width===320?390:320,height:viewport.height});
+  await page.locator('.vs-figure-viewer').getByRole('button',{name:'Back to article'}).click();
+  expect(Math.abs((await figure.evaluate(node=>node.getBoundingClientRect().top))-top)).toBeLessThan(2);
+  await expect(open).toBeFocused();
+});

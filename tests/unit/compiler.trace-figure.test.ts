@@ -5,6 +5,7 @@ import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { compileDocument } from '../../packages/core/src/compiler/index.ts';
 import { render } from '../../packages/core/src/compiler/html.ts';
 import { traceSvg } from '../../packages/core/src/compiler/svg.ts';
+import { legend, traceLineChips } from '../../packages/core/src/compiler/encoding.ts';
 import { textWidth } from '../../packages/core/src/compiler/layout.ts';
 
 const examplePath = new URL('../../examples/bounded-queue/index.md', import.meta.url).pathname;
@@ -20,7 +21,7 @@ describe('trace figure @R04 @R06', () => {
 
   it('draws an SVG in a map/list figure, with one instance for every event, actor, and order', () => {
     expect(figure).toContain('data-vs-views="map list"');
-    expect(figure).toContain('<div class="vs-viewport" data-vs-viewport="">');
+    expect(figure).toMatch(/<div class="vs-viewport" tabindex="0" role="region" aria-label="Diagram: [^"]+" data-vs-viewport="">/);
     expect(events.length).toBeGreaterThan(0);
     for (const t of [...events, ...actors]) expect(figure, t.id).toContain(`id="v-full_queue_trace.${t.id}"`);
     for (const r of orders) expect(figure, r.id).toContain(`id="v-full_queue_trace.${r.id}"`);
@@ -34,6 +35,31 @@ describe('trace figure @R04 @R06', () => {
 
   it('states "Ordering, not duration." exactly once', () => {
     expect(figure.split('Ordering, not duration.').length - 1).toBe(1);
+  });
+
+  it('explains only the line types drawn in a trace, with arrows distinct from lifelines', async () => {
+    // The queue trace has prerequisites and lifelines, but no message destination arrow.
+    expect(figure).toContain('event order');
+    expect(figure).toContain('actor lifeline');
+    expect(figure).not.toContain('message destination (not proof of receipt)');
+
+    const messageBundle = loadBundle(new URL('../fixtures/interactions/index.md', import.meta.url).pathname);
+    const compiled = await compileDocument(messageBundle, { version: '0.0.0', sha256: 'e'.repeat(64) }, { audience: 'private', includeSource: false, layoutFallback: false });
+    const page = new TextDecoder().decode(compiled.files.find((f) => f.path === `${compiled.directory}/index.html`)!.bytes);
+    const trace = page.slice(page.indexOf('id="x-flow"'), page.indexOf('</figure>', page.indexOf('id="x-flow"')));
+    expect(trace).toContain('message destination (not proof of receipt)');
+    expect(trace).toContain('event order');
+    expect(trace).toContain('actor lifeline');
+    expect(trace).toMatch(/class="vs-trace-message"[^>]*stroke-dasharray="5 3"/);
+
+    const key = render(legend(traceLineChips(true, true, true), 'data-vs-generated')!);
+    expect(key).toMatch(/d="M2,10 L34,10"[^>]*stroke-dasharray="5 3"[^>]*class="vs-line"/);
+    expect(key).toMatch(/d="M18,1 L18,19"[^>]*stroke-dasharray="4 4"[^>]*class="vs-line vs-lifeline"/);
+    expect(key.match(/class="vs-edge-mark vs-edge-mark-fill"/g)).toHaveLength(2);
+    const onlyLifeline = render(legend(traceLineChips(false, false, true), 'data-vs-generated')!);
+    expect(onlyLifeline).toContain('actor lifeline');
+    expect(onlyLifeline).not.toContain('vs-edge-mark');
+    expect(legend(traceLineChips(false, false, false), 'data-vs-generated')).toBeNull();
   });
 
   it('is deterministic', async () => {
@@ -74,7 +100,7 @@ describe('trace figure @R04 @R06', () => {
       actors: [{ id: 'p', label: 'Background index thread' }],
       events: [
         { id: 'acquire', actor: 'p', label: 'acquire_cutover', kind: 'compute', layer: 6, meta: [] },
-        { id: 'scan', actor: 'p', label: 'Scans again', kind: 'compute', layer: 7, meta: [], branch: 'b_ok' },
+        { id: 'scan', actor: 'p', label: 'Scans again after checking all available work', kind: 'compute', layer: 7, meta: [], branch: 'b_ok' },
         { id: 'abort', actor: 'p', label: 'Abort scan', kind: 'failure', layer: 7, meta: [], branch: 'b_fail' },
       ],
       orders: [{ id: 'acquire~scan', from: 'acquire', to: 'scan' }, { id: 'acquire~abort', from: 'acquire', to: 'abort' }],
@@ -93,6 +119,13 @@ describe('trace figure @R04 @R06', () => {
     };
     const scan = boxOf('scan');
     const abort = boxOf('abort');
+    expect(scan.w).toBeGreaterThan(150);
+    const lane = svg.slice(svg.indexOf('id="v-f.p"'), svg.indexOf('</a>', svg.indexOf('id="v-f.p"')));
+    const [, headerX, headerW] = /<rect x="([\d.-]+)" y="[\d.-]+" width="([\d.-]+)"/.exec(lane)!.map(Number);
+    const labelX = Number(/class="vs-lane-label" x="([\d.-]+)"/.exec(lane)![1]);
+    expect(headerX).toBe(Math.min(scan.x, abort.x));
+    expect(headerX! + headerW!).toBe(Math.max(scan.x + scan.w, abort.x + abort.w));
+    expect(headerX! + headerW! / 2).toBe(labelX);
     // Different sub-columns: the boxes sit side by side, not one above the other.
     expect(scan.x).not.toBe(abort.x);
     const overlapsX = scan.x < abort.x + abort.w && abort.x < scan.x + scan.w;
@@ -234,6 +267,11 @@ describe('trace figure @R04 @R06', () => {
     const part = svg.slice(svg.indexOf('id="v-f.long"'), svg.indexOf('</a>', svg.indexOf('id="v-f.long"')));
     expect(part.split('class="vs-trace-label"').length - 1).toBe(2);
     expect(rectOf(svg, 'long').w).toBeGreaterThan(150);
+    const lane = svg.slice(svg.indexOf('id="v-f.q"'), svg.indexOf('</a>', svg.indexOf('id="v-f.q"')));
+    const [, headerX, headerW] = /<rect x="([\d.-]+)" y="[\d.-]+" width="([\d.-]+)"/.exec(lane)!.map(Number);
+    const labelX = Number(/class="vs-lane-label" x="([\d.-]+)"/.exec(lane)![1]);
+    expect(headerW).toBe(rectOf(svg, 'long').w);
+    expect(headerX! + headerW! / 2).toBe(labelX);
     // A lane with short labels keeps the narrowest box.
     expect(rectOf(svg, 'short').w).toBe(150);
   });

@@ -356,10 +356,10 @@ img { max-width: 100%; height: auto; }
 /* Neighbourhood on hover and focus (IMPROVEMENTS §4.3): the parts that are
    not adjacent to the node under the pointer or the focus fade; the adjacent
    parts get a heavier stroke. The change is instant, so it has no motion. */
-.vs-figure svg .vs-dim { opacity: 0.35; }
+.vs-figure svg .vs-dim > .vs-shape { fill-opacity: 0.55; }
 .vs-figure svg .vs-near .vs-shape, .vs-figure svg .vs-near .vs-line { stroke-width: 2.5; }
 svg .vs-focused, svg .vs-selected, svg .vs-inspected { outline: none; }
-svg .vs-focused *, svg .vs-selected *, svg .vs-inspected * { stroke-width: 3; }
+
 
 /* ------------------------------------------------------------ details appendix */
 
@@ -1075,7 +1075,7 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
 .vs-steps-live:not(.vs-steps-overview) .vs-step:not(.vs-step-active) { display: none; }
 .vs-steps-live .vs-step-active { margin-top: 0; }
 /* The marks of the active step on the parts that are not SVG. */
-.vs-walking .vs-compare-table .vs-dim, .vs-walking .vs-glossary .vs-dim, .vs-walking .vs-code .vs-dim { opacity: 0.35; }
+.vs-walking .vs-dim { opacity: 1; }
 .vs-walking .vs-code .vs-line.vs-near { background: var(--vs-selected); }
 .vs-walking .vs-compare-table .vs-near, .vs-walking .vs-glossary .vs-near { outline: 2px solid var(--vs-accent); outline-offset: -2px; }
 
@@ -1130,3 +1130,58 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-line-gap { display: none !important; }
 }
 /* end phase 6a: components */
+
+/* Separate authored reading cues and transient interaction geometry. */
+.vs-viewport svg .vs-selection-outline, .vs-viewport svg .vs-focus-outline { fill: none; stroke: var(--vs-accent); opacity: 0; pointer-events: none; }
+.vs-viewport svg .vs-selection-outline { stroke-width: 4; }
+.vs-viewport svg .vs-focus-outline { stroke-width: 2; }
+.vs-viewport svg rect.vs-focus-outline { stroke-dasharray: 3 3; }
+.vs-viewport svg :is(.vs-inspected, .vs-selected, .vs-focused) > .vs-selection-outline { opacity: 0.8; }
+.vs-viewport svg .vs-hovered > .vs-selection-outline { opacity: 0.35; }
+.vs-viewport svg :focus-visible > .vs-focus-outline { opacity: 1; }
+.vs-viewport svg .vs-emphasis > .vs-shape, .vs-viewport svg .vs-emphasis > .vs-line { stroke-width: 2.5; }
+.vs-viewport svg [data-vs-emphasis="teal"]:not(.vs-emphasis-weight) { --vs-emphasis: var(--vs-cat-teal); }
+.vs-viewport svg [data-vs-emphasis="violet"]:not(.vs-emphasis-weight) { --vs-emphasis: var(--vs-cat-violet); }
+.vs-viewport svg [data-vs-emphasis="amber"]:not(.vs-emphasis-weight) { --vs-emphasis: var(--vs-cat-amber); }
+.vs-viewport svg .vs-emphasis:not(.vs-emphasis-weight) > :is(.vs-shape, .vs-line) { stroke: var(--vs-emphasis); }
+.vs-inspector--local { position: static; width: auto; max-height: none; margin: 1rem 0; border: 1px solid var(--vs-line); border-radius: .5rem; background: var(--vs-panel); }
+.vs-viewer-open { display: none; }
+.vs-viewer-placeholder { display: block; }
+.vs-figure-viewer { position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); border: 0; background: var(--vs-bg); color: var(--vs-fg); overflow: auto; }
+.vs-viewer-tools { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem; position: sticky; top: 0; z-index: 3; background: var(--vs-panel); }
+.vs-figure-viewer .vs-in-viewer { margin: 0; padding: 0; border: 0; }
+.vs-in-viewer > :is(figcaption, .vs-figure-question, .vs-refbtn, .vs-steps, .vs-overflow-hint, .vs-viewer-open) { display: none; }
+.vs-figure-viewer .vs-viewport { display: block; width: 100%; max-width: 100%; height: 55dvh; margin: 0; transform: none; overflow: hidden; }
+.vs-figure-viewer .vs-viewport svg { width: 100%; height: 100%; touch-action: none; max-width: none; }
+.vs-viewer-parts { margin: .5rem; }
+.vs-viewer-parts .vs-lists { display: block; }
+.vs-inspector--sheet { position: fixed; inset-inline: 0; bottom: env(safe-area-inset-bottom); z-index: 2; width: auto; max-height: 45dvh; overflow: auto; background: var(--vs-panel); border: 1px solid var(--vs-line); border-radius: .75rem .75rem 0 0; }
+.vs-inspector--sheet.vs-sheet-expanded { max-height: 85dvh; }
+.vs-inspector--sheet .vs-inspector__title { display: block; overflow: visible; }
+@media (max-width: 899px) {
+  .vs-js .vs-viewer-capable:not(.vs-view-list):not(.vs-in-viewer) > .vs-viewer-open { display: inline-flex; }
+  .vs-js .vs-viewer-capable:not(.vs-view-list):not(.vs-in-viewer) .vs-viewport { max-height: 28rem; overflow: auto; }
+}
+@media (forced-colors: active) {
+  .vs-viewport svg .vs-selection-outline, .vs-viewport svg .vs-focus-outline { stroke: Highlight; forced-color-adjust: none; }
+}
+@media print { .vs-viewer-open, .vs-figure-viewer, .vs-viewer-placeholder, .vs-text-view { display: none !important; } }
+
+.vs-viewport svg .vs-emphasis:not(.vs-emphasis-weight) > .vs-mark { stroke: var(--vs-emphasis); }
+.vs-viewport svg .vs-emphasis:not(.vs-emphasis-weight) > .vs-mark-fill { fill: var(--vs-emphasis); }
+@media (forced-colors: active) { .vs-viewport svg .vs-emphasis:not(.vs-emphasis-weight) { --vs-emphasis: CanvasText; } }
+.vs-sheet-qualifications { position: sticky; top: 0; background: var(--vs-panel); padding: .5rem; border-bottom: 1px solid var(--vs-line); }
+.vs-sheet-qualifications dt { font-weight: 600; }
+.vs-sheet-qualifications dd { margin-inline-start: 0; }
+.vs-inspector--sheet .vs-inspector__bar { touch-action: pan-x; }
+.vs-figure-viewer .vs-domain-body { display: block; width: auto; margin: 0; transform: none; }
+.vs-figure-viewer .vs-source-toggle { display: none; }
+
+.vs-inspector--sheet .vs-facts [data-vs-fact] { display: none; }
+
+.vs-viewer-tools { flex-wrap: nowrap; align-items: center; }
+.vs-viewer-title { flex: 1; min-width: 0; font-size: 1rem; line-height: 1.3; }
+.vs-viewer-menu { position: relative; }
+.vs-viewer-menu > summary { min-height: 44px; padding: .65rem .25rem; cursor: pointer; }
+.vs-viewer-actions { position: absolute; right: 0; top: 100%; width: 10rem; display: grid; gap: .3rem; padding: .5rem; background: var(--vs-panel); border: 1px solid var(--vs-rule); }
+.vs-viewer-hint { margin: .5rem; color: var(--vs-muted); font-size: .85rem; }

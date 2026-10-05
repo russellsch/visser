@@ -96,7 +96,7 @@ function labels(ctx: Context): void {
       if (limit !== undefined && n > limit) long.push(`${t.id} (${n} words, limit ${limit})`);
     }
     if (long.length === 0) continue;
-    prompt(ctx, 'W_LABEL_LENGTH', root.id, `in ${root.id}, ${long.length} label${long.length === 1 ? ' is' : 's are'} over the limit: ${long.join(', ')}; a node label has at most ${NODE_LABEL_WORDS} words and an edge label at most ${EDGE_LABEL_WORDS}; move the rest into the part body`);
+    prompt(ctx, 'W_LABEL_LENGTH', root.id, `in ${root.id}, ${long.length} label${long.length === 1 ? ' is' : 's are'} over the limit: ${long.join(', ')}; a node label has at most ${NODE_LABEL_WORDS} words and an edge label at most ${EDGE_LABEL_WORDS}; shorten only if the reader can still identify the entity or relationship; move extra explanation into the part body`);
   }
 }
 

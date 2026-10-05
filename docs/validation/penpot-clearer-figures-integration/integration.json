@@ -1,0 +1,113 @@
+{
+  "deletedPage": "8c0c298e-6329-8028-8008-bd61433ec72d",
+  "pages": [
+    {
+      "id": "806d8709-0231-8021-8008-b4acfe8a37e0",
+      "name": "Visser — Foundations"
+    },
+    {
+      "id": "806d8709-0231-8021-8008-b4ad8411aad7",
+      "name": "Visser — Reader UI and figure parts"
+    },
+    {
+      "id": "806d8709-0231-8021-8008-b4af4aed3ece",
+      "name": "Visser — Principles"
+    },
+    {
+      "id": "806d8709-0231-8021-8008-b4b2aabd240b",
+      "name": "Visser — Page layouts"
+    },
+    {
+      "id": "806d8709-0231-8021-8008-b4afa2c10f3a",
+      "name": "Visser — Catalogue components — light"
+    },
+    {
+      "id": "806d8709-0231-8021-8008-b4b32108c365",
+      "name": "Visser — Catalogue components — dark"
+    }
+  ],
+  "boards": [
+    {
+      "id": "8c0c298e-6329-8028-8008-bda3478ae902",
+      "page": "Visser — Foundations",
+      "name": "foundations / emphasis and interaction across themes"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda1e515e72f",
+      "page": "Visser — Reader UI and figure parts",
+      "name": "figure-part / emphasis and interaction states"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda23a1dd369",
+      "page": "Visser — Reader UI and figure parts",
+      "name": "figure-part / authored emphasis"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda23bb5eb99",
+      "page": "Visser — Reader UI and figure parts",
+      "name": "figure-part / meaningful groups"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda2ac48c79e",
+      "page": "Visser — Reader UI and figure parts",
+      "name": "figure-part / preserve semantic encodings"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda368c5c7c1",
+      "page": "Visser — Principles",
+      "name": "principles / composition and useful depth"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda31c8d20fc",
+      "page": "Visser — Page layouts",
+      "name": "layout / article figure — restrained framing"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda31d13c8dd",
+      "page": "Visser — Page layouts",
+      "name": "layout / desktop figure — local detail"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda31d9edeac",
+      "page": "Visser — Page layouts",
+      "name": "layout / mobile article, viewer and detail sheet"
+    },
+    {
+      "id": "8c0c298e-6329-8028-8008-bda31f963ed1",
+      "page": "Visser — Page layouts",
+      "name": "layout / narrow — full labels"
+    }
+  ],
+  "audit": [
+    {
+      "page": "Visser — Foundations",
+      "textCount": 227,
+      "stale": []
+    },
+    {
+      "page": "Visser — Reader UI and figure parts",
+      "textCount": 470,
+      "stale": []
+    },
+    {
+      "page": "Visser — Principles",
+      "textCount": 121,
+      "stale": []
+    },
+    {
+      "page": "Visser — Page layouts",
+      "textCount": 126,
+      "stale": []
+    },
+    {
+      "page": "Visser — Catalogue components — light",
+      "textCount": 709,
+      "stale": []
+    },
+    {
+      "page": "Visser — Catalogue components — dark",
+      "textCount": 709,
+      "stale": []
+    }
+  ]
+}

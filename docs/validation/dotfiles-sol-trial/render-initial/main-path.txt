@@ -1,0 +1,107 @@
+[x-overview]
+#
+Dotfiles installation and shell configuration
+
+[x-p_intro]
+#
+
+The entry script selects a target user, installs shell tools, and links configuration files into that user's home. The update script upgrades tools and checks selected links. This page describes the code at commit abc1e037. [1] [2]
+
+[x-h_owners]
+#
+Installation delegates shell setup
+
+[x-g_install]
+#
+The entry script delegates shell setup
+
+Which script chooses the target and which script changes its shell files?
+
+The arrows show responsibility and file effects. They do not show execution order.
+
+process
+storage
+decision
+call
+data
+loads environmentdecisions
+starts shellinstallation
+links trackedconfiguration
+sets global defaults
+install.sh
+common.sh
+zsh/install.sh
+Target home
+Global Git config
+[Visible drawing labels; use the screenshot for relationships]
+loads environmentdecisions
+starts shellinstallation
+links trackedconfiguration
+sets global defaults
+install.sh
+common.sh
+zsh/install.sh
+Target home
+Global Git config
+
+[x-p_install_path]
+#
+
+install.sh loads common.sh before it selects packages. It installs curl and git through the host package manager if it can use root. It then requires uv, calls zsh/install.sh, and sets Git defaults for the target user. The shell installer installs zsh and tools, creates links, and tries to select zsh as the default shell. A failed chsh call does not stop that installer. [1] [4] [5] [6] [7] [3]
+
+[x-h_decisions]
+#
+Terminal input, root access, and flags change the install path
+
+[x-p_decisions]
+#
+
+common.sh detects Ubuntu, Arch, or macOS. It rejects a remaining unsupported value. On Linux, it re-executes the script with sudo if root access is available. Under sudo, it derives the target home from SUDO_USER. Without root access, it stays in rootless mode. [8] [9]
+
+[x-t_branches]
+#
+Condition	Install effect
+--unattended	Sets container and interactive flags to true and false before detection. [1]
+Container detected	Defaults to skipping fonts. Container detection alone does not disable prompts. Input without an attached terminal disables prompts. [10] [1]
+No root access	Skips system package installation and chsh; the image must already provide curl, git, and zsh. [4] [7]
+Interactive input	Asks the user to confirm the target home. It can also request missing Git identity values. [1] [6]
+
+[x-p_example]
+#
+
+For an unattended rootless Ubuntu container, the script skips prompts, fonts, system package installation, and chsh. It still needs preinstalled curl, git, and zsh. It installs other tools in user paths where the rootless branches specify those paths. [1] [4] [7] [11] [3]
+
+[x-h_startup]
+#
+Linked files select shell behavior by session type
+
+[x-p_linkset]
+#
+
+The shell installer links .zshenv, .zprofile, .zshrc, and .zimrc into the target home. It also links the Starship and lsd configuration files. These commands use ln -sfn against the target paths. [3]
+
+[x-t_startup]
+#
+Zsh file	Session and effect	Local file
+.zshenv	Every zsh session gets path setup before the shell uses tools. [12]	Sources ~/.zshenv.local if it is readable. [12]
+.zprofile	A login shell adds a found Homebrew path. [13]	Sources ~/.zprofile.local if it exists. [13]
+.zshrc	An interactive shell loads Zim, sets options, and hooks direnv before Starship. [14]	Sources ~/.zshrc.local if it is readable. [15]
+
+[x-p_local]
+#
+
+Put machine-specific environment values in .zshenv.local. Put interactive aliases or prompt changes in .zshrc.local. The tracked files source these local files at their ends. A .zprofile.local file applies login-specific changes. [12] [13] [15]
+
+[x-h_update]
+#
+Update upgrades tools but only checks links
+
+[x-p_update]
+#
+
+update.sh loads the same environment detector. It upgrades system packages only when the platform and root access permit. It updates fzf, uv, thefuck, Zim modules, and the syntax theme. Its other tool paths also depend on the platform and root access. [8] [16] [17]
+
+[x-p_update_links]
+#
+
+At the end, the update script checks the targets of the Starship and lsd links. If a checked link differs, it reports the problem and tells the user to rerun install.sh. The update path does not create those links. A missing .zshrc link is outside this check. [2] [3]

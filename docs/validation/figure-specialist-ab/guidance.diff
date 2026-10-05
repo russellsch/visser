@@ -1,0 +1,138 @@
+--- baseline/catalogue/architecture.md
++++ revised/catalogue/architecture.md
+@@ -25,0 +26,13 @@
++
++## Figure-specific review
++
++- Trace one reader-relevant responsibility across nodes. Check the actor,
++  direction, and relationship kind against the source; placement is not order.
++- Distinguish calling, moving data, owning, and depending. A write to a file is
++  not ownership of that file; an arrow does not imply successful completion.
++- Check each group boundary's meaning. Do not imply shared deployment, trust,
++  or ownership merely because components serve a related purpose.
++- Ask what changes at an important edge and under which condition. Keep the
++  condition visible; use depth for its mechanism or consequence, not a label echo.
++- Preserve useful hubs and cross-boundary edges. Split by reader question only
++  when the rendered paths become hard to follow, not to enforce symmetry.
+--- baseline/catalogue/cause.md
++++ revised/catalogue/cause.md
+@@ -28,0 +29,13 @@
++
++## Figure-specific review
++
++- Read each arrow as a mechanism claim. Evidence for both endpoints does not
++  establish the arrow or its direction. Check link basis separately from factors.
++- Distinguish contributing, necessary, and sufficient conditions. Where inputs
++  must occur together, preserve that conjunction rather than drawing alternatives.
++- Test whether removing a factor is supported to prevent the outcome. If the
++  source cannot establish that counterfactual, keep it unknown rather than causal proof.
++- Preserve supported competing explanations and feedback. Do not promote a
++  hypothesis through emphasis, position, or a confident title.
++- Put the causal qualification on the main path. Use depth for the supported
++  mechanism or evidence limitation; do not turn correlation into causation there.
+--- baseline/catalogue/compare.md
++++ revised/catalogue/compare.md
+@@ -27,0 +28,13 @@
++
++## Figure-specific review
++
++- For each criterion, compare the same property under compatible conditions:
++  workload, population, time window, units, and measurement method where relevant.
++- Distinguish missing, inapplicable, estimated, and measured values. Do not turn
++  missing evidence into zero, equality, or a disadvantage.
++- Test whether a reader could infer a ranking that the evidence cannot support.
++  Check titles, row order, emphasis, and asymmetrically detailed cells as well as values.
++- Keep qualifications needed for comparison visible beside the values. Use depth
++  for measurement limits or a tradeoff's consequence, not a hidden reversal.
++- Preserve meaningful differences; do not force all cells to equal length or
++  invent matching metrics. If values cannot be compared, explain the mismatch.
+--- baseline/catalogue/state.md
++++ revised/catalogue/state.md
+@@ -27,0 +28,13 @@
++
++## Figure-specific review
++
++- Name the single entity whose state changes. Check that nodes describe its
++  conditions, rather than actions, events, or different entities.
++- For each important transition, separate its triggering event, enabling guard,
++  and resulting action. Do not turn a necessary guard into a sufficient trigger.
++- Test a blocked transition and a supported failure or recovery path. Do not
++  add conventional timeout or retry behavior when the source does not define it.
++- Check initial and terminal claims within the stated scope. An omitted arrow
++  does not prove a transition impossible; a drawn path does not prove progress.
++- Keep decision-changing guards visible. A detail may explain why the guard
++  exists or what waiting means; it must not reveal a different transition rule.
+--- baseline/catalogue/trace.md
++++ revised/catalogue/trace.md
+@@ -28,0 +29,15 @@
++
++## Figure-specific review
++
++- Trace the question's answer through prerequisites. Separate required order
++  from one observed schedule; do not order independent events for visual tidiness.
++- Check message send, receipt, acknowledgement, and completion separately when
++  the source distinguishes them. A reply need not mean the work has completed.
++- Verify wait release conditions and branch conditions. A join requires all
++  its prerequisites; mutually exclusive outcomes cannot both precede one event.
++- State which run or alternatives the trace covers. Show relevant failure paths
++  supported by the source, without inventing an exhaustive execution model.
++- Check what spacing implies. Ordinal position is not elapsed duration; even
++  a time trace uses order layers rather than proportional vertical distance.
++- Use depth to explain a wait, race, or consequence. Keep the ordering fact
++  needed to answer the main question visible without opening an event.
+--- baseline/figure-review.md
++++ revised/figure-review.md
+@@ -0,0 +1,46 @@
++# Selective figure specialist review
++
++Use the matching catalogue's figure-specific review during normal authoring.
++Delegate a bounded figure review when it carries the main explanation, combines
++difficult relationships, or retains a material misunderstanding after revision.
++Do not launch an agent for every figure or repeat review merely to add polish.
++The specialist advises; the document author owns edits and consistency.
++
++## Review packet
++
++Give the reviewer:
++
++- Reader profile, the figure's question, and the task the reader must perform.
++- Figure source with stable IDs, adjacent main-path prose, and authored details.
++- Relevant source excerpts and their provenance, including uncertainty or gaps.
++- Matching catalogue reference and the shared visual-language reference.
++- Current rendered images at desktop and narrow widths, when available.
++- Shared terminology, related figure relationships, and the permitted review scope.
++
++Withhold expected answers and previous findings for an independent first pass.
++Do not send unrelated repository history. A source-aware specialist is not the
++source-blind reader required by the staged review.
++
++## Reusable subagent brief
++
++> Review only the supplied figure and its immediate context. Do not edit or
++> delegate. Read the source evidence before assessing the explanation. Apply the
++> matching catalogue checks and shared visual language. Determine whether this
++> representation answers the reader's question; a simpler representation is valid.
++> Check the important relationships, conditions, terminology, and useful depth.
++> Inspect supplied renders for misleading geometry and legibility; without them,
++> mark visual checks unperformed. Do not infer successful interaction from an image.
++> Return material findings with target ID, likely wrong interpretation, source
++> or rendered evidence, and the smallest correction. Identify correct non-obvious
++> features that corrections must preserve. Separate defects from optional ideas.
++> Do not invent missing facts, require decoration, or meet a finding quota.
++> Stop after one pass and state checks not performed.
++
++## Integration
++
++Check each finding against evidence. Reject unsupported criticism with a reason.
++Apply supported corrections under one writer; keep existing IDs and source rules.
++Recheck shared terms, repeated content, cross-figure relationships, and page flow.
++Preserve neutral styling unless emphasis or a supported group improves understanding.
++Rebuild and inspect changed figures; rerun affected reader tasks. Do not restart
++all reviews for small edits. Keep this review record outside the published document.
+--- baseline/review-process.md
++++ revised/review-process.md
+@@ -105,0 +106,4 @@
++
++Apply the matching catalogue's figure-specific checks. For a central, difficult,
++or persistently misunderstood figure, use [selective specialist review](figure-review.md).
++Keep the final whole-document pass; local corrections must preserve shared meaning.

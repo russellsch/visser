@@ -6,7 +6,7 @@ import { DOM } from './dom-contract.ts';
 import { h, type HNode } from './html.ts';
 import { depthAction, type InspectionDepth } from '../model/inspection.ts';
 import { chooseLabelWidth, LINE_HEIGHT, MARKED_PAD_X, NODE_LABEL_WIDTHS, NODE_PAD_X, round3, textWidth, wrapText, type GraphLayout, type Point } from './layout.ts';
-import { BAND_FILL, BAND_STROKE, BRANCH_BANDS, CATEGORY_HEX, catClasses, EVENT_CUES, filterToken, NODE_FILL, outline, styleFor, type Category, type PartStyle } from './encoding.ts';
+import { BAND_FILL, BAND_STROKE, BRANCH_BANDS, CATEGORY_HEX, catClasses, EVENT_CUES, filterToken, NODE_FILL, outline, presentationHue, styleFor, type Category, type PartStyle } from './encoding.ts';
 
 export type SvgInput = {
   figureId: string;
@@ -162,6 +162,17 @@ function loopMark(points: Point[]): HNode | null {
   return h('path', { class: 'vs-edge-mark', d: `M${n(cx - r)},${n(cy)} a${r},${r} 0 1,0 ${r * 2},0 a${r},${r} 0 1,0 ${-r * 2},0 Z`, fill: NODE_FILL, stroke: '#444444', 'stroke-width': '1.5', 'aria-hidden': 'true' });
 }
 
+/** Separate geometry preserves authored shapes, dash patterns and terminal marks. */
+function interactionBox(x: number, y: number, width: number, height: number): HNode[] {
+  return ['selection', 'focus'].map((kind, i) => {
+    const gap = 3 + i * 3;
+    return h('rect', { class: `vs-${kind}-outline`, x: n(x - gap), y: n(y - gap), width: n(width + gap * 2), height: n(height + gap * 2), rx: '5', fill: 'none', stroke: 'none', 'aria-hidden': 'true', [DOM.attr.generated]: true });
+  });
+}
+function interactionPath(d: string, dash?: string): HNode[] {
+  return ['selection', 'focus'].map((kind) => h('path', { class: `vs-${kind}-outline`, d, fill: 'none', stroke: 'none', 'stroke-dasharray': dash, 'aria-hidden': 'true', [DOM.attr.generated]: true }));
+}
+
 export function graphSvg(input: SvgInput): HNode {
   const { figureId, layout } = input;
   let width = layout.width + 2 * MARGIN;
@@ -169,8 +180,8 @@ export function graphSvg(input: SvgInput): HNode {
   const marker = `m-${figureId}.arrow`;
   const edgeStyles = new Map(layout.edges.map((e) => [e.id, input.edgeStyleOf?.(e.id) ?? {}]));
   // One arrowhead per edge hue, in a fixed order, so a coloured line ends in a coloured head.
-  const edgeCats = (Object.keys(CATEGORY_HEX) as Category[]).filter((c) => [...edgeStyles.values()].some((s) => s.cat === c));
-  const markerFor = (s: PartStyle) => (s.cat ? `${marker}-${s.cat}` : marker);
+  const edgeCats = (Object.keys(CATEGORY_HEX) as Category[]).filter((c) => [...edgeStyles.values()].some((s) => presentationHue(s) === c));
+  const markerFor = (s: PartStyle) => (presentationHue(s) ? `${marker}-${presentationHue(s)}` : marker);
   // Domain relation ends, defined only when a figure uses them, so other figures keep their bytes.
   const hasMark = (m: 'triangle' | 'diamond') => [...edgeStyles.values()].some((st) => st.marks?.includes(m));
   const endMarker = (st: PartStyle) => (st.marks?.includes('diamond') ? undefined : st.marks?.includes('triangle') ? `url(#${marker}-triangle)` : `url(#${markerFor(st)})`);
@@ -187,19 +198,22 @@ export function graphSvg(input: SvgInput): HNode {
     const d = pathData(e.points);
     const style = edgeStyles.get(e.id)!;
     const cats = catClasses(style);
-    const stroke = style.cat ? CATEGORY_HEX[style.cat].stroke : '#444444';
+    const hue = presentationHue(style);
+    const stroke = hue ? CATEGORY_HEX[hue].stroke : '#444444';
     const labelFill = style.cat && style.labelHue ? CATEGORY_HEX[style.cat].stroke : '#1a1a1a';
     const depth = input.depthOf?.(e.id, 'map') ?? 'explanation';
     const tag = depth === 'bare' ? 'g' : 'a';
     return h(tag, {
       class: `vs-edge vs-kind-${kind}${cats ? ` ${cats}` : ''}${style.labelHue ? ' vs-label-hue' : ''}`, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(e.id)}`,
       id: proxy?.id ?? DOM.svgInstanceId(figureId, e.id), [DOM.attr.target]: e.id, [DOM.attr.rel]: e.id, [DOM.attr.depth]: depth,
-      [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${aria}; ${depthAction(depth)}`,
+      [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${aria}${style.emphasis ? '; emphasized' : ''}; ${depthAction(depth)}`,
+      'data-vs-emphasis': style.emphasis,
       [DOM.attr.filter]: input.filterOf?.(e.id),
       ...(proxy ? { [DOM.attr.proxyFor]: e.id, [DOM.attr.proxyFrom]: proxy.from, [DOM.attr.proxyTo]: proxy.to, [DOM.attr.proxyEnds]: proxy.ends, hidden: true } : {}),
     },
+      e.points.length > 1 ? interactionPath(d, style.dash) : null,
       e.points.length > 1 ? h('path', { class: 'vs-hit', d, fill: 'none', stroke: 'transparent', 'stroke-width': '16', 'stroke-linecap': 'round' }) : null,
-      e.points.length > 1 ? h('path', { class: 'vs-line', d, fill: 'none', stroke, 'stroke-width': '1.5', 'stroke-dasharray': style.dash, 'marker-start': style.marks?.includes('diamond') ? `url(#${marker}-diamond)` : undefined, 'marker-end': endMarker(style) }) : null,
+      e.points.length > 1 ? h('path', { class: 'vs-line', d, fill: 'none', stroke, 'stroke-width': style.emphasis ? '2.5' : '1.5', 'stroke-dasharray': style.dash, 'marker-start': style.marks?.includes('diamond') ? `url(#${marker}-diamond)` : undefined, 'marker-end': endMarker(style) }) : null,
       style.marks?.includes('loop') ? loopMark(e.points) : null,
       e.label ? h('rect', { class: 'vs-edge-label-bg', x: n(e.label.x + MARGIN), y: n(e.label.y + MARGIN), width: n(e.label.width), height: n(e.label.height), rx: '3', ry: '3', fill: '#ffffff' }) : null,
       e.label ? h('text', { class: 'vs-edge-label', x: n(e.label.x + MARGIN + e.label.width / 2), y: n(e.label.y + MARGIN), 'text-anchor': 'middle', 'font-size': 14, fill: labelFill },
@@ -233,6 +247,7 @@ export function graphSvg(input: SvgInput): HNode {
     layout.groups.map((g) => [
       ((depth) => h(depth === 'bare' ? 'g' : 'a', { class: 'vs-group', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(g.id)}`, id: DOM.svgInstanceId(figureId, g.id), [DOM.attr.target]: g.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${input.labelOf(g.id)} (boundary); ${depthAction(depth)}` },
         h('rect', { x: n(g.x + MARGIN), y: n(g.y + MARGIN), width: n(g.width), height: n(g.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1' }),
+        interactionBox(g.x + MARGIN, g.y + MARGIN, g.width, g.height),
         h('text', { class: 'vs-group-label', x: n(g.x + MARGIN + 12), y: n(g.y + MARGIN + 20), 'font-size': 13, fill: '#3a4250' }, labelContent([input.labelOf(g.id)], input.termsOf)[0]),
         depthMeter(depth, g.x + MARGIN + g.width - 12, g.y + MARGIN + 5)))(input.depthOf?.(g.id, 'map') ?? 'explanation'),
       boxOf.has(g.id) ? foldBox(boxOf.get(g.id)!, input.labelOf(g.id)) : null,
@@ -249,8 +264,9 @@ export function graphSvg(input: SvgInput): HNode {
       const classes = `vs-node${roleClass}${style.className ? ` ${style.className}` : ''}${cats ? ` ${cats}` : ''}`;
       const depth = input.depthOf?.(node.id, 'map') ?? 'explanation';
       const accessible = note ? `${input.labelOf(node.id)} (${note})` : input.labelOf(node.id);
-      return h(depth === 'bare' ? 'g' : 'a', { class: classes, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${accessible}; ${depthAction(depth)}`, [DOM.attr.filter]: input.filterOf?.(node.id) },
+      return h(depth === 'bare' ? 'g' : 'a', { class: classes, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${accessible}${style.emphasis ? '; emphasized' : ''}; ${depthAction(depth)}`, 'data-vs-emphasis': style.emphasis, [DOM.attr.filter]: input.filterOf?.(node.id) },
         outline(style, node.x + MARGIN, node.y + MARGIN, node.width, node.height),
+        interactionBox(node.x + MARGIN, node.y + MARGIN, node.width, node.height),
         textLines(node.lines, node.x + MARGIN + node.width / 2, node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.mutedLinesOf?.(node.id) ?? 0),
         depthMeter(depth, node.x + MARGIN + node.width - 12, node.y + MARGIN + 5));
     }),
@@ -264,10 +280,11 @@ export function graphSvg(input: SvgInput): HNode {
       const keyX = rect.x + 10, keyY = rect.y + 10;
       const depth = input.depthOf?.(proxy.edge.id, 'map') ?? 'explanation';
       const tag = depth === 'bare' ? 'g' : 'a';
-      return h(tag, { class: 'vs-edge vs-proxy-callout', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(proxy.edge.id)}`, [DOM.attr.target]: proxy.edge.id, [DOM.attr.rel]: proxy.edge.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, [DOM.attr.filter]: input.filterOf?.(proxy.edge.id), [DOM.attr.proxyFor]: proxy.edge.id, [DOM.attr.proxyFrom]: proxy.from, [DOM.attr.proxyTo]: proxy.to, [DOM.attr.proxyEnds]: proxy.ends, tabindex: depth === 'bare' ? undefined : '-1', 'aria-hidden': 'true', hidden: true },
+      return h(tag, { class: ['vs-edge vs-proxy-callout', catClasses(edgeStyles.get(proxy.edge.id) ?? {})].filter(Boolean).join(' '), 'data-vs-emphasis': edgeStyles.get(proxy.edge.id)?.emphasis, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(proxy.edge.id)}`, [DOM.attr.target]: proxy.edge.id, [DOM.attr.rel]: proxy.edge.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, [DOM.attr.filter]: input.filterOf?.(proxy.edge.id), [DOM.attr.proxyFor]: proxy.edge.id, [DOM.attr.proxyFrom]: proxy.from, [DOM.attr.proxyTo]: proxy.to, [DOM.attr.proxyEnds]: proxy.ends, tabindex: depth === 'bare' ? undefined : '-1', 'aria-hidden': 'true', hidden: true },
         attachment.x !== keyPoint.x || attachment.y !== keyPoint.y ? h('path', { class: 'vs-proxy-callout-stem', d: pathData([attachment, keyPoint]), fill: 'none', 'aria-hidden': 'true' }) : null,
         h('rect', { class: 'vs-proxy-callout-key', x: n(keyPoint.x + MARGIN - 7), y: n(keyPoint.y + MARGIN - 7), width: '14', height: '14', rx: '7', ry: '7', 'aria-hidden': 'true' }),
         h('text', { class: 'vs-proxy-callout-key-text', x: n(keyPoint.x + MARGIN), y: n(keyPoint.y + MARGIN + 4), 'text-anchor': 'middle', 'font-size': '12', 'aria-hidden': 'true' }, callout.key),
+        interactionBox(rect.x + MARGIN, rect.y + MARGIN, rect.width, rect.height),
         h('rect', { class: 'vs-proxy-callout-bg', x: n(rect.x + MARGIN), y: n(rect.y + MARGIN), width: n(rect.width), height: n(rect.height), rx: '3', ry: '3' }),
         h('rect', { class: 'vs-proxy-callout-key', x: n(keyX + MARGIN - 7), y: n(keyY + MARGIN - 7), width: '14', height: '14', rx: '7', ry: '7', 'aria-hidden': 'true' }),
         h('text', { class: 'vs-proxy-callout-key-text', x: n(keyX + MARGIN), y: n(keyY + MARGIN + 4), 'text-anchor': 'middle', 'font-size': '12', 'aria-hidden': 'true' }, callout.key),
@@ -874,7 +891,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
     // Lifelines: a header and a dashed vertical line per actor; the header is an instance of the actor.
     input.actors.map((a) => {
       const cx = laneCenterX(a.id);
-      const regionW = boxRegionWidth(actorSlots.get(a.id) ?? 1);
+      const regionW = boxRegionWidth(actorSlots.get(a.id) ?? 1, boxW(a.id));
       const lines = headLines.get(a.id)!;
       if (a.implicit) {
         return h('path', { class: 'vs-lifeline vs-lane-implicit', d: `M${n(cx)},${n(MARGIN + header)} L${n(cx)},${n(height - MARGIN)}`, fill: 'none', stroke: '#9aa3af', 'stroke-width': '1', 'stroke-dasharray': '4 4', 'aria-hidden': 'true' });
@@ -883,6 +900,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
       return h(depth === 'bare' ? 'g' : 'a', { class: 'vs-lane', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(a.id)}`, id: DOM.svgInstanceId(figureId, a.id), [DOM.attr.target]: a.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${a.label} (actor); ${depthAction(depth)}` },
         h('path', { class: 'vs-lifeline', d: `M${n(cx)},${n(MARGIN + header)} L${n(cx)},${n(height - MARGIN)}`, fill: 'none', stroke: '#9aa3af', 'stroke-width': '1', 'stroke-dasharray': '4 4' }),
         h('rect', { x: n((colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2), y: n(MARGIN), width: n(regionW), height: n(header - 8), rx: '6', ry: '6', fill: '#eef1f5', stroke: '#2f3a4a', 'stroke-width': '1.5' }),
+        interactionBox((colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2, MARGIN, regionW, header - 8),
         h('text', { class: 'vs-lane-label', x: n(cx), y: n(MARGIN + PAD - 2), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
           ((content) => lines.map((_, j) => h('tspan', { x: n(cx), dy: j === 0 ? '1em' : String(LINE_HEIGHT) }, content[j])))(labelContent(lines, input.termsOf))),
         depthMeter(depth, (colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2 + regionW - 12, MARGIN + 5));
@@ -932,6 +950,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
       const depth = input.depthOf?.(r.to, 'map') ?? 'explanation';
       return h(depth === 'bare' ? 'g' : 'a', { class: 'vs-edge vs-kind-order', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(r.to)}`, id: DOM.svgInstanceId(figureId, r.id), [DOM.attr.target]: r.to, [DOM.attr.rel]: r.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${input.labelOf(r.to)}, after ${input.labelOf(r.from)}; ${depthAction(depth)}` },
         h('path', { class: 'vs-hit', d, fill: 'none', stroke: 'transparent', 'stroke-width': '12', 'stroke-linecap': 'round' }),
+        interactionPath(d),
         h('path', { class: 'vs-line', d, fill: 'none', stroke: '#444444', 'stroke-width': '1.25', 'marker-end': `url(#${marker})` }));
     }),
     // Fork marks (dogfood-3 F2c): a bracket where one shared prerequisite's
@@ -974,6 +993,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
       const depth = input.depthOf?.(e.id, 'map') ?? 'explanation';
       return h(depth === 'bare' ? 'g' : 'a', { class: `vs-node vs-event-box vs-kind-${e.kind}${cats ? ` ${cats}` : ''}`, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(e.id)}`, id: DOM.svgInstanceId(figureId, e.id), [DOM.attr.target]: e.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${e.label} (${[e.actor ? input.labelOf(e.actor) : '', ...(e.notes ?? metaLines(e))].filter(Boolean).join('; ')}); ${depthAction(depth)}`, [DOM.attr.filter]: filterToken('kind', e.kind) },
         outline(style, b.x, b.y, b.w, b.h, style.danger ? '2' : '1.5'),
+        interactionBox(b.x, b.y, b.w, b.h),
         traceText(wrapped.get(e.id)!, b.x + b.w / 2, b.y + PAD - 2, input.termsOf),
         depthMeter(depth, b.x + b.w - 12, b.y + 5));
     }));

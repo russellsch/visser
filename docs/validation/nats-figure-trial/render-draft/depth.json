@@ -1,0 +1,12 @@
+[
+  {
+    "id": "x-e_ack",
+    "label": "sends ACK",
+    "text": "Only an ACK that reaches the consumer can clear its pending record. [6]"
+  },
+  {
+    "id": "x-ev_lost",
+    "label": "ACK fails before receipt",
+    "text": "The server still has the pending entry because it did not process the ACK. [6]"
+  }
+]

@@ -1,6 +1,7 @@
 // Static compiler (§7.2, §9, §10, §13.1, §13.2). Renders a loaded bundle into
 // deterministic HTML/SVG per the DOM contract (dom-contract.ts), plus the
 // semantic Markdown projection and public build metadata.
+import { emphasisTone, nativeEmphasis } from '../model/presentation.ts';
 import type { Diagnostic, TargetRecord } from '../types.ts';
 import type { LoadedBundle } from '../model/bundle.ts';
 import type { MNode } from '../model/targets.ts';
@@ -17,7 +18,7 @@ import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, 
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
 import { graphSvg, traceSvg } from './svg.ts';
 import { phraseKey, TermMatcher, type LinkableDefinition, type TermSegment } from './autolink.ts';
-import { BASIS_CUES, CATEGORY_CUES, DEPENDENCY_KIND_CUES, EDGE_KIND_CUES, EVENT_CUES, filterToken, hueChips, RELATION_KIND_CUES, legend, LOSS_CUE, patternChips, ROLE_CUES, showsHue, STATUS_CUES, styleFor, UNSTATED_BASIS_DASH, type Chip, type PartStyle } from './encoding.ts';
+import { BASIS_CUES, CATEGORY_CUES, DEPENDENCY_KIND_CUES, EDGE_KIND_CUES, EVENT_CUES, filterToken, hueChips, RELATION_KIND_CUES, legend, LOSS_CUE, patternChips, ROLE_CUES, showsHue, STATUS_CUES, styleFor, traceLineChips, UNSTATED_BASIS_DASH, type Chip, type PartStyle } from './encoding.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
 import type { ExtensionBinding } from '../extensions/registry.ts';
@@ -239,10 +240,12 @@ class Renderer {
     const depth = this.depth(id, visible);
     const { 'aria-label': suppliedLabel, ...instanceAttrs } = attrs;
     const common = { ...instanceAttrs, id: instanceId, [DOM.attr.target]: id, [DOM.attr.depth]: depth };
-    if (depth === 'bare') return h(plainTag, common, content);
+    const emphasis = nativeEmphasis(this.targets.get(id)?.kind, this.nodes.get(id)?.attributes['emphasis']);
+    const cue = emphasis ? h('span', { class: 'vs-emphasis-cue', [DOM.attr.generated]: true }, ' (emphasized)') : null;
+    if (depth === 'bare') return h(plainTag, common, content, cue);
     const action = depthAction(depth)!;
     const accessible = typeof suppliedLabel === 'string' ? suppliedLabel : this.label(id);
-    return h('a', { ...common, href: `#${DOM.canonicalId(id)}`, [DOM.attr.interactive]: true, 'aria-label': `${accessible}; ${action}` }, content, this.depthCue(depth));
+    return h('a', { ...common, href: `#${DOM.canonicalId(id)}`, [DOM.attr.interactive]: true, 'aria-label': `${accessible}${emphasis ? '; emphasized' : ''}; ${action}` }, content, cue, this.depthCue(depth));
   }
 
   label(id: string): string {
@@ -564,7 +567,7 @@ class Renderer {
             : h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'none')));
       })));
     return this.figureShell(id, node, 'vs-measure', [
-      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      svg ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, svg) : null,
       h('div', { class: 'vs-lists' }, table),
     ], svg !== null);
   }
@@ -855,7 +858,7 @@ class Renderer {
 
     if (family === 'domain') return this.domainShell(id, node, svg, nodes, relList, svg ? encoding.legend : null);
     return this.figureShell(id, node, `vs-graph vs-family-${family}`, [
-      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      svg ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, svg) : null,
       // The runtime unhides this when the viewport actually overflows (F5c);
       // it is not the only signal (the scrollbar itself remains), but a
       // scrollbar alone is easy to miss on a trackpad or a narrow window.
@@ -982,6 +985,13 @@ class Renderer {
         break;
       }
     }
+    const semanticHue = [...nodes.values(), ...edges.values()].some((style) => style.cat || style.danger);
+    for (const [ids, styles] of [[nodeIds, nodes], [edgeIds, edges]] as const) {
+      for (const id of ids) {
+        const emphasis = emphasisTone(attr(id, 'emphasis'));
+        if (emphasis) styles.set(id, { ...styles.get(id), emphasis, emphasisWeight: semanticHue });
+      }
+    }
     return { nodes, edges, legend: legend(chips, DOM.attr.generated, DOM.attr.filter), filters };
   }
 
@@ -999,7 +1009,7 @@ class Renderer {
   domainShell(id: string, node: MNode, svg: HNode | null, concepts: TargetRecord[], relList: HNode, legendNode: HNode | null): HNode {
     return this.figureShell(id, node, 'vs-graph vs-family-domain', [
       h('div', { class: 'vs-domain-body' },
-        svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+        svg ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, svg) : null,
         svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
         this.glossary(id, concepts)),
       h('div', { class: 'vs-lists' }, relList),
@@ -1099,7 +1109,7 @@ class Renderer {
         this.instance(p.id, DOM.listInstanceId(id, p.id), this.label(p.id)),
         texts.has(p.id) ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(texts.get(p.id)!, p.id)})`) : null)));
     return this.figureShell(id, node, `vs-extension vs-ext-${use}`, [
-      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      svg ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, svg) : null,
       note ? h('p', { class: 'vs-extension-note', role: 'note', [DOM.attr.generated]: true }, note) : null,
       h('div', { class: 'vs-lists' }, list),
     ], svg !== null);
@@ -1311,6 +1321,9 @@ class Renderer {
     // form and the narrow-screen and no-map view, as for graphs. Above the graph
     // caps the figure is left out; the lists are always present.
     const orders = this.bundle.model.relationships.filter((r) => r.kind === 'order' && events.some((e) => e.id === r.to));
+    const messages = this.bundle.model.relationships.filter((r) => r.kind === 'message' && events.some((e) => e.id === r.id));
+    const eventActor = new Map(events.map((e) => [e.id, attrString(this.nodes.get(e.id)!, 'actor') ?? '']));
+    const drawnMessages = messages.filter((r) => actors.some((a) => a.id === r.to) && eventActor.get(r.id) !== r.to);
     const drawable = events.length > 0 && events.length <= GRAPH_MAX_NODES && orders.length <= GRAPH_MAX_EDGES;
     // Hue encodes the event kind, failure and wait only (docs/IMPROVEMENTS.md §3.2).
     const kindValues = events.map((e) => kindOf(e));
@@ -1349,7 +1362,7 @@ class Renderer {
             };
           }),
           orders: orders.map((r) => ({ id: r.id, from: r.from, to: r.to })),
-          messages: this.bundle.model.relationships.filter((r) => r.kind === 'message' && events.some((e) => e.id === r.id)).map((r) => ({ event: r.id, to: r.to })),
+          messages: messages.map((r) => ({ event: r.id, to: r.to })),
           branches: branches.map((b) => {
             const excl = this.nodes.get(b.id)!.attributes['exclusiveWith'];
             return { id: b.id, label: this.label(b.id), exclusiveWith: Array.isArray(excl) ? excl.map(String) : [] };
@@ -1362,10 +1375,13 @@ class Renderer {
       : null;
     return this.figureShell(id, node, 'vs-trace', [
       scaleNote,
-      svg ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, svg) : null,
+      svg ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, svg) : null,
       svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
       h('div', { class: 'vs-lists' }, actorList, branchList, eventList, byActor),
-    ], svg !== null, svg ? legend(hueChips(kindValues, EVENT_CUES, 'kind'), DOM.attr.generated, DOM.attr.filter) : null);
+    ], svg !== null, svg ? legend([
+      ...hueChips(kindValues, EVENT_CUES, 'kind'),
+      ...traceLineChips(orders.length > 0, drawnMessages.length > 0, actors.length > 0 || events.some((e) => eventActor.get(e.id) === '')),
+    ], DOM.attr.generated, DOM.attr.filter) : null);
   }
 
   /** Captured text of a source target: its fenced body, or a declared text asset. */
@@ -1470,7 +1486,7 @@ class Renderer {
     const { marks, cover } = this.annotationMarks(sourceId, captured?.text, annotations);
     return this.figureShell(id, node, 'vs-annotated', [
       h('p', { class: 'vs-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
-      captured ? h('div', { class: 'vs-viewport', [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id, cover)) : null,
+      captured ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id, cover)) : null,
       list,
     ]);
   }
@@ -1580,7 +1596,7 @@ class Renderer {
       h('figcaption', { id: `vs-t-${id}` }, this.safeText(title, id)),
       h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.safeText(question, id)),
       interpretation,
-      h('div', { class: 'vs-viewport', id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
+      h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
       source,
       figure.parsed ? null : h('p', { class: 'vs-mermaid-note', [DOM.attr.generated]: true },
         'The parts of this diagram are not individually inspectable; its source above holds the full content.'),
@@ -1997,7 +2013,7 @@ class Renderer {
         // repeated in the list (phase-2 review S1).
         const cueWord = part ? this.cueWord(record) : undefined;
         const shownFacts = facts.filter(([, v]) => v !== cueWord);
-        if (shownFacts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, shownFacts.map(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+        if (shownFacts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, shownFacts.map(([k, v]) => [h('dt', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, k), h('dd', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, v)])));
         break;
       }
       case 'actor': {

@@ -9,7 +9,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
 import { EXAMPLES, type ExampleName } from './examples.ts';
-import { copiedTexts, installClipboardSpy, openSnapshot, test } from './support.ts';
+import { copiedTexts, installClipboardSpy, openSnapshot, showList, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 const cli = join(root, 'dist/release/bin/visser.cjs');
@@ -36,8 +36,8 @@ async function clickable(page: Page, pick: Pick): Promise<Locator> {
     return canonicalEl;
   }
   // A walkthrough and its steps are canonical in their figure, not in the
-  // appendix (docs/IMPROVEMENTS.md §14.1): select the step bar status or the step label.
-  if (pick.kind === 'steps') return canonicalEl.locator(':scope > .vs-step-bar .vs-step-status, :scope > .vs-steps-heading').locator('visible=true').first();
+  // appendix (docs/IMPROVEMENTS.md §14.1): select the visible list heading or step label.
+  if (pick.kind === 'steps') return canonicalEl.locator(':scope > .vs-steps-heading').first();
   if (pick.kind === 'step') return canonicalEl.locator('.vs-step-label');
   if (!pick.parentId && !['definition', 'source', 'detail'].includes(pick.kind)) return canonicalEl;
   // An entity: prefer a visible instance in a figure or list; fall back to its detail summary.
@@ -54,14 +54,12 @@ async function clickable(page: Page, pick: Pick): Promise<Locator> {
   };
   const shown = await visible();
   if (shown) return shown;
-  // On a wide screen the lists of a figure show after "Show as list"
-  // (docs/IMPROVEMENTS.md §4.1). A target with no instance in the drawing,
-  // such as a trace branch, is in the list only.
+  // A target with no drawing instance, such as a trace branch, is in the
+  // document-level Text view.
   if ((await instances.count()) > 0) {
     const figure = await instances.first().evaluate((n) => n.closest('figure[data-vs-views]')?.id ?? '');
-    const toggle = page.locator(`[id="${figure}"] .vs-view-toggle[aria-pressed="false"]`);
-    if (figure && (await toggle.count()) > 0) {
-      await toggle.click();
+    if (figure) {
+      await showList(page, figure.replace(/^x-/, ''));
       const listed = await visible();
       if (listed) return listed;
     }

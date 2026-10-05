@@ -50,7 +50,8 @@ test.describe('inspection', () => {
     await openSnapshot(page);
     await showList(page, 'handoff');
     const item = byId(page, 'l-handoff.enqueue');
-    await item.click();
+    if (isNarrow(page)) await item.tap();
+    else await item.click();
     await expectInspectorOpen(page, 'enqueue');
     // Nested inspection: the citation inside the edge detail replaces the view; Back returns.
     const host = isNarrow(page) ? page.locator('dialog#vs-inspector-dialog') : page.locator('aside#vs-inspector');
@@ -307,6 +308,7 @@ test.describe('layout and print', () => {
   test('narrow screens: interactive list links and toolbar buttons are at least 44x44', async ({ page, offOrigin: _ }) => {
     test.skip(!isNarrow(page), 'target-size oracle applies to mobile viewports');
     await openSnapshot(page);
+    await showList(page, 'handoff');
     const sizes = await page.evaluate(() =>
       Array.from(document.querySelectorAll('.vs-rel-list a, .vs-toolbar button')).map((n) => {
         const r = n.getBoundingClientRect();
@@ -327,7 +329,9 @@ test.describe('layout and print', () => {
     await openSnapshot(page);
     const idsBefore = await page.evaluate(() => Array.from(document.querySelectorAll('[id^="x-"]')).map((n) => n.id).sort());
     await showList(page, 'handoff');
-    await byId(page, 'l-handoff.enqueue').click();
+    const listItem = byId(page, 'l-handoff.enqueue');
+    if (isNarrow(page)) await listItem.tap();
+    else await listItem.click();
     await expectInspectorOpen(page, 'enqueue');
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await expectDetailHome(page, 'enqueue');
@@ -367,7 +371,9 @@ test.describe('accessibility', () => {
   test('axe: no serious or critical violations with the inspector open', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page);
     await showList(page, 'handoff');
-    await byId(page, 'l-handoff.enqueue').click();
+    const listItem = byId(page, 'l-handoff.enqueue');
+    if (isNarrow(page)) await listItem.tap();
+    else await listItem.click();
     await expectInspectorOpen(page, 'enqueue');
     const result = await new AxeBuilder({ page }).withTags(tags).analyze();
     expect(result.violations.filter((v) => SERIOUS.has(v.impact ?? '')).map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);

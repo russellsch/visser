@@ -1,0 +1,776 @@
+{
+  "fileId": "cbe5d0b0-6d79-8049-8008-b47fede8379c",
+  "pageId": "806d8709-0231-8021-8008-b74a1382e929",
+  "pageName": "Visser — Iteration 02 · See the mechanism",
+  "revision": "Compact hierarchy after user feedback",
+  "boards": [
+    {
+      "key": "10",
+      "id": "806d8709-0231-8021-8008-b74b024e9cfa",
+      "name": "10 · Mobile / event order",
+      "width": 390,
+      "height": 824
+    },
+    {
+      "key": "11",
+      "id": "806d8709-0231-8021-8008-b74b02ea538d",
+      "name": "11 · Mobile / explanation open",
+      "width": 390,
+      "height": 824
+    },
+    {
+      "key": "12",
+      "id": "806d8709-0231-8021-8008-b74b03752dbe",
+      "name": "12 · Same text. Different representations.",
+      "width": 1280,
+      "height": 617
+    },
+    {
+      "key": "13",
+      "id": "806d8709-0231-8021-8008-b74b03f72dd6",
+      "name": "13 · Same text. Different representations.",
+      "width": 1280,
+      "height": 693
+    },
+    {
+      "key": "14",
+      "id": "806d8709-0231-8021-8008-b74b3965cd1d",
+      "name": "14 · Follow the read. Keep the context.",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "key": "15",
+      "id": "806d8709-0231-8021-8008-b74b3a05eba2",
+      "name": "15 · Follow the read. Keep the context.",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "key": "16",
+      "id": "806d8709-0231-8021-8008-b74b6e2c01fd",
+      "name": "16 · From visible events to a visible mechanism.",
+      "width": 1280,
+      "height": 715
+    },
+    {
+      "key": "17",
+      "id": "806d8709-0231-8021-8008-b74beafe424b",
+      "name": "17 · Prediction transfer / new read sees 60",
+      "width": 1280,
+      "height": 655
+    },
+    {
+      "key": "18",
+      "id": "806d8709-0231-8021-8008-b74eba4b3882",
+      "name": "18 · Mobile / new transaction",
+      "width": 390,
+      "height": 824
+    },
+    {
+      "key": "01",
+      "id": "806d8709-0231-8021-8008-b74a8f627f14",
+      "name": "01 · One commit. Two answers.",
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "key": "02",
+      "id": "806d8709-0231-8021-8008-b74a8febc0f0",
+      "name": "02 · One commit. Two answers.",
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "key": "03",
+      "id": "806d8709-0231-8021-8008-b74a90587bea",
+      "name": "03 · Change one boundary. See the difference.",
+      "width": 1280,
+      "height": 734
+    },
+    {
+      "key": "04",
+      "id": "806d8709-0231-8021-8008-b74a90e91e56",
+      "name": "04 · The boundary moves. The answer changes.",
+      "width": 1280,
+      "height": 655
+    },
+    {
+      "key": "05",
+      "id": "806d8709-0231-8021-8008-b74ab8718301",
+      "name": "05 · Make a prediction.",
+      "width": 1280,
+      "height": 670
+    },
+    {
+      "key": "06",
+      "id": "806d8709-0231-8021-8008-b74ab8ee5266",
+      "name": "06 · Make a prediction.",
+      "width": 1280,
+      "height": 670
+    },
+    {
+      "key": "07",
+      "id": "806d8709-0231-8021-8008-b74ab962e91e",
+      "name": "07 · Make a prediction.",
+      "width": 1280,
+      "height": 670
+    },
+    {
+      "key": "08",
+      "id": "806d8709-0231-8021-8008-b74ab9d68ec6",
+      "name": "08 · Make a prediction.",
+      "width": 1280,
+      "height": 755
+    },
+    {
+      "key": "09",
+      "id": "806d8709-0231-8021-8008-b74aba5bc28f",
+      "name": "09 · Make a prediction.",
+      "width": 1280,
+      "height": 755
+    },
+    {
+      "key": "00",
+      "id": "806d8709-0231-8021-8008-b74b3a98b32c",
+      "name": "00 · Make the mechanism impossible to miss.",
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "flows": [
+    {
+      "name": "Visser 02 · See the mechanism",
+      "start": "00"
+    }
+  ],
+  "checks": {
+    "textOverlaps": [],
+    "outside": [],
+    "invalidRoutes": [],
+    "unreachable": [],
+    "unwired": []
+  },
+  "routes": [
+    {
+      "from": "10",
+      "label": "action / 10index",
+      "to": "00"
+    },
+    {
+      "from": "10",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "10",
+      "label": "action / 10why",
+      "to": "11"
+    },
+    {
+      "from": "10",
+      "label": "Why this result?",
+      "to": "11"
+    },
+    {
+      "from": "10",
+      "label": "action / 10end",
+      "to": "18"
+    },
+    {
+      "from": "10",
+      "label": "After the transaction ends →",
+      "to": "18"
+    },
+    {
+      "from": "11",
+      "label": "action / 11index",
+      "to": "00"
+    },
+    {
+      "from": "11",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "11",
+      "label": "action / 11close",
+      "to": "10"
+    },
+    {
+      "from": "11",
+      "label": "Close explanation",
+      "to": "10"
+    },
+    {
+      "from": "12",
+      "label": "action / 12index",
+      "to": "00"
+    },
+    {
+      "from": "12",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "12",
+      "label": "action / 12detail",
+      "to": "13"
+    },
+    {
+      "from": "12",
+      "label": "Inspect byte conversion",
+      "to": "13"
+    },
+    {
+      "from": "12",
+      "label": "action / 12back",
+      "to": "01"
+    },
+    {
+      "from": "12",
+      "label": "Back to SQLite study",
+      "to": "01"
+    },
+    {
+      "from": "13",
+      "label": "action / 13index",
+      "to": "00"
+    },
+    {
+      "from": "13",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "13",
+      "label": "action / 13close",
+      "to": "12"
+    },
+    {
+      "from": "13",
+      "label": "Close byte detail",
+      "to": "12"
+    },
+    {
+      "from": "13",
+      "label": "action / 13back",
+      "to": "01"
+    },
+    {
+      "from": "13",
+      "label": "Back to SQLite study",
+      "to": "01"
+    },
+    {
+      "from": "14",
+      "label": "action / 14index",
+      "to": "00"
+    },
+    {
+      "from": "14",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "14",
+      "label": "action / 14toggle",
+      "to": "15"
+    },
+    {
+      "from": "14",
+      "label": "Focus read paths",
+      "to": "15"
+    },
+    {
+      "from": "14",
+      "label": "action / 14back",
+      "to": "01"
+    },
+    {
+      "from": "14",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "15",
+      "label": "action / 15index",
+      "to": "00"
+    },
+    {
+      "from": "15",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "15",
+      "label": "action / 15toggle",
+      "to": "14"
+    },
+    {
+      "from": "15",
+      "label": "Return to overview",
+      "to": "14"
+    },
+    {
+      "from": "15",
+      "label": "action / 15back",
+      "to": "01"
+    },
+    {
+      "from": "15",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "16",
+      "label": "action / 16index",
+      "to": "00"
+    },
+    {
+      "from": "16",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "16",
+      "label": "action / 16hero",
+      "to": "01"
+    },
+    {
+      "from": "16",
+      "label": "Explore the compact view",
+      "to": "01"
+    },
+    {
+      "from": "17",
+      "label": "action / 17index",
+      "to": "00"
+    },
+    {
+      "from": "17",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "17",
+      "label": "action / 17back",
+      "to": "01"
+    },
+    {
+      "from": "17",
+      "label": "Back to prediction",
+      "to": "01"
+    },
+    {
+      "from": "17",
+      "label": "action / 17quiz",
+      "to": "05"
+    },
+    {
+      "from": "17",
+      "label": "Try again",
+      "to": "05"
+    },
+    {
+      "from": "18",
+      "label": "action / 18index",
+      "to": "00"
+    },
+    {
+      "from": "18",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "18",
+      "label": "action / 18back",
+      "to": "10"
+    },
+    {
+      "from": "18",
+      "label": "Back to mobile story",
+      "to": "10"
+    },
+    {
+      "from": "01",
+      "label": "action / 01index",
+      "to": "00"
+    },
+    {
+      "from": "01",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "01",
+      "label": "action / 01why",
+      "to": "02"
+    },
+    {
+      "from": "01",
+      "label": "Why this result?",
+      "to": "02"
+    },
+    {
+      "from": "01",
+      "label": "action / 01compare",
+      "to": "03"
+    },
+    {
+      "from": "01",
+      "label": "Compare two cases",
+      "to": "03"
+    },
+    {
+      "from": "01",
+      "label": "action / 01quiz",
+      "to": "05"
+    },
+    {
+      "from": "01",
+      "label": "Try a prediction",
+      "to": "05"
+    },
+    {
+      "from": "01",
+      "label": "action / 01reset",
+      "to": "04"
+    },
+    {
+      "from": "01",
+      "label": "After END →",
+      "to": "04"
+    },
+    {
+      "from": "02",
+      "label": "action / 02index",
+      "to": "00"
+    },
+    {
+      "from": "02",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "02",
+      "label": "action / 02close",
+      "to": "01"
+    },
+    {
+      "from": "02",
+      "label": "Close detail",
+      "to": "01"
+    },
+    {
+      "from": "03",
+      "label": "action / 03index",
+      "to": "00"
+    },
+    {
+      "from": "03",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "03",
+      "label": "action / 03back",
+      "to": "01"
+    },
+    {
+      "from": "03",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "03",
+      "label": "action / 03quiz",
+      "to": "05"
+    },
+    {
+      "from": "03",
+      "label": "Try a prediction",
+      "to": "05"
+    },
+    {
+      "from": "04",
+      "label": "action / 04index",
+      "to": "00"
+    },
+    {
+      "from": "04",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "04",
+      "label": "action / 04back",
+      "to": "01"
+    },
+    {
+      "from": "04",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "04",
+      "label": "action / 04quiz",
+      "to": "05"
+    },
+    {
+      "from": "04",
+      "label": "Try a prediction",
+      "to": "05"
+    },
+    {
+      "from": "05",
+      "label": "action / 05index",
+      "to": "00"
+    },
+    {
+      "from": "05",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "05",
+      "label": "choice / 05a",
+      "to": "06"
+    },
+    {
+      "from": "05",
+      "label": "choice / 05b",
+      "to": "07"
+    },
+    {
+      "from": "05",
+      "label": "action / 05back",
+      "to": "01"
+    },
+    {
+      "from": "05",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "06",
+      "label": "action / 06index",
+      "to": "00"
+    },
+    {
+      "from": "06",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "06",
+      "label": "choice / 06a",
+      "to": "06"
+    },
+    {
+      "from": "06",
+      "label": "choice / 06b",
+      "to": "07"
+    },
+    {
+      "from": "06",
+      "label": "action / 06submit",
+      "to": "08"
+    },
+    {
+      "from": "06",
+      "label": "Check my reasoning",
+      "to": "08"
+    },
+    {
+      "from": "06",
+      "label": "action / 06back",
+      "to": "01"
+    },
+    {
+      "from": "06",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "07",
+      "label": "action / 07index",
+      "to": "00"
+    },
+    {
+      "from": "07",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "07",
+      "label": "choice / 07a",
+      "to": "06"
+    },
+    {
+      "from": "07",
+      "label": "choice / 07b",
+      "to": "07"
+    },
+    {
+      "from": "07",
+      "label": "action / 07submit",
+      "to": "09"
+    },
+    {
+      "from": "07",
+      "label": "Check my reasoning",
+      "to": "09"
+    },
+    {
+      "from": "07",
+      "label": "action / 07back",
+      "to": "01"
+    },
+    {
+      "from": "07",
+      "label": "Back to mechanism",
+      "to": "01"
+    },
+    {
+      "from": "08",
+      "label": "action / 08index",
+      "to": "00"
+    },
+    {
+      "from": "08",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "08",
+      "label": "choice / 08a",
+      "to": "06"
+    },
+    {
+      "from": "08",
+      "label": "choice / 08b",
+      "to": "07"
+    },
+    {
+      "from": "08",
+      "label": "action / 08retry",
+      "to": "05"
+    },
+    {
+      "from": "08",
+      "label": "Try again",
+      "to": "05"
+    },
+    {
+      "from": "08",
+      "label": "action / 08why",
+      "to": "01"
+    },
+    {
+      "from": "08",
+      "label": "Review original case",
+      "to": "01"
+    },
+    {
+      "from": "08",
+      "label": "action / 08end",
+      "to": "17"
+    },
+    {
+      "from": "08",
+      "label": "Explore END → new read",
+      "to": "17"
+    },
+    {
+      "from": "09",
+      "label": "action / 09index",
+      "to": "00"
+    },
+    {
+      "from": "09",
+      "label": "All studies",
+      "to": "00"
+    },
+    {
+      "from": "09",
+      "label": "choice / 09a",
+      "to": "06"
+    },
+    {
+      "from": "09",
+      "label": "choice / 09b",
+      "to": "07"
+    },
+    {
+      "from": "09",
+      "label": "action / 09retry",
+      "to": "05"
+    },
+    {
+      "from": "09",
+      "label": "Try again",
+      "to": "05"
+    },
+    {
+      "from": "09",
+      "label": "action / 09why",
+      "to": "01"
+    },
+    {
+      "from": "09",
+      "label": "Review original case",
+      "to": "01"
+    },
+    {
+      "from": "09",
+      "label": "action / 09end",
+      "to": "17"
+    },
+    {
+      "from": "09",
+      "label": "Explore END → new read",
+      "to": "17"
+    },
+    {
+      "from": "00",
+      "label": "study link 01",
+      "to": "01"
+    },
+    {
+      "from": "00",
+      "label": "study link 03",
+      "to": "03"
+    },
+    {
+      "from": "00",
+      "label": "study link 04",
+      "to": "04"
+    },
+    {
+      "from": "00",
+      "label": "study link 05",
+      "to": "05"
+    },
+    {
+      "from": "00",
+      "label": "study link 10",
+      "to": "10"
+    },
+    {
+      "from": "00",
+      "label": "study link 12",
+      "to": "12"
+    },
+    {
+      "from": "00",
+      "label": "study link 14",
+      "to": "14"
+    },
+    {
+      "from": "00",
+      "label": "study link 16",
+      "to": "16"
+    }
+  ]
+}

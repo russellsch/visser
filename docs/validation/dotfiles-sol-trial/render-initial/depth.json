@@ -1,0 +1,79 @@
+[
+  {
+    "id": "x-src_flags",
+    "label": "Install flags and prompts"
+  },
+  {
+    "id": "x-src_update_links",
+    "label": "Update link verification"
+  },
+  {
+    "id": "x-src_links",
+    "label": "Home links and shell change"
+  },
+  {
+    "id": "x-src_packages",
+    "label": "Install package branches"
+  },
+  {
+    "id": "x-src_uv",
+    "label": "uv check and zsh dispatch"
+  },
+  {
+    "id": "x-src_git",
+    "label": "Git settings"
+  },
+  {
+    "id": "x-src_zsh_pre",
+    "label": "Zsh and Zim setup"
+  },
+  {
+    "id": "x-src_machine",
+    "label": "OS and root selection"
+  },
+  {
+    "id": "x-src_target",
+    "label": "Target user and home"
+  },
+  {
+    "id": "x-src_context",
+    "label": "Container and TTY detection"
+  },
+  {
+    "id": "x-src_zsh_tools",
+    "label": "Fonts and shell tools"
+  },
+  {
+    "id": "x-src_zshenv",
+    "label": "All-zsh configuration"
+  },
+  {
+    "id": "x-src_zprofile",
+    "label": "Login configuration"
+  },
+  {
+    "id": "x-src_zshrc",
+    "label": "Interactive setup"
+  },
+  {
+    "id": "x-src_zshrc_local",
+    "label": "Interactive local override"
+  },
+  {
+    "id": "x-src_update_packages",
+    "label": "Update package branches"
+  },
+  {
+    "id": "x-src_update_tools",
+    "label": "Update tools and plugins"
+  },
+  {
+    "id": "x-d_revision",
+    "label": "Snapshot boundary"
+  },
+  {
+    "id": "x-e_link",
+    "label": "links tracked configuration",
+    "text": "The links point to files in this checkout. A different checkout path needs new links. [3]"
+  }
+]

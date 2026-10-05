@@ -187,7 +187,7 @@ function density(ctx: Context): void {
     // (docs/IMPROVEMENTS.md §14.9, phase 6b review F19).
     const shown = root.tagName === 'graph' ? visibleNodeCount(nodes, members.filter((t) => t.tagName === 'group' && t.parentId === root.id)) : nodes.length;
     if (shown > NODE_LIMIT) {
-      prompt(ctx, 'W_VISUAL_DENSITY', root.id, `${root.id} shows ${shown} nodes${shown !== nodes.length ? ' (a collapsed group counts as one)' : ''} (more than ${NODE_LIMIT}, §2.3); split it, fold a group, or give the reader a list`);
+      prompt(ctx, 'W_VISUAL_DENSITY', root.id, `${root.id} shows ${shown} nodes${shown !== nodes.length ? ' (a collapsed group counts as one)' : ''} (more than ${NODE_LIMIT}, §2.3); split by reader question, or fold an existing source-supported function or ownership boundary; keep a relationship list`);
     }
     // A domain shows how 2 or more terms relate; one term is a definition
     // (docs/IMPROVEMENTS.md §5.2, phase 4 review D15).
@@ -323,7 +323,7 @@ function evidence(ctx: Context): void {
     const first = sentences(proseOf(node, ctx.isTarget))[0] ?? '';
     if (CAVEAT_LABEL.test(labels) || CAVEAT_OPENING.test(first)) {
       const owner = d.parentId ?? model.targets.get(d.id)?.sectionId;
-      prompt(ctx, 'W_EVIDENCE_GAP', d.id, `detail ${d.id} holds a caveat${owner ? ` for ${owner}` : ''}; if it limits or invalidates the conclusion, state it in the main sentence`);
+      prompt(ctx, 'W_EVIDENCE_GAP', d.id, `detail ${d.id} holds a caveat${owner ? ` for ${owner}` : ''}; if it changes a decision or the conclusion, state it on the main path before optional inspection`);
     }
   }
 }

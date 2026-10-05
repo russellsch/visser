@@ -382,6 +382,24 @@ describe('proxy label collision geometry (review R3)', () => {
     expect(keys).toEqual(['1', '1', '2', '2']);
     expect(render(graphSvg(paired))).toContain('class="vs-proxy-callout-stem"');
   });
+  it('keeps an emphasized crowded proxy callout decorative while its route owns the accessible name', () => {
+    const input = fixtureInput();
+    input.layout.nodes.push({ id: 'crowded', x: 0, y: 0, width: 600, height: 300, lines: ['crowded'] });
+    input.edgeStyleOf = () => ({ emphasis: 'teal', dash: '6 4' });
+    const svg = render(graphSvg(input));
+    const callout = /<a class="vs-edge vs-proxy-callout [^"]*"[^>]*>[\s\S]*?<\/a>/.exec(svg)?.[0];
+    expect(callout).toBeDefined();
+    expect(callout).toContain('data-vs-emphasis="teal"');
+    expect(callout).toContain('data-vs-target="e"');
+    expect(callout).toContain('aria-hidden="true"');
+    expect(callout).toContain('tabindex="-1"');
+    expect(callout).toContain('vs-selection-outline');
+    const route = /<a class="vs-edge [^"]*"[^>]*id="v-geometry.e~g~-"[^>]*>[\s\S]*?<\/a>/.exec(svg)?.[0];
+    expect(route).toBeDefined();
+    expect(route).toContain('emphasized');
+    expect(route).toContain('stroke-dasharray="6 4"');
+    expect(route).toContain('marker-end="url(#m-geometry.arrow-teal)"');
+  });
   it('reserves complete long-endpoint panels and separates nearby route keys', () => {
     const input = fixtureInput(true);
     input.labelOf = (id) => id === 'a' ? 'Long source service endpoint' : id === 'b' ? 'Long destination service endpoint' : id;

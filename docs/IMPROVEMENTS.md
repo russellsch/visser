@@ -256,16 +256,14 @@ Do not add a hand-drawn stroke style. It reads as a joke in an incident review.
 
 ## 4. Depth on click, clutter off the page
 
-### 4.1 Lists behind a toggle on wide screens
+### 4.1 Document-level Text view
 
-On a screen 900 px or wider with JavaScript, a figure shows the drawing and a
-"Show as list" button in the view bar. The node list and the edge list are in
-the DOM with `hidden`, and the button toggles them. Without JavaScript, in
-print, and on narrow screens the lists stay visible as today. The Markdown
-projection is unchanged.
-
-`reader.css`: the existing `.vs-view-bar` and `.vs-view-list` rules extend to
-wide screens under `.vs-js`.
+The article shows a diagram without a routine map/list bar beside each figure.
+One document-level **Text view** switches mapped figures to their existing
+relationship and event lists in place. Captions, interpretations, and caveats
+remain in the article. Native tables and annotated text retain their reading
+form. Without JavaScript and in print, the semantic lists remain available.
+The Markdown projection is unchanged.
 
 ### 4.2 A richer inspector
 
@@ -290,14 +288,15 @@ instance and the page marks every instance of the inspected target.
 For a source, the order stays as the Penpot inspector board shows (excerpt,
 origin, Provenance collapsed).
 
-### 4.3 Neighbourhood on hover and focus
+### 4.3 Distinct interaction markers
 
-When the pointer rests on a node, or when the node has keyboard focus, the
-runtime marks the figure. Each edge and node that is not adjacent gets
-`vs-dim`. Each adjacent one gets `vs-near`. `vs-dim` sets opacity 0.35. This
-is the cheapest way to answer "what does this part talk to" without a click.
-It is a hover enhancement only. Nothing depends on it, and the inspector
-holds the same data for touch screens.
+Selection marks the exact part with separate geometry. A selected group marks
+its boundary, without selecting every child. Hover previews one target, and
+keyboard focus stays visible during keyboard navigation. Ordinary selection
+leaves surrounding labels readable. Authored emphasis retains its appearance
+through selection and clearing. Explicit focus links, steps, filters, and
+cross-figure association remain distinct cues; the runtime composes them
+without making a weak association appear selected.
 
 ### 4.4 Evidence on a part, not only in prose
 
@@ -941,21 +940,19 @@ The durable request separates acceptance from a retryable charge attempt.
 {% /graph %}
 ```
 
-Rendering: a step bar under the figure ("1 of 4 · The API stores the order",
-Previous, Next). The active step's targets get `vs-near`; the rest get
-`vs-dim` (4.3). The step text and its excerpts show beside the bar. Keyboard:
-arrow keys. Without JavaScript and on narrow screens: a numbered list under
-the figure, each item with its targets as links. Text projection: the same
-list.
+Rendering: a numbered list under the figure, each item with its targets as
+links. It remains in document flow with JavaScript, on narrow screens, in
+print, and in the text projection. The list carries the explanation without
+a generated Previous/Next bar.
 
 Rules: `targets` name parts of the same figure. A step order is not a claim
 about execution order; a `trace` makes that claim. The guide says so, and a
 `steps` inside an `architecture` gets the sentence "Reading order, not
-execution order" in its bar.
+execution order" in its list.
 
 A walkthrough has at least two steps. Every step names at least one target,
 names each target once, and has non-citation explanatory text. It earns its
-control by grouping related parts into conceptual phases and adding an
+place by grouping related parts into conceptual phases and adding an
 invariant, boundary, contrast, or consequence. If replacing every step with
 its target labels loses no meaning, remove it. `check --review` gives one
 `W_WALKTHROUGH_VALUE` for the walkthrough when its figure has four or fewer
@@ -1156,5 +1153,6 @@ classes found no hard collision. Three decisions follow from the soft ones:
 - A `diff` component. `annotated` covers it.
 - A `decision` component with a winner. Prose carries the reasons.
 - Charts with two series, lines, or pies. A table carries them.
-- Zoom and pan on figures. Split the figure by question instead; a figure
-  that needs zoom is two figures.
+- Zoom and pan as a substitute for a clear article. The mobile viewer may
+  zoom and pan a diagram, while the main claim and qualifications stay in
+  the article. Split a figure by question when one map carries two answers.

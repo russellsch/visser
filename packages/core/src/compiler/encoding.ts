@@ -4,6 +4,7 @@
 // mark), and the value word stays in the lists, so the figure does not depend
 // on colour alone. The tables here are the single source for the SVG and for
 // the legend.
+import type { EmphasisTone } from '../model/presentation.ts';
 import { h, type HNode } from './html.ts';
 
 /** The six category hues of reader.css (§3.1). Blue is the accent, so no category uses it. */
@@ -45,11 +46,13 @@ export type Cue = {
   noFill?: boolean; // the outline only, no tint
   mark?: Mark;
   danger?: boolean; // the failure stroke (--vs-danger), not a category hue
-  swatch: 'box' | 'line';
+  swatch: 'box' | 'line' | 'lifeline';
 };
 
 /** The style that the SVG renderer applies to one node or edge. */
 export type PartStyle = {
+  emphasis?: EmphasisTone;
+  emphasisWeight?: boolean;
   cat?: Category;
   shape?: Shape;
   dash?: string;
@@ -159,6 +162,20 @@ export const BRANCH_BANDS: readonly ('panel' | 'bg')[] = ['panel', 'bg'];
 export const BAND_FILL: Readonly<Record<'panel' | 'bg', string>> = { panel: '#f5f6f8', bg: '#ffffff' };
 export const BAND_STROKE = '#d6d9df';
 
+// Trace connection cues mirror the paths drawn by traceSvg. A message arrow
+// points to its destination; it does not assert that the message was received.
+export const TRACE_ORDER_CUE: Cue = { word: 'event order', mark: 'arrow', swatch: 'line' };
+export const TRACE_MESSAGE_CUE: Cue = { word: 'message destination (not proof of receipt)', dash: '5 3', mark: 'arrow', swatch: 'line' };
+export const TRACE_LIFELINE_CUE: Cue = { word: 'actor lifeline', dash: '4 4', swatch: 'lifeline' };
+
+export function traceLineChips(hasOrder: boolean, hasMessage: boolean, hasLifeline: boolean): Chip[] {
+  return [
+    ...(hasOrder ? [{ cue: TRACE_ORDER_CUE, hue: false }] : []),
+    ...(hasMessage ? [{ cue: TRACE_MESSAGE_CUE, hue: false }] : []),
+    ...(hasLifeline ? [{ cue: TRACE_LIFELINE_CUE, hue: false }] : []),
+  ];
+}
+
 /**
  * The hue rule (§2.1): a figure shows hue only when its encoded variable has 2
  * or more distinct values. `values` holds one value per part, in any order.
@@ -185,12 +202,19 @@ export function catClasses(style: PartStyle): string {
   const out: string[] = [];
   if (style.cat) out.push('vs-cat', `vs-cat-${style.cat}`);
   if (style.cat && style.noFill) out.push('vs-nofill');
+  if (style.emphasis) out.push('vs-emphasis', `vs-emphasis-${style.emphasis}`);
+  if (style.emphasisWeight) out.push('vs-emphasis-weight');
   return out.join(' ');
+}
+
+export function presentationHue(style: PartStyle): Category | undefined {
+  return style.cat ?? (style.emphasisWeight ? undefined : style.emphasis);
 }
 
 /** Fill and stroke presentation attributes for a node outline. */
 export function outlineColours(style: PartStyle): { fill: string; stroke: string } {
-  const hex = style.cat ? CATEGORY_HEX[style.cat] : undefined;
+  const hue = presentationHue(style);
+  const hex = hue ? CATEGORY_HEX[hue] : undefined;
   return {
     fill: hex && !style.noFill ? hex.tint : NODE_FILL,
     stroke: style.danger ? DANGER_STROKE : hex ? hex.stroke : INK_STROKE,
@@ -206,6 +230,7 @@ const R = (v: number) => String(Math.round(v * 1000) / 1000);
  */
 export function outline(style: PartStyle, x: number, y: number, w: number, hh: number, strokeWidth = '1.5'): HNode[] {
   const { fill, stroke } = outlineColours(style);
+  if (style.emphasis) strokeWidth = '2.5';
   const dash = style.dash;
   const out: HNode[] = [];
   if (style.shape === 'chamfer') {
@@ -264,7 +289,9 @@ export function outline(style: PartStyle, x: number, y: number, w: number, hh: n
 export function swatch(cue: Cue, hue: boolean): HNode {
   const style = styleFor(cue, hue);
   const classes = ['vs-swatch', catClasses(style), cue.danger ? 'vs-kind-failure' : ''].filter(Boolean).join(' ');
-  const body: Array<HNode | null> = cue.swatch === 'line'
+  const body: Array<HNode | null> = cue.swatch === 'lifeline'
+    ? [h('path', { d: 'M18,1 L18,19', fill: 'none', stroke: '#9aa3af', 'stroke-width': '1', 'stroke-dasharray': cue.dash, class: 'vs-line vs-lifeline' })]
+    : cue.swatch === 'line'
     ? [
         h('path', { d: 'M2,10 L34,10', fill: 'none', stroke: outlineColours(style).stroke, 'stroke-width': '2', 'stroke-dasharray': cue.dash, class: 'vs-line' }),
         // A feedback edge: the loop ring at the start of the line, as in the figure.

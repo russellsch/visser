@@ -1,0 +1,28 @@
+[
+  {
+    "check": "walkthrough advances and dims other parts",
+    "dimmed": 3
+  },
+  {
+    "check": "edge opens explanatory inspector",
+    "geometry": {
+      "client": 800,
+      "scroll": 806
+    }
+  },
+  {
+    "check": "self-check answer opens",
+    "passed": true
+  },
+  {
+    "check": "mobile alternate trace map",
+    "geometry": {
+      "client": 348,
+      "scroll": 674
+    }
+  },
+  {
+    "check": "mobile diagram detail opens and closes",
+    "passed": true
+  }
+]

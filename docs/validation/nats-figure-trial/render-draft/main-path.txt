@@ -1,0 +1,160 @@
+[x-overview]
+#
+Why JetStream can redeliver completed work
+
+[x-p_scope]
+#
+
+This example has one JetStream stream with LimitsPolicy, one durable pull consumer with AckExplicit, and two workers. The workers can cause an external effect. An ACK is the worker's message that tells the consumer to stop waiting for confirmation. [1]
+
+[x-p_answer]
+#
+
+If worker A finishes the external work but its ACK does not reach JetStream, the consumer still has a pending ACK. The server cannot infer external completion from that work. After the ACK deadline, the consumer can offer the stored message again. A pull request can then deliver it to worker B. This can repeat the external effect unless the application prevents it. [2] [3] [4] [5]
+
+[x-h_owners]
+#
+The stream and consumer know different things
+
+[x-g_ownership]
+#
+Storage, delivery, and external work
+
+Which component knows that the work is complete?
+
+The consumer tracks delivery and ACK state. The external system sees the worker's effect. Neither record automatically proves the other.
+
+process
+storage
+external
+call
+data
+control
+loads storedmessage
+requests nextmessage
+delivers message
+performs externalwork
+sends ACK
+requests nextmessage
+can redelivermessage
+Stream
+Durable pull consumer
+Worker A
+Worker B
+External system
+[Visible drawing labels; use the screenshot for relationships]
+loads storedmessage
+requests nextmessage
+delivers message
+performs externalwork
+sends ACK
+requests nextmessage
+can redelivermessage
+Stream
+Durable pull consumer
+Worker A
+Worker B
+External system
+
+[x-p_boundary]
+#
+
+The durable consumer keeps a pending entry when it delivers under AckExplicit. A received ACK removes that entry. The stream holds the message under its own retention rules. These are separate records. [2] [6] [7]
+
+[x-h_trace]
+#
+A lost ACK leaves work pending
+
+[x-t_lost_ack]
+#
+One message, two possible workers
+
+How can B receive work that A already finished?
+
+This trace assumes that A completes the external work and its ACK fails before JetStream receives it. The later delivery to B also needs a pull request and a message that remains in the stream.
+
+failure
+wait
+
+Ordering, not duration.
+
+Order layer
+1
+2
+3
+4
+5
+6
+7
+Durable pull consumer
+Worker A
+Worker B
+External system
+Delivers message to A→ Worker A
+Finishes external work→ External system
+ACK fails before receipt→ Durable pull consumer
+ACK deadline expires
+Queues redelivery
+B requests next message→ Durable pull consumer
+Redelivers stored message→ Worker B
+[Visible drawing labels; use the screenshot for relationships]
+Order layer
+1
+2
+3
+4
+5
+6
+7
+Durable pull consumer
+Worker A
+Worker B
+External system
+Delivers message to A→ Worker A
+Finishes external work→ External system
+ACK fails before receipt→ Durable pull consumer
+ACK deadline expires
+Queues redelivery
+B requests next message→ Durable pull consumer
+Redelivers stored message→ Worker B
+
+[x-p_trace_condition]
+#
+
+The trace shows one possible order. B could request a message earlier and wait. The consumer first queues the expired message for redelivery; a valid pull request gives it a recipient. If the stream has already removed the message, the consumer cannot load it for redelivery. [3] [5] [4]
+
+[x-p_late_ack]
+#
+
+If a late ACK reaches the consumer before B receives the message, the consumer can clear both pending state and queued redelivery. Expiry alone does not guarantee a second delivery. [6]
+
+[x-h_controls]
+#
+Timing and delivery limits change the next attempt
+
+[x-tbl_controls]
+#
+Control	Effect in this case
+AckWait	The consumer waits for an ACK after delivery. When the pending entry expires, it queues redelivery. [3]
+BackOff	Its first interval replaces AckWait. Later intervals set later timeout deadlines. [8] [3]
+NAK	A received NAK queues redelivery without waiting for the ordinary timeout. A NAK with a delay schedules a later retry. [9] [10]
+MaxDeliver	The consumer stops new delivery attempts when it reaches the configured count. Its unset value means no delivery limit. [11] [12]
+
+[x-p_nak_condition]
+#
+
+The lost ACK in the trace is not a NAK. The server can act on a NAK only when it receives that NAK. BackOff governs timeout redelivery; the NAK path handles immediate or explicit-delay retry separately. [9] [10]
+
+[x-h_retention]
+#
+A delivery limit does not erase the stream message
+
+[x-p_retention]
+#
+
+MaxDeliver limits the consumer's attempts for one message. It does not prove that the external work completed. Under LimitsPolicy, an ACK does not remove that message from the stream. The stream has separate storage limits, such as MaxMsgs, MaxBytes, and MaxAge. [11] [7] [13]
+
+[x-p_application]
+#
+
+The application must decide how to handle repeated external work. For example, it can record a stable work identifier in the external system and reject a second application of that identifier. The consumer's ACK state records delivery confirmation; it does not record the external effect. [6]

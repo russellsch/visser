@@ -1,5 +1,5 @@
-// Components of docs/IMPROVEMENTS.md §14 in the browser: the step bar of a
-// `steps` walkthrough (order-intake), the before-and-after view of an
+// Components of docs/IMPROVEMENTS.md §14 in the browser: the readable list of
+// a `steps` walkthrough (order-intake), the before-and-after view of an
 // `annotated` figure (deadline-retry), and the self-check answer toggle
 // (bounded-queue). Without JavaScript each one is complete static HTML.
 import { AxeBuilder } from '@axe-core/playwright';
@@ -9,65 +9,33 @@ import { serveFixture, type InlineServer } from './inline.ts';
 
 const FIGURE = 'x-components';
 
-async function nearAndDim(page: Page): Promise<{ near: string[]; dim: string[] }> {
-  return page.evaluate((id) => {
-    const figure = document.getElementById(id)!;
-    const ids = (cls: string) => Array.from(figure.querySelectorAll(`.vs-viewport svg [data-vs-target].${cls}`)).map((a) => a.getAttribute('data-vs-target') ?? '').sort();
-    return { near: ids('vs-near'), dim: ids('vs-dim') };
-  }, FIGURE);
-}
-
 test.describe('@R06 steps walkthrough (IMPROVEMENTS.md §14.1)', () => {
-  test('wide: the bar walks the steps, marks the parts of each step, and answers the arrow keys', async ({ page, offOrigin: _ }, info) => {
-    test.skip(info.project.name.includes('nojs') || isNarrow(page), 'the step bar runs on wide screens with JavaScript');
+  test('the authored list stays in document flow without generated Previous or Next controls', async ({ page, offOrigin: _ }, info) => {
+    test.skip(info.project.name.includes('nojs'), 'the no-JavaScript case is covered separately');
     await openSnapshot(page, '', 'order-intake');
     const figure = byId(page, FIGURE);
-    const bar = figure.locator('.vs-step-bar');
-    await expect(bar).toBeVisible();
     await expect(figure.locator('.vs-steps-note')).toHaveText('Reading order, not execution order.');
-    await expect(bar.locator('.vs-step-status')).toHaveText('3 steps. Select Next to start.');
-    // The overview marks nothing and lists every step.
-    expect(await nearAndDim(page)).toEqual({ near: [], dim: [] });
     await expect(figure.locator('li.vs-step')).toHaveCount(3);
-    await bar.locator('.vs-step-next').click();
-    await expect(bar.locator('.vs-step-status')).toHaveText('1 of 3 · Acceptance is atomic');
-    const first = await nearAndDim(page);
-    expect(first.near).toEqual(['e_enqueue', 'e_insert', 'n_api', 'n_queue', 'n_store']);
-    expect(first.dim).toContain('n_worker');
-    expect(first.dim).toContain('e_charge');
-    // Only the active step shows, beside the bar.
-    await expect(byId(page, 'x-wk_accept')).toBeVisible();
-    await expect(byId(page, 'x-wk_charge')).toBeHidden();
-    const b = (await bar.boundingBox())!;
-    const s = (await byId(page, 'x-wk_accept').boundingBox())!;
-    expect(s.x).toBeGreaterThanOrEqual(b.x + b.width);
-    // The arrow keys move between the steps when the bar has focus.
-    await bar.locator('.vs-step-next').focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(bar.locator('.vs-step-status')).toHaveText('2 of 3 · Charging is retry-safe');
-    expect((await nearAndDim(page)).near).toEqual(['e_charge', 'e_take', 'n_provider', 'n_worker']);
-    await page.keyboard.press('ArrowLeft');
-    await page.keyboard.press('ArrowLeft');
-    await expect(bar.locator('.vs-step-status')).toHaveText('3 steps. Select Next to start.');
-    expect(await nearAndDim(page)).toEqual({ near: [], dim: [] });
+    await expect(figure.locator('.vs-step-bar, .vs-step-next, .vs-step-prev')).toHaveCount(0);
+    for (const id of ['x-wk_accept', 'x-wk_charge', 'x-wk_record']) await expect(byId(page, id)).toBeVisible();
+    await expect(byId(page, 'l-components.wk_charge.n_provider')).toContainText('Payment provider');
   });
 
-  test('print shows the "Walkthrough in N steps" heading with JavaScript on a wide screen (phase 6a review C15)', async ({ page, offOrigin: _ }, info) => {
-    test.skip(info.project.name.includes('nojs') || isNarrow(page), 'the step bar hides the heading on wide screens with JavaScript');
+  test('print retains the walkthrough heading and list', async ({ page, offOrigin: _ }, info) => {
+    test.skip(info.project.name.includes('nojs'), 'the no-JavaScript case is covered separately');
     await openSnapshot(page, '', 'order-intake');
     const heading = byId(page, FIGURE).locator('.vs-steps-heading');
-    await expect(heading).toBeHidden();
     await page.emulateMedia({ media: 'print' });
     await expect(heading).toBeVisible();
     await expect(heading).toHaveText('Walkthrough in 3 steps');
-    await expect(byId(page, FIGURE).locator('.vs-step-bar')).toBeHidden();
+    await expect(byId(page, FIGURE).locator('li.vs-step')).toHaveCount(3);
   });
 
   test('narrow: a numbered list with part links, and no bar', async ({ page, offOrigin: _ }, info) => {
     test.skip(info.project.name.includes('nojs') || !isNarrow(page), 'the narrow projects');
     await openSnapshot(page, '', 'order-intake');
     const figure = byId(page, FIGURE);
-    await expect(figure.locator('.vs-step-bar')).toBeHidden();
+    await expect(figure.locator('.vs-step-bar')).toHaveCount(0);
     await expect(figure.locator('li.vs-step')).toHaveCount(3);
     for (const id of ['x-wk_accept', 'x-wk_charge', 'x-wk_record']) await expect(byId(page, id)).toBeVisible();
     await expect(byId(page, 'l-components.wk_charge.n_provider')).toContainText('Payment provider');

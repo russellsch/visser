@@ -1,0 +1,302 @@
+[
+  {
+    "width": 1440,
+    "errors": [],
+    "geometry": {
+      "viewport": 1440,
+      "width": 1440,
+      "height": 3713,
+      "figures": [
+        {
+          "id": "x-read_paths",
+          "height": 698.109375,
+          "svg": {
+            "width": 806,
+            "height": 184
+          },
+          "viewport": {
+            "client": 806,
+            "scroll": 806
+          }
+        },
+        {
+          "id": "x-two_answers",
+          "height": 556.171875,
+          "svg": {
+            "width": 674,
+            "height": 329
+          },
+          "viewport": {
+            "client": 674,
+            "scroll": 674
+          }
+        }
+      ],
+      "controls": [
+        {
+          "text": "Contents",
+          "label": null
+        },
+        {
+          "text": "Reference mode",
+          "label": null
+        },
+        {
+          "text": "Expand details",
+          "label": null
+        },
+        {
+          "text": "About this snapshot",
+          "label": null
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Why SQLite readers can disagree after a commit"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A commit does not refresh an existing SQLite read transaction. This example chan"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Scope: WAL mode, separate connections, and no shared cache. You need basic SQL. "
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A reader chooses a page version"
+        },
+        {
+          "text": "process",
+          "label": null
+        },
+        {
+          "text": "storage",
+          "label": null
+        },
+        {
+          "text": "call",
+          "label": null
+        },
+        {
+          "text": "data",
+          "label": null
+        },
+        {
+          "text": "Clear",
+          "label": "Clear the filter: A reader chooses a page version"
+        },
+        {
+          "text": "Show as list",
+          "label": "Show as list: A reader chooses a page version"
+        },
+        {
+          "text": "Previous",
+          "label": null
+        },
+        {
+          "text": "Next",
+          "label": null
+        },
+        {
+          "text": "#",
+          "label": "Reference options for The fixed boundary belongs to the read transaction, not each SELECT. A reader ne"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for One commit leaves two valid answers"
+        },
+        {
+          "text": "Show as list",
+          "label": "Show as list: One commit leaves two valid answers"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Follow A's three reads: 100 → 100 → 80. B's commit succeeds. A changes its answe"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for B commits 60 next. A still holds the transaction that first read 100. What does A read?"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Change the transaction boundary, and the answer changes"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Change to the experimentObserved resultWhat it distinguishes A runs BEGIN, but d"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for These results come from fresh databases on SQLite 3.53.0, with a zero busy timeo"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Plain BEGIN defaults to DEFERRED. The first database access determines whether i"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Waiting does not refresh an obsolete snapshot. End that transaction and restart "
+        },
+        {
+          "text": "#",
+          "label": "Reference options for BEGIN IMMEDIATE obtains the write transaction before the initial read. It can it"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A runs BEGIN but reads nothing. B commits 60. A then makes its first SELECT. Is the result 100 or 60?"
+        }
+      ]
+    },
+    "axe": []
+  },
+  {
+    "width": 390,
+    "errors": [],
+    "geometry": {
+      "viewport": 390,
+      "width": 390,
+      "height": 5831,
+      "figures": [
+        {
+          "id": "x-read_paths",
+          "height": 1013.21875,
+          "svg": {
+            "width": 0,
+            "height": 0
+          },
+          "viewport": {
+            "client": 0,
+            "scroll": 0
+          }
+        },
+        {
+          "id": "x-two_answers",
+          "height": 937.421875,
+          "svg": {
+            "width": 0,
+            "height": 0
+          },
+          "viewport": {
+            "client": 0,
+            "scroll": 0
+          }
+        }
+      ],
+      "controls": [
+        {
+          "text": "Contents",
+          "label": null
+        },
+        {
+          "text": "Reference mode",
+          "label": null
+        },
+        {
+          "text": "Expand details",
+          "label": null
+        },
+        {
+          "text": "About this snapshot",
+          "label": null
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Why SQLite readers can disagree after a commit"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A commit does not refresh an existing SQLite read transaction. This example chan"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Scope: WAL mode, separate connections, and no shared cache. You need basic SQL. "
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A reader chooses a page version"
+        },
+        {
+          "text": "process",
+          "label": null
+        },
+        {
+          "text": "storage",
+          "label": null
+        },
+        {
+          "text": "call",
+          "label": null
+        },
+        {
+          "text": "data",
+          "label": null
+        },
+        {
+          "text": "Clear",
+          "label": "Clear the filter: A reader chooses a page version"
+        },
+        {
+          "text": "Show map",
+          "label": "Show map: A reader chooses a page version"
+        },
+        {
+          "text": "Previous",
+          "label": null
+        },
+        {
+          "text": "Next",
+          "label": null
+        },
+        {
+          "text": "#",
+          "label": "Reference options for The fixed boundary belongs to the read transaction, not each SELECT. A reader ne"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for One commit leaves two valid answers"
+        },
+        {
+          "text": "Show map",
+          "label": "Show map: One commit leaves two valid answers"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Follow A's three reads: 100 → 100 → 80. B's commit succeeds. A changes its answe"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for B commits 60 next. A still holds the transaction that first read 100. What does A read?"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Change the transaction boundary, and the answer changes"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Change to the experimentObserved resultWhat it distinguishes A runs BEGIN, but d"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for These results come from fresh databases on SQLite 3.53.0, with a zero busy timeo"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Plain BEGIN defaults to DEFERRED. The first database access determines whether i"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for Waiting does not refresh an obsolete snapshot. End that transaction and restart "
+        },
+        {
+          "text": "#",
+          "label": "Reference options for BEGIN IMMEDIATE obtains the write transaction before the initial read. It can it"
+        },
+        {
+          "text": "#",
+          "label": "Reference options for A runs BEGIN but reads nothing. B commits 60. A then makes its first SELECT. Is the result 100 or 60?"
+        }
+      ]
+    },
+    "axe": []
+  }
+]

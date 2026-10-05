@@ -87,18 +87,6 @@ function stepParts(st: FigureMarks, section: HTMLElement): Array<{ el: Element; 
   return out;
 }
 
-/** The neighbourhood of a node: its ID, its adjacent parts, and its relationships, from the static HTML (§4.2, §4.3). */
-function neighbourhood(node: Element): { self: Element; near: Set<string>; edges: Set<string> } {
-  const id = node.getAttribute(A.target) ?? '';
-  const near = new Set<string>([id]);
-  const edges = new Set<string>();
-  for (const item of Array.from(canonical(id)?.querySelectorAll(`[${A.edge}]`) ?? [])) {
-    edges.add(item.getAttribute(A.edge) ?? '');
-    near.add(item.getAttribute(A.other) ?? '');
-  }
-  return { self: node, near, edges };
-}
-
 /** The parts in other figures that share the entity of the hovered or focused part (§14.9). */
 function entityParts(): { source: Element; ids: Set<string> } | undefined {
   const source = markState.entityHover ?? markState.entityFocus;
@@ -116,24 +104,16 @@ function figureMarkMap(st: FigureMarks, entity: ReturnType<typeof entityParts>):
   const judged = new Set<Element>();
   const svg = st.svg;
   const svgParts = svg ? Array.from(svg.querySelectorAll('.vs-node, .vs-edge')).filter((p) => p.hasAttribute(A.target)) : [];
-  const source = st.hover ?? (st.focus && svg?.contains(st.focus) ? st.focus : undefined);
+
   if (st.step) {
     // Parts that are not SVG keep the step marks under a hover (§14.1).
     for (const { el, ids } of stepParts(st, st.step.section)) {
-      if (source && svg?.contains(el)) continue;
+
       judged.add(el);
       out.set(el, ids.some((x) => st.step!.targets.has(x)) ? 'near' : 'dim');
     }
   }
-  if (source) {
-    const { self, near, edges } = neighbourhood(source);
-    for (const part of svgParts) {
-      judged.add(part);
-      const adjacent = part.classList.contains('vs-edge') ? edges.has(part.getAttribute(A.rel) ?? '') : near.has(part.getAttribute(A.target) ?? '');
-      if (!adjacent) out.set(part, 'dim');
-      else if (part !== self) out.set(part, 'near');
-    }
-  } else if (!st.step && st.pressed.size > 0) {
+  if (!st.step && st.pressed.size > 0) {
     for (const part of svgParts) {
       judged.add(part);
       if (!words(part.getAttribute(A.filter)).some((t) => st.pressed.has(t))) out.set(part, 'dim');
@@ -185,6 +165,8 @@ export function updateMarks(): void {
     st.figure.classList.toggle('vs-walking', st.step !== undefined);
     for (const el of markable(st)) {
       const mark = isHidden(el) ? undefined : marks.get(el);
+      el.classList.toggle('vs-hovered', !isHidden(el) && st.hover === el);
+      el.classList.toggle('vs-keyboard-focus', !isHidden(el) && st.focus === el && el.matches(':focus-visible'));
       el.classList.toggle('vs-near', mark === 'near');
       el.classList.toggle('vs-dim', mark === 'dim');
     }
@@ -194,4 +176,22 @@ export function updateMarks(): void {
 /** Register every figure with a drawing, so the cross-figure highlight reaches it. */
 export function registerFigures(): void {
   for (const svg of Array.from(document.querySelectorAll('figure.vs-figure .vs-viewport svg'))) figureMarks(svg);
+}
+
+// Selection, explicit author focus, hover and keyboard focus have independent
+// owners. Recomputing neighbourhood/filter marks never clears these layers.
+export function clearHighlight(className: string): void {
+  for (const node of Array.from(document.querySelectorAll(`.${className}`))) node.classList.remove(className);
+}
+export function highlight(ids: string[], className: string): void {
+  clearHighlight(className);
+  for (const id of ids) for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) {
+    if (!node.closest('.vs-inspector')) node.classList.add(className);
+  }
+}
+export function highlightInstances(id: string, className: string): void {
+  clearHighlight(className);
+  for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) {
+    if (node.id !== DOM.canonicalId(id) && !node.closest('.vs-inspector')) node.classList.add(className);
+  }
 }

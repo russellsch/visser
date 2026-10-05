@@ -1,8 +1,8 @@
-// Depth on click (docs/IMPROVEMENTS.md §4.1–§4.3, §13.4): the list toggle on
-// wide screens, the neighbourhood on hover and focus, the position of the
+// Depth on click (docs/IMPROVEMENTS.md §4.1–§4.3, §13.4): diagram-first
+// presentation, local details, restrained hover/focus, the position of the
 // term bubble, and the sections of the inspector for a part.
 import { expect, type Locator, type Page } from '@playwright/test';
-import { byId, isNarrow, isPrimaryDesktop, openSnapshot, test } from './support.ts';
+import { byId, isNarrow, isPrimaryDesktop, openSnapshot, showList, test } from './support.ts';
 import { inlineDoc, serveInline } from './inline.ts';
 import { normalizedTextSha256 } from '../../packages/core/src/model/hash.ts';
 
@@ -46,80 +46,68 @@ async function classesOf(page: Page, ids: string[]): Promise<Record<string, stri
   })), ids);
 }
 
-test.describe('@R06 lists behind a toggle (IMPROVEMENTS.md §4.1)', () => {
-  test('wide screens show the drawing first, and "Show as list" adds the lists', async ({ page, offOrigin: _ }) => {
-    test.skip(isNarrow(page), 'the list toggle is the wide-screen view');
+test.describe('@R06 diagram-first presentation (clearer figures CF01, CF19)', () => {
+  test('the document has no routine per-figure Map/List bar, and Text view changes every mapped figure', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page, '', 'order-intake');
     const figure = byId(page, `x-${FIGURE}`);
-    const toggle = figure.locator('.vs-view-toggle');
-    await expect(toggle).toHaveText('Show as list');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await expect(figure.locator('.vs-viewport')).toBeVisible();
     await expect(figure.locator('.vs-lists')).toBeHidden();
-    // The lists stay in the DOM.
+    await expect(figure.locator('.vs-view-toggle, .vs-view-bar')).toHaveCount(0);
     await expect(byId(page, `l-${FIGURE}.e_insert`)).toBeAttached();
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    const textView = page.locator('.vs-toolbar .vs-text-view');
+    await expect(textView).toHaveAttribute('aria-pressed', 'false');
+    await textView.click();
+    await expect(textView).toHaveAttribute('aria-pressed', 'true');
     await expect(figure.locator('.vs-lists')).toBeVisible();
-    await expect(figure.locator('.vs-viewport')).toBeVisible();
-    await toggle.click();
+    await expect(figure.locator('.vs-viewport')).toBeHidden();
+    await textView.click();
     await expect(figure.locator('.vs-lists')).toBeHidden();
   });
 
-  test('narrow screens show the lists first, and print shows both', async ({ page, offOrigin: _ }) => {
+  test('narrow screens retain the diagram, and print shows both representations', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page, '', 'order-intake');
     const figure = byId(page, `x-${FIGURE}`);
     if (isNarrow(page)) {
-      await expect(figure.locator('.vs-view-toggle')).toHaveText('Show map');
-      await expect(figure.locator('.vs-lists')).toBeVisible();
+      await expect(figure.locator('.vs-viewport')).toBeVisible();
+      await expect(figure.locator('.vs-lists')).toBeHidden();
     }
     await page.emulateMedia({ media: 'print' });
     await expect(figure.locator('.vs-lists')).toBeVisible();
     await expect(figure.locator('.vs-viewport')).toBeVisible();
   });
 
-  test('@nojs the lists are visible without JavaScript, and there is no toggle', async ({ page }) => {
+  test('@nojs the lists are visible without JavaScript, and there is no view control', async ({ page }) => {
     await openSnapshot(page, '', 'order-intake');
     const figure = byId(page, `x-${FIGURE}`);
     await expect(figure.locator('.vs-lists')).toBeVisible();
-    await expect(figure.locator('.vs-view-toggle')).toHaveCount(0);
+    await expect(figure.locator('.vs-view-toggle, .vs-view-bar')).toHaveCount(0);
   });
 });
 
-test.describe('neighbourhood on hover and focus (IMPROVEMENTS.md §4.3)', () => {
+test.describe('ordinary hover and focus (clearer figures CF05, CF06)', () => {
   const ids = ['n_api', 'n_worker', 'n_queue', 'n_provider', 'e_insert', 'e_update', 'e_take'].map((id) => `v-${FIGURE}.${id}`);
 
-  test('hover marks the adjacent parts near and dims the rest; leaving clears it', async ({ page, offOrigin: _ }) => {
+  test('hover marks only the direct target and never dims neighbouring labels', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
     await openSnapshot(page, '', 'order-intake');
     await byId(page, `v-${FIGURE}.n_store`).hover();
-    expect(await classesOf(page, ids)).toEqual({
-      [`v-${FIGURE}.n_api`]: ['vs-near'],
-      [`v-${FIGURE}.n_worker`]: ['vs-near'],
-      [`v-${FIGURE}.n_queue`]: ['vs-dim'],
-      [`v-${FIGURE}.n_provider`]: ['vs-dim'],
-      [`v-${FIGURE}.e_insert`]: ['vs-near'],
-      [`v-${FIGURE}.e_update`]: ['vs-near'],
-      [`v-${FIGURE}.e_take`]: ['vs-dim'],
-    });
-    expect(await byId(page, `v-${FIGURE}.n_queue`).evaluate((n) => getComputedStyle(n).opacity)).toBe('0.35');
+    expect(await classesOf(page, ids)).toEqual(Object.fromEntries(ids.map((id) => [id, []])));
+    await expect(byId(page, `v-${FIGURE}.n_store`)).toHaveClass(/vs-hovered/);
     await page.mouse.move(2, 2);
-    await expect(page.locator('.vs-near, .vs-dim')).toHaveCount(0);
+    await expect(page.locator('.vs-hovered, .vs-near, .vs-dim')).toHaveCount(0);
   });
 
-  test('keyboard focus marks the neighbourhood, and Tab moves on and clears it', async ({ page, offOrigin: _ }) => {
+  test('keyboard focus marks only its target, and Tab clears the focus marker', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'the drawing is the wide-screen view');
     await openSnapshot(page, '', 'order-intake');
     const queue = byId(page, `v-${FIGURE}.n_queue`);
     await queue.focus();
     await expect(queue).toBeFocused();
-    expect((await classesOf(page, ids))[`v-${FIGURE}.n_api`]).toEqual(['vs-near']);
-    expect((await classesOf(page, ids))[`v-${FIGURE}.n_provider`]).toEqual(['vs-dim']);
+    expect(await classesOf(page, ids)).toEqual(Object.fromEntries(ids.map((id) => [id, []])));
+    await expect(queue).toHaveClass(/vs-keyboard-focus/);
     await page.keyboard.press('Tab');
     await expect(queue).not.toBeFocused();
-    // The next node gets its own neighbourhood; the queue's marks are gone.
-    const active = await page.evaluate(() => document.activeElement?.id ?? '');
-    if (!active.startsWith(`v-${FIGURE}.n_`)) await expect(page.locator('.vs-near, .vs-dim')).toHaveCount(0);
+    await expect(queue).not.toHaveClass(/vs-keyboard-focus/);
   });
 });
 
@@ -175,7 +163,7 @@ test.describe('term bubble (IMPROVEMENTS.md §13.4)', () => {
 test.describe('inspector sections for a part (IMPROVEMENTS.md §4.2)', () => {
   test('label and cue word, body, Relationships, Appears in, and Copy reference last', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page, '', 'order-intake');
-    if (isNarrow(page)) await byId(page, `l-${FIGURE}.n_api`).click();
+    if (isNarrow(page)) { await showList(page, FIGURE); await byId(page, `l-${FIGURE}.n_api`).tap(); }
     else await byId(page, `v-${FIGURE}.n_api`).click();
     const host = page.locator(isNarrow(page) ? 'dialog#vs-inspector-dialog' : 'aside#vs-inspector');
     await expect(host.locator('#vs-inspector-title')).toHaveText('Order API · interface · Explanation');
@@ -273,23 +261,22 @@ test.describe('phase-2 review fixes (docs/reviews/phase2-depth-review-1.md)', ()
     await expect(page.locator('#vs-tooltip')).toHaveCount(0);
   });
 
-  test('the neighbourhood of the focused node comes back after the pointer leaves another node (R6)', async ({ page, offOrigin: _ }) => {
+  test('a focused node keeps its own keyboard marker after another node is hovered (CF05, CF06)', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
     await openSnapshot(page, '', 'order-intake');
     const api = byId(page, `v-${FIGURE}.n_api`);
     await api.focus();
-    const marked = await page.locator(`[id="x-${FIGURE}"] .vs-dim`).count();
-    expect(marked).toBeGreaterThan(0);
+    await expect(api).toHaveClass(/vs-keyboard-focus/);
     await byId(page, `v-${FIGURE}.n_worker`).hover();
     await page.mouse.move(2, 2);
     await expect(api).toBeFocused();
-    await expect(page.locator(`[id="x-${FIGURE}"] .vs-dim`)).toHaveCount(marked);
-    expect(await api.evaluate((n) => n.classList.contains('vs-dim'))).toBe(false);
+    await expect(api).toHaveClass(/vs-keyboard-focus/);
+    await expect(page.locator(`[id="x-${FIGURE}"] .vs-dim`)).toHaveCount(0);
   });
 
   test('the inspector sections are h3 under the h2 title, and the facts do not repeat the cue word (R7, S1)', async ({ page, offOrigin: _ }) => {
     await openSnapshot(page, '', 'order-intake');
-    if (isNarrow(page)) await byId(page, `l-${FIGURE}.n_api`).click();
+    if (isNarrow(page)) { await showList(page, FIGURE); await byId(page, `l-${FIGURE}.n_api`).tap(); }
     else await byId(page, `v-${FIGURE}.n_api`).click();
     const host = page.locator(isNarrow(page) ? 'dialog#vs-inspector-dialog' : 'aside#vs-inspector');
     await expect(host.getByRole('heading', { level: 2, name: 'Order API · interface · Explanation' })).toBeVisible();
@@ -308,7 +295,7 @@ test.describe('phase-2 review fixes (docs/reviews/phase2-depth-review-1.md)', ()
 });
 
 test.describe('drill-down depth cues', () => {
-  test('two bars mark explanation while a bare SVG part is inert and still markable', async ({ page, offOrigin: _ }) => {
+  test('two bars mark explanation while a bare SVG part is inert without creating neighbourhood marks', async ({ page, offOrigin: _ }) => {
     test.skip(isNarrow(page), 'the drawing is the wide-screen view');
     await openSnapshot(page, '', 'order-intake');
     const explained = byId(page, `v-${FIGURE}.n_api`);
@@ -319,7 +306,7 @@ test.describe('drill-down depth cues', () => {
     await expect(bare).not.toHaveAttribute('href', /.+/);
     await expect(bare.locator('.vs-depth-bar')).toHaveCount(0);
     await byId(page, `v-${FIGURE}.n_queue`).hover();
-    await expect(bare).toHaveClass(/vs-near/);
+    await expect(bare).not.toHaveClass(/vs-near|vs-dim/);
   });
 
   test('Locate returns to and highlights every visible instance of the target', async ({ page, offOrigin: _ }) => {

@@ -1,0 +1,12 @@
+SQLite 3.53.0
+Separate connections; WAL; explicit transactions; timeout=0; no shared cache.
+Snapshot, SELECT order AC: A first read=100; B commits 80; A=100; C=80
+A tries UPDATE in old transaction: SQLITE_BUSY_SNAPSHOT
+A ends old transaction and reads in new one: 80
+Snapshot, SELECT order CA: A first read=100; B commits 80; A=100; C=80
+A tries UPDATE in old transaction: SQLITE_BUSY_SNAPSHOT
+A ends old transaction and reads in new one: 80
+Delayed first read: A BEGIN; B autocommit UPDATE=80; A first SELECT=80
+A BEGIN IMMEDIATE: B UPDATE=SQLITE_BUSY; C SELECT=100
+A commits 70: C next autocommit SELECT=70
+All assertions passed. Temporary databases removed.

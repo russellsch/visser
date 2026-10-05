@@ -1,3 +1,4 @@
+import { nativeEmphasis } from './presentation.ts';
 // Semantic Markdown projection (§7.6). Generated from the model, not by
 // stripping tags from source or scraping HTML. Every object is preceded by an
 // `visser-text/1` ID line so tests can extract target IDs.
@@ -324,6 +325,8 @@ function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
       lines.push(`${cap(child.kind)} ${child.label}${role ? ` (${role})` : ''}${entity ? ` (entity: ${entity})` : ''}${group ? ` (group: ${group})` : ''}`);
     }
   }
+  const emphasis = nativeEmphasis(node.tag, node.attributes['emphasis']);
+  if (emphasis) lines.push(`emphasis: ${emphasis}`);
   return lines;
 }
 
@@ -370,6 +373,8 @@ function domainBlocks(ctx: Context, record: TargetRecord): string[] {
       attr(node, 'entity') ? `entity: ${attr(node, 'entity')}` : '',
     ].filter(Boolean);
     if (facts.length > 0) lines.push(facts.join('; '));
+    const emphasis = nativeEmphasis(node.tag, node.attributes['emphasis']);
+    if (emphasis) lines.push(`emphasis: ${emphasis}`);
     const body = bodyOf(ctx, node);
     if (body) lines.push(body);
     out.push([lines.join('\n'), ...nested(c.id)].join('\n\n'));
@@ -381,6 +386,8 @@ function domainBlocks(ctx: Context, record: TargetRecord): string[] {
     const verb = RELATION_VERBS[attr(node, 'kind') ?? ''] ?? attr(node, 'kind') ?? 'relates to';
     const lines = [idLine(r.id)];
     if (rel) lines.push(`${labelOf(ctx, rel.from)} ${verb} ${labelOf(ctx, rel.to)}${cardinality ? ` (${cardinality})` : ''}: ${r.label}`);
+    const emphasis = nativeEmphasis(node.tag, node.attributes['emphasis']);
+    if (emphasis) lines.push(`emphasis: ${emphasis}`);
     const body = bodyOf(ctx, node);
     if (body) lines.push(body);
     out.push([lines.join('\n'), ...nested(r.id)].join('\n\n'));

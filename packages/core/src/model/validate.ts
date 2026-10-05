@@ -3,6 +3,7 @@
 // literal limits; this pass checks attributes, placement, references by kind,
 // and the family rules. Existence of referenced IDs is checked in targets.ts
 // (E_REF_BROKEN); this pass reports only kind and scope errors for IDs that exist.
+import { EMPHASIS_TAGS, EMPHASIS_TONES } from './presentation.ts';
 import { identityProblem } from '../provenance/identity.ts';
 import type { Diagnostic, ParsedSource, ParsedTarget, TargetId } from '../types.ts';
 import { normalizeText, sha256Hex } from './hash.ts';
@@ -177,6 +178,12 @@ const SPECS: Record<string, TagSpec> = {
     enums: { kind: ['git', 'working-tree', 'web', 'file', 'supplied', 'example'], availability: ['captured', 'link-only'] },
   },
 };
+
+for (const tag of EMPHASIS_TAGS) {
+  const spec = SPECS[tag]!;
+  spec.optional.emphasis = 'string';
+  spec.enums = { ...spec.enums, emphasis: EMPHASIS_TONES };
+}
 
 /** The attribute rules for each tag; `catalogue show --part schema` and the guide tests read them. */
 export const TAG_SPECS: Readonly<Record<string, Readonly<TagSpec>>> = SPECS;

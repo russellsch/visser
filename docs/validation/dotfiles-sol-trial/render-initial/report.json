@@ -1,0 +1,93 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_install",
+        "title": "Figure: The entry script delegates shell setup",
+        "width": 809.984375,
+        "height": 387.375
+      }
+    ],
+    "errors": [],
+    "interactions": [
+      {
+        "figure": "x-g_install",
+        "target": "e_link",
+        "host": "desktop local",
+        "opened": true,
+        "closed": true
+      }
+    ],
+    "documentWidth": 1440
+  },
+  {
+    "name": "mobile390",
+    "width": 390,
+    "figures": [
+      {
+        "id": "x-g_install",
+        "title": "Figure: The entry script delegates shell setup",
+        "width": 358,
+        "height": 547.34375
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 390
+  },
+  {
+    "name": "mobile320",
+    "width": 320,
+    "figures": [
+      {
+        "id": "x-g_install",
+        "title": "Figure: The entry script delegates shell setup",
+        "width": 288,
+        "height": 634.125
+      }
+    ],
+    "errors": [],
+    "interactions": [
+      {
+        "figure": "x-g_install",
+        "target": "e_link",
+        "host": "mobile sheet",
+        "opened": true,
+        "closed": true
+      }
+    ],
+    "documentWidth": 320
+  },
+  {
+    "name": "dark",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_install",
+        "title": "Figure: The entry script delegates shell setup",
+        "width": 809.984375,
+        "height": 387.375
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 1440
+  },
+  {
+    "name": "forced",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_install",
+        "title": "Figure: The entry script delegates shell setup",
+        "width": 809.984375,
+        "height": 387.375
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 1440
+  }
+]

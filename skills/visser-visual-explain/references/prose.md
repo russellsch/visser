@@ -146,7 +146,8 @@ The document lock file toolkit digest changes.
 
 ## 7. Exact numbers
 
-Give the number. Do not write "some", "several", "many", "a few", or
+Give a source-supported number. If the quantity is unknown, say so; never
+invent a number to silence a warning. Do not write "some", "several", "many", "a few", or
 "various". `W_VAGUE_QUANTITY` reports these words. "How many" and "as many
 as" do not get a prompt, because they ask for or compare a number.
 

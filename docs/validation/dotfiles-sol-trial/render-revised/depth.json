@@ -1,0 +1,32 @@
+[
+  {
+    "id": "x-d_revision",
+    "label": "Snapshot boundary",
+    "text": "The captured code comes from commit abc1e037fdd7d223e796a0703caa23034a9e21dd. This document does not establish how a later revision behaves."
+  },
+  {
+    "id": "x-n_entry",
+    "label": "Entry: install.sh",
+    "text": "The entry script checks for uv, a tool installer that it needs for thefuck. It stops before shell setup if uv remains unavailable. [4] [5]"
+  },
+  {
+    "id": "x-n_common",
+    "label": "Detection: common.sh",
+    "text": "The detector honors an existing MACHINE value. It derives the target home from SUDO_USER only if that variable exists. [6] [7]"
+  },
+  {
+    "id": "x-n_shell_install",
+    "label": "Shell setup: zsh/install.sh",
+    "text": "Without root access on Linux, it places Starship, lsd, and direnv in ~/.local/bin. The linked .zshenv adds that directory to the shell path. [8] [5] [9]"
+  },
+  {
+    "id": "x-n_git",
+    "label": "Global Git config",
+    "text": "The installer sets init.defaultBranch=main and pull.rebase=true for the target user. It asks for missing name and email only during an interactive run. [10]"
+  },
+  {
+    "id": "x-e_link",
+    "label": "links tracked configuration",
+    "text": "The links point to this checkout. If the checkout moves, the old links still point to its prior path. [2]"
+  }
+]

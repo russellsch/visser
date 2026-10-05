@@ -219,7 +219,8 @@ async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void>
       drawn.setAttribute('aria-labelledby', `vs-t-${figureId}`);
       drawn.setAttribute('aria-describedby', `vs-q-${figureId}`);
     }
-    attachTargets(figure, drawn, renderId);
+    const missing = attachTargets(figure, drawn, renderId);
+    if (missing === 0 && figure.querySelector(`.vs-lists [${A.mermaidKey}]`) && ['flowchart', 'state', 'sequence'].includes(figure.getAttribute(A.mermaid) ?? '')) figure.setAttribute('data-vs-viewer-ready', 'true');
     // A wide drawing scrolls inside its viewport; drawn elements are not
     // focusable, so the viewport itself must take focus for keyboard scrolling.
     viewport.setAttribute('tabindex', '0');

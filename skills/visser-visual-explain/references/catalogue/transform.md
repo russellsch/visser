@@ -30,13 +30,16 @@ loses detail, so the main view shows it.
 | Tag | Required | Optional |
 |---|---|---|
 | `transform` | `id`, `title`, `question` | — |
-| `stage` | `id`, `label`, `representation` | `shape`, `units`, `location`, `ownership`, `evidence` |
-| `conversion` | `id`, `from`, `to`, `label` | `loss`, `condition`, `quantity`, `evidence` |
+| `stage` | `id`, `label`, `representation` | `shape`, `units`, `location`, `ownership`, `evidence`, `emphasis` |
+| `conversion` | `id`, `from`, `to`, `label` | `loss`, `condition`, `quantity`, `evidence`, `emphasis` |
 
 - `shape` is a string or a list of dimension names: `shape=["batch", "channel"]`.
 
 ## Rules
 
+- Optional `emphasis` (`teal`, `violet`, or `amber`) draws attention to a part.
+  All three values mean the same thing. Omit it when no cue helps. It does
+  not encode loss or condition. See [visual language](../visual-language.md).
 - `stage` and `conversion` go directly inside the `transform`.
 - `from` and `to` name stages in the same figure.
 - A merge is two or more conversions with the same `to`. Explain in the
@@ -46,13 +49,15 @@ loses detail, so the main view shows it.
   this stage. A `cite` supports one sentence in the body.
 - `quantity="40 MB/s"` on a `conversion` shows after its label. Name the
   source of the number in `evidence` on the conversion.
+- `loss` is visible on the conversion. `condition` is not a map label. State
+  a decision-changing condition in the main-path prose before any detail.
 
 ## Narrow screens and text
 
-On a narrow screen the page shows the list view: each stage is a card, and
-each conversion is one card that reads "from, label, to", followed by its loss
-and condition. A branch is a separate conversion card, so branches stay
-visible. The figure is one tap away in the view bar.
+On a narrow screen, keep the loss and condition that change the answer in the
+article. The diagram preview opens a viewer for exploration. The document-level
+Text view lists each stage and conversion, including loss and condition. The
+Markdown projection keeps each branch as a separate conversion.
 
 ## Template
 

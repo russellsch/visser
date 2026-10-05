@@ -3,12 +3,13 @@
 // §9.6), and a compare cell without a value shows its text, with a small link
 // only when the inspector holds more (Q5, §9.8, IMPROVEMENTS §4.6).
 import { expect } from '@playwright/test';
-import { isNarrow, isPrimaryDesktop, openSnapshot, test } from './support.ts';
+import { isNarrow, isPrimaryDesktop, openSnapshot, showList, test } from './support.ts';
 
 test.describe('@R06 dogfood-2 reading fixes', () => {
   test('narrow screens: transform stages are cards, and each conversion is one statement', async ({ page, offOrigin: _ }) => {
     test.skip(!isNarrow(page), 'the card view is the narrow-screen view');
     await openSnapshot(page, '', 'image-pipeline');
+    await showList(page, 'to_batch');
     const figure = page.locator('[id="x-to_batch"]');
     const stage = figure.locator('.vs-node-list > li').first();
     await expect(stage).toBeVisible();

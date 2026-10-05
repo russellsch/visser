@@ -3,7 +3,7 @@
 // without JavaScript; relationship list numbers stay on their line.
 import { expect } from '@playwright/test';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
-import { byId, copiedTexts, installClipboardSpy, isNarrow, isPrimaryDesktop, openSnapshot, showMap, test } from './support.ts';
+import { byId, copiedTexts, installClipboardSpy, isNarrow, isPrimaryDesktop, openSnapshot, showList, test } from './support.ts';
 
 const TRACE = 'full_queue_trace';
 
@@ -46,23 +46,21 @@ test.describe('@R06 trace figure', () => {
     expect(parsePacket(yaml!).targetId).toBe(id);
   });
 
-  test('narrow screens: the actor cards show first, and the page never scrolls sideways', async ({ page, offOrigin: _ }) => {
-    test.skip(!isNarrow(page), 'the list-first view is the narrow-screen default');
+  test('narrow screens keep the trace diagram first without page overflow', async ({ page, offOrigin: _ }) => {
+    test.skip(!isNarrow(page), 'the narrow layout check');
     await openSnapshot(page);
     const figure = byId(page, `x-${TRACE}`);
     await figure.scrollIntoViewIfNeeded();
-    await expect(figure.locator('.vs-trace-by-actor')).toBeVisible();
-    await expect(figure.locator('.vs-viewport')).toBeHidden();
+    await expect(figure.locator('.vs-viewport')).toBeVisible();
+    await expect(figure.locator('.vs-trace-by-actor')).toBeHidden();
     const sideways = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(await sideways()).toBe(0);
-    await showMap(page, TRACE);
-    await expect(figure.locator('.vs-viewport svg')).toBeVisible();
     expect(await sideways()).toBe(0);
   });
 
   test('narrow screens: a relationship list number stays on the link line, and the kind badge follows', async ({ page, offOrigin: _ }) => {
     test.skip(!isNarrow(page), 'the wrapping problem occurs on narrow screens');
     await openSnapshot(page);
+    await showList(page, 'handoff');
     const items = page.locator('[id="x-handoff"] .vs-rel-list li');
     await items.first().scrollIntoViewIfNeeded();
     const gaps = await items.evaluateAll((lis) => lis.map((li) => {

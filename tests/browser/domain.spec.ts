@@ -1,10 +1,10 @@
 // The `domain` figure (docs/IMPROVEMENTS.md §5.4): on a wide window the
-// glossary sits beside the map; on a narrow screen the glossary comes first
-// and the map is behind "Show map"; a click on a term whose definition a
+// glossary sits beside the map; on a narrow screen the diagram stays first;
+// a click on a term whose definition a
 // concept owns opens the concept in the inspector, and the bubble is the
 // definition's first sentence.
 import { expect, type Locator, type Page } from '@playwright/test';
-import { byId, openSnapshot, test } from './support.ts';
+import { byId, isNarrow, openSnapshot, test } from './support.ts';
 
 const FIGURE = 'x-billing_terms';
 
@@ -22,8 +22,7 @@ async function open(page: Page, width: number, height: number) {
 
 /**
  * The row of map and glossary is centred on the text column, is never wider
- * than the window minus 4rem, and the view bar stays in the column (phase 4
- * review D1, D13). The column is the box of the first paragraph.
+ * than the window minus 4rem. The column is the box of the first paragraph.
  */
 async function expectRowOnColumn(page: Page, figure: Locator, width: number) {
   const col = await box(page.locator('#x-claim'));
@@ -33,13 +32,12 @@ async function expectRowOnColumn(page: Page, figure: Locator, width: number) {
   const right = Math.max(m.x + m.width, g.x + g.width);
   expect(Math.abs((left + right) / 2 - (col.x + col.width / 2))).toBeLessThanOrEqual(2);
   expect(right - left).toBeLessThanOrEqual(width - 64);
-  const bar = await box(figure.locator('.vs-view-bar'));
-  expect(bar.x).toBeGreaterThanOrEqual(col.x);
+  await expect(figure.locator('.vs-view-bar, .vs-view-toggle')).toHaveCount(0);
   return { m, g };
 }
 
 test.describe('@R06 domain glossary layout (IMPROVEMENTS.md §5.4)', () => {
-  test('1600 px: the glossary sits beside the map, and "Show as list" adds the relations', async ({ page, offOrigin: _ }, info) => {
+  test('1600 px: the glossary sits beside the map and relationship lists stay accessible in Text view', async ({ page, offOrigin: _ }, info) => {
     test.skip(info.project.name.includes('nojs') || Boolean(info.project.use.isMobile), 'the wide layout runs on the desktop projects');
     const figure = await open(page, 1600, 1000);
     const map = figure.locator('.vs-viewport');
@@ -59,10 +57,8 @@ test.describe('@R06 domain glossary layout (IMPROVEMENTS.md §5.4)', () => {
     await expect(glossary.locator('tbody tr').first().locator('th .vs-role')).toHaveText(' (actor)');
     await expect(glossary.locator('tbody tr')).toHaveCount(4);
     await expect(glossary.locator('tbody tr').first()).toContainText('A customer is a person or a company that places orders and pays invoices.');
-    const toggle = figure.locator('.vs-view-toggle');
-    await expect(toggle).toHaveText('Show as list');
     await expect(figure.locator('.vs-lists')).toBeHidden();
-    await toggle.click();
+    await page.locator('.vs-toolbar .vs-text-view').click();
     await expect(figure.locator('.vs-lists .vs-rel-list li')).toHaveCount(3);
     await expect(figure.locator('.vs-lists')).toBeVisible();
   });
@@ -86,20 +82,15 @@ test.describe('@R06 domain glossary layout (IMPROVEMENTS.md §5.4)', () => {
     expect(g.y).toBeGreaterThanOrEqual(m.y + m.height);
   });
 
-  test('390 px: the glossary comes first, and "Show map" shows the map', async ({ page, offOrigin: _ }, info) => {
-    test.skip(info.project.name.includes('nojs'), 'the view toggle needs JavaScript');
+  test('390 px: the diagram stays visible above the glossary', async ({ page, offOrigin: _ }, info) => {
+    test.skip(info.project.name.includes('nojs'), 'the diagram-first presentation needs JavaScript');
     const figure = await open(page, 390, 844);
-    const toggle = figure.locator('.vs-view-toggle');
-    await expect(toggle).toHaveText('Show map');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await expect(figure.locator('.vs-viewport')).toBeHidden();
+    await expect(figure.locator('.vs-view-toggle, .vs-view-bar')).toHaveCount(0);
+    await expect(figure.locator('.vs-viewport')).toBeVisible();
     await expect(figure.locator('.vs-glossary')).toBeVisible();
-    await expect(figure.locator('.vs-lists')).toBeVisible();
+    await expect(figure.locator('.vs-lists')).toBeHidden();
     // The glossary fits the screen: no sideways scroll of the page.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect(figure.locator('.vs-viewport')).toBeVisible();
     const m = await box(figure.locator('.vs-viewport'));
     const g = await box(figure.locator('.vs-glossary'));
     expect(g.y).toBeGreaterThanOrEqual(m.y + m.height);
@@ -111,7 +102,7 @@ test.describe('@R06 domain glossary layout (IMPROVEMENTS.md §5.4)', () => {
     await expect(figure.locator('.vs-viewport')).toBeVisible();
     await expect(figure.locator('.vs-glossary')).toBeVisible();
     await expect(figure.locator('.vs-lists')).toBeVisible();
-    await expect(figure.locator('.vs-view-toggle')).toHaveCount(0);
+    await expect(figure.locator('.vs-view-toggle, .vs-view-bar')).toHaveCount(0);
   });
 });
 
@@ -162,7 +153,8 @@ test.describe('terms open their concept (IMPROVEMENTS.md §5.4, §13.4)', () => 
     await openSnapshot(page, '', 'domain-orders');
     const more = byId(page, FIGURE).locator('.vs-glossary-more a[href="#x-c_line"]');
     await more.scrollIntoViewIfNeeded();
-    await more.click();
+    if (isNarrow(page)) await more.tap();
+    else await more.click();
     const host = (page.viewportSize()?.width ?? 1440) <= 899 ? page.locator('#vs-inspector-dialog') : page.locator('#vs-inspector');
     await expect(host.locator('details[data-vs-target="c_line"]')).toHaveCount(1);
   });

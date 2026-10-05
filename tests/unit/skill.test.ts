@@ -8,6 +8,7 @@ import { PATTERNS } from '../../packages/core/src/catalogue/index.ts';
 const read = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), 'utf8');
 const SKILL = read('skills/visser-visual-explain/SKILL.md');
 const HANDOFF = read('skills/visser-visual-explain/references/handoff.md');
+const VISUAL = read('skills/visser-visual-explain/references/visual-language.md');
 const WRAPPER = read('skills/visser-visual-explain/wrapper/SKILL.md');
 const MAIN = read('packages/cli/src/main.ts');
 
@@ -67,6 +68,15 @@ describe('core skill (§16, Appendix B) @R16', () => {
     for (const rule of [/never type an `excerptSha256`/i, /never write `docId`/i, /Do not install or trust anything yourself/, /Never claim visual inspection/, /publish documents/]) {
       expect(flat).toMatch(rule);
     }
+  });
+
+  it('chooses the reader question before styling and keeps qualifications on the main path', () => {
+    expect(SKILL).toContain('representation before any visual emphasis');
+    expect(SKILL).toContain('references/visual-language.md');
+    expect(VISUAL).toContain('A neutral figure is');
+    expect(VISUAL).toContain('The three values have one meaning');
+    expect(VISUAL.replace(/\s+/g, ' ')).toContain('decision-changing condition in the figure\'s main-path prose');
+    expect(VISUAL).toContain('source-supported function');
   });
 });
 

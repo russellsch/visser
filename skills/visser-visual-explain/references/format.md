@@ -451,6 +451,35 @@ Condition objects
 {% /source %}
 ````
 
+## Native graph emphasis
+
+Supported native graph parts accept optional `emphasis="teal|violet|amber"`.
+The values share one meaning: draw attention to this part. They do not encode
+role, status, evidence basis, or importance levels. Omission is valid. The
+supported pairs are `node`/`edge`, `state`/`transition`, `factor`/`causal-link`,
+`task`/`dependency`, `stage`/`conversion`, and `concept`/`relation`. Groups
+and trace parts do not accept this attribute. See
+[visual language](visual-language.md) before using it.
+
+```markdown visser-valid
+{% graph id="g" mode="architecture" title="The worker stores receipts" question="Who stores the receipt?" %}
+{% node id="n_worker" label="Worker" role="process" emphasis="teal" /%}
+{% node id="n_store" label="Receipt store" role="storage" /%}
+{% edge id="e_write" from="n_worker" to="n_store" kind="data" label="stores receipt" emphasis="teal" /%}
+{% /graph %}
+```
+
+The same part accepts `amber`. An omitted attribute keeps the part neutral.
+An arbitrary colour is `E_SYNTAX`:
+
+```markdown visser-invalid E_SYNTAX
+{% graph id="g" mode="architecture" title="The worker stores receipts" question="Who stores the receipt?" %}
+{% node id="n_worker" label="Worker" role="process" emphasis="red" /%}
+{% node id="n_store" label="Receipt store" role="storage" /%}
+{% edge id="e_write" from="n_worker" to="n_store" kind="data" label="stores receipt" /%}
+{% /graph %}
+```
+
 ## 8. Mermaid figures
 
 A `mermaid` tag needs `id`, `title`, and `question`. Its body is optional

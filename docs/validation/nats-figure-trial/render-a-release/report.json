@@ -1,0 +1,122 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_ownership",
+        "title": "Figure: Storage, delivery, and external work",
+        "width": 809.984375,
+        "height": 476.265625
+      },
+      {
+        "id": "x-t_lost_ack",
+        "title": "Figure: One message, two possible workers",
+        "width": 809.984375,
+        "height": 808.953125
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 1440
+  },
+  {
+    "name": "mobile390",
+    "width": 390,
+    "figures": [
+      {
+        "id": "x-g_ownership",
+        "title": "Figure: Storage, delivery, and external work",
+        "width": 358,
+        "height": 687.421875
+      },
+      {
+        "id": "x-t_lost_ack",
+        "title": "Figure: One message, two possible workers",
+        "width": 358,
+        "height": 929.90625
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 390
+  },
+  {
+    "name": "mobile320",
+    "width": 320,
+    "figures": [
+      {
+        "id": "x-g_ownership",
+        "title": "Figure: Storage, delivery, and external work",
+        "width": 288,
+        "height": 774.203125
+      },
+      {
+        "id": "x-t_lost_ack",
+        "title": "Figure: One message, two possible workers",
+        "width": 288,
+        "height": 1009.890625
+      }
+    ],
+    "errors": [],
+    "interactions": [
+      {
+        "figure": "x-g_ownership",
+        "host": "mobile viewer",
+        "firstTapUnselected": true,
+        "pan": true,
+        "pinch": true
+      },
+      {
+        "figure": "x-t_lost_ack",
+        "host": "mobile viewer",
+        "firstTapUnselected": true,
+        "pan": true,
+        "pinch": true
+      }
+    ],
+    "documentWidth": 320
+  },
+  {
+    "name": "dark",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_ownership",
+        "title": "Figure: Storage, delivery, and external work",
+        "width": 809.984375,
+        "height": 476.265625
+      },
+      {
+        "id": "x-t_lost_ack",
+        "title": "Figure: One message, two possible workers",
+        "width": 809.984375,
+        "height": 808.953125
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 1440
+  },
+  {
+    "name": "forced",
+    "width": 1440,
+    "figures": [
+      {
+        "id": "x-g_ownership",
+        "title": "Figure: Storage, delivery, and external work",
+        "width": 809.984375,
+        "height": 476.265625
+      },
+      {
+        "id": "x-t_lost_ack",
+        "title": "Figure: One message, two possible workers",
+        "width": 809.984375,
+        "height": 808.953125
+      }
+    ],
+    "errors": [],
+    "interactions": [],
+    "documentWidth": 1440
+  }
+]

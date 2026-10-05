@@ -66,7 +66,7 @@ describe('Mermaid kernel (§9.12)', () => {
   it('emits the static figure: viewport, escaped source, lists with render keys, and a hidden notice', async () => {
     const { html } = await page();
     expect(html).toContain('data-vs-mermaid="flowchart"');
-    expect(html).toContain('<div class="vs-viewport" id="m-flow" data-vs-viewport="" data-vs-mermaid-render=""></div>');
+    expect(html).toMatch(/<div class="vs-viewport" tabindex="0" role="region" aria-label="Diagram: [^"]+" id="m-flow" data-vs-viewport="" data-vs-mermaid-render=""><\/div>/);
     expect(html).toContain('<pre class="vs-mermaid-source"><code class="language-mermaid">flowchart LR');
     expect(html).toContain('Producer[Producer] --&gt;|put waits| Queue');
     const opening = (id: string) => new RegExp(`<(?:a|span) [^>]*id="${id.replace('.', '\\.')}"[^>]*>`).exec(html)?.[0] ?? '';

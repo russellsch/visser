@@ -27,6 +27,26 @@ prerequisites.
 happen in either order. The page itself prints "Ordering, not duration." under
 an ordinal trace; do not repeat that sentence in your text.
 
+## Figure-specific review
+
+- Trace the question's answer through prerequisites. Separate required order
+  from one observed schedule; do not order independent events for visual tidiness.
+- Check message send, receipt, acknowledgement, and completion separately when
+  the source distinguishes them. A reply need not mean the work has completed.
+- Check what a destination arrow appears to claim. If a message never arrives,
+  an arrow ending at its recipient can contradict the failure label. Show the
+  failed attempt locally when the destination is already clear from context.
+- For a bundled event, check which constituent actions each later event actually
+  requires. Split the bundle if one dependency would imply unsupported ordering.
+- Verify wait release conditions and branch conditions. A join requires all
+  its prerequisites; mutually exclusive outcomes cannot both precede one event.
+- State which run or alternatives the trace covers. Show relevant failure paths
+  supported by the source, without inventing an exhaustive execution model.
+- Check what spacing implies. Ordinal position is not elapsed duration; even
+  a time trace uses order layers rather than proportional vertical distance.
+- Use depth to explain a wait, race, or consequence. Keep the ordering fact
+  needed to answer the main question visible without opening an event.
+
 ## Tags and attributes
 
 | Tag | Required | Optional |

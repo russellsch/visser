@@ -30,8 +30,8 @@ is to the other: "Order has Invoice line (1..*)".
 | Tag | Required | Optional |
 |---|---|---|
 | `domain` | `id`, `title`, `question` | — |
-| `concept` | `id`, `label`, `definition` | `category`, `attributes`, `entity` |
-| `relation` | `id`, `from`, `to`, `kind`, `label` | `cardinality` |
+| `concept` | `id`, `label`, `definition` | `category`, `attributes`, `entity`, `emphasis` |
+| `relation` | `id`, `from`, `to`, `kind`, `label` | `cardinality`, `emphasis` |
 
 - `category` (a hue and a shape on the map):
   - `thing` (slate box): it has an identity that the system keeps.
@@ -50,24 +50,23 @@ is to the other: "Order has Invoice line (1..*)".
 
 ## Rules
 
+- Optional `emphasis` (`teal`, `violet`, or `amber`) draws attention to a part.
+  All three values mean the same thing. Omit it when no cue helps. It does
+  not encode concept category or relation kind. See [visual language](../visual-language.md).
 - `concept` and `relation` go directly in the `domain`.
 - Each concept names its own `definition` block. One definition has one owner.
 - The glossary and the hover text show the first sentence of the
   definition. Put the whole meaning in it.
-- Each use of the term in prose links to the concept. The concept label is
-  an alias of the term.
 - `relation` endpoints are concepts in the same figure.
-- `entity` names an architecture `node` that is this concept and has no
-  `entity` itself. The inspector then shows where the concept appears.
-- Above 25 concepts, or below 2, you get `W_VISUAL_DENSITY`. Split the
-  model by question, or use one definition alone.
+- `entity` names an architecture `node` for this concept.
+- Keep 2 to 25 concepts; otherwise split by question or use a definition.
 
 ## Narrow screens and text
 
-On a wide screen the glossary is beside or under the map. On a narrow screen
-the glossary comes first, and the map is behind **Show map**. The Markdown
-projection gives the glossary, then each relation as "Order has Invoice line
-(1..*)".
+The glossary remains in the article. On a narrow screen, a diagram preview
+opens the viewer for exploration. The document-level Text view exposes each
+relation. The Markdown projection gives the glossary, then each relation as
+"Order has Invoice line (1..*)".
 
 ## Template
 

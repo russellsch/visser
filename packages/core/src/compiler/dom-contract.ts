@@ -66,10 +66,10 @@
 // Figures: SVG sits in <div class="vs-viewport" data-vs-viewport> (may scroll
 //   horizontally); the element and relationship lists follow inside
 //   <div class="vs-lists"> (<ul class="vs-node-list">, <ol class="vs-rel-list">).
-//   A figure with a map carries data-vs-views="map list"; on narrow screens the
-//   runtime shows the lists by default and adds a "Show map" toggle
-//   (.vs-view-toggle, aria-pressed); on wide screens it shows the map by
-//   default, and the same toggle reads "Show as list" (IMPROVEMENTS §4.1).
+//   A figure with a map carries data-vs-views="map list". Document-level Text
+//   view exposes the existing lists in place. Compatible narrow touch diagrams
+//   open in a viewer on first activation, then select useful parts on later taps.
+//   Unsupported renderers retain list fallback. No routine per-figure toggle.
 //   Without JavaScript and in print both views are present.
 //   Ordinal traces show the text "Ordering, not duration." (emitted by the renderer)
 //   and each event an "Order layer N" label (longest `after` chain; not time).
@@ -209,6 +209,10 @@ export const DOM = {
     // renderer may give two instances of one target different depths because
     // their visible payload differs.
     depth: 'data-vs-depth',
+    // Presentation cue, independent of semantic categories and inspection depth.
+    emphasis: 'data-vs-emphasis',
+    // Structured decision-changing qualification in canonical detail facts.
+    fact: 'data-vs-fact',
     viewport: 'data-vs-viewport',
     generated: 'data-vs-generated',
     term: 'data-vs-term',

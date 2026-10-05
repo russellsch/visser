@@ -30,8 +30,8 @@ from the source, and an `acceptance` that says how to know that the step is comp
 | Tag | Required | Optional |
 |---|---|---|
 | `graph` | `id`, `title`, `question`, `mode` | — |
-| `task` | `id`, `label` | `owner`, `status`, `output`, `acceptance`, `risk`, `due`, `evidence` |
-| `dependency` | `id`, `from`, `to`, `label` | `kind`, `quantity`, `evidence` |
+| `task` | `id`, `label` | `owner`, `status`, `output`, `acceptance`, `risk`, `due`, `evidence`, `emphasis` |
+| `dependency` | `id`, `from`, `to`, `label` | `kind`, `quantity`, `evidence`, `emphasis` |
 
 - `status`: `proposed`, `ready`, `blocked`, `complete`, `unknown`. The default is `proposed`.
 - `kind`: `finish-start` (the default), `input`, `decision`.
@@ -39,6 +39,9 @@ from the source, and an `acceptance` that says how to know that the step is comp
 
 ## Rules
 
+- Optional `emphasis` (`teal`, `violet`, or `amber`) draws attention to a part.
+  All three values mean the same thing. Omit it when no cue helps. It does
+  not encode task status. See [visual language](../visual-language.md).
 - `task` and `dependency` go directly inside the `graph`.
 - `from` and `to` name tasks in the same figure. `from` is the prerequisite.
 - The dependency graph must not form a cycle.

@@ -1,0 +1,14 @@
+{
+  "sqliteVersion": "3.53.0",
+  "predictionScenario": {
+    "first": 100,
+    "sameTransaction": 100,
+    "afterEnd": 60
+  },
+  "encoding": {
+    "text": "\u00e9",
+    "hex": "C3 A9",
+    "base64": "w6k="
+  },
+  "validPngCount": 19
+}

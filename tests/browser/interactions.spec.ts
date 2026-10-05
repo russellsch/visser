@@ -4,7 +4,7 @@
 // collapsed groups and one edge between them. The cross-figure highlight
 // reads the map and the trace of the order-intake example.
 import { expect, type Page } from '@playwright/test';
-import { byId, isNarrow, openSnapshot, showMap, test } from './support.ts';
+import { byId, isNarrow, openSnapshot, test } from './support.ts';
 import { serveFixture, type InlineServer } from './inline.ts';
 
 const FIXTURE = 'tests/fixtures/interactions/index.md';
@@ -28,7 +28,6 @@ async function openFixture(page: Page): Promise<void> {
   const href = await page.locator('a').first().getAttribute('href');
   if (!href) throw new Error('the fixture index has no snapshot link');
   await page.goto(new URL(href, page.url()).href);
-  if (isNarrow(page)) await showMap(page, MAP);
 }
 
 const svgId = (id: string) => `v-${MAP}.${id}`;
@@ -37,6 +36,7 @@ const foldToggle = (page: Page, group: string) => page.locator(`[id="x-${MAP}"] 
 
 test.describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
   test('a collapsed group starts folded, and edges attach to the fold box', async ({ page }) => {
+    test.skip(isNarrow(page), 'touch entry opens the viewer; viewer group interaction is covered by its focused spec');
     await openFixture(page);
     await expect(fold(page, 'g_orders')).toBeVisible();
     await expect(fold(page, 'g_orders')).toHaveText('Order service · 2');
@@ -52,7 +52,7 @@ test.describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
       await expect(boundary).toHaveClass(/vs-folded/);
       await expect(boundary).toHaveAttribute('aria-hidden', 'true');
       await expect(boundary).toHaveAttribute('tabindex', '-1');
-      expect(await boundary.locator('rect').evaluate((r) => getComputedStyle(r).strokeDasharray)).not.toBe('none');
+      expect(await boundary.locator('rect:not(.vs-selection-outline):not(.vs-focus-outline)').evaluate((r) => getComputedStyle(r).strokeDasharray)).not.toBe('none');
       await expect(boundary.locator('.vs-group-label')).toBeHidden();
       const area = (await boundary.boundingBox())!;
       const box = (await fold(page, g).locator('.vs-fold-shape').boundingBox())!;
@@ -79,6 +79,7 @@ test.describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
   });
 
   test('a click unfolds a group in place, and "Fold" folds it again', async ({ page }) => {
+    test.skip(isNarrow(page), 'touch entry opens the viewer; viewer group interaction is covered by its focused spec');
     await openFixture(page);
     await fold(page, 'g_orders').click();
     await expect(fold(page, 'g_orders')).toBeHidden();
@@ -101,6 +102,7 @@ test.describe('collapsible groups (IMPROVEMENTS.md §14.9)', () => {
   });
 
   test('the fold box and the Fold control are buttons for the keyboard', async ({ page }) => {
+    test.skip(isNarrow(page), 'touch entry opens the viewer; viewer group interaction is covered by its focused spec');
     await openFixture(page);
     const box = fold(page, 'g_billing');
     await expect(box).toHaveAttribute('role', 'button');
@@ -141,6 +143,7 @@ test.describe('filter chips (IMPROVEMENTS.md §14.9)', () => {
   const dimmed = (page: Page, ids: string[]) => page.evaluate((list) => list.filter((id) => document.getElementById(id)?.classList.contains('vs-dim')), ids);
 
   test('a pressed chip dims each part with another value; two chips mean either; Clear resets', async ({ page }) => {
+    test.skip(isNarrow(page), 'touch entry opens the viewer; viewer interaction is covered by its focused spec');
     await openFixture(page);
     await fold(page, 'g_orders').click();
     const legend = page.locator(`[id="x-${MAP}"] .vs-legend`);
@@ -165,13 +168,13 @@ test.describe('filter chips (IMPROVEMENTS.md §14.9)', () => {
     expect(await dimmed(page, ids)).toEqual([]);
   });
 
-  test('the filter comes back after a hover on a node', async ({ page }) => {
+  test('a filter remains active while an ordinary hover does not dim its neighbours', async ({ page }) => {
     test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
     await openFixture(page);
     await page.locator(`[id="x-${MAP}"] .vs-legend`).getByRole('button', { name: 'external' }).click();
     await expect(byId(page, svgId('e_submit~-~g_orders'))).toHaveClass(/vs-dim/);
     await byId(page, svgId('n_client')).hover();
-    await expect(byId(page, svgId('e_submit~-~g_orders'))).not.toHaveClass(/vs-dim/);
+    await expect(byId(page, svgId('e_submit~-~g_orders'))).toHaveClass(/vs-dim/);
     await page.mouse.move(2, 2);
     await expect(byId(page, svgId('e_submit~-~g_orders'))).toHaveClass(/vs-dim/);
     await expect(byId(page, svgId('n_client'))).not.toHaveClass(/vs-dim/);
@@ -253,108 +256,14 @@ test.describe('Tab order after a keyboard unfold (phase 6b review F9)', () => {
   });
 });
 
-test.describe('one owner for the marks (phase 6a review C2, C3; phase 6b review F4, F5, F6)', () => {
-  const marks = (page: Page, ids: string[]) => page.evaluate((list) => Object.fromEntries(list.map((id) => {
-    const node = document.getElementById(id);
-    return [id, node ? ['vs-near', 'vs-dim'].filter((c) => node.classList.contains(c)).join(' ') : 'missing'];
-  })), ids);
-  const foldMark = (page: Page, group: string) => fold(page, group).evaluate((n) => ['vs-near', 'vs-dim'].filter((c) => n.classList.contains(c)).join(' '));
-  const chip = (page: Page, name: string) => page.locator(`[id="x-${MAP}"] .vs-legend`).getByRole('button', { name, exact: true });
-  const bar = (page: Page) => page.locator(`[id="x-${MAP}"] .vs-step-bar`);
-
-  test('F4 and C2: a pressed chip, then Next, then Overview: the filter comes back and the chip stays pressed', async ({ page }) => {
-    test.skip(isNarrow(page), 'the step bar is the wide-screen view');
+test.describe('authored walkthroughs (clearer figures CF01)', () => {
+  test('steps remain a readable list without a generated Previous or Next bar', async ({ page }) => {
     await openFixture(page);
-    await chip(page, 'external').click();
-    // The fold boxes stand for parts that are not external, so they dim (F6).
-    expect(await foldMark(page, 'g_orders')).toBe('vs-dim');
-    expect(await foldMark(page, 'g_billing')).toBe('vs-dim');
-    expect(await marks(page, [svgId('n_client'), svgId('e_submit~-~g_orders')])).toEqual({ [svgId('n_client')]: '', [svgId('e_submit~-~g_orders')]: 'vs-dim' });
-    await bar(page).locator('.vs-step-next').click();
-    await bar(page).locator('.vs-step-prev').click();
-    await expect(bar(page).locator('.vs-step-status')).toHaveText('2 steps. Select Next to start.');
-    await expect(chip(page, 'external')).toHaveAttribute('aria-pressed', 'true');
-    expect(await foldMark(page, 'g_orders')).toBe('vs-dim');
-    expect(await marks(page, [svgId('n_client'), svgId('e_submit~-~g_orders')])).toEqual({ [svgId('n_client')]: '', [svgId('e_submit~-~g_orders')]: 'vs-dim' });
-  });
-
-  test('C2: a chip pressed during a step leaves the step marks; the filter shows at the overview', async ({ page }) => {
-    test.skip(isNarrow(page), 'the step bar is the wide-screen view');
-    await openFixture(page);
-    await bar(page).locator('.vs-step-next').click();
-    await bar(page).locator('.vs-step-next').click();
-    await expect(bar(page).locator('.vs-step-status')).toHaveText('2 of 2 · Submission crosses the boundary once');
-    await chip(page, 'storage').click();
-    // The step wins: its target is near and not dim.
-    expect(await marks(page, [svgId('n_client'), svgId('e_submit~-~g_orders')])).toEqual({ [svgId('n_client')]: 'vs-near', [svgId('e_submit~-~g_orders')]: 'vs-near' });
-    await bar(page).locator('.vs-step-prev').click();
-    await bar(page).locator('.vs-step-prev').click();
-    expect(await marks(page, [svgId('n_client')])).toEqual({ [svgId('n_client')]: 'vs-dim' });
-    // The order service holds a storage part, so its box does not dim.
-    expect(await foldMark(page, 'g_orders')).toBe('');
-  });
-
-  test('C3 and F6: a step about parts inside a folded group marks its fold box; a step about other parts dims it', async ({ page }) => {
-    test.skip(isNarrow(page), 'the step bar is the wide-screen view');
-    await openFixture(page);
-    await bar(page).locator('.vs-step-next').click();
-    await expect(bar(page).locator('.vs-step-status')).toHaveText('1 of 2 · Saving stays inside the order boundary');
-    expect(await foldMark(page, 'g_orders')).toBe('vs-near');
-    expect(await foldMark(page, 'g_billing')).toBe('vs-dim');
-    expect(await marks(page, [svgId('n_client')])).toEqual({ [svgId('n_client')]: 'vs-dim' });
-    // A hidden part carries no mark.
-    expect(await marks(page, [svgId('n_api')])).toEqual({ [svgId('n_api')]: '' });
-    await bar(page).locator('.vs-step-next').click();
-    expect(await foldMark(page, 'g_orders')).toBe('vs-dim');
-    expect(await marks(page, [svgId('n_client')])).toEqual({ [svgId('n_client')]: 'vs-near' });
-  });
-
-  test('F6: a hover on a node marks the fold box that stands for an adjacent part', async ({ page }) => {
-    test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
-    await openFixture(page);
-    await byId(page, svgId('n_client')).hover();
-    expect(await foldMark(page, 'g_orders')).toBe('vs-near');
-    expect(await foldMark(page, 'g_billing')).toBe('vs-dim');
-    await page.mouse.move(2, 2);
-    expect(await foldMark(page, 'g_orders')).toBe('');
-  });
-
-  test('the lens sequence: a chip, a hover, a fold with Space under the pointer, then leave: the filter comes back', async ({ page }) => {
-    test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
-    await openFixture(page);
-    await fold(page, 'g_orders').click();
-    await chip(page, 'storage').click();
-    await byId(page, svgId('n_api')).hover();
-    await foldToggle(page, 'g_orders').focus();
-    await page.keyboard.press(' ');
-    await expect(byId(page, svgId('n_api'))).toBeHidden();
-    await page.mouse.move(2, 2);
-    expect(await marks(page, [svgId('n_client')])).toEqual({ [svgId('n_client')]: 'vs-dim' });
-    expect(await foldMark(page, 'g_orders')).toBe('');
-    await expect(page.locator(`[id="x-${MAP}"] svg .vs-near`)).toHaveCount(0);
-  });
-
-  test('F5a: a hover on an actor, then leave, keeps the neighbourhood of the focused node', async ({ page }) => {
-    test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
-    await openFixture(page);
-    await fold(page, 'g_orders').click();
-    await fold(page, 'g_billing').click();
-    await byId(page, svgId('n_api')).focus();
-    expect(await marks(page, [svgId('n_bill')])).toEqual({ [svgId('n_bill')]: 'vs-near' });
-    await byId(page, 'v-flow.a_bill').locator('rect').first().hover();
-    await page.mouse.move(2, 2);
-    expect(await marks(page, [svgId('n_bill'), svgId('n_store')])).toEqual({ [svgId('n_bill')]: 'vs-near', [svgId('n_store')]: 'vs-near' });
-  });
-
-  test('F5b: a hover on a node, then leave, keeps the cross-figure mark of the focused actor', async ({ page }) => {
-    test.skip(isNarrow(page), 'hover is a pointer affordance on the wide-screen drawing');
-    await openFixture(page);
-    await fold(page, 'g_orders').click();
-    await byId(page, 'v-flow.a_api').focus();
-    expect(await marks(page, [svgId('n_api')])).toEqual({ [svgId('n_api')]: 'vs-near' });
-    await byId(page, svgId('n_store')).hover();
-    await page.mouse.move(2, 2);
-    expect(await marks(page, [svgId('n_api')])).toEqual({ [svgId('n_api')]: 'vs-near' });
+    const steps = page.locator(`[id="x-${MAP}"] .vs-steps`);
+    await expect(steps.locator('li.vs-step')).toHaveCount(2);
+    await expect(steps.locator('.vs-step-bar, .vs-step-next, .vs-step-prev')).toHaveCount(0);
+    await expect(steps).toContainText('Saving stays inside the order boundary');
+    await expect(steps).toContainText('Submission crosses the boundary once');
   });
 });
 
@@ -407,7 +316,7 @@ test.describe('print (phase 6b review F1, F13)', () => {
     for (const g of ['g_orders', 'g_billing']) {
       expect(await fold(page, g).evaluate((n) => getComputedStyle(n).display)).toBe('none');
       expect(await byId(page, svgId(g)).locator('.vs-group-label').evaluate((n) => getComputedStyle(n).display)).not.toBe('none');
-      expect(await byId(page, svgId(g)).locator('rect').evaluate((n) => getComputedStyle(n).strokeDasharray)).toBe('none');
+      expect(await byId(page, svgId(g)).locator('rect:not(.vs-selection-outline):not(.vs-focus-outline)').evaluate((n) => getComputedStyle(n).strokeDasharray)).toBe('none');
     }
     for (const proxy of await page.locator(`[id="x-${MAP}"] [data-vs-proxy-for]`).all()) {
       expect(await proxy.evaluate((n) => getComputedStyle(n).display)).toBe('none');

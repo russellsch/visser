@@ -1,0 +1,60 @@
+[
+  {
+    "tag": "A",
+    "cls": "vs-rel-label",
+    "hidden": false,
+    "display": "inline",
+    "visibility": "visible"
+  },
+  {
+    "tag": "LI",
+    "cls": "",
+    "hidden": false,
+    "display": "list-item",
+    "visibility": "visible"
+  },
+  {
+    "tag": "OL",
+    "cls": "vs-rel-list",
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  },
+  {
+    "tag": "DIV",
+    "cls": "vs-lists",
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  },
+  {
+    "tag": "DETAILS",
+    "cls": "vs-viewer-parts",
+    "open": false,
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  },
+  {
+    "tag": "DIALOG",
+    "cls": "vs-figure-viewer",
+    "open": true,
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  },
+  {
+    "tag": "BODY",
+    "cls": "",
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  },
+  {
+    "tag": "HTML",
+    "cls": "vs-js",
+    "hidden": false,
+    "display": "block",
+    "visibility": "visible"
+  }
+]

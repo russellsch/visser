@@ -78,3 +78,45 @@ describe('format guide snippets compile as stated (§9.1) @R16', () => {
     });
   }
 });
+
+const emphasisFamilies = [
+  { root: 'graph', mode: 'architecture', parts: ['node', 'edge'], first: 'label="A" role="process"', second: 'label="B" role="storage"', relation: 'kind="data" label="sends data"' },
+  { root: 'graph', mode: 'state', parts: ['state', 'transition'], first: 'label="Open"', second: 'label="Closed"', relation: 'event="close" label="close"' },
+  { root: 'graph', mode: 'cause', parts: ['factor', 'causal-link'], first: 'label="Input" basis="inferred"', second: 'label="Outcome" basis="inferred"', relation: 'label="causes" basis="inferred"' },
+  { root: 'graph', mode: 'plan', parts: ['task', 'dependency'], first: 'label="Prepare"', second: 'label="Deploy"', relation: 'label="enables deploy"' },
+  { root: 'transform', parts: ['stage', 'conversion'], first: 'label="Input" representation="bytes"', second: 'label="Output" representation="pixels"', relation: 'label="decode"' },
+  { root: 'domain', parts: ['concept', 'relation'], first: 'label="Order" definition="def_order"', second: 'label="Receipt" definition="def_receipt"', relation: 'kind="has" label="has receipt"' },
+] as const;
+
+function emphasisSource(family: typeof emphasisFamilies[number], nodeEmphasis?: string, edgeEmphasis?: string): string {
+  const [part, relation] = family.parts;
+  const graphMode = 'mode' in family ? ` mode="${family.mode}"` : '';
+  const definitions = family.root === 'domain'
+    ? '{% definition id="def_order" term="order" %}\nAn order records a purchase.\n{% /definition %}\n\n{% definition id="def_receipt" term="receipt" %}\nA receipt records a payment.\n{% /definition %}\n\n'
+    : '';
+  return WRAPPER + definitions +
+    `{% ${family.root} id="g"${graphMode} title="Two parts" question="How do the parts relate?" %}\n` +
+    `{% ${part} id="a" ${family.first}${nodeEmphasis ? ` emphasis="${nodeEmphasis}"` : ''} /%}\n` +
+    `{% ${part} id="b" ${family.second} /%}\n` +
+    `{% ${relation} id="r" from="a" to="b" ${family.relation}${edgeEmphasis ? ` emphasis="${edgeEmphasis}"` : ''} /%}\n` +
+    `{% /${family.root} %}\n`;
+}
+
+function errorsOf(source: string): string[] {
+  const dir = mkdtempSync(join(work, 'emphasis-'));
+  writeFileSync(join(dir, 'index.md'), source);
+  return loadBundle(join(dir, 'index.md')).diagnostics.filter((d) => d.severity === 'error').map((d) => `${d.code}: ${d.message}`);
+}
+
+describe('native graph emphasis syntax in the format guide', () => {
+  for (const family of emphasisFamilies) {
+    it(`${family.parts.join('/')} accepts every palette and omission, rejects an unknown value`, () => {
+      expect(errorsOf(emphasisSource(family)), family.parts.join('/')).toEqual([]);
+      for (const palette of ['teal', 'violet', 'amber']) {
+        expect(errorsOf(emphasisSource(family, palette, palette)), `${family.parts.join('/')} ${palette}`).toEqual([]);
+      }
+      expect(errorsOf(emphasisSource(family, 'red'))).toEqual(expect.arrayContaining([expect.stringContaining('E_SYNTAX')]));
+      expect(errorsOf(emphasisSource(family, undefined, 'red'))).toEqual(expect.arrayContaining([expect.stringContaining('E_SYNTAX')]));
+    });
+  }
+});

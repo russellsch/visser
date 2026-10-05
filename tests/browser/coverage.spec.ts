@@ -8,7 +8,7 @@ import { expect, type Page } from '@playwright/test';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
 import { parsePacket } from '../../packages/core/src/references/packet.ts';
 import { EXAMPLES } from './examples.ts';
-import { byId, copiedTexts, installClipboardSpy, isPrimaryDesktop, openSnapshot, test } from './support.ts';
+import { byId, copiedTexts, installClipboardSpy, isPrimaryDesktop, openSnapshot, showList, test } from './support.ts';
 
 const root = new URL('../..', import.meta.url).pathname;
 
@@ -51,6 +51,9 @@ for (const example of EXAMPLES) {
 
   const check = async (page: Page, narrowOrNoJs: boolean) => {
     await openSnapshot(page, '', example);
+    // Narrow interactive pages are diagram-first; use the one document-level
+    // Text view before checking the accessible list representation.
+    if (narrowOrNoJs && await page.locator('.vs-toolbar .vs-text-view').count()) await showList(page, '');
     const facts = await viewFacts(page);
     expect(facts.duplicateIds, 'duplicate HTML ids').toEqual([]);
     expect(facts.targets, 'targets in the view').toEqual(expectedTargets);

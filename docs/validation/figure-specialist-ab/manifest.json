@@ -1,0 +1,19 @@
+{
+  "baseline/catalogue/architecture.md": "c752e4c4d3c6c6103e9cd54ea14730c311c515372d86f9be4e01d0f4fa65b7f7",
+  "baseline/catalogue/cause.md": "815a53ec439b537dfa1e41fcb8919d7ee612b2e72370acf75049613a4e467881",
+  "baseline/catalogue/compare.md": "c9e644f7a6205073c395e4e0027c8cff02365f2813fcd3076a701e356791e34e",
+  "baseline/catalogue/state.md": "9b087287ca4c4e149388a496202b01364577e005d859f70427d961c4f5de8249",
+  "baseline/catalogue/trace.md": "1a80cfbd613778483861e4d93366c0d4cfca977f3558326498cce1077ce2bfb9",
+  "baseline/review-process.md": "028b067adbb6e3e6cdf67303a677ba1e04ee0e70603e6ff1931b32b227858d23",
+  "baseline/visual-language.md": "b1b5bda8d5eb2606a0064a08aeb6901443c2ee01d736daea044a3dd6d10342f9",
+  "fixtures/answer-key.md": "24bb477b5da13932ed4b9156f2d9e4e450e76303ba06203685bdbb4be920fdad",
+  "fixtures/packet.md": "31a972b91e11a614b4f7cd9509beaec394c03ab55393e9c39aedf5b31d04b680",
+  "revised/catalogue/architecture.md": "e7ab18e01b14a26935dcbae5288d9a530b3f35edfd01d65430eb120768f39388",
+  "revised/catalogue/cause.md": "5cee0dae000ea429d2c44891d6953d3cf94925b558a3df912d83d9a546e13b10",
+  "revised/catalogue/compare.md": "63ecf24376f2b5115cc335c518bf979a717a3095001a9bc49ffc141876d3deeb",
+  "revised/catalogue/state.md": "b3a09b169d7d91ee42e2344dcc3b192e7181ba180365b90f0c304c5b224a16d1",
+  "revised/catalogue/trace.md": "ebf6996bb2e14b3a83eed58e418ade220bf261cbbba1d35149da5a25ee73a046",
+  "revised/figure-review.md": "5c3940bcf3432ba12cc511a634a266fb7efa5e15394df389c8f32c249f353f69",
+  "revised/review-process.md": "c94ca3602cd6bd1b505934dae9e22a493576b0e85c396309d4e48c0d713fa833",
+  "revised/visual-language.md": "b1b5bda8d5eb2606a0064a08aeb6901443c2ee01d736daea044a3dd6d10342f9"
+}

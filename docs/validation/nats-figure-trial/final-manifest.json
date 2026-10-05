@@ -1,0 +1,9 @@
+{
+  "docs/explanations/nats-trial-a/index.md": "b02d0d69f6b72f7ce8b1a232264b0670dbec6372d5b832584eb1979a8a115cfc",
+  "docs/explanations/nats-trial-b/index.md": "fdb9ec2aef3455f39a980b010e6bd22e4a71d2c2737e19393ef739085b828bfa",
+  "packages/core/src/compiler/compile.ts": "1555b5a062336dfae6812bd1d93390215f6b8688874e97f84d0fec282a887ca2",
+  "packages/core/src/compiler/encoding.ts": "cd45fe6f86947400ff23cde3d0ec908dd66c1522f1b721629f4940018e3bf0ea",
+  "packages/core/src/compiler/svg.ts": "7ae0abff0cf26d2d9bf56ffec5bee743cc8b3f47b799f060cc0b54b79a2c400f",
+  "packages/runtime/src/figure-viewer.ts": "e6f19c022a4df4d91512b985085063c94afda9a49c83237f60f095ad8c1ea1fb",
+  "skills/visser-visual-explain/references/catalogue/trace.md": "38ba1eb584502cd9099b7e5ce70260bd595b9c775860b0464c730cb9ccd62d67"
+}

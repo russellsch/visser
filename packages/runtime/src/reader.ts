@@ -1,10 +1,11 @@
 // Reader runtime (§10). Enhances the static snapshot: the page stays complete and
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
-import { figureView, toggleLabel, VIEW_CLASS } from './views.ts';
+import { FigureViewer } from './figure-viewer.ts';
+import { figureView } from './views.ts';
 import { renderMermaidFigures } from './mermaid.ts';
 import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE_CONTEXT_MAX, QUOTE_EXACT_MAX } from './packet.ts';
-import { figureMarks, markState, registerFigures, updateMarks, words } from './marks.ts';
+import { figureMarks, markState, registerFigures, updateMarks, words, clearHighlight, highlight, highlightInstances } from './marks.ts';
 
 const A = DOM.attr;
 const HISTORY_MAX = 20;
@@ -19,10 +20,12 @@ type Inspector = {
   back: HTMLButtonElement;
   locate: HTMLButtonElement;
   modal: boolean;
+  owner?: HTMLElement | undefined;
 };
 
 const state = {
   current: undefined as Moved | undefined,
+  articleAnchor: undefined as {node: Element; top: number; x: number} | undefined,
   history: [] as HistoryEntry[],
   preferredInstanceId: undefined as string | undefined,
   currentDepth: undefined as string | undefined,
@@ -69,8 +72,8 @@ function targetIdFromHref(link: Element): string | undefined {
 
 // ---------------------------------------------------------------- inspector
 
-function ensureInspector(modal: boolean): Inspector {
-  if (state.inspector && state.inspector.modal === modal) return state.inspector;
+function ensureInspector(modal: boolean, owner?: HTMLElement): Inspector {
+  if (state.inspector && state.inspector.modal === modal && state.inspector.owner === owner) return state.inspector;
   if (state.inspector) state.inspector.host.remove();
   const host: HTMLElement = modal ? el('dialog', 'vs-inspector vs-inspector--dialog') : el('aside', 'vs-inspector vs-inspector--aside');
   host.id = modal ? DOM.inspectorDialog : DOM.inspector;
@@ -104,8 +107,31 @@ function ensureInspector(modal: boolean): Inspector {
       closeInspector();
     });
   }
-  document.body.append(host);
-  state.inspector = { host, body, title, back, locate, modal };
+  if (owner) {
+    host.classList.remove('vs-inspector--aside');
+    host.classList.add(viewer.active ? 'vs-inspector--sheet' : 'vs-inspector--local');
+    if (viewer.active) {
+      owner.append(host);
+      const expand = button('Expand detail', 'vs-btn', () => {
+        const expanded = host.classList.toggle('vs-sheet-expanded');
+        expand.textContent = expanded ? 'Collapse detail' : 'Expand detail';
+        expand.setAttribute('aria-expanded', String(expanded));
+      });
+      expand.setAttribute('aria-expanded', 'false'); bar.append(expand);
+      let sheetStart: number | undefined;
+      bar.addEventListener('pointerdown', event => { if (!(event.target instanceof Element && event.target.closest('button'))) sheetStart = event.clientY; });
+      bar.addEventListener('pointerup', event => {
+        if (sheetStart !== undefined && Math.abs(event.clientY - sheetStart) > 24) {
+          const expanded = event.clientY < sheetStart;
+          host.classList.toggle('vs-sheet-expanded', expanded);
+          expand.setAttribute('aria-expanded', String(expanded)); expand.textContent = expanded ? 'Collapse detail' : 'Expand detail';
+        }
+        sheetStart = undefined;
+      });
+      bar.addEventListener('pointercancel', () => { sheetStart = undefined; });
+    } else (owner.querySelector('.vs-domain-body') ?? owner.querySelector('.vs-viewport'))?.after(host);
+  } else document.body.append(host);
+  state.inspector = { host, body, title, back, locate, modal, owner };
   return state.inspector;
 }
 
@@ -122,10 +148,20 @@ function returnCurrent(): void {
   state.current = undefined;
 }
 
-function showDetail(targetId: string, push: boolean, preferredInstanceId?: string, depth?: string): boolean {
+function showDetail(targetId: string, push: boolean, preferredInstanceId?: string, depth?: string, activation?: Element): boolean {
   const detail = canonical(targetId);
   if (!(detail instanceof HTMLDetailsElement)) return false;
-  const modal = isNarrow() && typeof HTMLDialogElement !== 'undefined' && 'showModal' in HTMLDialogElement.prototype;
+  const instance = activation ?? (preferredInstanceId ? byId(preferredInstanceId) : undefined);
+  const nested = !instance || Boolean(instance.closest('.vs-inspector'));
+  const activeOwner = state.current && nested ? state.inspector?.owner : undefined;
+  const ownFigure = instance && !instance.closest('.vs-inspector') ? instance.closest<HTMLElement>('figure.vs-figure') : activeOwner ? visibleInstances(targetId).map(node => node.closest<HTMLElement>('figure.vs-figure')).find(Boolean) : undefined;
+  if (instance && !instance.closest('.vs-inspector') && (instance instanceof HTMLElement || instance instanceof SVGElement)) {
+    state.origin = instance;
+    if (ownFigure && !viewer.active) state.articleAnchor = {node: instance, top: instance.getBoundingClientRect().top, x: scrollX};
+  }
+  const continuingModal = state.current && state.inspector?.modal && (nested || !push);
+  const owner = continuingModal ? undefined : viewer.dialog ?? ((!isNarrow() || viewer.mouseInput) ? ownFigure ?? activeOwner : undefined);
+  const modal = !owner && isNarrow() && typeof HTMLDialogElement !== 'undefined' && 'showModal' in HTMLDialogElement.prototype;
   const previous = state.current?.el.getAttribute(A.target);
   if (push && previous && previous !== targetId) {
     state.history.push({ targetId: previous, preferredInstanceId: state.preferredInstanceId, depth: state.currentDepth });
@@ -134,7 +170,7 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
   returnCurrent();
   // A bubble must not stay over the inspector, and Escape must close the inspector next.
   hideTooltip();
-  const inspector = ensureInspector(modal);
+  const inspector = ensureInspector(modal, owner);
   const placeholder = document.createElement('template');
   placeholder.setAttribute(A.placeholder, targetId);
   detail.before(placeholder);
@@ -144,6 +180,19 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
   detail.open = true;
   detail.hidden = false;
   inspector.body.replaceChildren(detail);
+  if (viewer.active) {
+    const qualifications = el('dl', 'vs-sheet-qualifications');
+    qualifications.setAttribute(A.generated, '');
+    for (const fact of Array.from(detail.querySelectorAll('[data-vs-fact="loss"], [data-vs-fact="condition"], [data-vs-fact="guard"], [data-vs-fact="basis"]'))) {
+      // Text only: never duplicate target IDs, references, or interactive links.
+      qualifications.append(el(fact.tagName === 'DT' ? 'dt' : 'dd', undefined, fact.textContent ?? ''));
+    }
+    if (qualifications.childElementCount) inspector.body.prepend(qualifications);
+    // Authored caveats cannot be classified safely: begin expanded for full prose.
+    inspector.host.classList.toggle('vs-sheet-expanded', Boolean(detail.querySelector('.vs-detail-text')?.textContent?.trim()));
+    const expand = inspector.host.querySelector<HTMLButtonElement>('[aria-expanded]');
+    if (expand) { const expanded = inspector.host.classList.contains('vs-sheet-expanded'); expand.setAttribute('aria-expanded', String(expanded)); expand.textContent = expanded ? 'Collapse detail' : 'Expand detail'; }
+  }
   // A new target starts at the top of the inspector, also after the reader
   // scrolled another part. Evidence stays collapsed after explanation and
   // context, so opening a target begins with its value-added detail.
@@ -170,12 +219,13 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
     if (!dialog.open) dialog.showModal();
   } else {
     inspector.host.hidden = false;
-    document.body.classList.add('vs-has-inspector');
+    if (!owner) document.body.classList.add('vs-has-inspector');
   }
   // Initial focus moves to the title (§10.2), but not with a visible ring for
   // this programmatic move; a reader who Tabs to it later still gets one
   // (reader.css scopes `:focus:not(:focus-visible)` to this element only).
-  inspector.title.focus();
+  inspector.title.focus({preventScroll: viewer.active});
+  if (viewer.active) requestAnimationFrame(() => viewer.revealTarget(instance ?? undefined, inspector.host));
   return true;
 }
 
@@ -185,7 +235,7 @@ function openInspector(targetId: string, origin: HTMLElement | SVGElement | unde
     state.history = [];
     state.origin = origin;
   }
-  return showDetail(targetId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined);
+  return showDetail(targetId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined, origin);
 }
 
 function goBack(): void {
@@ -243,7 +293,9 @@ function closeInspector(restoreFocus = true): void {
   clearHighlight('vs-inspected');
   const origin = state.origin;
   state.origin = undefined;
-  if (restoreFocus && origin && origin.isConnected) origin.focus();
+  const anchor = state.articleAnchor; state.articleAnchor = undefined;
+  if (restoreFocus && anchor?.node.isConnected && inspector?.host.classList.contains('vs-inspector--local')) window.scrollTo(anchor.x, window.scrollY + anchor.node.getBoundingClientRect().top - anchor.top);
+  if (restoreFocus && origin && origin.isConnected) origin.focus({preventScroll:true});
 }
 
 // ---------------------------------------------------------------- deep links, expand, print
@@ -276,6 +328,7 @@ function allDetails(): HTMLDetailsElement[] {
 }
 
 function toggleExpand(buttonEl: HTMLButtonElement): void {
+  viewer.close();
   closeInspector(false);
   state.expanded = !state.expanded;
   // The Sources, Definitions, and Details groups stay open when the reader
@@ -290,6 +343,7 @@ function toggleExpand(buttonEl: HTMLButtonElement): void {
 }
 
 function beforePrint(): void {
+  viewer.close();
   closeInspector(false);
   state.printOpened = allDetails().filter((d) => !d.open);
   for (const d of state.printOpened) d.open = true;
@@ -401,7 +455,7 @@ function placeTooltip(tip: HTMLElement, owner: Element): void {
  * on it, and Escape closes it (§10.4).
  */
 function showTooltipFor(owners: Element[], text: string, open?: { targetId: string; label: string }, anchor?: Element): void {
-  if (!text) return;
+  if (!text || viewer.guardingEntry) return;
   hideTooltip();
   const tip = el('div', 'vs-tooltip');
   tip.id = 'vs-tooltip';
@@ -493,27 +547,10 @@ function scheduleHide(): void {
 
 // ---------------------------------------------------------------- focus highlights
 
-function clearHighlight(className: string): void {
-  for (const node of Array.from(document.querySelectorAll(`.${className}`))) node.classList.remove(className);
-}
-
-function highlight(ids: string[], className: string): void {
-  clearHighlight(className);
-  for (const id of ids) {
-    for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) node.classList.add(className);
-  }
-}
-
-function highlightInstances(id: string, className: string): void {
-  clearHighlight(className);
-  for (const node of Array.from(document.querySelectorAll(`[${A.target}="${CSS.escape(id)}"]`))) {
-    if (node.id !== DOM.canonicalId(id) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}`)) node.classList.add(className);
-  }
-}
-
 // ---------------------------------------------------------------- reference mode
 
 let panel: HTMLElement | undefined;
+let panelOrigin: HTMLElement | SVGElement | undefined;
 
 /** Text of a DOM range without generated (non-author) text. */
 function rangeText(range: Range): string {
@@ -599,7 +636,7 @@ function statusElement(): HTMLElement | undefined {
 }
 
 function showFallback(text: string): void {
-  const container = (panel && !panel.hidden ? panel : state.inspector?.host) ?? ensurePanel();
+  const container = (panel && !panel.hidden ? panel : state.inspector && !state.inspector.host.hidden ? state.inspector.host : undefined) ?? ensurePanel();
   if (container === panel) panel.hidden = false;
   byId(DOM.copyFallback)?.parentElement?.remove();
   const wrap = el('div', 'vs-copy-fallback');
@@ -635,14 +672,14 @@ async function copyReference(targetId: string, withQuote: boolean): Promise<void
 }
 
 function ensurePanel(): HTMLElement {
-  if (panel) return panel;
+  if (panel) { (viewer.dialog ?? document.body).append(panel); return panel; }
   panel = el('div', 'vs-refpanel');
   panel.id = 'vs-refpanel';
   panel.setAttribute('role', 'region');
   panel.setAttribute('aria-label', 'Reference');
   panel.setAttribute(A.generated, '');
   panel.hidden = true;
-  document.body.append(panel);
+  (viewer.dialog ?? document.body).append(panel);
   return panel;
 }
 
@@ -656,6 +693,7 @@ function ancestorsWithTargets(start: Element): string[] {
 }
 
 function selectTarget(targetId: string, from: Element, focusPanel: boolean): void {
+  if (!panel || panel.hidden) panelOrigin = from instanceof HTMLElement || from instanceof SVGElement ? from : undefined;
   state.selected = targetId;
   highlight([targetId], 'vs-selected');
   const node = canonical(targetId);
@@ -707,6 +745,7 @@ function closePanel(): void {
   if (panel) panel.hidden = true;
   state.selected = undefined;
   clearHighlight('vs-selected');
+  panelOrigin?.focus({preventScroll: true}); panelOrigin = undefined;
 }
 
 function setRefmode(on: boolean): void {
@@ -717,58 +756,28 @@ function setRefmode(on: boolean): void {
 }
 
 function isChrome(node: Element): boolean {
-  return Boolean(node.closest(`.${DOM.toolbar}, #vs-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .vs-tooltip, .vs-refbtn, .vs-view-bar`));
+  return Boolean(node.closest(`.${DOM.toolbar}, #vs-refpanel, #${DOM.inspector}, #${DOM.inspectorDialog}, .vs-tooltip, .vs-refbtn, .vs-view-bar, .vs-viewer-tools, .vs-viewer-open`));
 }
 
 // ---------------------------------------------------------------- figure views
 
-// The figures whose reader pressed the view toggle. A change of screen width
-// starts again from the default view of the new width.
-let toggled = new WeakSet<Element>();
-
+let textView = false;
 function applyViews(): void {
-  const narrow = isNarrow();
   for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
-    const view = figureView(narrow, toggled.has(figure));
-    for (const cls of Object.values(VIEW_CLASS)) if (cls) figure.classList.remove(cls);
-    const cls = VIEW_CLASS[view];
-    if (cls) figure.classList.add(cls);
-    const toggle = figure.querySelector<HTMLButtonElement>('.vs-view-toggle');
-    if (!toggle) continue;
-    const text = toggleLabel(narrow);
-    toggle.textContent = text;
-    toggle.setAttribute('aria-pressed', String(toggled.has(figure)));
-    const label = figure.getAttribute(A.label);
-    if (label) toggle.setAttribute('aria-label', `${text}: ${label}`);
+    const view = figureView(isNarrow(), textView, viewer.supported(figure));
+    figure.classList.toggle('vs-view-list', view === 'list');
+    figure.classList.toggle('vs-view-map', view === 'map');
   }
 }
-
-/**
- * A view bar with one toggle for each figure with a map (docs/IMPROVEMENTS.md
- * §4.1): "Show as list" on wide screens, "Show map" on narrow screens.
- */
 function addViewToggles(): void {
-  for (const figure of Array.from(document.querySelectorAll<HTMLElement>(`figure[${A.views}]`))) {
-    const bar = el('div', 'vs-view-bar');
-    bar.setAttribute(A.generated, '');
-    const toggle = button(toggleLabel(isNarrow()), 'vs-btn vs-view-toggle', () => {
-      if (toggled.has(figure)) toggled.delete(figure);
-      else toggled.add(figure);
-      applyViews();
-    });
-    toggle.setAttribute('aria-pressed', 'false');
-    bar.append(toggle);
-    const viewport = figure.querySelector(`[${A.viewport}]`);
-    // In a domain figure the bar goes before the row of map and glossary, so
-    // it stays in the text column (phase 4 review D1).
-    if (viewport) (viewport.closest('.vs-domain-body') ?? viewport).before(bar);
-    else figure.append(bar);
-  }
-  applyViews();
-  window.matchMedia(`(max-width: ${DOM.narrowMaxWidth}px)`).addEventListener('change', () => {
-    toggled = new WeakSet();
-    applyViews();
+  const toggle = button('Text view', 'vs-btn vs-text-view', () => {
+    viewer.close(); closeInspector(false); textView = !textView;
+    toggle.setAttribute('aria-pressed', String(textView)); applyViews();
   });
+  toggle.setAttribute('aria-pressed', 'false');
+  document.querySelector(`.${DOM.toolbar}`)?.append(toggle);
+  applyViews();
+  window.matchMedia(`(max-width: ${DOM.narrowMaxWidth}px)`).addEventListener('change', applyViews);
 }
 
 // ---------------------------------------------------------------- neighbourhood (§4.3)
@@ -783,10 +792,11 @@ function addViewToggles(): void {
  * neighbourhood of the focused node comes back, else the other marks do.
  */
 function addNeighbourhoods(): void {
-  for (const node of Array.from(document.querySelectorAll(`.vs-viewport svg .vs-node[${A.target}]`))) {
+  for (const node of Array.from(document.querySelectorAll(`.vs-viewport svg [${A.target}]`))) {
     const st = figureMarks(node);
     if (!st) continue;
-    node.addEventListener('pointerenter', () => {
+    node.addEventListener('pointerenter', (event) => {
+      if ((event as PointerEvent).pointerType === 'touch' || viewer.guardingEntry) return;
       st.hover = node;
       updateMarks();
     });
@@ -795,6 +805,7 @@ function addNeighbourhoods(): void {
       updateMarks();
     });
     node.addEventListener('focus', () => {
+      if (viewer.guardingEntry) return;
       st.focus = node;
       updateMarks();
     });
@@ -820,7 +831,8 @@ function addEntityLinks(): void {
   for (const part of Array.from(document.querySelectorAll(ENTITY_PARTS))) {
     const id = part.getAttribute(A.target)!;
     if (!canonical(id)?.querySelector(`[${A.entity}]`)) continue;
-    part.addEventListener('pointerenter', () => {
+    part.addEventListener('pointerenter', (event) => {
+      if ((event as PointerEvent).pointerType === 'touch') return;
       markState.entityHover = part;
       updateMarks();
     });
@@ -980,6 +992,7 @@ function addFolds(): void {
       if (fold) st.folded.add(group);
       else st.folded.delete(group);
       applyFolds(svg, st.folded);
+      if (state.current && !visibleInstances(state.current.el.getAttribute(A.target) ?? '').length) closeInspector(false);
       const next = svg.querySelector<SVGElement>(fold ? `[${A.fold}="${CSS.escape(group)}"]` : `[${A.foldToggle}="${CSS.escape(group)}"]`);
       if (next && !next.hasAttribute('hidden')) next.focus();
     };
@@ -1260,7 +1273,7 @@ function onClick(e: MouseEvent): void {
       const concept = canonical(defId)?.getAttribute(A.concept);
       const openId = concept && canonical(concept) instanceof HTMLDetailsElement ? concept : defId;
       // --- end domain
-      if (state.current) showDetail(openId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined);
+      if (state.current) showDetail(openId, true, origin?.id || undefined, origin?.getAttribute(A.depth) ?? undefined, origin);
       else openInspector(openId, origin);
       return;
     }
@@ -1288,29 +1301,34 @@ function onClick(e: MouseEvent): void {
     if (id && canonical(id) instanceof HTMLDetailsElement) {
       e.preventDefault();
       if (link.classList.contains('vs-tooltip__open')) hideTooltip();
-      if (state.current) showDetail(id, true, link.id || undefined, link.getAttribute(A.depth) ?? undefined);
+      if (state.current) showDetail(id, true, link.id || undefined, link.getAttribute(A.depth) ?? undefined, link);
       else openInspector(id, link);
     }
   }
 }
 
+function dismissLayer(): boolean {
+  const fallback = byId(DOM.copyFallback)?.parentElement;
+  if (fallback) { fallback.remove(); const origin = panel && !panel.hidden ? panel.querySelector<HTMLElement>('button') : state.inspector?.title; origin?.focus({preventScroll:true}); return true; }
+  if (panel && !panel.hidden) { closePanel(); return true; }
+  if (tooltip) { hideTooltip(); return true; }
+  if (state.current) { closeInspector(); return true; }
+  return false;
+}
 function onKeydown(e: KeyboardEvent): void {
   if (e.key !== 'Escape') return;
-  if (tooltip) {
-    hideTooltip();
-    return;
-  }
-  if (state.inspector && !state.inspector.modal && !state.inspector.host.hidden) {
-    closeInspector();
-    return;
-  }
-  if (panel && !panel.hidden) {
-    closePanel();
-    return;
-  }
+  if (dismissLayer()) { e.preventDefault(); return; }
+  if (viewer.active) { e.preventDefault(); viewer.close(); return; }
   if (state.refmode) setRefmode(false);
   clearHighlight('vs-focused');
 }
+const viewer = new FigureViewer({
+  closeDetail: () => closeInspector(false),
+  clearTransient: () => { hideTooltip(); closePanel(); panel?.remove(); panel = undefined; },
+  referenceMode: () => state.refmode,
+  setReferenceMode: setRefmode,
+  escape: dismissLayer,
+});
 
 function init(): void {
   const toolbar = document.querySelector<HTMLElement>(`.${DOM.toolbar}`);
@@ -1327,6 +1345,7 @@ function init(): void {
   byId(DOM.buttons.about)?.addEventListener('click', toggleAbout);
 
   addReferenceButtons();
+  viewer.init();
   addViewToggles();
   initAppendixCounts();
   addAppendixFilter();
@@ -1355,7 +1374,7 @@ function init(): void {
   window.addEventListener('afterprint', afterPrint);
   onHash();
   // Render eagerly, not on visibility, so an early print shows the drawing (§9.12).
-  void renderMermaidFigures();
+  void renderMermaidFigures().then(() => { viewer.register(); applyViews(); registerFigures(); });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
