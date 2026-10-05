@@ -137,6 +137,24 @@ test('parsed Mermaid viewer retains its keyboard list and returns its original d
   await expect(page.locator('[id="x-edgecache"]')).toHaveCount(1);
 });
 
+test('desktop diagram detail opens to the right without covering the figure @R04 @R06', async ({ page }) => {
+  test.skip(isNarrow(page), 'desktop sidebar');
+  await openSnapshot(page, '', 'order-intake');
+  const node = page.locator('[id="v-components.n_api"]');
+  await node.click();
+  const sidebar = page.locator('.vs-inspector--aside');
+  await expect(sidebar.locator('[id="x-n_api"]')).toBeVisible();
+  await expect(page.locator('.vs-inspector--local')).toHaveCount(0);
+  const panel = await sidebar.boundingBox();
+  const drawing = await page.locator('[id="x-components"] .vs-viewport').boundingBox();
+  expect(panel!.x).toBeGreaterThanOrEqual(drawing!.x + drawing!.width);
+  expect(panel!.x + panel!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await sidebar.getByRole('button', {name: 'Close', exact: true}).click();
+  await expect(sidebar).toBeHidden();
+  await expect(node).toBeFocused();
+  await expect(page.locator('body')).not.toHaveClass(/vs-has-inspector/);
+});
+
 test('a mouse on a narrow touch-capable device opens local detail directly @R04 @R06', async ({ page }) => {
   test.skip(!isNarrow(page), 'hybrid input');
   await openSnapshot(page, '', 'order-intake');

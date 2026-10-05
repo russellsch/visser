@@ -160,7 +160,9 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
     if (ownFigure && !viewer.active) state.articleAnchor = {node: instance, top: instance.getBoundingClientRect().top, x: scrollX};
   }
   const continuingModal = state.current && state.inspector?.modal && (nested || !push);
-  const owner = continuingModal ? undefined : viewer.dialog ?? ((!isNarrow() || viewer.mouseInput) ? ownFigure ?? activeOwner : undefined);
+  // Wide article views use the right sidebar. Figure-local detail is only the
+  // narrow-screen mouse fallback; the full-screen viewer owns its own sheet.
+  const owner = continuingModal ? undefined : viewer.dialog ?? ((isNarrow() && viewer.mouseInput) ? ownFigure ?? activeOwner : undefined);
   const modal = !owner && isNarrow() && typeof HTMLDialogElement !== 'undefined' && 'showModal' in HTMLDialogElement.prototype;
   const previous = state.current?.el.getAttribute(A.target);
   if (push && previous && previous !== targetId) {
