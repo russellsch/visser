@@ -73,6 +73,30 @@ async function waitFor(check: () => Promise<boolean> | boolean, timeoutMs = 5000
 }
 
 describe('visser serve (§13.3, §13.4) @F12', () => {
+  it.each([false, true])('serves the conditional math asset (math=%s) @M01 @M12', async (math) => {
+    const ctx = context();
+    const index = initDoc(ctx, 'math-route');
+    writeFileSync(index, readFileSync(index, 'utf8') + `\n<!-- vs:id prose -->\n${math ? 'Energy $E=mc^2$.' : 'Ordinary prose.'}\n`);
+    const { base, stdout } = await startServe(ctx, [index, '--base-path', '/preview/']);
+    const pageUrl = /serving (http:\/\/\S+)/.exec(stdout())![1]!;
+    const response = await fetch(pageUrl);
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    const readerSrc = /src="([^"]*\/reader\.js)"/.exec(html)![1]!;
+    const mathUrl = new URL(readerSrc.replace(/reader\.js$/, 'math.js'), pageUrl);
+    expect(mathUrl.origin).toBe(new URL(base).origin);
+    const asset = await fetch(mathUrl);
+    expect(asset.status).toBe(math ? 200 : 404);
+    if (math) {
+      expect(html).toContain('class="vs-math-source">$E=mc^2$');
+      expect(response.headers.get('content-security-policy')).toContain('worker-src');
+      expect(asset.headers.get('content-type')).toContain('javascript');
+      expect(await asset.text()).toBe(readFileSync(join(root, 'dist/release/browser/math.js'), 'utf8'));
+    } else {
+      expect(html).not.toMatch(/src="[^"]*\/math\.js"/);
+    }
+  });
+
   it('@F12a never warns about its own .visser/ output on a second serve', async () => {
     const ctx = context();
     const index = initDoc(ctx, 'one');

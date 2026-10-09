@@ -73,7 +73,7 @@
         "properties": {
           "toolkitSha256": { "$ref": "#/$defs/sha256" },
           "path": { "$ref": "#/$defs/sitePath" },
-          "files": { "type": "array", "minItems": 1, "items": { "enum": ["reader.js", "reader.css", "mermaid.js"] } }
+          "files": { "type": "array", "minItems": 1, "items": { "enum": ["reader.js", "reader.css", "mermaid.js", "math.js"] } }
         }
       }
     },

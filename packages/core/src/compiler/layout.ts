@@ -4,6 +4,8 @@
 // rounded to three decimals. Characterized in spikes/elk-determinism/.
 import ElkModule from 'elkjs/lib/elk.bundled.js';
 import type { ELK as ElkInstance, ElkExtendedEdge, ElkNode } from 'elkjs/lib/elk-api.js';
+import type { MathMetrics } from '../math/engine.ts';
+import { measureRichSegments, richFallbackLines, type RichLine } from './math-text.ts';
 
 // elkjs is CommonJS; Node's ESM interop gives the constructor as the default
 // export, but its typings describe an ES module default.
@@ -64,13 +66,15 @@ export type GraphInput = {
   // `extra` adds secondary lines under the label (a transform stage's representation and location).
   // `marked` reserves side padding for a corner mark (a check, a question mark, or an initial dot).
   // `drum` reserves bottom padding for the storage drum line.
-  nodes: Array<{ id: string; label: string; group?: string; extra?: string[]; marked?: boolean; drum?: boolean }>;
-  groups: Array<{ id: string; label: string; parent?: string }>;
-  edges: Array<{ id: string; from: string; to: string; label: string }>;
+  nodes: Array<{ id: string; label: string; segments?: string[]; group?: string; extra?: string[]; extraSegments?: string[][]; marked?: boolean; drum?: boolean }>;
+  groups: Array<{ id: string; label: string; segments?: string[]; parent?: string }>;
+  edges: Array<{ id: string; from: string; to: string; label: string; segments?: string[] }>;
   // A domain map: the number of glossary rows that share its row on the page.
   // The direction rule then counts the glossary height (docs/IMPROVEMENTS.md
   // §5.4, `domainDirection`).
   glossaryRows?: number;
+  /** Validated inline conversion metrics, keyed by JSON.stringify([false, tex]). */
+  mathMetrics?: Record<string, MathMetrics>;
 };
 
 export type Point = { x: number; y: number };
@@ -78,9 +82,9 @@ export type Point = { x: number; y: number };
 export type GraphLayout = {
   width: number;
   height: number;
-  nodes: Array<{ id: string; x: number; y: number; width: number; height: number; lines: string[] }>;
-  groups: Array<{ id: string; x: number; y: number; width: number; height: number; label: string }>;
-  edges: Array<{ id: string; points: Point[]; label?: { x: number; y: number; width: number; height: number; lines: string[] } }>;
+  nodes: Array<{ id: string; x: number; y: number; width: number; height: number; lines: string[]; richLines?: RichLine[] }>;
+  groups: Array<{ id: string; x: number; y: number; width: number; height: number; label: string; richLines?: RichLine[] }>;
+  edges: Array<{ id: string; points: Point[]; label?: { x: number; y: number; width: number; height: number; lines: string[]; richLines?: RichLine[] } }>;
 };
 
 export type LayoutFunction = (graph: GraphInput) => Promise<GraphLayout>;
@@ -123,6 +127,45 @@ export function chooseLabelWidth(items: ReadonlyArray<{ label: string; extra?: r
 function nodeBox(label: string, extra: string[] = [], marked = false, drum = false) {
   const b = box(label, chooseLabelWidth([{ label, extra }]), marked ? MARKED_PAD_X : NODE_PAD_X, 8, extra);
   return drum ? { ...b, height: b.height + DRUM_PAD_BOTTOM } : b;
+}
+
+function plainRichLine(text: string): RichLine {
+  const width = textWidth(text);
+  return { runs: [{ kind: 'text', text, width }], width, height: LINE_HEIGHT, ascent: 14, descent: 4 };
+}
+
+function segmentsOf(text: string, segments?: readonly string[]): readonly string[] {
+  if (segments && segments.join('') !== text) throw Object.assign(new Error('math label segments do not match displayed label'), { code: 'E_MATH_INVALID' });
+  return segments ?? [text];
+}
+
+function measuredBox(graph: GraphInput, label: string, maxWidth: number, padX: number, padY: number,
+  extra: string[] = [], segments?: readonly string[], extraSegments?: readonly (readonly string[])[]) {
+  const rich = measureRichSegments(segmentsOf(label, segments), maxWidth, graph.mathMetrics, textWidth);
+  const extraBlocks = extra.map((x, i) => measureRichSegments(segmentsOf(x, extraSegments?.[i]), maxWidth, graph.mathMetrics, textWidth));
+  if (!rich && extraBlocks.every((x) => x === undefined)) return undefined;
+  const lines = [
+    ...(rich?.lines ?? wrapText(label, maxWidth).map(plainRichLine)),
+    ...extra.flatMap((x, i) => extraBlocks[i]?.lines ?? wrapText(x, maxWidth).map(plainRichLine)),
+  ];
+  return { richLines: lines, lines: richFallbackLines({ lines, width: 0, height: 0 }),
+    width: Math.ceil(Math.max(...lines.map((line) => line.width)) + 2 * padX),
+    height: Math.ceil(lines.reduce((sum, line) => sum + line.height, 0) + 2 * padY) };
+}
+
+function measuredNodeBox(graph: GraphInput, label: string, extra: string[], marked: boolean, drum: boolean,
+  segments?: readonly string[], extraSegments?: readonly (readonly string[])[]) {
+  const hasMath = [segmentsOf(label, segments), ...extra.map((x, i) => segmentsOf(x, extraSegments?.[i]))]
+    .some((part) => measureRichSegments(part, NODE_LABEL_WIDTH, graph.mathMetrics, textWidth));
+  if (!hasMath) return undefined;
+  const widths = NODE_LABEL_WIDTHS;
+  const labelLines = (w: number) => measureRichSegments(segmentsOf(label, segments), w, graph.mathMetrics, textWidth)?.lines.length ?? wrapText(label, w).length;
+  const extrasFit = (w: number) => extra.every((x, i) => (measureRichSegments(segmentsOf(x, extraSegments?.[i]), w, graph.mathMetrics, textWidth)?.lines.length ?? wrapText(x, w).length) === 1);
+  const chosen = widths.find((w) => w <= ONE_LINE_MAX_WIDTH && labelLines(w) === 1 && extrasFit(w))
+    ?? widths.find((w) => labelLines(w) <= NODE_LABEL_LINES && extrasFit(w)) ?? widths.at(-1)!;
+  const b = measuredBox(graph, label, chosen, marked ? MARKED_PAD_X : NODE_PAD_X, 8, extra, segments, extraSegments)!;
+  if (drum) b.height += DRUM_PAD_BOTTOM;
+  return b;
 }
 export const EDGE_LABEL_WIDTH = 140;
 
@@ -180,20 +223,26 @@ export const LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
 };
 
 /** The ELK graph for an input, with sizes from the text-metrics table. */
-export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGHT'): { root: ElkNode; lines: Map<string, string[]> } {
+export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGHT'): { root: ElkNode; lines: Map<string, string[]>; rich: Map<string, RichLine[]> } {
   const lines = new Map<string, string[]>();
+  const rich = new Map<string, RichLine[]>();
   const elkNodes = new Map<string, ElkNode>();
   for (const g of graph.groups) {
+    const measured = measureRichSegments(segmentsOf(g.label, g.segments), Number.POSITIVE_INFINITY, graph.mathMetrics, textWidth);
+    if (measured) rich.set(g.id, measured.lines);
     elkNodes.set(g.id, {
       id: g.id,
-      labels: [{ text: g.label, width: textWidth(g.label), height: LINE_HEIGHT }],
-      layoutOptions: { 'elk.padding': '[top=30,left=12,bottom=12,right=12]', 'elk.nodeLabels.placement': 'INSIDE V_TOP H_LEFT' },
+      labels: [{ text: g.label, width: measured?.width ?? textWidth(g.label), height: measured?.height ?? LINE_HEIGHT }],
+      layoutOptions: { 'elk.padding': `[top=${measured ? Math.max(30, Math.ceil(measured.height + 12)) : 30},left=12,bottom=12,right=12]`, 'elk.nodeLabels.placement': 'INSIDE V_TOP H_LEFT' },
       children: [],
     });
   }
   for (const n of graph.nodes) {
-    const b = nodeBox(n.label, n.extra, n.marked, n.drum);
+    const b = measuredNodeBox(graph, n.label, n.extra ?? [], n.marked ?? false, n.drum ?? false, n.segments, n.extraSegments)
+      ?? nodeBox(n.label, n.extra, n.marked, n.drum);
     lines.set(n.id, b.lines);
+    const richLines = (b as { richLines?: RichLine[] }).richLines;
+    if (richLines) rich.set(n.id, richLines);
     elkNodes.set(n.id, { id: n.id, width: b.width, height: b.height });
   }
   const root: ElkNode = { id: `root:${graph.id}`, layoutOptions: { ...LAYOUT_OPTIONS, 'elk.direction': direction }, children: [], edges: [] };
@@ -214,22 +263,24 @@ export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGH
   graph.groups.forEach((g) => placeGroup(g.id));
   graph.nodes.forEach((n) => attach(n.id, n.group));
   for (const e of graph.edges) {
-    const b = box(e.label, EDGE_LABEL_WIDTH, 2, 1);
+    const b = measuredBox(graph, e.label, EDGE_LABEL_WIDTH, 2, 1, [], e.segments) ?? box(e.label, EDGE_LABEL_WIDTH, 2, 1);
     lines.set(e.id, b.lines);
+    const richLines = (b as { richLines?: RichLine[] }).richLines;
+    if (richLines) rich.set(e.id, richLines);
     const edge: ElkExtendedEdge = { id: e.id, sources: [e.from], targets: [e.to], labels: [{ id: `${e.id}:label`, text: e.label, width: b.width, height: b.height }] };
     root.edges!.push(edge);
   }
-  return { root, lines };
+  return { root, lines, rich };
 }
 
-function collect(node: ElkNode, groupIds: Set<string>, lines: Map<string, string[]>, layout: GraphLayout) {
+function collect(node: ElkNode, groupIds: Set<string>, lines: Map<string, string[]>, rich: Map<string, RichLine[]>, layout: GraphLayout) {
   for (const child of node.children ?? []) {
     const x = round3(child.x ?? 0), y = round3(child.y ?? 0), width = round3(child.width ?? 0), height = round3(child.height ?? 0);
     if (groupIds.has(child.id)) {
-      layout.groups.push({ id: child.id, x, y, width, height, label: child.labels?.[0]?.text ?? '' });
-      collect(child, groupIds, lines, layout);
+      layout.groups.push({ id: child.id, x, y, width, height, label: child.labels?.[0]?.text ?? '', ...(rich.has(child.id) ? { richLines: rich.get(child.id) } : {}) });
+      collect(child, groupIds, lines, rich, layout);
     } else {
-      layout.nodes.push({ id: child.id, x, y, width, height, lines: lines.get(child.id) ?? [] });
+      layout.nodes.push({ id: child.id, x, y, width, height, lines: lines.get(child.id) ?? [], ...(rich.has(child.id) ? { richLines: rich.get(child.id) } : {}) });
     }
   }
 }
@@ -313,7 +364,7 @@ function placeSelfLoops(graph: GraphInput, layout: GraphLayout): void {
       if (!edge) return;
       const side = SELF_LOOP_SIDES[i % SELF_LOOP_SIDES.length]!;
       const depth = Math.floor(i / SELF_LOOP_SIDES.length);
-      const b = box(input.label, EDGE_LABEL_WIDTH, 2, 1);
+      const b = edge.label?.richLines ? { width: edge.label.width, height: edge.label.height, lines: edge.label.lines } : box(input.label, EDGE_LABEL_WIDTH, 2, 1);
       const g = selfLoopGeometry(side, depth, node, { width: b.width, height: b.height });
       edge.points = g.points.map((p) => ({ x: round3(p.x), y: round3(p.y) }));
       edge.label = { ...g.label, x: round3(g.label.x), y: round3(g.label.y), lines: edge.label?.lines ?? b.lines };
@@ -351,9 +402,9 @@ function placeSelfLoops(graph: GraphInput, layout: GraphLayout): void {
 }
 
 /** Convert ELK output to the rounded, ordered layout the renderer uses. */
-export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, string[]>): GraphLayout {
+export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, string[]>, rich: Map<string, RichLine[]> = new Map()): GraphLayout {
   const layout: GraphLayout = { width: round3(result.width ?? 0), height: round3(result.height ?? 0), nodes: [], groups: [], edges: [] };
-  collect(result, new Set(graph.groups.map((g) => g.id)), lines, layout);
+  collect(result, new Set(graph.groups.map((g) => g.id)), lines, rich, layout);
   const byId = new Map<string, ElkExtendedEdge>((result.edges ?? []).map((e): [string, ElkExtendedEdge] => [e.id, e as ElkExtendedEdge]));
   for (const input of graph.edges) {
     const e = byId.get(input.id);
@@ -365,7 +416,7 @@ export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, s
     layout.edges.push({
       id: input.id,
       points,
-      ...(label ? { label: { x: round3(label.x ?? 0), y: round3(label.y ?? 0), width: round3(label.width ?? 0), height: round3(label.height ?? 0), lines: lines.get(input.id) ?? [] } } : {}),
+      ...(label ? { label: { x: round3(label.x ?? 0), y: round3(label.y ?? 0), width: round3(label.width ?? 0), height: round3(label.height ?? 0), lines: lines.get(input.id) ?? [], ...(rich.has(input.id) ? { richLines: rich.get(input.id) } : {}) } } : {}),
     });
   }
   // Authored order for nodes and groups, not ELK traversal order.
@@ -381,8 +432,8 @@ export function fromElk(graph: GraphInput, result: ElkNode, lines: Map<string, s
 export async function layoutGraph(graph: GraphInput): Promise<GraphLayout> {
   const elk = new ELK();
   const run = async (direction: LayoutDirection) => {
-    const { root, lines } = toElkGraph(graph, direction);
-    return fromElk(graph, await elk.layout(structuredClone(root)), lines);
+    const { root, lines, rich } = toElkGraph(graph, direction);
+    return fromElk(graph, await elk.layout(structuredClone(root)), lines, rich);
   };
   // Direction rule: left-to-right first. A layout wider than MAX_FIGURE_WIDTH
   // switches to top-to-bottom when that is narrower. The choice depends only on

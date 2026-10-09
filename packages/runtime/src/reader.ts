@@ -2,8 +2,11 @@
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
 import { FigureViewer } from './figure-viewer.ts';
+import { copyRichContent } from './rich-copy.ts';
 import { figureView } from './views.ts';
 import { renderMermaidFigures } from './mermaid.ts';
+import { mermaidSourceSelection } from './mermaid-source.ts';
+import { initializeMath, type MathExpressionRecord } from './math.ts';
 import { buildPacketYaml, codePoints, lastCodePoints, normalizeWhitespace, QUOTE_CONTEXT_MAX, QUOTE_EXACT_MAX } from './packet.ts';
 import { figureMarks, markState, registerFigures, updateMarks, words, clearHighlight, highlight, highlightInstances } from './marks.ts';
 
@@ -36,6 +39,7 @@ const state = {
   lastSelection: undefined as { targetId: string; exact: string; prefix: string; suffix: string } | undefined,
   // The last non-empty selection crossed a block boundary (§11.3: v1 asks for one block).
   crossBlock: false,
+  diagramSelection: false,
   expanded: false,
   printOpened: [] as HTMLDetailsElement[],
 };
@@ -48,6 +52,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+/** Copy compiler-owned label structure; never reinterpret flattened code text. */
+function copyLabel(node: Element | undefined | null, dest: HTMLElement, fallback: string): void {
+  const source = node?.querySelector(':scope > summary, :scope > figcaption, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, :scope > p');
+  if (source?.querySelector('.vs-math[data-vs-math-key]')) void copyRichContent(source, dest);
+  else dest.textContent = fallback;
 }
 
 function button(label: string, className: string, onClick: (e: MouseEvent) => void): HTMLButtonElement {
@@ -187,7 +198,9 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
     qualifications.setAttribute(A.generated, '');
     for (const fact of Array.from(detail.querySelectorAll('[data-vs-fact="loss"], [data-vs-fact="condition"], [data-vs-fact="guard"], [data-vs-fact="basis"]'))) {
       // Text only: never duplicate target IDs, references, or interactive links.
-      qualifications.append(el(fact.tagName === 'DT' ? 'dt' : 'dd', undefined, fact.textContent ?? ''));
+      const value = el(fact.tagName === 'DT' ? 'dt' : 'dd');
+      void copyRichContent(fact, value);
+      qualifications.append(value);
     }
     if (qualifications.childElementCount) inspector.body.prepend(qualifications);
     // Authored caveats cannot be classified safely: begin expanded for full prose.
@@ -205,7 +218,7 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
   // storage" (docs/IMPROVEMENTS.md §4.2).
   const label = detail.getAttribute(A.label) ?? targetId;
   const cue = detail.getAttribute(A.cue);
-  inspector.title.replaceChildren(document.createTextNode(label));
+  copyLabel(detail, inspector.title, label);
   if (cue) inspector.title.append(el('span', 'vs-inspector__cue', ` \u00b7 ${cue}`));
   const depthText = state.currentDepth === 'explanation' ? 'Explanation' : state.currentDepth === 'context' ? 'Additional context' : state.currentDepth === 'evidence' ? 'Sources' : undefined;
   if (depthText) inspector.title.append(el('span', 'vs-inspector__depth', ` \u00b7 ${depthText}`));
@@ -402,11 +415,11 @@ function bodyText(targetId: string): string {
   const summary = detail.getAttribute(A.summary);
   if (summary) return summary;
   const text = detail.querySelector('.vs-detail-text');
-  if (text) return firstSentence(text.textContent ?? '');
+  if (text) return firstSentence(sourceText(text));
   const parts: string[] = [];
   for (const child of Array.from(detail.children)) {
     if (child.tagName === 'SUMMARY' || child.hasAttribute(A.generated)) continue;
-    parts.push(child.textContent ?? '');
+    parts.push(sourceText(child));
   }
   return firstSentence(parts.join(' '));
 }
@@ -456,7 +469,7 @@ function placeTooltip(tip: HTMLElement, owner: Element): void {
  * has an "Open definition" link. The bubble stays open while the pointer is
  * on it, and Escape closes it (§10.4).
  */
-function showTooltipFor(owners: Element[], text: string, open?: { targetId: string; label: string }, anchor?: Element): void {
+function showTooltipFor(owners: Element[], text: string, open?: { targetId: string; label: string }, anchor?: Element, rich?: Array<{ source: Element; textLimit?: number }>): void {
   if (!text || viewer.guardingEntry) return;
   hideTooltip();
   const tip = el('div', 'vs-tooltip');
@@ -466,6 +479,15 @@ function showTooltipFor(owners: Element[], text: string, open?: { targetId: stri
   body.id = 'vs-tooltip-text';
   body.setAttribute('role', 'tooltip');
   tip.append(body);
+  const copies: Promise<void>[] = [];
+  if (rich?.length) {
+    body.replaceChildren();
+    rich.forEach(({ source, textLimit }, index) => {
+      if (index) body.append('; ');
+      const part = el('span'); body.append(part);
+      copies.push(copyRichContent(source, part, { textLimit }));
+    });
+  }
   if (open) {
     // A pointer shortcut only: the keyboard opens the definition with Enter on the term.
     const link = el('a', 'vs-tooltip__open', open.label);
@@ -483,6 +505,24 @@ function showTooltipFor(owners: Element[], text: string, open?: { targetId: stri
   for (const o of owners) o.setAttribute('aria-describedby', body.id);
   tooltip = tip;
   tooltipOwners = owners;
+  void Promise.all(copies).then(() => { if (tooltip === tip && tip.isConnected) placeTooltip(tip, at); });
+}
+
+/** Match a first-sentence source prefix without interpreting literal code as math. */
+function richTooltipBody(targetId: string, text: string): Array<{ source: Element; textLimit: number }> | undefined {
+  const detail = canonical(targetId);
+  const source = detail?.querySelector('.vs-detail-text') ?? (detail && Array.from(detail.children).find(child => child.tagName !== 'SUMMARY' && !child.hasAttribute(A.generated)));
+  if (!source?.querySelector('.vs-math[data-vs-math-key]')) return;
+  const raw = sourceText(source);
+  const expected = text.replace(/\s/gu, '');
+  if (!expected || !raw.replace(/\s/gu, '').startsWith(expected)) return;
+  let units = 0, end = 0;
+  for (const character of raw) {
+    end += character.length;
+    if (!/\s/u.test(character)) units += character.length;
+    if (units >= expected.length) break;
+  }
+  return [{ source, textLimit: end }];
 }
 
 function showTermTooltip(term: Element): void {
@@ -494,7 +534,8 @@ function showTermTooltip(term: Element): void {
   const open = concept && canonical(concept) instanceof HTMLDetailsElement
     ? { targetId: concept, label: 'Open concept' }
     : { targetId: defId, label: 'Open definition' };
-  showTooltipFor([term], bodyText(defId), open);
+  const text = bodyText(defId);
+  showTooltipFor([term], text, open, undefined, richTooltipBody(defId, text));
 }
 
 /**
@@ -505,7 +546,8 @@ function showTermTooltip(term: Element): void {
 function showEdgeTooltip(edge: Element): void {
   const id = edge.getAttribute(A.target);
   if (!id) return;
-  showTooltipFor([edge], bodyText(id), undefined, edge.querySelector('.vs-edge-label') ?? edge);
+  const text = bodyText(id);
+  showTooltipFor([edge], text, undefined, edge.querySelector('.vs-edge-label') ?? edge, richTooltipBody(id, text));
 }
 
 /** A run of adjacent `a.vs-cite` elements, separated only by whitespace text (F10). */
@@ -531,7 +573,13 @@ function citeGroup(cite: HTMLElement): HTMLElement[] {
 function showCiteTooltip(cite: HTMLElement): void {
   const group = citeGroup(cite);
   const titles = group.map((c) => c.getAttribute('data-vs-cite-title')).filter((t): t is string => Boolean(t));
-  showTooltipFor(group, titles.join('; '));
+  const sources = group.map(c => {
+    const id = targetIdFromHref(c);
+    return id ? canonical(id)?.querySelector(':scope > summary') : undefined;
+  });
+  const rich = sources.every((source): source is Element => Boolean(source)) && sources.some(source => source.querySelector('.vs-math'))
+    ? sources.map(source => ({ source })) : undefined;
+  showTooltipFor(group, titles.join('; '), undefined, undefined, rich);
 }
 
 function hideTooltip(): void {
@@ -554,11 +602,50 @@ function scheduleHide(): void {
 let panel: HTMLElement | undefined;
 let panelOrigin: HTMLElement | SVGElement | undefined;
 
+/** Expand glyph selections to the complete source-owned expression. */
+function mathSourceRange(range: Range): Range {
+  const sourceRange = range.cloneRange();
+  const renderedMath = (node: Node) => (node instanceof Element ? node : node.parentElement)
+    ?.closest('[data-vs-math-rendered]:not([data-vs-math-native])');
+  // A selection within glyphs denotes the source-owned expression. Include its
+  // adjacent source span before dropping generated SVG and copy controls.
+  const first = renderedMath(sourceRange.startContainer);
+  const last = renderedMath(sourceRange.endContainer);
+  if (first) sourceRange.setStartBefore(first);
+  if (last) sourceRange.setEndAfter(last);
+  return sourceRange;
+}
+
+function sourceText(node: Element): string {
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  return rangeText(range);
+}
+
 /** Text of a DOM range without generated (non-author) text. */
 function rangeText(range: Range): string {
-  const fragment = range.cloneContents();
-  for (const node of Array.from(fragment.querySelectorAll(`[${A.generated}]`))) node.remove();
-  return fragment.textContent ?? '';
+  const sourceRange = mathSourceRange(range);
+  const common = sourceRange.commonAncestorContainer;
+  const walker = document.createTreeWalker(common, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = common.nodeType === Node.TEXT_NODE ? [common as Text] : [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
+  const parts: string[] = [];
+  for (const node of nodes) {
+    if (!sourceRange.intersectsNode(node)) continue;
+    // Inspect the live ancestry: a partial clone of a generated eqref loses
+    // its anchor and would otherwise leak its ordinal into the source quote.
+    const target = node.parentElement?.closest(`[${A.target}]`);
+    let generated = false;
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+      if (parent.hasAttribute(A.generated)) { generated = true; break; }
+      if (parent === target) break;
+    }
+    if (generated) continue;
+    const start = sourceRange.startContainer === node ? sourceRange.startOffset : 0;
+    const end = sourceRange.endContainer === node ? sourceRange.endOffset : node.length;
+    parts.push(node.data.slice(start, end));
+  }
+  return parts.join('');
 }
 
 function recordSelection(): void {
@@ -566,6 +653,7 @@ function recordSelection(): void {
   const clear = () => {
     state.lastSelection = undefined;
     state.crossBlock = false;
+    state.diagramSelection = false;
   };
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
     // In reference mode, clicking a block collapses the text selection before the
@@ -574,7 +662,15 @@ function recordSelection(): void {
     if (!state.refmode) clear();
     return;
   }
-  const range = selection.getRangeAt(0);
+  const diagram = mermaidSourceSelection(selection.getRangeAt(0));
+  if (diagram.kind === 'unrepresentable') {
+    state.lastSelection = undefined;
+    state.crossBlock = false;
+    state.diagramSelection = true;
+    return;
+  }
+  state.diagramSelection = false;
+  const range = mathSourceRange(diagram.kind === 'source' ? diagram.range : selection.getRangeAt(0));
   const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
   const owner = start?.closest<HTMLElement>(`[${A.target}]`);
   const targetId = owner?.getAttribute(A.target);
@@ -704,7 +800,9 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
   const p = ensurePanel();
   p.replaceChildren();
   const heading = el('p', 'vs-refpanel__title');
-  heading.append(el('strong', undefined, kind === 'heading' ? 'Heading only (not its section): ' : `${kind || 'Target'}: `), document.createTextNode(label));
+  const richLabel = el('span');
+  copyLabel(node, richLabel, label);
+  heading.append(el('strong', undefined, kind === 'heading' ? 'Heading only (not its section): ' : `${kind || 'Target'}: `), richLabel);
   const actions = el('div', 'vs-refpanel__actions');
   const copy = button('Copy reference', 'vs-btn vs-btn--primary', () => void copyReference(targetId, false));
   const withText = button('Copy reference with selected text', 'vs-btn', () => void copyReference(targetId, true));
@@ -712,6 +810,8 @@ function selectTarget(targetId: string, from: Element, focusPanel: boolean): voi
   actions.append(copy, withText);
   const note = from.closest('[data-vs-mermaid-derived]')
     ? el('p', 'vs-refpanel__note', 'This arrow has no ID of its own; the reference is to the diagram. Give it an edge ID (e1@-->) to reference it.')
+    : state.diagramSelection && withText.disabled
+      ? el('p', 'vs-refpanel__note', 'To copy this selection accurately, show the diagram source and select the text there.')
     : state.crossBlock && withText.disabled
       ? el('p', 'vs-refpanel__note', 'Your selection spans more than one block. Select text within one block to copy it with a reference.')
       : undefined;
@@ -1104,7 +1204,8 @@ function toggleContents(): void {
     const id = heading.getAttribute(A.target);
     if (!id) continue;
     const item = el('li');
-    const link = el('a', undefined, heading.getAttribute(A.label) ?? id);
+    const link = el('a');
+    copyLabel(heading, link, heading.getAttribute(A.label) ?? id);
     link.href = `#${DOM.canonicalId(id)}`;
     item.append(link);
     list.append(item);
@@ -1377,6 +1478,14 @@ function init(): void {
   onHash();
   // Render eagerly, not on visibility, so an early print shows the drawing (§9.12).
   void renderMermaidFigures().then(() => { viewer.register(); applyViews(); registerFigures(); });
+  const mathData = document.querySelector<HTMLMetaElement>('meta[name="vs-math-expressions"]');
+  const mathWorker = (globalThis as typeof globalThis & { __visserMathWorkerSource?: string }).__visserMathWorkerSource;
+  if (mathData && mathWorker) {
+    try {
+      const expressions = JSON.parse(mathData.content) as MathExpressionRecord[];
+      void initializeMath(document, mathWorker, expressions).then(() => { viewer.register(); applyViews(); registerFigures(); });
+    } catch { /* Complete source remains visible when the expression table is unavailable. */ }
+  }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -20,6 +20,7 @@ import {
   sourceRevision,
 } from '../packages/core/src/model/hash.ts';
 import { formatReferenceUri, parseReferenceUri } from '../packages/core/src/references/uri.ts';
+import { checkMathEvidence, mathCandidateSha256 } from './math-evidence.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const at = (rel) => root + rel;
@@ -200,5 +201,16 @@ if (missing.length > 0 && !browserPresent) {
   process.exit(3);
 }
 if (missing.length > 0) failed = true;
+
+// Math completion requires exact field/path evidence, not just broad @M tags.
+const mathErrors = checkMathEvidence({
+  requirements: JSON.parse(readFileSync(at('docs/validation/math-rendering/coverage-fields.json'), 'utf8')),
+  evidence: JSON.parse(readFileSync(at('docs/validation/math-rendering/evidence.json'), 'utf8')),
+  candidateSha256: mathCandidateSha256(root),
+  readReport: path => readFileSync(at(path)),
+});
+console.log(`math field evidence: ${mathErrors.length} unproven or invalid obligations`);
+for (const error of mathErrors) console.log(`  UNPROVEN ${error}`);
+if (mathErrors.length) failed = true;
 
 process.exit(failed ? 1 : 0);

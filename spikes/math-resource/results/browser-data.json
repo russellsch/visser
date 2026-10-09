@@ -1,0 +1,90 @@
+{
+  "node": "v24.21.0",
+  "browser": "153.0.8010.12",
+  "scheme": "data",
+  "csp": "default-src 'none'; script-src data:; worker-src data:; connect-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'",
+  "workerBytes": 1812353,
+  "workerSha256": "b57bd8fae6e21c87950644971c0c56e4898afb512941f58d22892b650d7cce8a",
+  "htmlBytes": 3222780,
+  "htmlSha256": "95ecff1034521629153162e19c13c439ae93fb328d371087f23dcd78539fe246",
+  "requestUrls": [
+    "file:///home/r/Documents/MyStuff/random_ts/visser/spikes/math-resource/results/single-file-hA1XuI/index.html",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "offOrigin": [],
+  "pageErrors": [],
+  "cspViolations": [],
+  "cspViolationCount": 0,
+  "booted": true,
+  "minimalWorker": {
+    "ok": true
+  },
+  "sizeControls": [
+    {
+      "sourceBytes": 100046,
+      "urlBytes": 133424,
+      "ok": true
+    },
+    {
+      "sourceBytes": 1000046,
+      "urlBytes": 1333424,
+      "ok": true
+    },
+    {
+      "sourceBytes": 1550046,
+      "urlBytes": 2066756,
+      "ok": true
+    },
+    {
+      "sourceBytes": 1600046,
+      "urlBytes": 2133424,
+      "ok": false,
+      "error": ""
+    },
+    {
+      "sourceBytes": 1800046,
+      "urlBytes": 2400092,
+      "ok": false,
+      "error": ""
+    }
+  ],
+  "valid": {
+    "ok": false,
+    "error": "",
+    "eventType": "error",
+    "filename": "",
+    "line": 0,
+    "svg": 0,
+    "sourceHidden": false,
+    "sourceText": "\\frac{a}{b}",
+    "renderedNodes": 0
+  },
+  "cancel": {
+    "started": false,
+    "completed": false,
+    "sourceVisible": true,
+    "sourceText": "\\frac{x}{y}",
+    "renderedNodes": 0
+  },
+  "repeated100": {
+    "ok": false,
+    "error": "",
+    "eventType": "error",
+    "filename": "",
+    "line": 0,
+    "unique": 5
+  },
+  "distinct100": {
+    "ok": false,
+    "error": "",
+    "eventType": "error",
+    "filename": "",
+    "line": 0,
+    "unique": 100
+  }
+}

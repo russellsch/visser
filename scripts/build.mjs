@@ -1,14 +1,32 @@
+import {agentflowContractPlugin} from './mermaid-agentflow-contract.mjs';
+import {erLayoutContractPlugin} from './mermaid-er-layout-contract.mjs';
+import { erContractPlugin } from './mermaid-er-contract.mjs';
+import { kanbanContractPlugin } from './mermaid-kanban-contract.mjs';
+import { requirementContractPlugin } from './mermaid-requirement-contract.mjs';
+import { radarContractPlugin } from './mermaid-radar-contract.mjs';
+import { radarParserContractPlugin } from './mermaid-radar-parser-contract.mjs';
+import { sankeyContractPlugin } from './mermaid-sankey-contract.mjs';
+import { xyContractPlugin } from './mermaid-xychart-contract.mjs';
+import { quadrantSnapshotPlugin } from './mermaid-quadrant-snapshot.mjs';
 // Build the CLI bundle and dist/release with a valid release.json (§12.1, §17.2).
 // The toolkit digest is sha256(canonicalJSON(release.json)); release.json lists
 // every shipped file except itself.
+import { stateObserverPlugin } from './mermaid-state-observer-loader.mjs';
+import { sequenceDomAliases, sequenceDomPlugin } from './sequence-dom-build.mjs';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJSON } from '../packages/core/src/model/hash.ts';
+import { mathPolicyFingerprint } from '../packages/core/src/math/fingerprint.ts';
+import { mermaidMathPlugin } from './mermaid-build.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Recreate the worker-only provenance decoder from the fingerprinted upstream
+// source before bundling; no runtime filesystem lookup or code generation.
+const { generateMermaidYaml } = await import('./mermaid-yaml-build.mjs');
+await generateMermaidYaml();
 const final = join(root, 'dist', 'release');
 // Build into a staging directory, then swap it into place with two renames, so
 // a reader of dist/release (a parallel test, a running CLI) never sees a
@@ -21,10 +39,13 @@ process.on('exit', () => rmSync(out, { recursive: true, force: true }));
 
 // Each esbuild bundle reports its inputs; LICENSES.txt lists every bundled package.
 const bundled = new Map(); // package directory -> Set of release files
+const vendoredYamlFiles = new Set();
+const mathFingerprint = mathPolicyFingerprint();
 async function bundle(options) {
   const result = await build({ ...options, absWorkingDir: root, metafile: true });
   const file = relative(out, options.outfile).split(sep).join('/');
   for (const input of Object.keys(result.metafile.inputs)) {
+    if (input.replaceAll('\\', '/').endsWith('packages/core/src/mermaid/vendor/yaml-provenance.mjs')) vendoredYamlFiles.add(file);
     const dir = packageDirOf(join(root, input));
     if (dir) bundled.set(dir, (bundled.get(dir) ?? new Set()).add(file));
   }
@@ -47,6 +68,9 @@ await bundle({
   target: 'node24',
   legalComments: 'none',
   logLevel: 'warning',
+  define: { __VISSER_MATH_FINGERPRINT__: JSON.stringify(mathFingerprint) },
+  // markdown-it 12 uses the deprecated Node builtin name; ship its maintained dependency.
+  alias: { punycode: 'punycode/' },
 });
 
 // Browser runtime: one shared script and stylesheet per toolkit (§2.3, §13.1).
@@ -64,7 +88,34 @@ cpSync(join(root, 'packages/runtime/src/reader.css'), join(out, 'browser/reader.
 
 // Mermaid (§9.12): the pinned browser build ships once per toolkit as its own
 // asset; pages load it only when they contain a Mermaid figure.
-cpSync(join(root, 'node_modules/mermaid/dist/mermaid.min.js'), join(out, 'browser/mermaid.js'));
+await bundle({
+  entryPoints: [join(root, 'packages/runtime/src/mermaid-bundle.ts')],
+  outfile: join(out, 'browser/mermaid.js'),
+  bundle: true, format: 'iife', target: 'es2022', minify: true,
+  legalComments: 'none', logLevel: 'warning',
+  plugins: [mermaidMathPlugin(root)],
+});
+
+// An integrity-checked outer script transports a classic worker as a string.
+// The reader starts a blob worker: large data-URL Workers fail under file://.
+await bundle({
+  entryPoints: [join(root, 'packages/runtime/src/math-worker.ts')],
+  outfile: join(out, 'browser/math.js'),
+  bundle: true, format: 'iife', target: 'es2022', minify: true,
+  legalComments: 'none', logLevel: 'warning',
+  alias: { '#default-font/svg/default.js': join(root, 'node_modules/@mathjax/mathjax-tex-font/mjs/svg/default.js') },
+});
+const mathWorkerSource = readFileSync(join(out, 'browser/math.js'), 'utf8');
+writeFileSync(join(out, 'browser/math.js'), `/*visser-math-policy:${mathFingerprint}*/\nglobalThis.__visserMathWorkerSource=${JSON.stringify(mathWorkerSource)};\n`);
+
+// Math validation uses the same pinned engine/font configuration as the browser.
+await bundle({
+  entryPoints: [join(root, 'packages/core/src/math/validate-worker.ts')],
+  outfile: join(out, 'workers/math-validate.cjs'),
+  bundle: true, platform: 'node', format: 'cjs', target: 'node24',
+  legalComments: 'none', logLevel: 'warning',
+  alias: { '#default-font/svg/default.js': join(root, 'node_modules/@mathjax/mathjax-tex-font/mjs/svg/default.js') },
+});
 
 // Graph layout worker (§5.1): ELK runs only inside this bounded worker.
 await bundle({
@@ -92,7 +143,8 @@ if (existsSync(mermaidWorker)) {
     logLevel: 'warning',
     // The build parses structure only; DOMPurify needs a DOM, so it is replaced
     // by the stub (source mode uses a resolve hook for the same mapping).
-    alias: { dompurify: join(root, 'packages/core/src/mermaid/dompurify-stub.ts') },
+    alias: sequenceDomAliases(root),
+    plugins: [agentflowContractPlugin(), erLayoutContractPlugin(), erContractPlugin(), kanbanContractPlugin(), requirementContractPlugin(), radarParserContractPlugin(), radarContractPlugin(), sankeyContractPlugin(), xyContractPlugin(), quadrantSnapshotPlugin(), stateObserverPlugin(root), sequenceDomPlugin(root)],
   });
 } else {
   console.warn('warning: packages/core/src/mermaid/parse-worker.ts is missing; the release cannot parse Mermaid figures');
@@ -118,8 +170,9 @@ cpSync(join(root, 'schemas'), join(out, 'schemas'), { recursive: true });
 cpSync(join(root, 'skills'), join(out, 'skills'), { recursive: true });
 
 // LICENSES.txt (§12.1): generated from the license metadata of every bundled
-// package. mermaid.min.js is prebuilt, so its bundled packages come from its
-// source map. A bundled package without license information fails the build.
+// package. Mermaid's published ESM chunks already contain bundled dependencies;
+// retain their upstream source-map inventory in addition to esbuild's inputs.
+// A bundled package without license information fails the build.
 const mermaidMap = JSON.parse(readFileSync(join(root, 'node_modules/mermaid/dist/mermaid.min.js.map'), 'utf8'));
 bundled.set(join(root, 'node_modules/mermaid'), new Set(['browser/mermaid.js']));
 // Packages that mermaid bundles but npm does not install here. Checked by hand
@@ -155,6 +208,8 @@ for (const [name, version] of mermaidExtra) {
   if (!license) { missing.push(`${name} (bundled in mermaid.min.js, not installed)`); continue; }
   notices.push({ name, version, license, files: ['browser/mermaid.js'], text: `The ${license} license applies. This package is bundled inside mermaid.min.js and is not installed in the toolkit repository, so its license file is not reproduced here.` });
 }
+if (vendoredYamlFiles.size) notices.push({ name: 'js-yaml (provenance instrumentation)', version: '4.3.0', license: 'MIT',
+  files: [...vendoredYamlFiles].sort(), text: readFileSync(join(root, 'packages/core/src/mermaid/vendor/yaml-provenance.LICENSE'), 'utf8').trim() });
 if (missing.length > 0) throw new Error(`bundled packages without license information: ${missing.join(', ')}`);
 const byKey = (n) => `${n.name}\u0000${n.version}`;
 notices.sort((a, b) => (byKey(a) < byKey(b) ? -1 : byKey(a) > byKey(b) ? 1 : 0));

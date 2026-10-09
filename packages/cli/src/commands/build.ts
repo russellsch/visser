@@ -12,6 +12,7 @@ import { canonicalJSON, HashError } from '../../../core/src/model/hash.ts';
 import { findRepoRoot } from '../../../core/src/references/registry.ts';
 import { validateAgainst } from '../../../core/src/model/schemas.ts';
 import type { VerifiedRelease } from '../../../core/src/distribution/index.ts';
+import { browserMathFingerprint, mathPolicyFingerprint } from '../../../core/src/math/fingerprint.ts';
 
 export type BuildOutcome = {
   outDir: string;
@@ -78,10 +79,15 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
   const releaseDir = toolkit.release.dir;
   const mermaidPath = join(releaseDir, 'browser', 'mermaid.js');
   const mermaidBytes = existsSync(mermaidPath) ? readBrowserAsset(toolkit.release, 'mermaid.js') : undefined;
+  const mathBytes = (bundle.parsed.math?.length ?? 0) > 0 ? readBrowserAsset(toolkit.release, 'math.js') : undefined;
+  if (mathBytes && browserMathFingerprint(mathBytes.toString('utf8')) !== mathPolicyFingerprint()) {
+    throw new CliError('E_INTEGRITY', 'math engine policy differs from the selected browser pack; rebuild/select the matching toolkit', EXIT.security);
+  }
   const browserAssets: Record<string, Buffer> = {
     'reader.js': readBrowserAsset(toolkit.release, 'reader.js'),
     'reader.css': readBrowserAsset(toolkit.release, 'reader.css'),
     ...(mermaidBytes ? { 'mermaid.js': mermaidBytes } : {}),
+    ...(mathBytes ? { 'math.js': mathBytes } : {}),
   };
   const assetSha = (name: string) => createHash('sha256').update(browserAssets[name]!).digest('hex');
   // SRI value for the lazily loaded Mermaid asset (§9.12).
@@ -119,6 +125,7 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
           'reader.js': assetSha('reader.js'),
           'reader.css': assetSha('reader.css'),
           ...('mermaid.js' in browserAssets ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
+          ...('math.js' in browserAssets ? { 'math.js': assetSha('math.js') } : {}),
         },
         ...(integrity ? { integrity } : {}),
       },
@@ -185,7 +192,7 @@ export async function buildDocument(args: ParsedArgs): Promise<BuildOutcome> {
   // Shared asset pack (§13.1): each needed file is copied on its own, so a later
   // Mermaid build adds mermaid.js to an asset directory that already exists.
   const assetDir = join(outDir, '_visser', 'assets', toolkit.release.sha256);
-  const needed = ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])];
+  const needed = ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : []), ...(result.needsMath ? ['math.js'] : [])];
   if (result.needsMermaid && !existsSync(mermaidPath)) {
     throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${releaseDir} has no browser/mermaid.js; this document needs a toolkit with Mermaid support`, EXIT.unavailable);
   }

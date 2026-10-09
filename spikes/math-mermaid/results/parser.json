@@ -1,0 +1,402 @@
+{
+  "flowchart": {
+    "source": "flowchart LR\n A[\"$$x^2$$\"] -->|\"$$y^2$$\"| B",
+    "diagramType": "flowchart-v2",
+    "dbKeys": [
+      "setAccTitle",
+      "setAccDescription",
+      "setDiagramTitle",
+      "getAccTitle",
+      "getAccDescription",
+      "getDiagramTitle",
+      "addVertex",
+      "firstGraph",
+      "setDirection",
+      "addSubGraph",
+      "addLink",
+      "setLink",
+      "updateLink",
+      "addClass",
+      "setClass",
+      "destructLink",
+      "setClickEvent",
+      "setTooltip",
+      "updateLinkInterpolate",
+      "setClickFun",
+      "bindFunctions"
+    ],
+    "title": "",
+    "accTitle": "",
+    "dataTopKeys": [
+      "nodes",
+      "edges",
+      "other",
+      "config"
+    ],
+    "dataJson": "{\"nodes\":[{\"id\":\"A\",\"label\":\"$$x^2$$\",\"labelType\":\"string\",\"labelStyle\":\"\",\"padding\":15,\"cssStyles\":[],\"cssCompiledStyles\":[],\"cssClasses\":\"default \",\"domId\":\"flowchart-A-0\",\"look\":\"classic\",\"isGroup\":false,\"shape\":\"squareRect\",\"minWidth\":120},{\"id\":\"B\",\"label\":\"B\",\"labelType\":\"text\",\"labelStyle\":\"\",\"padding\":15,\"cssStyles\":[],\"cssCompiledStyles\":[],\"cssClasses\":\"default \",\"domId\":\"flowchart-B-1\",\"look\":\"classic\",\"isGroup\":false,\"shape\":\"squareRect\",\"minWidth\":120}],\"edges\":[{\"id\":\"L_A_B_0\",\"isUserDefinedId\":false,\"start\":\"A\",\"end\":\"B\",\"type\":\"arrow_point\",\"label\":\"$$y^2$$\",\"labelType\":\"string\",\"labelpos\":\"c\",\"thickness\":\"normal\",\"minlen\":1,\"classes\":\"edge-thickness-normal edge-pattern-solid flowchart-link\",\"arrowTypeStart\":\"none\",\"arrowTypeEnd\":\"arrow_point\",\"arrowheadStyle\":\"fill: #333\",\"cssCompiledStyles\":[],\"labelStyle\":[],\"style\":[],\"pattern\":\"normal\",\"look\":\"classic\",\"curve\":\"basis\"}],\"other\":{},\"config\":{\"flowchart\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"subGraphTitleMargin\":{\"top\":0,\"bottom\":0},\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"curve\":\"basis\",\"padding\":15,\"wrappingWidth\":120,\"minNodeWidth\":120,\"inheritDir\":false,\"arrowMarkerAbsolute\":false},\"swimlane\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"layout\":\"swimlane\",\"lineHops\":\"arc\",\"ignoreCrossLaneEdges\":true,\"optimizeRanksByCrossings\":true,\"automaticLaneOrdering\":false},\"agentflow\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin",
+    "vertices": [
+      {
+        "id": "A",
+        "text": "$$x^2$$",
+        "keys": [
+          "id",
+          "labelType",
+          "domId",
+          "styles",
+          "classes",
+          "text",
+          "type",
+          "props"
+        ]
+      },
+      {
+        "id": "B",
+        "text": "B",
+        "keys": [
+          "id",
+          "labelType",
+          "domId",
+          "styles",
+          "classes",
+          "text",
+          "props"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "text": "$$y^2$$",
+        "keys": [
+          "start",
+          "end",
+          "type",
+          "text",
+          "labelType",
+          "classes",
+          "isUserDefinedId",
+          "interpolate",
+          "stroke",
+          "length",
+          "id"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "source": "stateDiagram-v2\n A: $$x^2$$\n A --> B: $$y^2$$",
+    "diagramType": "stateDiagram",
+    "dbKeys": [
+      "getAccTitle",
+      "setAccTitle",
+      "getAccDescription",
+      "setAccDescription",
+      "setDiagramTitle",
+      "getDiagramTitle",
+      "setRootDoc",
+      "getDividerId",
+      "setDirection",
+      "trimColon",
+      "bindFunctions"
+    ],
+    "title": "",
+    "accTitle": "",
+    "dataTopKeys": [
+      "nodes",
+      "edges",
+      "other",
+      "config",
+      "direction"
+    ],
+    "dataJson": "{\"nodes\":[{\"labelStyle\":\"\",\"shape\":\"rect\",\"label\":\"$$x^2$$\",\"cssClasses\":\" statediagram-state\",\"cssCompiledStyles\":[],\"cssStyles\":[],\"id\":\"A\",\"domId\":\"state-A-0\",\"isGroup\":false,\"padding\":8,\"rx\":10,\"ry\":10,\"look\":\"classic\",\"labelType\":\"markdown\",\"centerLabel\":true,\"description\":[],\"wrappingWidth\":120,\"minWidth\":120},{\"labelStyle\":\"\",\"shape\":\"rect\",\"label\":\"B\",\"cssClasses\":\" statediagram-state\",\"cssCompiledStyles\":[],\"cssStyles\":[],\"id\":\"B\",\"domId\":\"state-B-0\",\"isGroup\":false,\"padding\":8,\"rx\":10,\"ry\":10,\"look\":\"classic\",\"labelType\":\"markdown\",\"centerLabel\":true,\"wrappingWidth\":120,\"minWidth\":120}],\"edges\":[{\"id\":\"edge0\",\"start\":\"A\",\"end\":\"B\",\"arrowhead\":\"normal\",\"arrowTypeEnd\":\"arrow_barb\",\"style\":\"fill:none\",\"labelStyle\":\"\",\"label\":\"$$y^2$$\",\"arrowheadStyle\":\"fill: #333\",\"labelpos\":\"c\",\"labelType\":\"markdown\",\"thickness\":\"normal\",\"classes\":\"transition\",\"look\":\"classic\"}],\"other\":{},\"config\":{\"flowchart\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"subGraphTitleMargin\":{\"top\":0,\"bottom\":0},\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"curve\":\"basis\",\"padding\":15,\"wrappingWidth\":120,\"minNodeWidth\":120,\"inheritDir\":false,\"arrowMarkerAbsolute\":false},\"swimlane\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"layout\":\"swimlane\",\"lineHops\":\"arc\",\"ignoreCrossLaneEdges\":true,\"optimizeRanksByCrossings\":true,\"automaticLaneOrdering\":false},\"agentflow\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"diagramPadding\""
+  },
+  "sequence": {
+    "source": "sequenceDiagram\n participant A as $$x^2$$\n Note over A: $$y^2$$\n A->>B: $$z^2$$",
+    "diagramType": "sequence",
+    "dbKeys": [
+      "setAccTitle",
+      "setAccDescription",
+      "setDiagramTitle",
+      "getAccTitle",
+      "getAccDescription",
+      "getDiagramTitle",
+      "apply",
+      "parseBoxData",
+      "parseMessage"
+    ],
+    "title": "",
+    "accTitle": "",
+    "actors": [
+      {
+        "name": "A",
+        "description": "$$x^2$$"
+      },
+      {
+        "name": "B",
+        "description": "B"
+      }
+    ],
+    "messages": [
+      {
+        "message": "$$y^2$$",
+        "type": 2
+      },
+      {
+        "message": "$$z^2$$",
+        "type": 0
+      }
+    ]
+  },
+  "er": {
+    "source": "erDiagram\n A ||--o{ B : \"$$x^2$$\"",
+    "diagramType": "er",
+    "dbKeys": [
+      "setAccTitle",
+      "getAccTitle",
+      "setAccDescription",
+      "getAccDescription",
+      "setDiagramTitle",
+      "getDiagramTitle",
+      "getConfig",
+      "addEntity",
+      "addAttributes",
+      "addRelationship",
+      "setDirection",
+      "addCssStyles",
+      "addClass",
+      "setClass",
+      "addSubGraph"
+    ],
+    "title": "",
+    "accTitle": "",
+    "dataTopKeys": [
+      "nodes",
+      "edges",
+      "other",
+      "config",
+      "direction"
+    ],
+    "dataJson": "{\"nodes\":[{\"id\":\"entity-A-0\",\"label\":\"A\",\"attributes\":[],\"alias\":\"\",\"shape\":\"erBox\",\"look\":\"classic\",\"cssClasses\":\"default\",\"cssStyles\":[],\"labelType\":\"markdown\",\"cssCompiledStyles\":[],\"colorIndex\":0,\"isGroup\":false},{\"id\":\"entity-B-1\",\"label\":\"B\",\"attributes\":[],\"alias\":\"\",\"shape\":\"erBox\",\"look\":\"classic\",\"cssClasses\":\"default\",\"cssStyles\":[],\"labelType\":\"markdown\",\"cssCompiledStyles\":[],\"colorIndex\":1,\"isGroup\":false}],\"edges\":[{\"id\":\"id_entity-A-0_entity-B-1_0\",\"type\":\"normal\",\"curve\":\"basis\",\"start\":\"entity-A-0\",\"end\":\"entity-B-1\",\"label\":\"$$x^2$$\",\"labelpos\":\"c\",\"thickness\":\"normal\",\"classes\":\"relationshipLine\",\"arrowTypeStart\":\"only_one\",\"arrowTypeEnd\":\"zero_or_more\",\"pattern\":\"solid\",\"look\":\"classic\",\"labelType\":\"markdown\"}],\"other\":{},\"config\":{\"flowchart\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"subGraphTitleMargin\":{\"top\":0,\"bottom\":0},\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"curve\":\"basis\",\"padding\":15,\"wrappingWidth\":120,\"minNodeWidth\":120,\"inheritDir\":false,\"arrowMarkerAbsolute\":false},\"swimlane\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"layout\":\"swimlane\",\"lineHops\":\"arc\",\"ignoreCrossLaneEdges\":true,\"optimizeRanksByCrossings\":true,\"automaticLaneOrdering\":false},\"agentflow\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"wrappingWidth\":120,\"minNodeWidth\":120},\"sequence\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo"
+  },
+  "class": {
+    "source": "classDiagram\n class A {\n +$$x^2$$\n }",
+    "diagramType": "classDiagram",
+    "dbKeys": [
+      "setupToolTips",
+      "setAccTitle",
+      "getAccTitle",
+      "setAccDescription",
+      "getAccDescription",
+      "setDiagramTitle",
+      "getDiagramTitle",
+      "getConfig",
+      "addRelation",
+      "addClassesToNamespace",
+      "addNamespace",
+      "popNamespace",
+      "setCssClass",
+      "addMembers",
+      "addClass",
+      "setClassLabel",
+      "addAnnotation",
+      "addMember",
+      "cleanupLabel",
+      "addNote",
+      "defineClass",
+      "setDirection",
+      "setLink",
+      "bindFunctions",
+      "clear",
+      "setTooltip",
+      "setClickEvent",
+      "setCssStyle"
+    ],
+    "title": "",
+    "accTitle": "",
+    "dataTopKeys": [
+      "nodes",
+      "edges",
+      "other",
+      "config",
+      "direction"
+    ],
+    "dataJson": "{\"nodes\":[{\"id\":\"A\",\"label\":\"A\",\"text\":\"A\",\"shape\":\"classBox\",\"cssClasses\":\"default\",\"methods\":[],\"members\":[{\"memberType\":\"attribute\",\"visibility\":\"+\",\"classifier\":\"$\",\"text\":\"\\\\+$$x^2$\",\"id\":\"$$x^2$\"}],\"annotations\":[],\"styles\":[],\"domId\":\"classId-A-0\",\"isGroup\":false,\"look\":\"classic\",\"colorIndex\":0}],\"edges\":[],\"other\":{},\"config\":{\"flowchart\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"subGraphTitleMargin\":{\"top\":0,\"bottom\":0},\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"curve\":\"basis\",\"padding\":15,\"wrappingWidth\":120,\"minNodeWidth\":120,\"inheritDir\":false,\"arrowMarkerAbsolute\":false},\"swimlane\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"layout\":\"swimlane\",\"lineHops\":\"arc\",\"ignoreCrossLaneEdges\":true,\"optimizeRanksByCrossings\":true,\"automaticLaneOrdering\":false},\"agentflow\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"wrappingWidth\":120,\"minNodeWidth\":120},\"sequence\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"hideUnusedParticipants\":false,\"activationWidth\":10,\"diagramMarginX\":50,\"diagramMarginY\":10,\"actorMargin\":50,\"width\":150,\"height\":65,\"boxMargin\":10,\"boxTextMargin\":5,\"noteMargin\":10,\"messageMargin\":35,\"messageAlign\":\"center\",\"mirrorActors\":true,\"forceMenus\":false,\"bottomMarginAdj\":1,\"rightAngles\":false,\"showSequenceNumbers\":false,\"actorFontSize\":14,\"actorFontFamily\":\"\\\"Open Sans\\\", sans-serif\",\"actorFontWeight\":400,\"note"
+  },
+  "pie": {
+    "source": "pie\n \"$$x^2$$\" : 1\n \"Other\" : 2",
+    "diagramType": "pie",
+    "dbKeys": [
+      "getConfig",
+      "clear",
+      "setDiagramTitle",
+      "getDiagramTitle",
+      "setAccTitle",
+      "getAccTitle",
+      "setAccDescription",
+      "getAccDescription",
+      "addSection",
+      "getSections",
+      "setShowData",
+      "getShowData"
+    ],
+    "title": "",
+    "accTitle": "",
+    "sections": [],
+    "astKeys": [
+      "$type",
+      "sections",
+      "$cstNode",
+      "showData"
+    ],
+    "astRange": {
+      "start": {
+        "character": 0,
+        "line": 0
+      },
+      "end": {
+        "character": 12,
+        "line": 2
+      }
+    },
+    "astJson": "{\"sections\":[{\"label\":\"$$x^2$$\",\"value\":1},{\"label\":\"Other\",\"value\":2}],\"showData\":false}",
+    "astChildren": [
+      [
+        "sections",
+        [
+          {
+            "type": "PieSection",
+            "keys": [
+              "label",
+              "value"
+            ],
+            "range": {
+              "start": {
+                "character": 1,
+                "line": 1
+              },
+              "end": {
+                "character": 15,
+                "line": 1
+              }
+            },
+            "text": "\"$$x^2$$\" : 1\n"
+          },
+          {
+            "type": "PieSection",
+            "keys": [
+              "label",
+              "value"
+            ],
+            "range": {
+              "start": {
+                "character": 1,
+                "line": 2
+              },
+              "end": {
+                "character": 12,
+                "line": 2
+              }
+            },
+            "text": "\"Other\" : 2"
+          }
+        ]
+      ]
+    ],
+    "firstSectionCstKeys": [
+      "content",
+      "grammarSource",
+      "root",
+      "container",
+      "_astNode",
+      "_rangeCache"
+    ],
+    "firstSectionCstChildren": [
+      {
+        "text": "\"$$x^2$$\"",
+        "range": {
+          "start": {
+            "character": 1,
+            "line": 1
+          },
+          "end": {
+            "character": 10,
+            "line": 1
+          }
+        },
+        "offset": 5,
+        "end": 14
+      },
+      {
+        "text": ":",
+        "range": {
+          "start": {
+            "character": 11,
+            "line": 1
+          },
+          "end": {
+            "character": 12,
+            "line": 1
+          }
+        },
+        "offset": 15,
+        "end": 16
+      },
+      {
+        "text": "1",
+        "range": {
+          "start": {
+            "character": 13,
+            "line": 1
+          },
+          "end": {
+            "character": 14,
+            "line": 1
+          }
+        },
+        "offset": 17,
+        "end": 18
+      },
+      {
+        "text": "\n",
+        "range": {
+          "start": {
+            "character": 14,
+            "line": 1
+          },
+          "end": {
+            "character": 15,
+            "line": 1
+          }
+        },
+        "offset": 18,
+        "end": 19
+      }
+    ]
+  },
+  "mindmap": {
+    "source": "mindmap\n root((Root))\n   Child[\"$$x^2$$\"]",
+    "diagramType": "mindmap",
+    "dbKeys": [
+      "getLogger",
+      "getType",
+      "getElementById",
+      "getParent",
+      "getMindmap",
+      "addNode",
+      "decorateNode"
+    ],
+    "dataTopKeys": [
+      "nodes",
+      "edges",
+      "config",
+      "rootNode",
+      "markers",
+      "direction",
+      "nodeSpacing",
+      "rankSpacing",
+      "shapes",
+      "type",
+      "diagramId"
+    ],
+    "dataJson": "{\"nodes\":[{\"id\":\"0\",\"domId\":\"node_0\",\"label\":\"Root\",\"labelType\":\"markdown\",\"isGroup\":false,\"shape\":\"mindmapCircle\",\"width\":200,\"height\":0,\"padding\":10,\"cssClasses\":\"mindmap-node section-root section--1\",\"cssStyles\":[],\"look\":\"classic\",\"level\":0,\"nodeId\":\"root\",\"type\":3},{\"id\":\"1\",\"domId\":\"node_1\",\"label\":\"$$x^2$$\",\"labelType\":\"markdown\",\"isGroup\":false,\"shape\":\"rect\",\"width\":200,\"height\":0,\"padding\":20,\"cssClasses\":\"mindmap-node section-0\",\"cssStyles\":[],\"look\":\"classic\",\"level\":2,\"nodeId\":\"Child\",\"type\":2,\"section\":0}],\"edges\":[{\"id\":\"edge_0_1\",\"start\":\"0\",\"end\":\"1\",\"type\":\"normal\",\"curve\":\"basis\",\"thickness\":\"normal\",\"look\":\"classic\",\"classes\":\"edge section-edge-0 edge-depth-1\",\"depth\":0,\"section\":0}],\"config\":{\"flowchart\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"subGraphTitleMargin\":{\"top\":0,\"bottom\":0},\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"curve\":\"basis\",\"padding\":15,\"wrappingWidth\":120,\"minNodeWidth\":120,\"inheritDir\":false,\"arrowMarkerAbsolute\":false},\"swimlane\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"layout\":\"swimlane\",\"lineHops\":\"arc\",\"ignoreCrossLaneEdges\":true,\"optimizeRanksByCrossings\":true,\"automaticLaneOrdering\":false},\"agentflow\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"titleTopMargin\":25,\"diagramPadding\":8,\"nodeSpacing\":50,\"rankSpacing\":50,\"wrappingWidth\":120,\"minNodeWidth\":120},\"sequence\":{\"useMaxWidth\":true,\"theme\":\"redux-color\",\"look\":\"neo\",\"hideUnusedParticipants\":false,\"activa"
+  }
+}

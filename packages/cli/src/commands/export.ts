@@ -94,6 +94,11 @@ function standaloneHtml(plan: Planned, result: CompileResult): Uint8Array {
   if (!cssTag.test(html) || !jsTag.test(html)) throw new CliError('E_BUILD', 'the compiled document has unexpected browser asset links', EXIT.unavailable);
   html = html.replace(cssTag, `<link rel="stylesheet" href="${css}">`);
   html = html.replace(jsTag, `<script src="${js}" defer></script>`);
+  if (result.needsMath) {
+    const mathTag = new RegExp(`<script src="${escaped}/math\\.js" defer integrity="[^"]+"><\\/script>`);
+    if (!mathTag.test(html)) throw new CliError('E_BUILD', 'the compiled document has an unexpected math asset link', EXIT.unavailable);
+    html = html.replace(mathTag, `<script src="${dataUrl('text/javascript;charset=utf-8', readBrowserAsset(plan.toolkit.release, 'math.js'))}" defer></script>`);
+  }
 
   // The standalone page loads only bytes carried inside itself. Preserve
   // Mermaid's narrowly required inline-style allowance for its generated SVG.
@@ -249,6 +254,7 @@ async function exportWeb(args: ParsedArgs, format: 'html' | 'site'): Promise<num
         }
         const digest = plan.toolkit.release.sha256;
         const pack = packs.get(digest) ?? { release: plan.toolkit.release, files: new Set<string>(['reader.css', 'reader.js']) };
+        if (result.needsMath) pack.files.add('math.js');
         if (result.needsMermaid) {
           if (!existsSync(join(pack.release.dir, 'browser', 'mermaid.js'))) {
             throw new CliError('E_TOOLKIT_MISSING', `the toolkit at ${pack.release.dir} has no browser/mermaid.js; ${plan.bundle.indexPath} needs a toolkit with Mermaid support`, EXIT.unavailable);

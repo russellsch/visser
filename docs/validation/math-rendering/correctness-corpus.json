@@ -1,0 +1,21 @@
+{
+  "schema": "visser-math-corpus/1",
+  "status": "authored-expectations-awaiting-human-approval",
+  "note": "Expected readings are authored independently of renderer output. They are test oracles, not approved screenshots or completed human acceptance.",
+  "cases": [
+    { "id": "MC01", "tex": "\\frac{a}{b}", "reading": "a divided by b", "structure": "One fraction, numerator a, denominator b." },
+    { "id": "MC02", "tex": "\\frac{1}{1+\\frac{x}{y}}", "reading": "one divided by the sum of one and x divided by y", "structure": "Outer denominator contains an inner fraction; the outer numerator is only 1." },
+    { "id": "MC03", "tex": "x^{a+b}", "reading": "x raised to the sum of a and b", "structure": "Both a and b and their plus sign belong to the exponent." },
+    { "id": "MC04", "tex": "x^a+b", "reading": "x raised to a, plus b", "structure": "Only a belongs to the exponent. The plus sign and b follow the superscript expression at baseline." },
+    { "id": "MC05", "tex": "x_{i+1}^2", "reading": "x subscript i plus one, squared", "structure": "i, plus, and 1 form one subscript. 2 is the superscript on x." },
+    { "id": "MC06", "tex": "-x^2", "reading": "the negative of x squared", "structure": "The leading minus is outside the base of the superscript." },
+    { "id": "MC07", "tex": "(-x)^2", "reading": "negative x in parentheses, squared", "structure": "Parentheses visibly include both minus and x; the exponent follows the closing parenthesis." },
+    { "id": "MC08", "tex": "\\sqrt[3]{a+b}", "reading": "the cube root of the sum of a and b", "structure": "3 is the root index; the radical covers a plus b." },
+    { "id": "MC09", "tex": "\\sum_{i=1}^{n} i", "reading": "the sum of i as i ranges from one to n", "structure": "i equals 1 is the lower bound; n is the upper bound; the summand is i." },
+    { "id": "MC10", "tex": "\\int_0^\\infty e^{-x}\\,dx", "reading": "the integral from zero to infinity of e to the negative x, with respect to x", "structure": "Bounds attach to the integral; minus x is the exponent of e; dx stays after the integrand in the same equation." },
+    { "id": "MC11", "tex": "\\begin{matrix}a&b\\\\c&d\\end{matrix}", "reading": "a two by two matrix with first row a b and second row c d", "structure": "Exactly two rows and two columns; a and c share the first column." },
+    { "id": "MC12", "tex": "\\begin{aligned}E&=mc^2\\\\a&=\\frac{1}{2}\\end{aligned}", "reading": "E equals m c squared; a equals one half", "structure": "Two rows align their equals signs; the fraction belongs only to the second row." },
+    { "id": "MC13", "tex": "\\alpha + \\Gamma + \\mathbb{R}", "reading": "lowercase alpha plus uppercase gamma plus blackboard-bold R", "structure": "Preserve letter identity, case, and the blackboard-bold distinction." },
+    { "id": "MC14", "tex": "\\left|x\\right| + \\text{cost \\$5}", "reading": "absolute value of x plus the text cost dollar five", "structure": "Paired bars enclose x. The escaped dollar sign is literal text, not a delimiter." }
+  ]
+}

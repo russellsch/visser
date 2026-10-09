@@ -7,11 +7,11 @@ export const MARKER_LINE = /^[ ]{0,3}<!-- vs:id ([a-z][a-z0-9_-]{0,63}) -->[ ]*$
 export const TARGET_ID = /^[a-z][a-z0-9_-]{0,63}$/;
 
 /** Inline-only primitive tags; they belong to their prose block (§6.5, §6.6). */
-export const INLINE_TAGS: ReadonlySet<string> = new Set(['term', 'cite', 'focus', 'detail-link']);
+export const INLINE_TAGS: ReadonlySet<string> = new Set(['term', 'cite', 'focus', 'detail-link', 'eqref']);
 
 /** Block tags: primitives (§6.6) and every catalogue family and child tag (§9). */
 export const BLOCK_TAGS: ReadonlySet<string> = new Set([
-  'detail', 'definition', 'source',
+  'detail', 'definition', 'source', 'equation',
   'graph', 'group', 'node', 'edge', 'state', 'transition', 'factor', 'causal-link', 'task', 'dependency',
   'trace', 'actor', 'event', 'branch',
   'transform', 'stage', 'conversion',
@@ -40,4 +40,15 @@ export const LIMITS = {
 } as const;
 
 /** Ordinary blocks that take an ID marker (§6.4). `hr` is not addressable. */
-export const ADDRESSABLE_BLOCKS: ReadonlySet<string> = new Set(['heading', 'paragraph', 'list', 'table', 'blockquote', 'fence']);
+export const ADDRESSABLE_BLOCKS: ReadonlySet<string> = new Set(['heading', 'paragraph', 'list', 'table', 'blockquote', 'fence', 'math_display']);
+
+/** Direct tag bodies whose authored block prose has a canonical reader host. */
+export const EQUATION_PARENTS: ReadonlySet<string> = new Set(['detail', 'definition', 'source', 'note', 'self-check', 'step']);
+
+/** Decoded tag string fields rendered as authored text; ID/URL/code fields stay literal. */
+export const MATH_TEXT_ATTRIBUTES: ReadonlySet<string> = new Set([
+  'title', 'question', 'label', 'term', 'event', 'guard', 'action',
+  'condition', 'output', 'acceptance', 'risk', 'loss', 'quantity',
+  'representation', 'shape', 'units', 'location', 'ownership', 'value',
+  'display', 'cardinality', 'owner', 'unit', 'timeUnit', 'attributes',
+]);

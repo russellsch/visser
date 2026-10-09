@@ -1,0 +1,122 @@
+{
+  "node": "v24.21.0",
+  "browser": "153.0.8010.12",
+  "scheme": "blob",
+  "csp": "default-src 'none'; script-src data:; worker-src blob:; connect-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'",
+  "workerBytes": 1812353,
+  "workerSha256": "b57bd8fae6e21c87950644971c0c56e4898afb512941f58d22892b650d7cce8a",
+  "htmlBytes": 2446520,
+  "htmlSha256": "aa678e58fe50a89b2772a497e9ee2846aa168b93b578f35989269626e8ca60d2",
+  "requestUrls": [
+    "file:///home/r/Documents/MyStuff/random_ts/visser/spikes/math-resource/results/single-file-CyFCm1/index.html"
+  ],
+  "offOrigin": [],
+  "pageErrors": [],
+  "cspViolations": [],
+  "cspViolationCount": 0,
+  "booted": true,
+  "valid": {
+    "ok": true,
+    "workerMs": 6.199999809265137,
+    "svg": 1,
+    "sourceHidden": true,
+    "sourceText": "\\frac{a}{b}",
+    "markupBytes": 2173,
+    "renderedNodes": 10
+  },
+  "cancel": {
+    "started": true,
+    "completed": false,
+    "sourceVisible": true,
+    "sourceText": "\\frac{x}{y}",
+    "renderedNodes": 0
+  },
+  "repeated100": [
+    {
+      "ok": true,
+      "occurrences": 100,
+      "unique": 5,
+      "conversionMs": 34.60000014305115,
+      "workerMs": 16.600000143051147,
+      "insertionMs": 1.8999998569488525,
+      "expandedBytes": 322740,
+      "expandedNodes": 1540
+    }
+  ],
+  "distinct100": [
+    {
+      "ok": true,
+      "occurrences": 100,
+      "unique": 100,
+      "conversionMs": 136.90000009536743,
+      "workerMs": 118.79999995231628,
+      "insertionMs": 3.799999952316284,
+      "expandedBytes": 645154,
+      "expandedNodes": 2582
+    }
+  ],
+  "repeated1000": [
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 5,
+      "conversionMs": 32.799999952316284,
+      "workerMs": 15.400000095367432,
+      "insertionMs": 18.200000047683716,
+      "expandedBytes": 3227400,
+      "expandedNodes": 15400
+    },
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 5,
+      "conversionMs": 37.59999990463257,
+      "workerMs": 16.5,
+      "insertionMs": 16,
+      "expandedBytes": 3227400,
+      "expandedNodes": 15400
+    },
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 5,
+      "conversionMs": 33.700000047683716,
+      "workerMs": 15,
+      "insertionMs": 16,
+      "expandedBytes": 3227400,
+      "expandedNodes": 15400
+    }
+  ],
+  "distinct1000": [
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 1000,
+      "conversionMs": 873.7000000476837,
+      "workerMs": 845.7000000476837,
+      "insertionMs": 40.299999952316284,
+      "expandedBytes": 7772435,
+      "expandedNodes": 27783
+    },
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 1000,
+      "conversionMs": 848.8999998569489,
+      "workerMs": 821.0999999046326,
+      "insertionMs": 31.5,
+      "expandedBytes": 7772435,
+      "expandedNodes": 27783
+    },
+    {
+      "ok": true,
+      "occurrences": 1000,
+      "unique": 1000,
+      "conversionMs": 873.5,
+      "workerMs": 847.1000001430511,
+      "insertionMs": 33.60000014305115,
+      "expandedBytes": 7772435,
+      "expandedNodes": 27783
+    }
+  ]
+}

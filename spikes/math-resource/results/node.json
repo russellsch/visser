@@ -1,0 +1,150 @@
+{
+  "node": "v24.21.0",
+  "executable": "/opt/codex-desktop/resources/cua_node/bin/node",
+  "heapLimitMiB": 128,
+  "timeoutMs": 5000,
+  "cases": {
+    "inline": {
+      "inputBytes": 3,
+      "totalMs": 96.863347,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 10.209707000000009,
+      "bytes": 2203,
+      "nodes": 9,
+      "heapUsed": 18207496
+    },
+    "fraction": {
+      "inputBytes": 11,
+      "totalMs": 81.19905100000001,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 8.416235,
+      "bytes": 2173,
+      "nodes": 10,
+      "heapUsed": 18311192
+    },
+    "matrix": {
+      "inputBytes": 34,
+      "totalMs": 80.09257999999997,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 10.366063999999994,
+      "bytes": 4002,
+      "nodes": 19,
+      "heapUsed": 18768008
+    },
+    "repeated_25": {
+      "inputBytes": 299,
+      "totalMs": 84.91796999999997,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 12.853627000000003,
+      "bytes": 54620,
+      "nodes": 202,
+      "heapUsed": 21751576
+    },
+    "repeated_100": {
+      "inputBytes": 1199,
+      "totalMs": 104.86713299999997,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 24.553482000000002,
+      "bytes": 218645,
+      "nodes": 802,
+      "heapUsed": 20743640
+    },
+    "distinct_100": {
+      "inputBytes": 2381,
+      "totalMs": 146.00435299999998,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 54.06548200000002,
+      "bytes": 646641,
+      "nodes": 2284,
+      "heapUsed": 35665576
+    },
+    "wide_1024": {
+      "inputBytes": 1023,
+      "totalMs": 123.11898699999995,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 41.120419999999996,
+      "bytes": 726677,
+      "nodes": 2050,
+      "heapUsed": 31141480
+    },
+    "wide_2048": {
+      "inputBytes": 2047,
+      "totalMs": 156.962804,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 74.706725,
+      "bytes": 1454422,
+      "nodes": 4098,
+      "heapUsed": 19034792
+    },
+    "wide_4096": {
+      "inputBytes": 4095,
+      "totalMs": 203.10965299999998,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 121.758845,
+      "bytes": 2910096,
+      "nodes": 8194,
+      "heapUsed": 63358568
+    },
+    "nested_32": {
+      "inputBytes": 225,
+      "totalMs": 84.51967300000001,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 12.793015000000011,
+      "bytes": 33352,
+      "nodes": 247,
+      "heapUsed": 21683264
+    },
+    "nested_64": {
+      "inputBytes": 449,
+      "totalMs": 87.68521799999985,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 16.238502000000004,
+      "bytes": 74804,
+      "nodes": 503,
+      "heapUsed": 20974064
+    },
+    "nested_128": {
+      "inputBytes": 897,
+      "totalMs": 97.19342200000006,
+      "status": 0,
+      "signal": null,
+      "ok": true,
+      "ms": 23.096635000000006,
+      "bytes": 179410,
+      "nodes": 1015,
+      "heapUsed": 28389640
+    },
+    "forbidden_unknown": {
+      "inputBytes": 15,
+      "totalMs": 85.22593600000005,
+      "status": 0,
+      "signal": null,
+      "ok": false,
+      "ms": 5.447989000000007,
+      "error": "[object Object]",
+      "heapUsed": 17787640
+    }
+  }
+}

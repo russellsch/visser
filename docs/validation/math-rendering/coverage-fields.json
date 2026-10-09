@@ -1,0 +1,512 @@
+{
+  "schema": "visser-math-fields/1",
+  "note": "Machine-readable minimum field obligations from coverage.md; browser reports must exercise the named fields, not only generic runtime APIs. Geometry, print, long-input and manual gates remain additional plan obligations.",
+  "cases": [
+    {
+      "id": "COV-01",
+      "fields": [
+        "paragraph.text",
+        "emphasis.text",
+        "strong.text",
+        "strike.text",
+        "line-break.text"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-02",
+      "fields": [
+        "heading.text",
+        "link.text",
+        "term.text",
+        "focus.text",
+        "detail-link.text"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-03",
+      "fields": [
+        "list.text",
+        "blockquote.text",
+        "table.header",
+        "table.cell"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-04",
+      "fields": [
+        "image.alt"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-05",
+      "fields": [
+        "frontmatter.title"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-06",
+      "fields": [
+        "equation.body",
+        "equation.id",
+        "eqref.ref"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-07",
+      "fields": [
+        "graph.title",
+        "graph.question",
+        "graph.body",
+        "trace.title",
+        "trace.question",
+        "trace.body",
+        "transform.title",
+        "transform.question",
+        "transform.body",
+        "compare.title",
+        "compare.question",
+        "compare.body",
+        "annotated.title",
+        "annotated.question",
+        "annotated.body",
+        "domain.title",
+        "domain.question",
+        "domain.body",
+        "measure.title",
+        "measure.question",
+        "measure.body",
+        "tree.title",
+        "tree.question",
+        "tree.body",
+        "extension.title",
+        "extension.question",
+        "extension.body"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-08",
+      "fields": [
+        "note.body",
+        "self-check.question",
+        "self-check.body",
+        "detail.label",
+        "detail.body",
+        "step.label",
+        "step.body"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-09",
+      "fields": [
+        "definition.term",
+        "definition.body",
+        "definition.aliases"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-10",
+      "fields": [
+        "source.title",
+        "source.excerpt",
+        "code.fence",
+        "code.span"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-11",
+      "fields": [
+        "group.label",
+        "node.label",
+        "edge.label",
+        "edge.quantity"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-12",
+      "fields": [
+        "state.label",
+        "transition.label",
+        "transition.event",
+        "transition.guard",
+        "transition.action"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-13",
+      "fields": [
+        "factor.label",
+        "causal-link.label"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-14",
+      "fields": [
+        "task.label",
+        "task.owner",
+        "task.output",
+        "task.acceptance",
+        "task.risk",
+        "dependency.label",
+        "dependency.quantity"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-15",
+      "fields": [
+        "stage.label",
+        "stage.representation",
+        "stage.shape",
+        "stage.units",
+        "stage.location",
+        "stage.ownership",
+        "conversion.label",
+        "conversion.loss",
+        "conversion.condition",
+        "conversion.quantity"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-16",
+      "fields": [
+        "concept.label",
+        "concept.attributes",
+        "relation.label",
+        "relation.cardinality"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-17",
+      "fields": [
+        "graph.list-label",
+        "graph.endpoint",
+        "group.collapsed-label",
+        "graph.proxy-label",
+        "graph.proxy-callout"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-18",
+      "fields": [
+        "actor.label",
+        "event.label",
+        "branch.label",
+        "branch.condition",
+        "trace.actor-derived",
+        "trace.event-derived",
+        "trace.branch-derived"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-19",
+      "fields": [
+        "trace.timeUnit"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-20",
+      "fields": [
+        "measure.unit",
+        "reading.label",
+        "reading.display"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-21",
+      "fields": [
+        "entry.label",
+        "entry.path"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-22",
+      "fields": [
+        "option.label",
+        "criterion.label",
+        "criterion.units",
+        "cell.value",
+        "cell.body"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-23",
+      "fields": [
+        "annotation.label",
+        "annotation.body",
+        "source.excerpt"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-24",
+      "fields": [
+        "part.label",
+        "part.body",
+        "part.custom-fact"
+      ],
+      "checks": [
+        "html",
+        "markdown",
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-27",
+      "fields": [
+        "inspector.title",
+        "inspector.qualifications",
+        "detail.body",
+        "term.tooltip",
+        "citation.tooltip",
+        "appendix.filter",
+        "reference.label",
+        "reference.quote"
+      ],
+      "checks": [
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-28",
+      "fields": [
+        "viewer.title",
+        "viewer.drawing",
+        "viewer.source",
+        "viewer.list",
+        "viewer.detail",
+        "viewer.print-restoration"
+      ],
+      "checks": [
+        "browser-success",
+        "browser-nojs",
+        "browser-failure",
+        "browser-long",
+        "browser-print"
+      ]
+    },
+    {
+      "id": "COV-29",
+      "fields": [
+        "projection.authored-fields",
+        "projection.equation-number",
+        "projection.eqref-destination"
+      ],
+      "checks": [
+        "markdown"
+      ]
+    }
+  ]
+}

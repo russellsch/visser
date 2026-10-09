@@ -6,46 +6,31 @@
 
 ## Use it when
 
-- Follow one run: calls, waits, and prerequisites.
-- Show events that can happen in either order.
-- Show mutually exclusive outcomes.
+- Follow one run's calls, waits, prerequisites, alternatives, or exclusive outcomes.
 
 ## Do not use it when
 
-- The point is which transitions the system allows in every run. Use `state`.
-- The run is a loop with no fixed count. Show a finite iteration, or use `state`.
-- You have no evidence for the order. Do not draw one.
-- The run is a straight line with no branch. Use a numbered list in `prose`.
+- Use `state` for all-run transitions or unbounded loops; show a finite iteration.
+  Do not draw unsupported order; use numbered `prose` for an unbranched line.
 
 ## Misleading example
 
-**Reject:** a trace whose rows are drawn top to bottom and described as "the
-observed sequence" when the source only shows that each event needs its
-prerequisites.
+**Reject:** top-to-bottom rows called an observed sequence when evidence gives
+only prerequisites.
 
-**Prefer:** state prerequisites with `after`. Say in prose which events may
-happen in either order. The page itself prints "Ordering, not duration." under
-an ordinal trace; do not repeat that sentence in your text.
+**Prefer:** `after` prerequisites and prose for events that may reorder. The page
+prints "Ordering, not duration." for ordinal traces; do not repeat it.
 
 ## Figure-specific review
 
-- Trace the question's answer through prerequisites. Separate required order
-  from one observed schedule; do not order independent events for visual tidiness.
-- Check message send, receipt, acknowledgement, and completion separately when
-  the source distinguishes them. A reply need not mean the work has completed.
-- Check what a destination arrow appears to claim. If a message never arrives,
-  an arrow ending at its recipient can contradict the failure label. Show the
-  failed attempt locally when the destination is already clear from context.
-- For a bundled event, check which constituent actions each later event actually
-  requires. Split the bundle if one dependency would imply unsupported ordering.
-- Verify wait release conditions and branch conditions. A join requires all
-  its prerequisites; mutually exclusive outcomes cannot both precede one event.
-- State which run or alternatives the trace covers. Show relevant failure paths
-  supported by the source, without inventing an exhaustive execution model.
-- Check what spacing implies. Ordinal position is not elapsed duration; even
-  a time trace uses order layers rather than proportional vertical distance.
-- Use depth to explain a wait, race, or consequence. Keep the ordering fact
-  needed to answer the main question visible without opening an event.
+- Separate required from observed order; never order independent events for appearance.
+- Distinguish send, receipt, acknowledgement, and completion. A destination arrow
+  must not contradict failed delivery; show a failed attempt locally when needed.
+- Split bundles whose dependency implies unsupported order. Joins require all
+  prerequisites, and exclusive outcomes cannot both precede one event.
+- State covered runs, alternatives, and source-supported failures without claiming
+  exhaustiveness. Ordinal position is not duration; time traces use order layers,
+  not proportional distance. Use depth for wait, race, or consequence.
 
 ## Tags and attributes
 
@@ -83,8 +68,8 @@ an ordinal trace; do not repeat that sentence in your text.
 
 ## Narrow screens and text
 
-Narrow screens show event cards grouped by actor. Cards and text retain order
-layers, kinds, prerequisites, and branches. This list must answer the `question`.
+Narrow screens use actor cards. Cards and text retain order layers, kinds,
+prerequisites, and branches, and must answer the `question`.
 
 ## Template
 
@@ -115,9 +100,9 @@ Can happen before or after the reply; the trace does not order these two.
 
 ## Diagnostics
 
-- `E_SEMANTIC`: `after` is cyclic, joins exclusive branches, or an ordinal
-  trace has `time` or an observation. Fix the order or the scale.
-- `E_REF_BROKEN`: `actor`, `to`, `after`, or `branch` names an ID outside this
-  trace, or `evidence` names something that is not a `source`.
+- `E_SEMANTIC`: `after` is cyclic, joins exclusive branches, or an ordinal trace
+  has `time` or an observation. Fix order or scale.
+- `E_REF_BROKEN`: `actor`, `to`, `after`, or `branch` is outside this trace, or
+  `evidence` is not a `source`.
 - `E_SYNTAX`: an event has no `actor`, but the trace needs one.
 - `W_EVIDENCE_GAP` (`check --review`): an observation has no `evidence`.

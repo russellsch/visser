@@ -48,13 +48,13 @@ function buildRoutes(outcome: BuildOutcome, basePath: string, cachePrivate: bool
     routes.set(basePath + sitePath, { bytes, mediaType: MEDIA[ext] ?? 'application/octet-stream', cache, ...(csp ? { csp } : {}) });
   };
   // A page with a Mermaid figure gets the Mermaid-page policy; other routes keep the strict one (§9.12).
-  const pageCsp = result.needsMermaid ? contentSecurityPolicy({ mermaid: true, delivery: 'header' }) : undefined;
+  const pageCsp = result.needsMermaid || result.needsMath ? contentSecurityPolicy({ mermaid: result.needsMermaid, math: result.needsMath, delivery: 'header' }) : undefined;
   const snapshotCache: Route['cache'] = cachePrivate ? 'immutable' : 'no-store';
   for (const file of result.files) {
     const html = file.path.endsWith('.html');
     add(file.path, file.bytes, html ? snapshotCache : 'immutable', html ? pageCsp : undefined);
   }
-  for (const name of ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : [])]) {
+  for (const name of ['reader.js', 'reader.css', ...(result.needsMermaid ? ['mermaid.js'] : []), ...(result.needsMath ? ['math.js'] : [])]) {
     add(`_visser/assets/${toolkit.release.sha256}/${name}`, readFileSync(join(outDir, '_visser', 'assets', toolkit.release.sha256, name)), 'immutable');
   }
   const title = typeof outcome.frontmatter['title'] === 'string' ? outcome.frontmatter['title'] : result.docId;

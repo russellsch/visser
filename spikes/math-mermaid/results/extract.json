@@ -1,0 +1,22 @@
+{
+  "source": "pie\n \"$$x^2$$\" : 1\n \"$$\\notacommand{x}$$\" : 2",
+  "results": [
+    {
+      "label": "$$x^2$$",
+      "tex": "x^2",
+      "line": 2,
+      "column": 3,
+      "byteOffset": 6,
+      "ok": true
+    },
+    {
+      "label": "$$\notacommand{x}$$",
+      "tex": "\\notacommand{x}",
+      "line": 3,
+      "column": 3,
+      "byteOffset": 21,
+      "ok": false,
+      "error": "ParseError: KaTeX parse error: Undefined control sequence: \\notacommand at position 1: \\̲n̲o̲t̲a̲c̲o̲m̲m̲a̲n̲d̲{x}"
+    }
+  ]
+}

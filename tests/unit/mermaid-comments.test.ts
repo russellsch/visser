@@ -66,6 +66,21 @@ function load(flow: string) {
 const text = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
 describe('Mermaid comments in generated output (§13.5)', () => {
+  it.each([
+    'pie\ntitle $$x$$\ntitle Plain\n"A": 1\n',
+    'pie\naccTitle: $$x$$\n"A": 1\n',
+  ])('does not bind an upstream plain drawing when only hidden fields have math', async pie => {
+    const result = await compileDocument(load(pie), TOOLKIT, OPTIONS);
+    const html = text(result.files.find(file => file.path.endsWith('index.html'))!.bytes);
+    expect(html).not.toContain('data-vs-mermaid-source-map=');
+  });
+  it('@R20 math source maps preserve locations without disclosing removed comments', async () => {
+    const pie = ['pie', `%% ${SECRET}`, 'title Ratio $$x^2$$', '"Rate $$x$$": 1', ''].join('\n');
+    const result = await compileDocument(load(pie), TOOLKIT, OPTIONS);
+    for (const file of result.files) expect(text(file.bytes), file.path).not.toContain(SECRET);
+    const html = text(result.files.find(file => file.path.endsWith('index.html'))!.bytes);
+    expect(html).toContain('data-vs-mermaid-source-map=');
+  });
   it('@R20 a hostname in a whole-line %% comment appears in no generated file', async () => {
     const bundle = load(FLOW);
     const result = await compileDocument(bundle, TOOLKIT, OPTIONS);

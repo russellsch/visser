@@ -210,6 +210,15 @@ describe('text projection', () => {
     expect(text).toContain('<!-- vs:target ck_store -->\nSelf-check: Which component stores the charge request?\n\nAnswer: The charge queue stores it. The API only puts it there. [cite: src_handler]');
   });
 
+  it('keeps note and self-check markers adjacent while spacing display math in their bodies', () => {
+    const bundle = load(doc('{% note id="n_math" kind="limit" %}\nA relation.\n\n$$\nx=y\n$$\n{% /note %}\n\n'
+      + '{% self-check id="c_math" question="What is $x$?" %}\nCheck it.\n\n$$\nx=1\n$$\n{% /self-check %}'));
+    expect(bundle.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    const projected = projectText(bundle.parsed);
+    expect(projected).toContain('<!-- vs:target n_math -->\nLimit: A relation.\n\n$$\nx=y');
+    expect(projected).toContain('<!-- vs:target c_math -->\nSelf-check: What is $x$?\n\nAnswer: Check it.\n\n$$\nx=1');
+  });
+
   it('a walkthrough is a numbered list with its targets; an architecture walkthrough says it is a reading order', () => {
     expect(text).toContain('<!-- vs:target walk_intake -->\nSteps. Reading order, not execution order.');
     expect(text).toContain('<!-- vs:target wk_charge -->\n2. The worker charges later\ntargets: Charge worker (n_worker), takes next request (e_take), Charge queue (n_queue)');

@@ -39,6 +39,22 @@ describe('figure viewer lifecycle',()=>{
     zoomed!.split(' ').map(Number).forEach((value,index)=>expect(restored[index]).toBeCloseTo(value,10));
     viewer.close();
   });
+  it('copies the direct caption into its title without copying links or generated math controls',()=>{
+    const {figure,viewer}=setup();
+    figure.querySelector('figcaption')!.innerHTML='<em>Rate</em> <code>$x$</code> ' +
+      '<a href="#x-node" id="caption-link">label</a> ' +
+      '<span class="vs-math" data-vs-math-key="[false,&quot;x&quot;]">' +
+      '<span class="vs-math-source">$x$</span><button data-vs-generated>Copy LaTeX</button></span>';
+    viewer.open(figure,figure);
+    const title=viewer.dialog!.querySelector('.vs-viewer-title')!;
+    expect(title.querySelector('em')?.textContent).toBe('Rate');
+    expect(title.querySelector('code')?.textContent).toBe('$x$');
+    expect(title.querySelector('.vs-math-source')?.textContent).toBe('$x$');
+    expect(title.textContent).toContain('label');
+    expect(title.querySelector('a,button,[id]')).toBeNull();
+    expect(document.querySelectorAll('#caption-link')).toHaveLength(1);
+    viewer.close();
+  });
   it('capture consumes the first touch activation before fold/target handlers',()=>{
     const {figure,viewer}=setup();const part=figure.querySelector('#v-node')!;const activate=vi.fn();part.addEventListener('click',activate);
     const down=new window.MouseEvent('pointerdown',{bubbles:true});Object.defineProperty(down,'pointerType',{value:'touch'});part.dispatchEvent(down);

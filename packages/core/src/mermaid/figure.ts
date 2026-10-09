@@ -24,6 +24,20 @@ export function buildMermaidFigure(
 ): Built {
   const issues: MermaidIssue[] = [];
   const figure: MermaidFigure = { figureId, diagramType, declaredType, source, parsed: diagramType !== 'other', elements: [], relationships: [] };
+  if (raw?.flowchartMath) figure.flowchartMath = raw.flowchartMath;
+  if (raw?.requirementMath) figure.requirementMath = raw.requirementMath;
+  if (raw?.infoMath) figure.infoMath = raw.infoMath;
+  if (raw?.erMath) figure.erMath = raw.erMath;
+  if (raw?.kanbanMath) figure.kanbanMath = raw.kanbanMath;
+  if (raw?.radarMath) figure.radarMath = raw.radarMath;
+  if (raw?.sankeyMath) figure.sankeyMath = raw.sankeyMath;
+  if (raw?.xyMath) figure.xyMath = raw.xyMath;
+  if (raw?.quadrantMath) figure.quadrantMath = raw.quadrantMath;
+  if (raw?.journeyMath) figure.journeyMath = raw.journeyMath;
+  if (raw?.stateMath) figure.stateMath = raw.stateMath;
+  if (raw?.sequenceMath) figure.sequenceMath = raw.sequenceMath;
+  if (raw?.pieMath) figure.mathLabels = raw.pieMath.records;
+  if (raw?.timelineMath) figure.timelineMathLabels = raw.timelineMath.records;
   if (diagramType === 'other' || !raw) return { figure, issues };
 
   const idOf = new Map<string, string>(); // original name -> mapped ID

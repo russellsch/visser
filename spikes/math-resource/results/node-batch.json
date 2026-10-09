@@ -1,0 +1,48 @@
+{
+  "node": "v24.21.0",
+  "executable": "/opt/codex-desktop/resources/cua_node/bin/node",
+  "heapLimitMiB": 128,
+  "timeoutMs": 5000,
+  "maxBufferBytes": 16777216,
+  "runs": [
+    {
+      "totalMs": 1602.820304,
+      "status": 0,
+      "signal": null,
+      "stdoutBytes": 7928208,
+      "stderrTail": "",
+      "ok": true,
+      "conversionMs": 1477.35463,
+      "heapUsedBytes": 119196032,
+      "outputs": 1000,
+      "expandedBytes": 7772435,
+      "expandedTagCount": 26783
+    },
+    {
+      "totalMs": 1566.3048560000002,
+      "status": 0,
+      "signal": null,
+      "stdoutBytes": 7928208,
+      "stderrTail": "",
+      "ok": true,
+      "conversionMs": 1463.585691,
+      "heapUsedBytes": 87596936,
+      "outputs": 1000,
+      "expandedBytes": 7772435,
+      "expandedTagCount": 26783
+    },
+    {
+      "totalMs": 1576.1275640000003,
+      "status": 0,
+      "signal": null,
+      "stdoutBytes": 7928208,
+      "stderrTail": "",
+      "ok": true,
+      "conversionMs": 1473.687701,
+      "heapUsedBytes": 90358432,
+      "outputs": 1000,
+      "expandedBytes": 7772435,
+      "expandedTagCount": 26783
+    }
+  ]
+}

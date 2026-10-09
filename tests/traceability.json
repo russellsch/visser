@@ -379,6 +379,141 @@
         "@T20"
       ],
       "note": "An external write before rename gives E_WRITE_CONFLICT."
+    },
+    {
+      "id": "M01",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M01"
+      ],
+      "note": "Installed-release export and conditional assets are tested; relocated, network-denied browser checks are recorded by scripts/verify-math.mjs. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M02",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M02"
+      ],
+      "note": "The retained COV field/path ledger is complete. Five Mermaid-only viewer-source obligations are deferred by the plan amendment; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M03",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M03"
+      ],
+      "note": "The retained field matrix covers readable source across browser success, no-JS, worker failure, long input and print. five Mermaid-only viewer-source obligations are deferred. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M04",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M04"
+      ],
+      "note": "Browser tests cover long inline/display equations, keyboard scrolling and mobile touch dragging in both directions. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M05",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M05"
+      ],
+      "note": "Source-order numbering, reorder identity and guarded replacement are tested. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M06",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M06"
+      ],
+      "note": "Forward equation references and derived destination labels are tested. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M07",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M07"
+      ],
+      "note": "Engine validation, isolated execution, malformed worker replies and installed command rejection are covered. Mermaid-family extraction is deferred; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M08",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M08"
+      ],
+      "note": "Tokenizer and field tests preserve code, fences and captured source literally. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M09",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M09"
+      ],
+      "note": "UTF-8 source spans and guarded replacement are tested for retained surfaces. Mermaid adapters are deferred; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M10",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M10"
+      ],
+      "note": "Field evidence covers native graph/trace/measure and fold/proxy paths. deferred Mermaid work is not required for retained-scope completion. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M11",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M11"
+      ],
+      "note": "Engine output, resource caps, worker boundaries and unsafe-source checks are covered for retained scope. Mermaid adapters are deferred. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M12",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M12"
+      ],
+      "note": "Installed no-math exports and asset packs omit math assets. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M13",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M13"
+      ],
+      "note": "Semantic projection retains equation IDs, numbers and references. Retained field tests cover print source, complete native lists and screen restoration; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M14",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M14"
+      ],
+      "note": "Installed release tests enforce math policy fingerprints; dependency versions are pinned. Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "M15",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@M15"
+      ],
+      "note": "Retained source ownership, reference packets and before/after identity paths are covered. Mermaid-family selection work is deferred; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
     }
   ]
 }

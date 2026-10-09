@@ -2,9 +2,10 @@
 // Characterized on @markdoc/markdoc 0.5.10 (spikes/markdoc-spans/).
 import Markdoc from '@markdoc/markdoc';
 import { parseDocument, visit } from 'yaml';
-import type { Diagnostic, ParsedSource, ParsedTarget } from '../types.ts';
-import { ADDRESSABLE_BLOCKS, BLOCK_TAGS, DYNAMIC_TAGS, INLINE_TAGS, LIMITS, MARKER_LINE, TARGET_ID } from './profile.ts';
+import type { Diagnostic, MathExpression, ParsedSource, ParsedTarget } from '../types.ts';
+import { ADDRESSABLE_BLOCKS, BLOCK_TAGS, DYNAMIC_TAGS, EQUATION_PARENTS, INLINE_TAGS, LIMITS, MARKER_LINE, MATH_TEXT_ATTRIBUTES, TARGET_ID } from './profile.ts';
 import { isBlank, lineByteRange, loadSourceText, type SourceText } from './source-text.ts';
+import { parseMathTextRuns, tokenizeMath } from './math-tokenizer.ts';
 
 // Structural view of the Markdoc AST nodes the adapter reads.
 type MNode = {
@@ -22,6 +23,7 @@ type MToken = {
   map: [number, number] | null;
   content: string;
   children: MToken[] | null;
+  meta?: { tag?: string };
 };
 
 /** A top-level ordinary block that has no ID marker; `line` is 0-based. */
@@ -81,8 +83,9 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
   const frontmatterCloseLine = findFrontmatterClose(src.lines);
 
   // Tokenize. `html: true` makes prose HTML visible as html_* tokens (spike P6).
-  const tokenizer = new Markdoc.Tokenizer({ allowComments: true, html: true } as never);
-  const tokens = tokenizer.tokenize(src.text) as unknown as MToken[];
+  const tokenized = tokenizeMath(bytes, relPath);
+  for (const d of tokenized.diagnostics) report(d.code, d.message, d.startLine === undefined ? undefined : d.startLine - 1);
+  const tokens = tokenized.tokens as unknown as MToken[];
   const fenceLines: Array<[number, number]> = [];
   for (const tok of tokens) {
     // Fences are raw leaves (§6.5): drop Markdoc's parsed children, keep raw content.
@@ -91,6 +94,7 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
       if (tok.map) fenceLines.push(tok.map);
     }
     checkHtmlToken(tok, undefined, report);
+    checkEqrefToken(tok, undefined, report);
   }
 
   const ast = Markdoc.parse(tokens as never) as unknown as MNode;
@@ -101,16 +105,23 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
   const commentLines = new Set<number>();
   const targets: ParsedTarget[] = [];
   const unmarked: UnmarkedBlock[] = [];
+  const tagNodes = new Map<string, MNode>();
+  const inlineAttributeNodes: MNode[] = [];
 
   // Validate every node, and collect tag targets with their structural parent.
-  const walk = (node: MNode, depth: number, parentTagId: string | undefined, insideTag: boolean) => {
+  const walk = (node: MNode, depth: number, parentTagId: string | undefined, insideTag: boolean, ordinaryBarrier: boolean) => {
     for (const e of node.errors ?? []) report('E_SYNTAX', `Markdoc: ${e.id}: ${e.message}`, node.lines[0]);
     checkAttributes(node, report);
     let childParent = parentTagId;
     if (node.type === 'tag') {
+      if (node.inline && INLINE_TAGS.has(node.tag ?? '')) inlineAttributeNodes.push(node);
+      if (node.tag === 'equation' && (ordinaryBarrier || (parentTagId !== undefined && !EQUATION_PARENTS.has(targets.find((t) => t.id === parentTagId)?.tagName ?? '')))) {
+        report('E_SYNTAX', 'numbered equation must be top level or directly inside an eligible prose tag body', node.lines[0]);
+      }
       const tagTarget = checkTag(node, src, report);
       if (tagTarget) {
         targets.push({ ...tagTarget, ...(parentTagId ? { parentId: parentTagId } : {}) });
+        tagNodes.set(tagTarget.id, node);
         childParent = tagTarget.id;
       }
     } else if (node.type === 'comment') {
@@ -120,9 +131,10 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
     } else if (node.type === 'paragraph') {
       checkSetext(node, src, report);
     }
-    for (const child of node.children ?? []) walk(child, depth + 1, childParent, insideTag || node.type === 'tag');
+    for (const child of node.children ?? []) walk(child, depth + 1, childParent, insideTag || node.type === 'tag',
+      ordinaryBarrier || ['list', 'item', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td'].includes(node.type));
   };
-  walk(ast, 0, undefined, false);
+  walk(ast, 0, undefined, false, false);
 
   // Top level: bind markers to the next sibling block; find unmarked blocks.
   const top = ast.children ?? [];
@@ -170,9 +182,86 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
   if (targets.length > LIMITS.targets) report('E_LIMIT', `document has ${targets.length} targets; the limit is ${LIMITS.targets}`);
 
   targets.sort((a, b) => a.startByte - b.startByte || b.endByte - a.endByte);
+  const math: MathExpression[] = tokenized.occurrences.map((occurrence) => {
+    const enclosing = targets
+      .filter((t) => t.startByte <= occurrence.startByte && t.endByte >= occurrence.endByte &&
+        !(occurrence.kind === 'equation' && t.kind === 'equation' && t.startByte === occurrence.startByte))
+      .sort((a, b) => (a.endByte - a.startByte) - (b.endByte - b.startByte))[0];
+    const numbered = occurrence.kind === 'equation'
+      ? targets.find((t) => t.tagName === 'equation' && t.startByte === occurrence.startByte && t.endByte >= occurrence.endByte)
+      : undefined;
+    const expression: MathExpression = {
+      kind: occurrence.kind, tex: occurrence.tex,
+      span: { path: relPath, startByte: occurrence.startByte, endByte: occurrence.endByte,
+        startLine: lineOfByte(src, occurrence.startByte), endLine: lineOfByte(src, Math.max(occurrence.startByte, occurrence.endByte - 1)) },
+    };
+    if (numbered) expression.targetId = numbered.id;
+    if (enclosing) expression.enclosingTargetId = enclosing.id;
+    return expression;
+  });
+  for (const target of targets.filter((t) => t.origin === 'tag')) {
+    const node = tagNodes.get(target.id);
+    if (!node) continue;
+    const startLine = target.startLine;
+    const opening = src.lines[startLine - 1] ?? '';
+    const startByte = src.lineStart[startLine - 1] ?? target.startByte;
+    const endByte = startByte + utf8.encode(opening).length;
+    const fields = new Set(MATH_TEXT_ATTRIBUTES);
+    // Extension parts render their open fields in the inspector, including
+    // extension-defined string facts. This includes custom `summary` and
+    // `note`: those names are unused on detail/cite, but visible on a part.
+    // The ID remains structural.
+    if (target.tagName === 'part') for (const field of Object.keys(node.attributes)) {
+      if (!/^(?:id|path|url|uri|href|src|file|source)$|(?:[_-](?:id|path|url|uri|href|src|file|source)|(?:Id|Path|Url|Uri|Href|Src|File|Source))$/.test(field)) fields.add(field);
+    }
+    for (const field of fields) {
+      const value = node.attributes[field];
+      const values: Array<[string, string]> = typeof value === 'string' ? [[field, value]]
+        : Array.isArray(value) ? value.flatMap((item, i) => typeof item === 'string' ? [[`${field}[${i}]`, item]] : []) : [];
+      for (const [fieldKey, decoded] of values) for (const run of parseMathTextRuns(decoded)) {
+        if (run.kind === 'math') math.push({ kind: 'inline', tex: run.tex,
+          span: { path: relPath, startByte, endByte, startLine, endLine: startLine },
+          enclosingTargetId: target.id, field: fieldKey, spanPrecision: 'containing-attribute' });
+      }
+    }
+  }
+  for (const node of inlineAttributeNodes) {
+    const line = node.lines[0];
+    if (line === undefined) continue;
+    const startByte = src.lineStart[line] ?? 0;
+    const endByte = startByte + utf8.encode(src.lines[line] ?? '').length;
+    const enclosing = targets.filter((t) => t.startByte <= startByte && t.endByte >= endByte)
+      .sort((a, b) => (a.endByte - a.startByte) - (b.endByte - b.startByte))[0];
+    for (const field of MATH_TEXT_ATTRIBUTES) {
+      const value = node.attributes[field];
+      if (typeof value !== 'string') continue;
+      for (const run of parseMathTextRuns(value)) if (run.kind === 'math') math.push({ kind: 'inline', tex: run.tex,
+        span: { path: relPath, startByte, endByte, startLine: line + 1, endLine: line + 1 },
+        ...(enclosing ? { enclosingTargetId: enclosing.id } : {}), field: `${node.tag}.${field}`,
+        spanPrecision: 'containing-attribute' });
+    }
+  }
+  if (frontmatterCloseLine >= 0 && typeof frontmatter['title'] === 'string') {
+    const [, endByte] = lineByteRange(src, 0, frontmatterCloseLine + 1);
+    for (const run of parseMathTextRuns(frontmatter['title'])) {
+      if (run.kind !== 'math') continue;
+      math.push({ kind: 'inline', tex: run.tex,
+        span: { path: relPath, startByte: src.bomLength, endByte, startLine: 1, endLine: frontmatterCloseLine + 1 },
+        field: 'frontmatter.title', spanPrecision: 'containing-attribute' });
+    }
+  }
+  math.sort((a, b) => a.span.startByte - b.span.startByte || a.span.endByte - b.span.endByte);
+  for (const t of targets.filter((target) => target.tagName === 'equation')) {
+    if (!math.some((m) => m.targetId === t.id)) report('E_SYNTAX', `equation ${t.id} has no proven raw body`, t.startLine - 1, { targetId: t.id });
+  }
+  for (const m of math) {
+    if (/\\(?:label|ref|eqref|tag|def|newcommand|renewcommand|providecommand)\b/.test(m.tex)) {
+      report('E_SYNTAX', 'TeX labels, references, tags and macro definitions are unsupported; use Visser equation IDs and eqref', m.span.startLine - 1);
+    }
+  }
   unmarked.sort((a, b) => a.line - b.line);
   return {
-    source: { path: relPath, rawBytes: bytes, frontmatter, ast, targets, diagnostics },
+    source: { path: relPath, rawBytes: bytes, frontmatter, ast, targets, math, diagnostics },
     text: src,
     unmarked,
     frontmatterCloseLine,
@@ -189,6 +278,14 @@ export function analyzeSource(bytes: Uint8Array, relPath: string): Analysis {
       lastLine: (last) => !isBlank(last),
     });
   }
+}
+
+function checkEqrefToken(tok: MToken, parentLine: number | undefined, report: Report): void {
+  const line = tok.map?.[0] ?? parentLine;
+  if (tok.type === 'tag_open' && tok.meta?.tag === 'eqref') {
+    report('E_SYNTAX', 'eqref must be an inline self-closing tag', line);
+  }
+  for (const child of tok.children ?? []) checkEqrefToken(child, line, report);
 }
 
 type ProofInput = {
@@ -236,6 +333,17 @@ function trimTrailingBlank(src: SourceText, endExclusive: number): number {
   let e = Math.min(endExclusive, src.lines.length);
   while (e > 0 && isBlank(src.lines[e - 1])) e--;
   return e;
+}
+
+function lineOfByte(src: SourceText, byte: number): number {
+  let low = 0;
+  let high = src.lineStart.length;
+  while (low + 1 < high) {
+    const middle = (low + high) >>> 1;
+    if ((src.lineStart[middle] ?? Infinity) <= byte) low = middle;
+    else high = middle;
+  }
+  return low + 1;
 }
 
 function findFrontmatterClose(lines: string[]): number {
@@ -354,7 +462,8 @@ function checkTag(node: MNode, src: SourceText, report: Report): ParsedTarget | 
     return undefined;
   }
   if (!selfClosing) {
-    if (c0 === undefined || c1 === undefined || c1 - c0 !== 1 || (src.lines[c0] ?? '').trim() !== `{% /${name} %}`) {
+    if (c0 === undefined || c1 === undefined || c1 - c0 !== 1 ||
+      (name === 'equation' ? !standaloneEquationClose(src.lines[c0] ?? '') : (src.lines[c0] ?? '').trim() !== `{% /${name} %}`)) {
       report('E_SYNTAX', `closing of "${name}" must be alone on its line`, c0 ?? o0);
       return undefined;
     }
@@ -373,7 +482,15 @@ function checkTag(node: MNode, src: SourceText, report: Report): ParsedTarget | 
     id, kind: name, origin: 'tag', tagName: name, attributes: { ...node.attributes },
     startLine: o0, endLineExclusive: last + 1,
     firstLine: (l) => openRe.test(l),
-    lastLine: (l) => (selfClosing ? openRe.test(l) : l.trim() === `{% /${name} %}`),
+    lastLine: (l) => (selfClosing ? openRe.test(l) : name === 'equation' ? standaloneEquationClose(l) : l.trim() === `{% /${name} %}`),
+  });
+}
+
+function standaloneEquationClose(line: string): boolean {
+  const trimmed = line.trim();
+  return Markdoc.parseTags(trimmed).some((t) => {
+    const token = t as typeof t & { start?: number; end?: number };
+    return token.type === 'tag_close' && token.meta?.tag === 'equation' && token.start === 0 && token.end === trimmed.length - 1;
   });
 }
 
@@ -389,6 +506,7 @@ function checkNestedComment(node: MNode, src: SourceText, report: Report) {
     report('E_SYNTAX', 'ID markers are allowed only at the top level; use a detail child with an explicit id', s);
     return;
   }
+  if (node.inline) return; // An ordinary closed inline comment belongs to its prose block.
   checkCommentShape(node, src, report);
 }
 

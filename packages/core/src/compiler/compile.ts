@@ -1,3 +1,10 @@
+import {erMathSourceMap} from '../mermaid/er-source-map.ts';
+import { infoMathSourceMap } from '../mermaid/info-source-map.ts';
+import { requirementMathSourceMap } from '../mermaid/requirement-source-map.ts';
+import { kanbanMathSourceMap } from '../mermaid/kanban-source-map.ts';
+import { radarMathSourceMap } from '../mermaid/radar-source-map.ts';
+import { sankeyMathSourceMap } from '../mermaid/sankey-source-map.ts';
+import { xyMathSourceMap } from '../mermaid/xychart-source-map.ts';
 // Static compiler (§7.2, §9, §10, §13.1, §13.2). Renders a loaded bundle into
 // deterministic HTML/SVG per the DOM contract (dom-contract.ts), plus the
 // semantic Markdown projection and public build metadata.
@@ -21,6 +28,17 @@ import { phraseKey, TermMatcher, type LinkableDefinition, type TermSegment } fro
 import { BASIS_CUES, CATEGORY_CUES, DEPENDENCY_KIND_CUES, EDGE_KIND_CUES, EVENT_CUES, filterToken, hueChips, RELATION_KIND_CUES, legend, LOSS_CUE, patternChips, ROLE_CUES, showsHue, STATUS_CUES, styleFor, traceLineChips, UNSTATED_BASIS_DASH, type Chip, type PartStyle } from './encoding.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
+import { mermaidMathTotal } from '../mermaid/index.ts';
+import { flowchartMathSourceMap } from '../mermaid/flowchart-source-map.ts';
+import { quadrantMathSourceMap } from '../mermaid/quadrant-source-map.ts';
+import { journeyMathSourceMap } from '../mermaid/journey-source-map.ts';
+import { stateMathSourceMap } from '../mermaid/state-source-map.ts';
+import { sequenceMathSourceMap } from '../mermaid/sequence-source-map.ts';
+import { pieMathSourceMap, timelineMathSourceMap } from '../mermaid/math-source-map.ts';
+import { parsedMathRequests, validateMath, mathKey, type MathConversion } from '../math/validate.ts';
+import { insertedMathCost, reserveMathOccurrences } from '../math/policy.ts';
+import { parseMathTextRuns } from '../syntax/math-runs.ts';
+import { MATH_TEXT_ATTRIBUTES } from '../syntax/profile.ts';
 import type { ExtensionBinding } from '../extensions/registry.ts';
 import { componentInputs } from '../extensions/run.ts';
 import { extensionSvg } from '../extensions/svg.ts';
@@ -77,6 +95,7 @@ export type CompileResult = {
   // True when index.html contains a Mermaid figure: the page needs mermaid.js
   // and the Mermaid-page Content Security Policy (§9.12).
   needsMermaid: boolean;
+  needsMath?: boolean;
 };
 
 export class CompileError extends Error {
@@ -97,11 +116,12 @@ export const GRAPH_MAX_EDGES = 400;
  * inline styles while it draws. Every other directive is unchanged. The meta
  * element cannot carry frame-ancestors, so only the header form includes it.
  */
-export function contentSecurityPolicy(options: { mermaid: boolean; delivery: 'header' | 'meta' }): string {
+export function contentSecurityPolicy(options: { mermaid: boolean; math?: boolean; delivery: 'header' | 'meta' }): string {
   return [
     "default-src 'none'", "script-src 'self'", options.mermaid ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
     "img-src 'self'", "font-src 'none'", "connect-src 'none'", "object-src 'none'", "base-uri 'none'",
     "form-action 'none'", "frame-src 'none'", ...(options.delivery === 'header' ? ["frame-ancestors 'none'"] : []),
+    ...(options.math ? ['worker-src blob:'] : []),
   ].join('; ');
 }
 
@@ -128,6 +148,9 @@ const FIGURE_KINDS = new Set(['graph', 'trace', 'transform', 'compare', 'annotat
 // Graph-like families share one kernel (§9.1): graph modes plus transform
 // and domain (docs/IMPROVEMENTS.md §5.4).
 type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform' | 'domain';
+type DefinitionRun =
+  | { kind: 'text' | 'code'; source: string }
+  | { kind: 'math'; source: string; tex: string; display: boolean };
 const GRAPH_MODES = new Set<GraphFamily>(['architecture', 'state', 'cause', 'plan']);
 
 // Causal basis is shown as text and as a line pattern, never by color alone
@@ -153,6 +176,9 @@ function integrity(hex: string): string {
 }
 
 class Renderer {
+  readonly mathExpressions = new Map<string, { key: string; tex: string; display: boolean }>();
+  readonly mathOccurrences: string[] = [];
+  readonly mathMetrics: NonNullable<GraphInput['mathMetrics']>;
   readonly diagnostics: Diagnostic[] = [];
   readonly bundle: LoadedBundle;
   readonly targets: Map<string, TargetRecord>;
@@ -175,7 +201,8 @@ class Renderer {
   ownDefinition: string | undefined; // the definition whose body is being rendered
   termScope: Set<string> | undefined; // the terms already underlined in the current paragraph
 
-  constructor(bundle: LoadedBundle, options: CompileOptions) {
+  constructor(bundle: LoadedBundle, options: CompileOptions, conversions: ReadonlyMap<string, MathConversion>) {
+    this.mathMetrics = Object.fromEntries([...conversions].filter(([, conversion]) => !conversion.display).map(([key, conversion]) => [key, conversion.metrics]));
     this.bundle = bundle;
     this.targets = bundle.model.targets;
     this.nodes = bundle.model.nodes;
@@ -237,6 +264,7 @@ class Renderer {
   }
 
   instance(id: string, instanceId: string, content: Child, visible: VisibleInspectionContent = {}, attrs: Record<string, unknown> = {}, plainTag: 'span' | 'div' = 'span'): HNode {
+    if (typeof content === 'string' && !this.targets.get(id)?.kind.startsWith('mermaid-')) content = this.richText(content, id);
     const depth = this.depth(id, visible);
     const { 'aria-label': suppliedLabel, ...instanceAttrs } = attrs;
     const common = { ...instanceAttrs, id: instanceId, [DOM.attr.target]: id, [DOM.attr.depth]: depth };
@@ -249,7 +277,22 @@ class Renderer {
   }
 
   label(id: string): string {
-    return this.safeText(this.targets.get(id)?.label ?? id, id);
+    const node = this.nodes.get(id);
+    const authored = node && (attrString(node, 'label') ?? attrString(node, 'term') ?? attrString(node, 'title'));
+    // Truncating an authored formula would change its meaning and cache key.
+    return this.safeText(authored && parseMathTextRuns(authored).some(r => r.kind === 'math') ? authored : this.targets.get(id)?.label ?? id, id);
+  }
+
+  richLabel(id: string): Child {
+    const node = this.nodes.get(id);
+    if (node?.type === 'heading') return this.withoutLinks(() => this.inlines(node));
+    const authored = node && (attrString(node, 'label') ?? attrString(node, 'term') ?? attrString(node, 'title'));
+    return !authored || this.targets.get(id)?.kind.startsWith('mermaid-') ? this.label(id) : this.richText(this.label(id), id);
+  }
+
+  /** Designated decoded attributes only; never reinterpret Markdown text/code. */
+  richText(raw: string, targetId?: string, terms = false): Child {
+    return parseMathTextRuns(raw).map(run => run.kind === 'math' ? this.mathTex(run.tex, false) : terms ? this.linkText(run.text, targetId) : this.safeText(run.text, targetId));
   }
 
   isTargetNode(node: MNode): boolean {
@@ -331,6 +374,7 @@ class Renderer {
 
   inline(node: MNode): Child {
     switch (node.type) {
+      case 'math_inline': return this.math(node, false);
       case 'text': return this.safeText(String(node.attributes['content'] ?? ''));
       case 'code': return h('code', {}, this.safeText(String(node.attributes['content'] ?? '')));
       case 'softbreak': return '\n';
@@ -380,9 +424,14 @@ class Renderer {
     const known = node.tag === 'term' || node.tag === 'cite' || node.tag === 'focus' || node.tag === 'detail-link';
     const children = known ? this.withoutLinks(() => this.inlines(node)) : this.inlines(node);
     switch (node.tag) {
+      case 'eqref': {
+        const ref = attrString(node, 'ref')!;
+        const ordinal = this.bundle.model.equations.get(ref)?.ordinal;
+        return h('a', { class: 'vs-eqref', href: `#${DOM.canonicalId(ref)}`, [DOM.attr.generated]: true }, `Equation (${ordinal ?? '?'})`);
+      }
       case 'term': {
         const ref = attrString(node, 'ref')!;
-        const text = children.length > 0 ? children : this.label(ref);
+        const text = children.length > 0 ? children : this.richLabel(ref);
         return this.termLink(ref, text, true);
       }
       case 'cite': {
@@ -399,7 +448,7 @@ class Renderer {
       }
       case 'detail-link': {
         const ref = attrString(node, 'ref')!;
-        return h('a', { class: 'vs-detail-link', href: `#${DOM.canonicalId(ref)}` }, children.length > 0 ? children : this.label(ref));
+        return h('a', { class: 'vs-detail-link', href: `#${DOM.canonicalId(ref)}` }, children.length > 0 ? children : this.richLabel(ref));
       }
       default:
         return children;
@@ -410,6 +459,7 @@ class Renderer {
 
   block(node: MNode): Child {
     switch (node.type) {
+      case 'math_display': return this.math(node, true);
       case 'heading': {
         const level = Math.min(6, Math.max(1, Number(node.attributes['level'] ?? 1)));
         return h(`h${level}`, {}, this.withoutLinks(() => this.inlines(node)));
@@ -432,13 +482,39 @@ class Renderer {
       case 'th': return h('th', { scope: 'col', align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.withTermScope(() => this.inlines(node)));
       case 'td': return h('td', { align: tableAlign(node), class: hasInlineCode(node) ? 'vs-cell-code' : undefined }, this.withTermScope(() => this.inlines(node)));
       case 'comment': return null;
-      case 'tag': return null; // entity tags render in their own places
+      case 'tag': return node.tag === 'equation' ? this.equation(node) : null; // other entities render in their own places
       default: return this.blocks(node);
     }
   }
 
   blocks(node: MNode): Child[] {
-    return node.children.filter((c) => !this.isTargetNode(c)).map((c) => (c.type === 'inline' ? this.inlines(c) : this.block(c)));
+    return node.children.filter((c) => !this.isTargetNode(c) || c.tag === 'equation').map((c) => (c.type === 'inline' ? this.inlines(c) : this.block(c)));
+  }
+
+  math(node: MNode, display: boolean): HNode {
+    const tex = node.children.map(c => String(c.attributes['content'] ?? '')).join('');
+    return this.mathTex(tex, display);
+  }
+
+  mathTex(tex: string, display: boolean): HNode {
+    const key = mathKey(tex, display);
+    this.mathExpressions.set(key, { key, tex, display });
+    this.mathOccurrences.push(key);
+    const source = display ? `$$\n${tex.replace(/\n$/, '')}\n$$` : `$${tex}$`;
+    return h(display ? 'div' : 'span', { class: display ? 'vs-math vs-math-display' : 'vs-math', 'data-vs-math-key': key, ...(display ? { tabindex: '0', 'aria-label': 'Equation; scroll horizontally for long expressions' } : {}) },
+      h('span', { class: 'vs-math-source' }, source));
+  }
+
+  nativeMath(key: string, tex: string): void {
+    this.mathExpressions.set(key, { key, tex, display: false });
+    this.mathOccurrences.push(key);
+  }
+
+  equation(node: MNode): HNode {
+    const id = attrString(node, 'id')!;
+    const ordinal = this.bundle.model.equations.get(id)?.ordinal;
+    return h('div', { class: 'vs-equation', ...this.canonical(id) }, this.math(node, true),
+      h('span', { class: 'vs-equation-number', [DOM.attr.generated]: true }, `Equation (${ordinal ?? '?'})`));
   }
 
   fence(node: MNode): HNode {
@@ -451,15 +527,18 @@ class Renderer {
 
   figureShell(id: string, node: MNode, kindClass: string, content: Child[], hasMap = false, legendNode: HNode | null = null): HNode {
     const question = attrString(node, 'question') ?? '';
-    const title = this.safeText(attrString(node, 'title') ?? this.label(id), id);
+    const titleSource = attrString(node, 'title') ?? this.label(id);
+    const title = this.richText(titleSource, id);
     // The title is the visible heading. The word "Figure" is not shown; it
     // stays in the accessible name (docs/IMPROVEMENTS.md §3.6).
-    return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), [DOM.attr.question]: question, 'aria-label': `Figure: ${title}`, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
+    const native = (child: Child): boolean => Array.isArray(child) ? child.some(native) : typeof child === 'object' && child !== null && 'attrs' in child
+      ? child.attrs.some(([name]) => name === 'data-vs-math-native') || child.children.some(native) : false;
+    return h('figure', { class: `vs-figure ${kindClass}`, ...this.canonical(id), 'data-vs-math-figure': content.some(native) || undefined, [DOM.attr.question]: question, 'aria-label': `Figure: ${this.safeText(titleSource, id)}`, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: hasMap ? 'map list' : undefined },
       h('figcaption', {}, title),
       // The authored question, visible under the caption (F7); the empty case
       // collapses via CSS (:empty), and this element stays the aria-describedby target.
       // The question is prose, so the term auto-link applies (docs/IMPROVEMENTS.md §13.3).
-      h('p', { id: `vs-q-${id}`, class: 'vs-figure-question' }, this.withTermScope(() => this.linkText(question, id))),
+      h('p', { id: `vs-q-${id}`, class: 'vs-figure-question' }, this.withTermScope(() => this.richText(question, id, true))),
       // The legend comes after the interpretation paragraph (§3.3). The two
       // share a wrapping row, so a short paragraph and a short legend sit
       // side by side, and a long one pushes the legend to the next line (§3.6).
@@ -494,7 +573,7 @@ class Renderer {
         const n = this.nodes.get(s.id)!;
         const targets = (Array.isArray(n.attributes['targets']) ? n.attributes['targets'] : []).filter((x): x is string => typeof x === 'string' && this.targets.has(x));
         return h('li', { class: 'vs-step', ...this.canonical(s.id), [DOM.attr.stepTargets]: targets.join(' ') },
-          h('p', { class: 'vs-step-label' }, this.label(s.id)),
+          h('p', { class: 'vs-step-label' }, this.richLabel(s.id)),
           h('div', { class: 'vs-step-body' }, this.blocks(n)),
           targets.length > 0
             ? h('p', { class: 'vs-step-targets', [DOM.attr.generated]: true }, 'Parts: ',
@@ -526,7 +605,7 @@ class Renderer {
     return h('div', { class: 'vs-block vs-self-check', ...this.canonical(id) },
       h('p', { class: 'vs-self-check-question' },
         h('span', { class: 'vs-self-check-kind', [DOM.attr.generated]: true }, 'Check yourself'),
-        ' ', this.withTermScope(() => this.linkText(question, id))),
+        ' ', this.withTermScope(() => this.richText(question, id, true))),
       h('details', { class: 'vs-self-check-answer' },
         h('summary', { [DOM.attr.generated]: true }, 'Show answer'),
         h('div', { class: 'vs-self-check-body' }, this.blocks(node))));
@@ -539,6 +618,12 @@ class Renderer {
    * and the maximum only. The table under it is the list view, the narrow
    * view, and the text form.
    */
+  /** Keep independently authored fields separate while parsing math delimiters. */
+  unitSegments(value: unknown, unit: string | undefined, display?: string): string[] {
+    const number = withUnit(value, undefined, display);
+    return unit ? [number, ...(unit === '%' ? [] : [' ']), unit] : [number];
+  }
+
   measure(id: string, node: MNode): HNode {
     const unit = attrString(node, 'unit');
     const readings = this.childTargets(id).filter((c) => c.kind === 'reading');
@@ -546,12 +631,15 @@ class Renderer {
       const n = this.nodes.get(r.id)!;
       const value = typeof n.attributes['value'] === 'number' ? (n.attributes['value'] as number) : 0;
       const status = attrString(n, 'valueStatus') ?? 'measured';
-      return { id: r.id, label: this.label(r.id), value, status, text: this.safeText(`${withUnit(value, unit, attrString(n, 'display'))}${status === 'measured' ? '' : ` (${status})`}`, r.id), depth: this.depth(r.id, { context: ['fact:value', 'fact:valueStatus'] }) };
+      const textSegments = [...this.unitSegments(value, unit, attrString(n, 'display')), ...(status === 'measured' ? [] : [` (${status})`])].map(s => this.safeText(s, r.id));
+      return { id: r.id, label: this.label(r.id), value, status, text: textSegments.join(''), textSegments, depth: this.depth(r.id, { context: ['fact:value', 'fact:valueStatus'] }) };
     });
     // The axis maximum prints as the largest reading prints, with its `display` text (phase 6a review S4).
     const top = rows.reduce<(typeof rows)[number] | undefined>((best, r) => (best === undefined || r.value > best.value ? r : best), undefined);
     const topDisplay = top ? attrString(this.nodes.get(top.id)!, 'display') : undefined;
-    const svg = top ? measureSvg({ figureId: id, title: attrString(node, 'title') ?? this.label(id), rows, maxText: this.safeText(withUnit(top.value, unit, topDisplay), id) }) : null;
+    const maxTextSegments = top ? this.unitSegments(top.value, unit, topDisplay).map(s => this.safeText(s, id)) : [];
+    const svg = top ? measureSvg({ figureId: id, title: attrString(node, 'title') ?? this.label(id), rows, maxText: maxTextSegments.join(''), maxTextSegments,
+      mathMetrics: this.mathMetrics, onMath: (key, tex) => this.nativeMath(key, tex) }) : null;
     const table = h('table', { class: 'vs-measure-table' },
       h('thead', { [DOM.attr.generated]: true }, h('tr', {},
         h('th', { scope: 'col' }, 'Reading'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Status'), h('th', { scope: 'col' }, 'Evidence'))),
@@ -560,10 +648,10 @@ class Renderer {
         const evidence = this.ownEvidenceIds(r.id);
         return h('tr', { class: r.status === 'measured' ? undefined : 'vs-reading-unmeasured' },
           h('th', { scope: 'row' }, this.instance(r.id, DOM.listInstanceId(id, r.id), r.label, { context: ['fact:value', 'fact:valueStatus'] })),
-          h('td', { class: 'vs-reading-value' }, this.safeText(withUnit(n.attributes['value'], unit, attrString(n, 'display')), r.id)),
+          h('td', { class: 'vs-reading-value' }, this.unitSegments(n.attributes['value'], unit, attrString(n, 'display')).map(s => this.richText(s, r.id))),
           h('td', { [DOM.attr.generated]: true }, r.status),
           h('td', {}, evidence.length > 0
-            ? evidence.map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.label(s))])
+            ? evidence.map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.richLabel(s))])
             : h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'none')));
       })));
     return this.figureShell(id, node, 'vs-measure', [
@@ -593,7 +681,7 @@ class Renderer {
       const line: Child[] = [
         this.instance(entry.id, DOM.listInstanceId(id, entry.id), [
           h('code', { class: 'vs-tree-path' }, this.safeText(attrString(n, 'path') ?? '', entry.id)),
-          h('span', { class: 'vs-tree-label' }, this.label(entry.id)),
+          h('span', { class: 'vs-tree-label' }, this.richLabel(entry.id)),
         ], { context: ['fact:path', ...(role ? ['fact:role'] : [])] }, { class: 'vs-tree-entry' }),
         cue ? h('span', { class: 'vs-tree-role', [DOM.attr.generated]: true }, cueSwatch(cue, hue), cue.word) : null,
         evidence ? h('span', { class: 'vs-tree-evidence', [DOM.attr.generated]: true }, 'evidence') : null,
@@ -652,55 +740,52 @@ class Renderer {
 
   /** Secondary lines shown inside a node box and after it in the list. */
   nodeNotes(family: GraphFamily, nodeId: string): string[] {
+    return this.nodeNoteSegments(family, nodeId).map(segments => segments.join(''));
+  }
+
+  nodeNoteSegments(family: GraphFamily, nodeId: string): string[][] {
     const n = this.nodes.get(nodeId)!;
     const a = (k: string) => attrString(n, k);
     switch (family) {
       case 'state': {
-        const notes: string[] = [];
-        if (n.attributes['initial'] === true) notes.push('initial');
-        if (n.attributes['terminal'] === true) notes.push('terminal');
+        const notes: string[][] = [];
+        if (n.attributes['initial'] === true) notes.push(['initial']);
+        if (n.attributes['terminal'] === true) notes.push(['terminal']);
         return notes;
       }
-      case 'cause': return a('basis') ? [a('basis')!] : [];
-      case 'plan': return [`status: ${a('status') ?? 'proposed'}`, ...(a('owner') ? [`owner: ${a('owner')}`] : []), ...(a('due') ? [`due: ${a('due')}`] : [])];
+      case 'cause': return a('basis') ? [[a('basis')!]] : [];
+      case 'plan': return [['status: ', a('status') ?? 'proposed'], ...(a('owner') ? [['owner: ', a('owner')!]] : []), ...(a('due') ? [['due: ', a('due')!]] : [])];
       case 'transform': {
         const shape = n.attributes['shape'];
-        const shapeText = Array.isArray(shape) ? shape.map(String).join(' × ') : typeof shape === 'string' ? shape : undefined;
-        return [a('representation'), shapeText ? `shape: ${shapeText}` : undefined, a('units') ? `units: ${a('units')}` : undefined, a('location') ? `location: ${a('location')}` : undefined]
-          .filter((x): x is string => x !== undefined);
+        const shapeSegments = Array.isArray(shape) ? shape.flatMap((value, i) => i ? [' × ', String(value)] : [String(value)]) : typeof shape === 'string' ? [shape] : [];
+        return [...(a('representation') !== undefined ? [[a('representation')!]] : []), ...(shapeSegments.length ? [['shape: ', ...shapeSegments]] : []),
+          ...(a('units') ? [['units: ', a('units')!]] : []), ...(a('location') ? [['location: ', a('location')!]] : [])];
       }
-      case 'domain': return a('category') ? [a('category')!] : [];
-      default: return a('role') ? [a('role')!] : [];
+      case 'domain': return a('category') ? [[a('category')!]] : [];
+      default: return a('role') ? [[a('role')!]] : [];
     }
   }
 
   /** Text on a relationship arrow. Material facts (guard, basis, loss) stay in the main visual. */
   edgeLabel(family: GraphFamily, edgeId: string): string {
-    const n = this.nodes.get(edgeId)!;
-    const a = (k: string) => attrString(n, k);
-    // A `quantity` follows the label in parentheses; the drawing mutes it
-    // (docs/IMPROVEMENTS.md §14.9).
+    return this.edgeLabelSegments(family, edgeId).join('');
+  }
+
+  edgeLabelSegments(family: GraphFamily, edgeId: string): string[] {
+    const node = this.nodes.get(edgeId)!;
+    const a = (key: string) => attrString(node, key);
     const quantity = this.quantity(edgeId);
-    const label = quantity ? `${this.label(edgeId)} (${quantity})` : this.label(edgeId);
+    const label = [this.label(edgeId), ...(quantity ? [' (', quantity, ')'] : [])];
     switch (family) {
       case 'state': {
-        // The arrow shows the author's label, as the list does; the event is in the list notes (dogfood-2 Q4).
-        // A basis other than observed is a line pattern, so the word goes on
-        // the arrow too, as in cause (review F-08).
         const guard = a('guard');
         const basis = this.relationship(edgeId)?.basis;
-        return `${guard ? `${label} [${guard}]` : label}${basis && basis !== 'observed' ? ` (${basis})` : ''}`;
+        return [...label, ...(guard ? [' [', guard, ']'] : []), ...(basis && basis !== 'observed' ? [' (', basis, ')'] : [])];
       }
-      case 'cause': return `${label} (${a('basis') ?? 'unstated basis'})`;
-      case 'plan': {
-        const kind = a('kind');
-        return kind && kind !== 'finish-start' ? `${label} (${kind})` : label;
-      }
-      case 'transform': return a('loss') ? `${label}; loss: ${a('loss')}` : label;
-      // The cardinality is part of the relation label, "contains · 1..*". Text
-      // at the line end had no space in the layout and could touch the end of
-      // another relation (phase 4 review D7).
-      case 'domain': return a('cardinality') ? `${label} · ${a('cardinality')}` : label;
+      case 'cause': return [...label, ' (', a('basis') ?? 'unstated basis', ')'];
+      case 'plan': return a('kind') && a('kind') !== 'finish-start' ? [...label, ' (', a('kind')!, ')'] : label;
+      case 'transform': return a('loss') ? [...label, '; loss: ', a('loss')!] : label;
+      case 'domain': return a('cardinality') ? [...label, ' · ', a('cardinality')!] : label;
       default: return label;
     }
   }
@@ -769,6 +854,7 @@ class Renderer {
     const encoding = this.encoding(family, nodes.map((n) => n.id), edges.map((e) => e.id));
     const input: GraphInput = {
       id,
+      ...(Object.keys(this.mathMetrics).length ? { mathMetrics: this.mathMetrics } : {}),
       // A domain map shares its row with the glossary, so the layout rule
       // counts the glossary height (docs/IMPROVEMENTS.md §5.4).
       ...(family === 'domain' ? { glossaryRows: nodes.length } : {}),
@@ -782,15 +868,17 @@ class Renderer {
         // basis, and the state marks move to the paired cue, the legend, the
         // list, and the inspector. A transform stage keeps its representation,
         // and a task keeps its `due` date.
-        const extra = this.boxLines(family, n.id).map((x) => this.safeText(x, n.id));
+        const extraSegments = this.boxLineSegments(family, n.id).map(segments => segments.map(x => this.safeText(x, n.id)));
+        const extra = extraSegments.map(segments => segments.join(''));
         const style = encoding.nodes.get(n.id);
         const marked = (style?.marks ?? []).some((m) => m === 'check' || m === 'question' || m === 'initial');
         const drum = style?.shape === 'drum';
-        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra } : {}), ...(marked ? { marked } : {}), ...(drum ? { drum } : {}) };
+        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra, extraSegments } : {}), ...(marked ? { marked } : {}), ...(drum ? { drum } : {}) };
       }),
       edges: edges.map((e) => {
         const r = this.relationship(e.id)!;
-        return { id: e.id, from: r.from, to: r.to, label: this.safeText(this.edgeLabel(family, e.id), e.id) };
+        const segments = this.edgeLabelSegments(family, e.id).map(x => this.safeText(x, e.id));
+        return { id: e.id, from: r.from, to: r.to, label: segments.join(''), segments };
       }),
     };
 
@@ -811,6 +899,7 @@ class Renderer {
     const svg = layout
       ? graphSvg({
           figureId: id, title: attrString(node, 'title') ?? this.label(id), layout,
+          onMath: (key, tex) => this.nativeMath(key, tex),
           labelOf: (x) => this.label(x), roleOf: (x) => roles.get(x), noteOf: (x) => notes.get(x)?.join(', ') || undefined,
           kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x),
           nodeStyleOf: (x) => encoding.nodes.get(x), edgeStyleOf: (x) => encoding.edges.get(x),
@@ -839,21 +928,23 @@ class Renderer {
         // colour as plain text, and the kind is a muted badge after it (F9).
         const [kind, ...extra] = this.edgeNotes(family, e.id);
         return h('li', {},
-          h('span', { class: 'vs-rel-endpoint' }, this.label(r.from)),
+          h('span', { class: 'vs-rel-endpoint' }, this.richLabel(r.from)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
           this.instance(e.id, DOM.listInstanceId(id, e.id), this.label(e.id), { context: this.graphVisibleContext(e.id, family, 'list') }, { class: 'vs-rel-label', [DOM.attr.rel]: e.id }),
-          ((q) => (q === undefined ? null : h('span', { class: 'vs-rel-quantity', [DOM.attr.generated]: true }, ` (${this.safeText(q, e.id)})`)))(this.quantity(e.id)),
+          ((q) => (q === undefined ? null : h('span', { class: 'vs-rel-quantity', [DOM.attr.generated]: true }, ' (', this.richText(q, e.id), ')')))(this.quantity(e.id)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
-          h('span', { class: 'vs-rel-endpoint' }, this.label(r.to)),
+          h('span', { class: 'vs-rel-endpoint' }, this.richLabel(r.to)),
           kind ? h('span', { class: 'vs-rel-kind', [DOM.attr.generated]: true }, this.safeText(kind, e.id)) : null,
-          extra.length > 0 ? h('span', { class: 'vs-rel-notes', [DOM.attr.generated]: true }, ` (${extra.map((x) => this.safeText(x, e.id)).join('; ')})`) : null);
+          extra.length > 0 ? h('span', { class: 'vs-rel-notes', [DOM.attr.generated]: true }, ' (',
+            extra.map((x, i) => [i > 0 ? '; ' : '', this.richText(x, e.id)]), ')') : null);
       }));
     const nodeList = h('ul', { class: 'vs-node-list', 'aria-label': NODE_LIST_LABEL[family] },
       [...groups, ...nodes].map((n) => {
-        const note = family === 'architecture' ? (roles.get(n.id) ? [roles.get(n.id)!] : []) : (notes.get(n.id) ?? []);
+        const note = family === 'architecture' ? (roles.get(n.id) ? [[roles.get(n.id)!]] : []) : this.nodeNoteSegments(family, n.id);
         return h('li', {},
           this.instance(n.id, DOM.listInstanceId(id, n.id), this.label(n.id), { context: this.graphVisibleContext(n.id, family, 'list') }),
-          note.length > 0 ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${note.map((x) => this.safeText(x, n.id)).join('; ')})`) : null);
+          note.length > 0 ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ' (',
+            note.map((segments, i) => [i > 0 ? '; ' : '', segments.map(segment => this.richText(segment, n.id))]), ')') : null);
       }));
 
     if (family === 'domain') return this.domainShell(id, node, svg, nodes, relList, svg ? encoding.legend : null);
@@ -874,20 +965,23 @@ class Renderer {
    * length, so the plan stays a dependency graph.
    */
   boxLines(family: GraphFamily, nodeId: string): string[] {
-    const n = this.nodes.get(nodeId)!;
+    return this.boxLineSegments(family, nodeId).map(segments => segments.join(''));
+  }
+
+  boxLineSegments(family: GraphFamily, nodeId: string): string[][] {
+    const node = this.nodes.get(nodeId)!;
     if (family === 'plan') {
-      const due = attrString(n, 'due');
-      return due ? [`due ${due}`] : [];
+      const due = attrString(node, 'due');
+      return due ? [['due ', due]] : [];
     }
     if (family === 'domain') {
-      // A concept's attributes, as one muted line under its label (§5.3).
-      const list = n.attributes['attributes'];
-      return Array.isArray(list) && list.length > 0 ? [list.map(String).join(', ')] : [];
+      const list = node.attributes['attributes'];
+      return Array.isArray(list) && list.length > 0 ? [list.flatMap((value, i) => i ? [', ', String(value)] : [String(value)])] : [];
     }
     if (family !== 'transform') return [];
-    const representation = attrString(n, 'representation');
-    const location = attrString(n, 'location');
-    return [representation, location ? `location: ${location}` : undefined].filter((x): x is string => x !== undefined);
+    const representation = attrString(node, 'representation');
+    const location = attrString(node, 'location');
+    return [...(representation !== undefined ? [[representation]] : []), ...(location ? [['location: ', location]] : [])];
   }
 
   /**
@@ -1053,7 +1147,7 @@ class Renderer {
               // The category word, as in the node list: the list view has no
               // map and no legend (docs/IMPROVEMENTS.md §3.3, phase 4 review D5).
               category ? h('span', { class: 'vs-role', [DOM.attr.generated]: true }, ` (${this.safeText(category, c.id)})`) : null),
-            h('td', {}, this.withTermScope(() => this.withOwnDefinition(defId, () => this.linkText(defId ? this.definitionSentence(defId) : '', defId)))),
+            h('td', {}, this.withTermScope(() => this.withOwnDefinition(defId, () => defId ? this.richDefinitionSentence(defId, true) : ''))),
             h('td', { class: 'vs-glossary-more' }, this.depth(c.id, visible) === 'bare' ? null
               : h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(c.id)}`, 'aria-label': `Read more: ${label}`, [DOM.attr.generated]: true }, 'Read more')));
         }))));
@@ -1128,7 +1222,7 @@ class Renderer {
       this.instance(target, instanceId, content, visible);
     const criterionLabel = (c: TargetRecord, instanceId: string): Child => {
       const units = attrString(this.nodes.get(c.id)!, 'units');
-      return [link(c.id, instanceId, this.label(c.id), { context: units ? ['fact:units'] : [] }), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ` (${this.safeText(units, c.id)})`) : null];
+      return [link(c.id, instanceId, this.label(c.id), { context: units ? ['fact:units'] : [] }), units ? h('span', { class: 'vs-units', [DOM.attr.generated]: true }, ' (', this.richText(units, c.id), ')') : null];
     };
     const cellContent = (cell: TargetRecord | undefined, instanceId: string, o: TargetRecord, c: TargetRecord): Child => {
       if (!cell) return h('span', { class: 'vs-not-provided', [DOM.attr.generated]: true }, 'Not provided');
@@ -1194,7 +1288,7 @@ class Renderer {
       const value = n.attributes['value'];
       const status = attrString(n, 'valueStatus');
       return [
-        value !== undefined ? h('span', { class: 'vs-cell-value' }, this.safeText(String(value), cell.id)) : null,
+        value !== undefined ? h('span', { class: 'vs-cell-value' }, this.richText(String(value), cell.id)) : null,
         status ? h('span', { class: 'vs-value-status', [DOM.attr.generated]: true }, `${value !== undefined ? ' ' : ''}(${status})`) : null,
         value === undefined ? h('div', { class: 'vs-cell-body' }, this.blocks(n).find((block) => block !== null && block !== undefined && block !== false) ?? null) : null,
       ];
@@ -1209,7 +1303,7 @@ class Renderer {
             ? this.instance(cell.id, instanceId, this.label(o.id), { context: ['fact:value', ...(attrString(this.nodes.get(cell.id)!, 'valueStatus') ? ['fact:valueStatus'] : [])] }, {
                 'aria-label': `${this.label(o.id)}: ${this.label(c.id)}`,
               })
-            : h('span', {}, this.label(o.id))),
+            : h('span', {}, this.richLabel(o.id))),
           h('dd', {}, cardValue(cell)),
         ];
       })))));
@@ -1236,13 +1330,14 @@ class Renderer {
     };
     const scaleNote = scale === 'ordinal'
       ? h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, 'Ordering, not duration.')
-      : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, `Event times${timeUnit ? ` in ${timeUnit}` : ''}; vertical position shows order layer.`);
+      : h('p', { class: 'vs-trace-scale', [DOM.attr.generated]: true }, 'Event times',
+        timeUnit ? [' in ', this.richText(timeUnit, id)] : null, '; vertical position shows order layer.');
     const actorList = h('ul', { class: 'vs-actor-list', 'aria-label': 'Actors' },
       actors.map((a) => {
         const entity = attrString(this.nodes.get(a.id)!, 'entity');
         return h('li', {},
           this.instance(a.id, DOM.listInstanceId(id, a.id), this.label(a.id), { context: visibleContext(a.id, 'list') }),
-          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null);
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.richLabel(entity)), ')') : null);
       }));
     // Order layer: the longest `after` chain before an event. Events in one layer
     // have no ordering constraint between them; the number is not a timestamp.
@@ -1270,21 +1365,22 @@ class Renderer {
       return [
         h('span', { class: 'vs-event-layer', [DOM.attr.generated]: true }, `Order layer ${layerOf(e.id, new Set())} `),
         this.instance(e.id, DOM.listInstanceId(id, e.id) + suffix, [
-          showActor && actor ? h('span', { class: 'vs-actor', [DOM.attr.generated]: true }, `${this.label(actor)}: `) : null,
-          this.label(e.id),
-          message ? h('span', { class: 'vs-message-to', [DOM.attr.generated]: true }, ` \u2192 ${this.label(message.to)}`) : null,
+          showActor && actor ? h('span', { class: 'vs-actor', [DOM.attr.generated]: true }, this.richLabel(actor), ': ') : null,
+          this.richLabel(e.id),
+          message ? h('span', { class: 'vs-message-to', [DOM.attr.generated]: true }, ' \u2192 ', this.richLabel(message.to)) : null,
         ], { context: visibleContext(e.id, 'list') }, { [DOM.attr.rel]: message ? e.id : undefined }),
         h('span', { class: 'vs-event-kind', [DOM.attr.generated]: true }, ` [${kind}]`),
-        scale === 'time' && time !== undefined ? h('span', { class: 'vs-event-time', [DOM.attr.generated]: true }, ` at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`) : null,
-        branch ? h('span', { class: 'vs-event-branch', [DOM.attr.generated]: true }, ` branch: ${this.label(branch)}`) : null,
+        scale === 'time' && time !== undefined ? h('span', { class: 'vs-event-time', [DOM.attr.generated]: true },
+          ' at ', String(time), timeUnit ? [' ', this.richText(timeUnit, id)] : null) : null,
+        branch ? h('span', { class: 'vs-event-branch', [DOM.attr.generated]: true }, ' branch: ', this.richLabel(branch)) : null,
         // An observation names what shows it (docs/IMPROVEMENTS.md §14.6).
         kind === 'observation' && this.ownEvidenceIds(e.id).length > 0
           ? h('span', { class: 'vs-event-evidence', [DOM.attr.generated]: true }, '; seen in: ',
-              this.ownEvidenceIds(e.id).map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.label(s))]))
+              this.ownEvidenceIds(e.id).map((s, i) => [i > 0 ? ', ' : '', h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(s)}` }, this.richLabel(s))]))
           : null,
         orders.length > 0
           ? h('span', { class: 'vs-after', [DOM.attr.generated]: true }, ' after: ',
-              orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.label(r.from))]))
+              orders.map((r, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(r.from)}`, id: DOM.listInstanceId(id, r.id) + suffix, [DOM.attr.target]: e.id, [DOM.attr.rel]: r.id }, this.richLabel(r.from))]))
           : null,
       ];
     };
@@ -1299,7 +1395,7 @@ class Renderer {
       return h('section', { class: 'vs-actor-group', 'aria-label': this.label(a.id) },
         h('p', { class: 'vs-actor-heading' },
           this.instance(a.id, `${DOM.listInstanceId(id, a.id)}.card`, this.label(a.id), { context: visibleContext(a.id, 'list') }),
-          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity)), ')') : null),
+          entity && this.label(entity) !== this.label(a.id) ? h('span', { class: 'vs-entity', [DOM.attr.generated]: true }, ' (', h('a', { href: `#${DOM.canonicalId(entity)}` }, this.richLabel(entity)), ')') : null),
         own.length > 0
           ? h('ol', { class: 'vs-trace-cards', 'aria-label': `Events of ${this.label(a.id)}` },
               own.map((e) => h('li', { class: `vs-event vs-kind-${kindOf(e)}` }, eventContent(e, '.card', false))))
@@ -1330,6 +1426,8 @@ class Renderer {
     const svg = drawable
       ? traceSvg({
           figureId: id,
+          mathMetrics: this.mathMetrics,
+          onMath: (key, tex) => this.nativeMath(key, tex),
           title: attrString(node, 'title') ?? this.label(id),
           // A time-scaled trace with no actors has one implicit lane (§14.6).
           actors: actors.length === 0 && events.some((e) => attrString(this.nodes.get(e.id)!, 'actor') === undefined)
@@ -1351,7 +1449,8 @@ class Renderer {
               // the branch heading, the list, and the aria-label. The time line
               // has its own class, so the reader mutes it and not the receiver.
               meta: message ? [`\u2192 ${this.label(message.to)}`] : [],
-              ...(scale === 'time' && time !== undefined ? { time: `at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}` } : {}),
+              metaSegments: message ? [['\u2192 ', this.label(message.to)]] : [],
+              ...(scale === 'time' && time !== undefined ? { time: `at ${String(time)}${timeUnit ? ` ${timeUnit}` : ''}`, timeSegments: ['at ', String(time), ...(timeUnit ? [' ', timeUnit] : [])] } : {}),
               ...(scale === 'time' && typeof time === 'number' ? { timeValue: time } : {}),
               notes: [
                 `[${kindOf(e)}]${message ? ` \u2192 ${this.label(message.to)}` : ''}`,
@@ -1473,7 +1572,7 @@ class Renderer {
         ? `${sideOf(a) === 'before' ? 'Before' : 'After'}${lines ? `, ${lines}` : ''}: `
         : lines ? `L${lines.slice(1)}: ` : '';
       return h('li', {}, this.instance(a.id, DOM.listInstanceId(id, a.id),
-        [h('span', { [DOM.attr.generated]: true }, where), this.label(a.id)], { context: ['fact:lines', 'fact:side'] }));
+        [h('span', { [DOM.attr.generated]: true }, where), this.richLabel(a.id)], { context: ['fact:lines', 'fact:side'] }));
     }));
     if (beforeId) {
       const before = this.sourceText(beforeId);
@@ -1485,7 +1584,7 @@ class Renderer {
     }
     const { marks, cover } = this.annotationMarks(sourceId, captured?.text, annotations);
     return this.figureShell(id, node, 'vs-annotated', [
-      h('p', { class: 'vs-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
+      h('p', { class: 'vs-annotated-source', [DOM.attr.generated]: true }, 'Source: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.richLabel(sourceId))),
       captured ? h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, [DOM.attr.viewport]: true }, this.codeLines(sourceId, captured.text, marks, id, cover)) : null,
       list,
     ]);
@@ -1527,7 +1626,7 @@ class Renderer {
           '\n');
       });
       return h('div', { class: `vs-diff-side vs-diff-${which}` },
-        h('p', { class: 'vs-diff-heading', [DOM.attr.generated]: true }, which === 'before' ? 'Before: ' : 'After: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.label(sourceId))),
+        h('p', { class: 'vs-diff-heading', [DOM.attr.generated]: true }, which === 'before' ? 'Before: ' : 'After: ', h('a', { href: `#${DOM.canonicalId(sourceId)}` }, this.richLabel(sourceId))),
         // At narrow widths this region scrolls independently; make it
         // keyboard-focusable so its complete code remains reachable.
         h('pre', { class: 'vs-code', tabindex: '0' }, h('code', {}, rows)));
@@ -1574,6 +1673,20 @@ class Renderer {
     const interpretation = this.blocks({ ...node, children: node.children.filter((c) => c.type !== 'fence') });
     // Whole-line `%%` comments never reach the page; the runtime renders from this text (§13.5).
     const source = h('pre', { class: 'vs-mermaid-source' }, h('code', { class: 'language-mermaid' }, this.safeText(stripMermaidComments(figure.source), id)));
+    const mathSource = figure.mathLabels ? pieMathSourceMap(figure, this.bundle.parsed.rawBytes)
+      : figure.timelineMathLabels ? timelineMathSourceMap(figure, this.bundle.parsed.rawBytes)
+      : figure.flowchartMath ? flowchartMathSourceMap({ ...figure, flowchartMath: figure.flowchartMath }, this.bundle.parsed.rawBytes)
+      : figure.sequenceMath ? sequenceMathSourceMap({ ...figure, sequenceMath: figure.sequenceMath }, this.bundle.parsed.rawBytes)
+      : figure.requirementMath ? requirementMathSourceMap({ ...figure, requirementMath: figure.requirementMath }, this.bundle.parsed.rawBytes)
+      : figure.infoMath ? infoMathSourceMap({ ...figure, infoMath: figure.infoMath }, this.bundle.parsed.rawBytes)
+      : figure.erMath ? erMathSourceMap({ ...figure, erMath: figure.erMath }, this.bundle.parsed.rawBytes)
+      : figure.kanbanMath ? kanbanMathSourceMap({ ...figure, kanbanMath: figure.kanbanMath }, this.bundle.parsed.rawBytes)
+      : figure.radarMath ? radarMathSourceMap({ ...figure, radarMath: figure.radarMath }, this.bundle.parsed.rawBytes)
+      : figure.sankeyMath ? sankeyMathSourceMap({ ...figure, sankeyMath: figure.sankeyMath }, this.bundle.parsed.rawBytes)
+      : figure.xyMath ? xyMathSourceMap({ ...figure, xyMath: figure.xyMath }, this.bundle.parsed.rawBytes)
+      : figure.quadrantMath ? quadrantMathSourceMap({ ...figure, quadrantMath: figure.quadrantMath }, this.bundle.parsed.rawBytes)
+      : figure.journeyMath ? journeyMathSourceMap({ ...figure, journeyMath: figure.journeyMath }, this.bundle.parsed.rawBytes)
+      : figure.stateMath ? stateMathSourceMap({ ...figure, stateMath: figure.stateMath }, this.bundle.parsed.rawBytes) : undefined;
     const arrow = (text: string) => h('span', { [DOM.attr.generated]: true }, text);
     let lists: Child = null;
     if (figure.parsed) {
@@ -1586,15 +1699,21 @@ class Renderer {
       const relList = h('ol', { class: 'vs-rel-list', 'aria-label': 'Relationships' },
         figure.relationships.map((r) => h('li', {}, r.referenceable
           ? this.instance(r.id, DOM.listInstanceId(id, r.id), [this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)], { context: [`mermaid:${r.id}`] }, { [DOM.attr.rel]: r.id, [DOM.attr.mermaidKey]: r.renderKey })
-          : h('span', { id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: id, [DOM.attr.rel]: r.id, [DOM.attr.mermaidKey]: r.renderKey }, this.label(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
+          : h('span', { id: DOM.listInstanceId(id, r.id), [DOM.attr.target]: id, [DOM.attr.rel]: r.id, [DOM.attr.mermaidKey]: r.renderKey }, this.richLabel(r.from), arrow(' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, id), arrow(' \u2192 '), this.label(r.to)))));
       lists = h('div', { class: 'vs-lists' }, nodeList, relList);
     }
     return h('figure', {
       class: 'vs-figure vs-mermaid', ...this.canonical(id), [DOM.attr.mermaid]: figure.diagramType,
+      'data-vs-mermaid-math': [...figure.mathLabels ?? [], ...figure.timelineMathLabels ?? [],
+        ...figure.flowchartMath?.records ?? [], ...figure.sequenceMath?.records ?? [], ...figure.journeyMath?.records ?? [], ...figure.quadrantMath?.records ?? [], ...figure.xyMath?.records ?? [], ...figure.sankeyMath?.records ?? [], ...figure.radarMath?.records ?? [], ...figure.requirementMath?.records ?? [], ...figure.kanbanMath?.records ?? []].some(record => record.parts.some(part => part.kind === 'math')) || (figure.erMath?.total.occurrences ?? 0) > 0 || (figure.infoMath?.total.occurrences ?? 0) > 0 || (figure.stateMath?.total.occurrences ?? 0) > 0 ? true : undefined,
+      'data-vs-mermaid-hidden-keys': figure.flowchartMath ? JSON.stringify(figure.flowchartMath.hiddenKeys ?? []) : undefined,
+      'data-vs-mermaid-state-slots': figure.stateMath ? JSON.stringify(figure.stateMath.slots.filter(slot => slot.parts.some(part => part.kind === 'math')).map(({key,ownerKind,ownerId,domId,shape,role,inputPath,parts}) => ({key,ownerKind,ownerId,domId,shape,role,inputPath,formulas:parts.flatMap(part => part.kind === 'math' ? [part.tex] : [])}))) : undefined,
+      'data-vs-mermaid-flowchart-slots': figure.flowchartMath ? JSON.stringify(figure.flowchartMath.slots.map(({ key, kind, id }) => ({ key, kind, id }))) : undefined,
+      'data-vs-mermaid-source-map': mathSource && (figure.xyMath || figure.radarMath || figure.requirementMath || figure.kanbanMath || figure.erMath || figure.infoMath || mathSource.labels.some(label => label.expressions.length > 0)) ? JSON.stringify(mathSource) : undefined,
       [DOM.attr.question]: question, 'aria-describedby': `vs-q-${id}`, [DOM.attr.views]: figure.parsed ? 'map list' : undefined,
     },
-      h('figcaption', { id: `vs-t-${id}` }, this.safeText(title, id)),
-      h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.safeText(question, id)),
+      h('figcaption', { id: `vs-t-${id}` }, this.richText(title, id)),
+      h('p', { id: `vs-q-${id}`, class: 'vs-sr' }, this.richText(question, id)),
       interpretation,
       h('div', { class: 'vs-viewport', tabindex: '0', role: 'region', 'aria-label': `Diagram: ${this.label(id)}`, id: DOM.mermaidRenderId(id), [DOM.attr.viewport]: true, [DOM.attr.mermaidRender]: true }),
       source,
@@ -1611,29 +1730,29 @@ class Renderer {
     const figureId = figure?.figureId ?? record.parentId;
     if (figureId) {
       specifics.push(h('p', { class: 'vs-entity', [DOM.attr.generated]: true }, 'In diagram ',
-        h('a', { href: `#${DOM.canonicalId(figureId)}` }, this.label(figureId))));
+        h('a', { href: `#${DOM.canonicalId(figureId)}` }, this.richLabel(figureId))));
     }
     const rels = figure?.relationships.filter((r) => r.from === record.id || r.to === record.id || r.id === record.id) ?? [];
     if (rels.length > 0) {
       specifics.push(h('ul', { class: 'vs-mermaid-rels' }, rels.map((r) => h('li', {},
-        h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
+        h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.richLabel(r.from)),
         h('span', { [DOM.attr.generated]: true }, ' \u2192 '), this.safeText(r.label || MERMAID_KIND_TEXT[r.kind] || r.kind, record.id),
         h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
-        h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))))));
+        h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.richLabel(r.to))))));
     }
     const element = figure?.elements.find((e) => e.id === record.id);
     if (element?.initial) specifics.push(h('p', { class: 'vs-mermaid-marker', [DOM.attr.generated]: true }, 'Initial state'));
     if (element?.terminal) specifics.push(h('p', { class: 'vs-mermaid-marker', [DOM.attr.generated]: true }, 'Terminal state'));
     if (element?.members && element.members.length > 0) {
       specifics.push(h('p', { class: 'vs-mermaid-members' }, h('span', { [DOM.attr.generated]: true }, 'Contains '),
-        element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.label(m))])));
+        element.members.map((m, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(m)}` }, this.richLabel(m))])));
     }
     // Mermaid parts have no authored body, but generated relationships and
     // state markers can still make their inspector useful.
     const cue = this.cueWord(record);
     const bare = this.profile(record.id).depth === 'bare';
     return h('details', { class: `vs-detail vs-kind-${record.kind}${bare ? ' vs-detail-bare' : ''}`, ...this.canonical(record.id), [DOM.attr.cue]: cue },
-      h('summary', {}, this.label(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`)),
+      h('summary', {}, this.richLabel(record.id), h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`)),
       h('div', { class: 'vs-detail-body' }, specifics));
   }
 
@@ -1641,7 +1760,7 @@ class Renderer {
     const ids = this.relationship(id)?.evidenceIds ?? [];
     if (ids.length === 0) return null;
     return h('p', { class: 'vs-evidence' }, h('span', { [DOM.attr.generated]: true }, 'Evidence: '),
-      ids.map((s, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(s)}` }, this.label(s))]));
+      ids.map((s, i) => [i > 0 ? ', ' : '', h('a', { href: `#${DOM.canonicalId(s)}` }, this.richLabel(s))]));
   }
 
   /** Muted mono origin shown on the appendix row's summary, after the title (F3b). */
@@ -1847,40 +1966,111 @@ class Renderer {
       h('h3', {}, 'Terms'),
       h('dl', {}, [...found].map(([defId, text]) => [
         h('dt', {}, this.inspectLink(defId, text)),
-        h('dd', {}, this.definitionSentence(defId)),
+        h('dd', {}, this.richDefinitionSentence(defId)),
       ])));
   }
 
-  /**
-   * The first sentence of a definition, as plain text: the same text that
-   * the term bubble shows (docs/IMPROVEMENTS.md §13.4).
-   */
-  definitionSentence(defId: string): string {
+  /** Keep AST text, code, and TeX distinct through sentence selection. */
+  definitionSentenceRuns(defId: string): DefinitionRun[] {
     const node = this.nodes.get(defId);
-    if (!node) return '';
-    const parts: string[] = [];
+    if (!node) return [];
+    const raw: DefinitionRun[] = [];
     // Inline nodes join their text with no space; a block ends with one.
     const inline = new Set(['inline', 'em', 'strong', 's', 'link', 'tag']);
     const visit = (n: MNode) => {
       if (n !== node && this.isTargetNode(n)) return;
       if (n.type === 'text' || n.type === 'code') {
-        parts.push(String(n.attributes['content'] ?? ''));
+        raw.push({ kind: n.type, source: String(n.attributes['content'] ?? '') });
+        return;
+      }
+      if (n.type === 'math_inline') {
+        const tex = String(n.children[0]?.attributes['content'] ?? '');
+        raw.push({ kind: 'math', source: `$${tex}$`, tex, display: false });
+        return;
+      }
+      if (n.type === 'math_display') {
+        const tex = String(n.children[0]?.attributes['content'] ?? '');
+        raw.push({ kind: 'math', source: `$$\n${tex}$$`, tex, display: true });
         return;
       }
       if (n.type === 'softbreak' || n.type === 'hardbreak') {
-        parts.push(' ');
+        raw.push({ kind: 'text', source: ' ' });
         return;
       }
       if (n.type === 'fence' || (n.type === 'tag' && n.tag === 'cite')) return;
       for (const child of n.children) visit(child);
-      if (!inline.has(n.type)) parts.push(' ');
+      if (!inline.has(n.type)) raw.push({ kind: 'text', source: ' ' });
     };
     visit(node);
-    return this.safeText(firstSentence(parts.join('')), defId);
+    // Match firstSentence's whitespace cleanup outside TeX, without allowing
+    // escaped dollar text or code to acquire math semantics after flattening.
+    const runs: DefinitionRun[] = [];
+    const appendPlain = (kind: 'text' | 'code', source: string) => {
+      const last = runs[runs.length - 1];
+      if (last?.kind === kind) last.source += source;
+      else runs.push({ kind, source });
+    };
+    let pendingSpace = false;
+    for (const run of raw) {
+      if (run.kind === 'math') {
+        if (pendingSpace && runs.length) appendPlain('text', ' ');
+        pendingSpace = false;
+        runs.push(run);
+        continue;
+      }
+      for (const char of run.source) {
+        if (/\s/u.test(char)) { pendingSpace = true; continue; }
+        if (pendingSpace && runs.length && !/[.,;:!?]/u.test(char)) appendPlain('text', ' ');
+        pendingSpace = false;
+        appendPlain(run.kind, char);
+      }
+    }
+    const source = runs.map(run => run.source).join('');
+    const mathRanges: Array<{ from: number; to: number }> = [];
+    let offset = 0;
+    for (const run of runs) {
+      if (run.kind === 'math') mathRanges.push({ from: offset, to: offset + run.source.length });
+      offset += run.source.length;
+    }
+    let end = source.length;
+    if (mathRanges.length === 0) end = firstSentence(source).length;
+    else {
+      // Sentence punctuation inside TeX belongs to the formula, not prose.
+      let rangeIndex = 0;
+      for (let i = 0; i < source.length; i++) {
+        const math = mathRanges[rangeIndex];
+        if (math && i === math.from) { i = math.to - 1; rangeIndex++; continue; }
+        if (/[.!?]/u.test(source[i] ?? '') && (i + 1 === source.length || /\s/u.test(source[i + 1] ?? ''))) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    const sentence: DefinitionRun[] = [];
+    let remaining = end;
+    for (const run of runs) {
+      if (remaining <= 0) break;
+      const take = Math.min(run.source.length, remaining);
+      sentence.push(take === run.source.length ? run : { ...run, source: run.source.slice(0, take) });
+      remaining -= take;
+    }
+    return sentence;
+  }
+
+  /** The source-readable first sentence used by the inspector and tooltip. */
+  definitionSentence(defId: string): string {
+    return this.safeText(this.definitionSentenceRuns(defId).map(run => run.source).join(''), defId);
+  }
+
+  /** Render only AST math leaves; ordinary text and code stay literal. */
+  richDefinitionSentence(defId: string, terms = false): Child {
+    return this.definitionSentenceRuns(defId).map(run => run.kind === 'math' ? this.mathTex(run.tex, run.display)
+      : run.kind === 'text' && terms ? this.linkText(run.source, defId) : this.safeText(run.source, defId));
   }
 
   /** A link that opens a target in the inspector, or plain text when the target has no detail. */
   inspectLink(id: string, text: Child): Child {
+    if (typeof text === 'string' && text === this.label(id)) text = this.richLabel(id);
     return this.targets.get(id)?.inspectable ? h('a', { class: 'vs-inspect-link', href: `#${DOM.canonicalId(id)}` }, text) : text;
   }
 
@@ -1899,7 +2089,7 @@ class Renderer {
     const labelOf = (r: (typeof rels)[number]) => this.inspectLink(r.id, r.kind === 'order' ? r.label : this.label(r.id));
     if (own) {
       items.push(h('li', { class: 'vs-rel-own' },
-        this.inspectLink(own.from, this.label(own.from)), arrow(' \u2192 '), this.label(id), arrow(' \u2192 '), this.inspectLink(own.to, this.label(own.to))));
+        this.inspectLink(own.from, this.label(own.from)), arrow(' \u2192 '), this.richLabel(id), arrow(' \u2192 '), this.inspectLink(own.to, this.label(own.to))));
     }
     for (const r of rels) {
       if (r.id === id) continue;
@@ -1932,7 +2122,7 @@ class Renderer {
       // hover of this part (docs/IMPROVEMENTS.md §14.9).
       h('ul', {}, others.map((t) => h('li', { [DOM.attr.entity]: t.id },
         this.inspectLink(t.id, this.label(t.id)),
-        t.ownerComponentId ? [' in ', h('a', { href: `#${DOM.canonicalId(t.ownerComponentId)}` }, this.figureTitle(t.ownerComponentId))] : null))));
+        t.ownerComponentId ? [' in ', h('a', { href: `#${DOM.canonicalId(t.ownerComponentId)}` }, this.richText(this.figureTitle(t.ownerComponentId), t.ownerComponentId))] : null))));
   }
 
   /**
@@ -1954,7 +2144,8 @@ class Renderer {
             const time = this.nodes.get(o)?.attributes['time'];
             const trace = this.targets.get(o)?.parentId;
             const unit = trace ? attrString(this.nodes.get(trace)!, 'timeUnit') : undefined;
-            return h('li', {}, 'Observed: ', this.inspectLink(o, this.label(o)), time !== undefined ? ` (at ${String(time)}${unit ? ` ${unit}` : ''})` : null);
+            return h('li', {}, 'Observed: ', this.inspectLink(o, this.label(o)), time !== undefined
+              ? [' (at ', String(time), ...(unit ? [' ', this.richText(unit, trace)] : []), ')'] : null);
           }))
         : null,
       ids.map((sourceId) => {
@@ -1987,44 +2178,44 @@ class Renderer {
     const r = this.relationship(record.id);
     if (r && r.kind !== 'message' && !part) {
       specifics.push(h('p', { class: 'vs-rel-statement' },
-        h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.label(r.from)),
-        h('span', { [DOM.attr.generated]: true }, ` \u2192 ${r.kind}: `), this.label(record.id), h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
-        h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.label(r.to))));
+        h('a', { href: `#${DOM.canonicalId(r.from)}` }, this.richLabel(r.from)),
+        h('span', { [DOM.attr.generated]: true }, ` \u2192 ${r.kind}: `), this.richLabel(record.id), h('span', { [DOM.attr.generated]: true }, ' \u2192 '),
+        h('a', { href: `#${DOM.canonicalId(r.to)}` }, this.richLabel(r.to))));
     }
     switch (record.kind) {
       case 'node': case 'state': case 'factor': case 'task': case 'stage':
       case 'transition': case 'causal-link': case 'conversion': case 'dependency': case 'edge':
-      case 'option': case 'criterion': case 'cell': case 'part':
+      case 'option': case 'criterion': case 'cell': case 'part': case 'branch':
       case 'concept': case 'relation': case 'entry': case 'reading': {
         // A part shows its extension-specific attributes (§14).
         const keys = record.kind === 'part' ? Object.keys(node.attributes).filter((k) => k !== 'id' && k !== 'label').sort() : (DETAIL_FACTS[record.kind] ?? []);
-        const facts: Array<[string, string]> = [];
+        const facts: Array<[string, string[]]> = [];
         for (const key of keys) {
           const v = node.attributes[key];
           if (v === undefined || v === false) continue;
           // A reading's value carries the unit of its measure (\u00a714.4).
           const unit = record.kind === 'reading' && key === 'value' && record.parentId ? attrString(this.nodes.get(record.parentId)!, 'unit') : undefined;
-          const text = Array.isArray(v) ? v.map(String).join(key === 'shape' ? ' \u00d7 ' : ', ') : v === true ? 'yes' : unit ? withUnit(v, unit, attrString(node, 'display')) : String(v);
-          facts.push([key, this.safeText(text, record.id)]);
+          const segments = Array.isArray(v) ? v.flatMap((item, i) => [...(i ? [key === 'shape' ? ' \u00d7 ' : ', '] : []), String(item)]) : v === true ? ['yes'] : unit ? this.unitSegments(v, unit, attrString(node, 'display')) : [String(v)];
+          facts.push([key, segments.map(text => this.safeText(text, record.id))]);
         }
-        if (record.kind === 'task' && node.attributes['status'] === undefined) facts.push(['status', 'proposed']);
+        if (record.kind === 'task' && node.attributes['status'] === undefined) facts.push(['status', ['proposed']]);
         // The inspector title and the appendix row already show the cue word,
         // such as "Order store · storage", so a fact with that value is not
         // repeated in the list (phase-2 review S1).
         const cueWord = part ? this.cueWord(record) : undefined;
-        const shownFacts = facts.filter(([, v]) => v !== cueWord);
-        if (shownFacts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, shownFacts.map(([k, v]) => [h('dt', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, k), h('dd', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, v)])));
+        const shownFacts = facts.filter(([, v]) => v.join('') !== cueWord);
+        if (shownFacts.length > 0) specifics.push(h('dl', { class: 'vs-facts', [DOM.attr.generated]: true }, shownFacts.map(([k, v]) => [h('dt', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, k), h('dd', { 'data-vs-fact': ['loss', 'guard', 'basis', 'condition'].includes(k) ? k : undefined }, MATH_TEXT_ATTRIBUTES.has(k) || record.kind === 'part' ? v.map(segment => this.richText(segment, record.id)) : v)])));
         break;
       }
       case 'actor': {
         const entity = attrString(node, 'entity');
-        if (entity) specifics.push(h('p', { class: 'vs-entity' }, h('span', { [DOM.attr.generated]: true }, 'Represents '), h('a', { href: `#${DOM.canonicalId(entity)}` }, this.label(entity))));
+        if (entity) specifics.push(h('p', { class: 'vs-entity' }, h('span', { [DOM.attr.generated]: true }, 'Represents '), h('a', { href: `#${DOM.canonicalId(entity)}` }, this.richLabel(entity))));
         break;
       }
       case 'event': {
         const actor = attrString(node, 'actor');
         specifics.push(h('p', { class: 'vs-event-meta', [DOM.attr.generated]: true },
-          `${attrString(node, 'kind') ?? 'event'}`, actor ? [' by ', h('a', { href: `#${DOM.canonicalId(actor)}` }, this.label(actor))] : null));
+          `${attrString(node, 'kind') ?? 'event'}`, actor ? [' by ', h('a', { href: `#${DOM.canonicalId(actor)}` }, this.richLabel(actor))] : null));
         break;
       }
       case 'annotation': {
@@ -2032,7 +2223,7 @@ class Renderer {
         // An annotation on the before side counts lines of the `before` source (§14.7).
         const figure = record.parentId ? this.nodes.get(record.parentId) : undefined;
         const owner = figure ? (attrString(node, 'side') === 'before' && attrString(figure, 'before') ? attrString(figure, 'before') : attrString(figure, 'source')) : undefined;
-        if (Array.isArray(range)) specifics.push(h('p', { class: 'vs-annotation-lines', [DOM.attr.generated]: true }, `Lines ${range.join('\u2013')}`, owner ? [' of ', h('a', { href: `#${DOM.canonicalId(owner)}` }, this.label(owner))] : null));
+        if (Array.isArray(range)) specifics.push(h('p', { class: 'vs-annotation-lines', [DOM.attr.generated]: true }, `Lines ${range.join('\u2013')}`, owner ? [' of ', h('a', { href: `#${DOM.canonicalId(owner)}` }, this.richLabel(owner))] : null));
         break;
       }
     }
@@ -2049,7 +2240,7 @@ class Renderer {
     // storage" (docs/IMPROVEMENTS.md §4.5). A source, definition, or detail
     // row is in a group of its kind, so the row repeats no kind word.
     const summary = h('summary', {},
-      this.label(record.id),
+      this.richLabel(record.id),
       part ? h('span', { class: 'vs-kind', [DOM.attr.generated]: true }, ` \u00b7 ${cue}`) : null,
       origin ? h('span', { class: 'vs-source-origin-summary vs-mono', [DOM.attr.generated]: true }, ` ${origin}`) : null);
     if (!part) {
@@ -2111,6 +2302,7 @@ class Renderer {
       else if (record.kind === 'self-check') out.push(this.selfCheck(id, child));
       else if (record.kind === 'measure') out.push(this.measure(id, child));
       else if (record.kind === 'tree') out.push(this.tree(id, child));
+      else if (record.kind === 'equation') out.push(this.equation(child));
       else if (COMPONENTS.has(record.kind) || child.type === 'tag') {
         this.warn('W_UNSUPPORTED_COMPONENT', `${record.kind} has no renderer; showing its text only`, id);
         out.push(h('div', { class: 'vs-block', ...this.canonical(id) }, this.blocks(child)));
@@ -2158,7 +2350,7 @@ class Renderer {
     const rows = records.map((r) => this.detail(r));
     const shown = rows.filter((row) => !(row.attrs.find(([k]) => k === 'class')?.[1] ?? '').split(' ').includes('vs-detail-bare')).length;
     return h('details', { class: `${DOM.appendixGroup} vs-appendix-parts${shown === 0 ? ' vs-appendix-group-bare' : ''}`, [DOM.attr.figure]: figureId },
-      h('summary', {}, h('h3', {}, `Parts of '${this.figureTitle(figureId)}' `, h('span', { class: 'vs-appendix-count', [DOM.attr.generated]: true }, `(${rows.length})`))),
+      h('summary', {}, h('h3', {}, "Parts of '", this.richText(this.figureTitle(figureId), figureId), "' ", h('span', { class: 'vs-appendix-count', [DOM.attr.generated]: true }, `(${rows.length})`))),
       rows);
   }
 
@@ -2215,6 +2407,7 @@ const DETAIL_FACTS: Record<string, readonly string[]> = {
   relation: ['kind', 'cardinality'],
   entry: ['path', 'role'],
   reading: ['value', 'valueStatus'],
+  branch: ['condition'],
 };
 
 /** The definitions of a document, in document order, for the term auto-link (§13.3). */
@@ -2338,6 +2531,9 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
   if (upstream.length > 0 || !bundle.docId || !bundle.sourceRevision || !bundle.manifest) {
     throw new CompileError(upstream.length > 0 ? bundle.diagnostics : [{ code: 'E_SYNTAX', severity: 'error', message: 'bundle has no docId or source revision', path: 'index.md' }]);
   }
+  const mermaidTotal = mermaidMathTotal(bundle.model.mermaid.values());
+  const mathValidation = await validateMath(parsedMathRequests(bundle.parsed), { initialTotal: mermaidTotal });
+  if (mathValidation.diagnostics.some(d => d.severity === 'error')) throw new CompileError(mathValidation.diagnostics);
   const effectiveRenderOptions = { audience: options.audience, includeSource: options.includeSource, layoutFallback: options.layoutFallback };
   // Extensions that run for this build are part of its identity (§4.4, §7.4).
   const used = new Set(componentInputs(bundle.model).map((c) => c.use));
@@ -2358,7 +2554,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
   const docId = bundle.docId;
   const sourceRevision = bundle.sourceRevision;
   const directory = `d/${docId}/${sourceRevision}/${buildId}`;
-  const r = new Renderer(bundle, options);
+  const r = new Renderer(bundle, options, mathValidation.conversions);
 
   let page: string;
   try {
@@ -2368,9 +2564,20 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const title = typeof fm['title'] === 'string' ? fm['title'] : 'Explanation';
     const topLevel = [...r.targets.values()].filter((t) => t.parentId === undefined);
     const firstIsH1 = topLevel[0]?.kind === 'heading' && r.nodes.get(topLevel[0].id)?.attributes['level'] === 1;
+    const visibleTitle = firstIsH1 ? null : r.richText(title);
+    let mathTotal = mermaidTotal;
+    for (const key of r.mathOccurrences) {
+      const conversion = mathValidation.conversions.get(key);
+      if (!conversion) throw new CompileError([{ code: 'E_MATH', severity: 'error', message: 'rendered math was not validated', path: 'index.md' }]);
+      try { mathTotal = reserveMathOccurrences(mathTotal, insertedMathCost(conversion), 1); }
+      catch { throw new CompileError([{ code: 'E_LIMIT', severity: 'error', message: 'rendered math occurrences exceed the document budget', path: 'index.md' }]); }
+    }
+    const needsMath = r.mathExpressions.size > 0;
     const assetBase = `../../../../_visser/assets/${toolkit.sha256}`;
     const jsSha = toolkit.assets?.['reader.js'];
     const cssSha = toolkit.assets?.['reader.css'];
+    const mathSha = toolkit.assets?.['math.js'];
+    if (needsMath && !mathSha) throw new CompileError([{ code: 'E_INTEGRITY', severity: 'error', message: 'math rendering requires the matching math.js browser asset', path: 'index.md' }]);
     const capturedAt = typeof fm['capturedAt'] === 'string' ? fm['capturedAt'] : 'unknown';
     const visibility = typeof fm['visibility'] === 'string' ? fm['visibility'] : 'private';
     // One compact line after the title (§10.1); full identifiers are in
@@ -2392,12 +2599,14 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     const doc = h('html', { lang: 'en' },
       h('head', {},
         h('meta', { charset: 'utf-8' }),
-        h('meta', { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy({ mermaid: r.usesMermaid, delivery: 'meta' }) }),
+        h('meta', { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy({ mermaid: r.usesMermaid, math: needsMath, delivery: 'meta' }) }),
         h('meta', { name: 'referrer', content: 'no-referrer' }),
         h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
         fm['visibility'] !== 'public' ? h('meta', { name: 'robots', content: 'noindex, nofollow' }) : null,
         h('title', {}, r.safeText(title)),
         h('link', { rel: 'stylesheet', href: `${assetBase}/reader.css`, integrity: cssSha ? integrity(cssSha) : undefined }),
+        needsMath ? h('meta', { name: 'vs-math-expressions', content: JSON.stringify([...r.mathExpressions.values()]) }) : null,
+        needsMath ? h('script', { src: `${assetBase}/math.js`, defer: true, integrity: integrity(mathSha!) }) : null,
         h('script', { src: `${assetBase}/reader.js`, defer: true, integrity: jsSha ? integrity(jsSha) : undefined }),
         // The runtime loads mermaid.js with this integrity value only on pages that need it (§9.12).
         r.usesMermaid ? h('meta', { name: DOM.mermaidMeta, content: mermaidIntegrity }) : null),
@@ -2412,7 +2621,7 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
         h('main', { id: DOM.root, [DOM.attr.doc]: docId, [DOM.attr.rev]: sourceRevision, [DOM.attr.build]: buildId },
           titleBlocks,
           h('header', { class: 'vs-snapshot' },
-            firstIsH1 ? null : h('h1', {}, r.safeText(title)),
+            firstIsH1 ? null : h('h1', {}, visibleTitle),
             snapshotBrief,
             snapshotLine),
           bodyBlocks,
@@ -2450,8 +2659,8 @@ export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, op
     ...(executed.length > 0 ? { extensions: executed } : {}),
     sourceFiles: bundle.manifest.files.map((f) => ({ path: f.path, sha256: f.sha256 })),
     outputFiles: files.map((f) => ({ path: f.path.slice(directory.length + 1), sha256: sha256Hex(f.bytes), mediaType: f.mediaType })),
-    assets: ['reader.css', 'reader.js', ...(r.usesMermaid ? ['mermaid.js'] : [])].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),
+    assets: ['reader.css', 'reader.js', ...(r.usesMermaid ? ['mermaid.js'] : []), ...(r.mathExpressions.size ? ['math.js'] : [])].map((path) => ({ packSha256: toolkit.sha256, path, ...(toolkit.assets?.[path] ? { sha256: toolkit.assets[path] } : {}) })),
   };
   add('build.json', encoder.encode(canonicalJSON(manifest) + '\n'), 'application/json');
-  return { docId, sourceRevision, buildId, directory, files, manifest, diagnostics: r.diagnostics, needsMermaid: r.usesMermaid };
+  return { docId, sourceRevision, buildId, directory, files, manifest, diagnostics: r.diagnostics, needsMermaid: r.usesMermaid, needsMath: r.mathExpressions.size > 0 };
 }

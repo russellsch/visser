@@ -2,7 +2,7 @@
 // content, size limit, diagram classification, and the name-to-ID mapping.
 import type { MermaidDiagramType } from './types.ts';
 
-export type MermaidIssue = { code: string; message: string; line?: number };
+export type MermaidIssue = { code: string; message: string; line?: number; startByte?: number; endByte?: number };
 
 /** §9.12 source limit. */
 export const MERMAID_SOURCE_LIMIT = 64 * 1024;
@@ -20,7 +20,8 @@ const BLOCK_COLOUR = /^(rgba?\(\s*[\d.%]+\s*(,\s*[\d.%]+\s*){2,3}\)|#[0-9a-fA-F]
 // Real stereotypes only (`<<choice>>`, `<<interface>>`); `<<a href=…>>` is a tag.
 const STEREOTYPE = /<<[A-Za-z0-9_ -]+>>/g;
 // Mermaid entity codes (`#quot;`, `#35;`) are garbled by the renderer.
-const ENTITY_CODE = /#([A-Za-z]+|\d+);/;
+// Match the pinned renderer's complete encodeEntities token grammar.
+const ENTITY_CODE = /#\w+;/;
 
 /** Normalize a fenced body: strip one BOM and use LF line endings. */
 export function normalizeMermaidSource(source: string): string {
@@ -54,7 +55,7 @@ export function declaredTypeOf(source: string): string {
 }
 
 export function diagramTypeOf(declaredType: string): MermaidDiagramType {
-  if (declaredType === 'flowchart' || declaredType === 'graph' || declaredType === 'flowchart-elk') return 'flowchart';
+  if (declaredType === 'flowchart' || declaredType === 'graph' || declaredType === 'flowchart-elk' || declaredType === 'swimlane-beta') return 'flowchart';
   if (declaredType === 'stateDiagram' || declaredType === 'stateDiagram-v2') return 'state';
   if (declaredType === 'sequenceDiagram') return 'sequence';
   return 'other';
@@ -147,6 +148,7 @@ export function checkMermaidSource(source: string): MermaidIssue[] {
     return issues;
   }
   const lines = text.split('\n');
+  const family = declaredTypeOf(text) || 'unknown';
 
   // Frontmatter configuration: the first non-blank line is `---`.
   const first = lines.findIndex((l) => l.trim() !== '');
@@ -156,6 +158,11 @@ export function checkMermaidSource(source: string): MermaidIssue[] {
 
   lines.forEach((line, index) => {
     const lineNo = index + 1;
+    // Pie math has a grammar-scoped extractor in the isolated parse worker.
+    // Other families retain the conservative guard until similarly covered.
+    if (family !== 'erDiagram' && family !== 'info' && family !== 'kanban' && family !== 'requirementDiagram' && family !== 'radar-beta' && family !== 'radar-beta:' && family !== 'sankey' && family !== 'sankey-beta' && family !== 'xychart' && family !== 'xychart-beta' && family !== 'quadrantChart' && family !== 'journey' && family !== 'pie' && family !== 'timeline' && family !== 'flowchart' && family !== 'graph' && family !== 'flowchart-elk' && family !== 'swimlane-beta' && family !== 'sequenceDiagram' && family !== 'stateDiagram' && family !== 'stateDiagram-v2' && !COMMENT_LINE.test(line) && line.includes('$$')) {
+      issues.push({ code: 'E_MATH', message: `Mermaid ${family} math adapter is not implemented; $$ labels cannot be exported yet`, line: lineNo });
+    }
     // Directives take effect anywhere, including after the header and indented.
     if (/%%\s*\{/.test(line)) {
       issues.push({ code: 'E_UNSAFE_CONTENT', message: '`%%{…}%%` directives are not allowed; the toolkit sets the configuration', line: lineNo });

@@ -1,0 +1,24 @@
+{
+  "version": "0.16.47",
+  "options": {
+    "throwOnError": true,
+    "displayMode": true,
+    "output": "mathml"
+  },
+  "equations": {
+    "valid": {
+      "ok": true,
+      "math": true,
+      "bytes": 225
+    },
+    "invalid": {
+      "ok": false,
+      "error": "ParseError: KaTeX parse error: Undefined control sequence: \\notacommand at position 1: \\̲n̲o̲t̲a̲c̲o̲m̲m̲a̲n̲d̲{x}"
+    },
+    "matrix": {
+      "ok": true,
+      "math": true,
+      "bytes": 625
+    }
+  }
+}

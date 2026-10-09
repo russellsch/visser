@@ -607,7 +607,78 @@ retiredTargets:
 # A full queue blocks producers
 ```
 
-## 10. Diagnostics and fixes
+## 10. Equations
+
+Use `$...$` for inline LaTeX and standalone `$$` lines for an unnumbered display.
+Keep whitespace outside inline delimiters. Code spans, fenced examples and captured
+source remain literal. Escape an ordinary dollar as `\$` when it could be mistaken
+for a math delimiter.
+
+```markdown visser-valid
+<!-- vs:id p_ratio -->
+The ratio is $\frac{a}{b}$; `$x$` is a literal code example.
+
+<!-- vs:id display_ratio -->
+$$
+\frac{a+b}{c}
+$$
+```
+
+Use an `equation` tag for an equation with an ID and number. Its body is raw LaTeX:
+do not wrap it in dollar delimiters. `eqref` resolves forward references and displays
+the source-order number. Keep the equation ID when moving it; numbers may change.
+Use `aligned` inside an equation for multiple aligned lines. LaTeX `\label`, `\ref`
+and automatic numbering environments are not the Visser reference mechanism.
+
+```markdown visser-valid
+<!-- vs:id p_energy -->
+See {% eqref ref="eq_energy" /%}.
+
+{% equation id="eq_energy" %}
+\begin{aligned}
+E &= mc^2 \\
+p &= mv
+\end{aligned}
+{% /equation %}
+```
+
+A reference to a missing equation is `E_REF_BROKEN`:
+
+```markdown visser-invalid E_REF_BROKEN
+<!-- vs:id p_missing_equation -->
+See {% eqref ref="eq_missing" /%}.
+```
+
+Readable label attributes also accept inline math. Escape each backslash twice in a
+quoted Markdoc attribute; ordinary Markdown and raw equation bodies use one.
+Keep each opening tag on one line.
+
+```markdown visser-valid
+{% detail id="d_ratio" label="Ratio $\\frac{a}{b}$" %}
+The numerator and denominator have the same units.
+{% /detail %}
+```
+
+The schema-accepted `detail.summary` and `cite.note` fields currently have no display
+consumer and remain literal; they do not create math occurrences. Custom string
+facts on extension parts are displayed and do accept math.
+
+The pinned renderer supports standard equations, including fractions, scripts,
+roots, matrices and aligned expressions. Custom macros, package loading, HTML,
+URLs and renderer styling commands are unsupported. `visser check` reports invalid
+or unsupported expressions as `E_MATH`; source, output or execution limits produce
+`E_LIMIT`. Correct the expression before building or exporting.
+
+The current implementation retains readable LaTeX if JavaScript or conversion is
+unavailable. Long display equations scroll locally. Print uses wrapped source;
+native figures with math print their complete text view. Copy LaTeX copies the
+original expression; Copy reference uses authored source and stable equation IDs.
+
+Mermaid math support is deferred for this release. Do not rely on `$$...$$`
+in Mermaid source; use Visser-owned Markdown and native figures for supported
+math. Existing Mermaid diagrams retain their ordinary source/list fallback.
+
+## 11. Diagnostics and fixes
 
 | Code | Cause | Fix |
 |---|---|---|
@@ -617,6 +688,8 @@ retiredTargets:
 | `E_UNSAFE_CONTENT` | Raw HTML, a variable, a function, `if` or `partial`, unsafe Mermaid content, or a repository URL with credentials. | Remove it. Put example code in a fence. |
 | `E_SEMANTIC` | The content breaks a family rule (for example a cycle, a live and retired ID, or a link-only source with a body). | Change the content to meet the rule in the message. |
 | `E_REF_BROKEN` | A reference names an unknown ID or a target of the wrong tag, or a declared file is missing. | Point the reference at an existing target of the correct tag. |
+| `E_MATH` | Invalid or unsupported LaTeX. | Correct the reported expression using the supported equation syntax. Mermaid math is deferred and is not a supported authoring path. |
+| `E_LIMIT` | A source, output, geometry or execution budget is exceeded. | Reduce the expression or document size described in the diagnostic. |
 | `E_EVIDENCE_HASH` | The captured body does not match `excerptSha256`, or the hash is missing. | Capture again with `visser capture … --recapture`. Do not edit the hash. |
 | `E_SPAN_UNPROVEN` | The parser cannot prove the byte range of a target. | Keep each marker, tag opening, and tag closing on its own line, then run `visser check` again. If the error stays, report it. |
 

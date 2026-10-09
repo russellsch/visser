@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {registerHooks} from 'node:module';
+import {kanbanContractLoadHook} from '../../../scripts/mermaid-kanban-contract.mjs';
+registerHooks({load:kanbanContractLoadHook()});
+import DOMPurify from 'dompurify';
+import {JSDOM} from 'jsdom';
+import {normalizeKanbanField} from '../../../packages/core/src/mermaid/kanban-normalize.ts';
+import {ProvenanceText} from '../../../packages/core/src/mermaid/source-provenance.ts';
+const window=new JSDOM('').window,purifier=DOMPurify(window);
+Object.assign(DOMPurify,{sanitize:purifier.sanitize,addHook:purifier.addHook});
+const mermaid=(await import('mermaid')).default;
+const {getConfig,sanitizeText}=await import('../../../node_modules/mermaid/dist/chunks/mermaid.core/chunk-O7XYJQB3.mjs');
+const {decodeEntities}=await import('../../../node_modules/mermaid/dist/chunks/mermaid.core/chunk-ZIGJFQKS.mjs');
+const {diagram,visserPrepareKanbanSanitizer,visserCaptureKanbanDb,visserKanbanContractVersion}=await import('../../../node_modules/mermaid/dist/chunks/mermaid.core/kanban-definition-PNTS6WVX.mjs');
+assert.equal(visserKanbanContractVersion,3);
+mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels:false});
+const initialConfig=getConfig();
+diagram.db.clear();diagram.db.addNode(0,'sentinel','Sentinel',0);
+const initialDb=visserCaptureKanbanDb();
+visserPrepareKanbanSanitizer();visserPrepareKanbanSanitizer();
+assert.deepStrictEqual(getConfig(),initialConfig);
+assert.deepStrictEqual(visserCaptureKanbanDb(),initialDb);
+const corpus=['','plain','$$x$$','<br/> &dollar;&dollar;x&dollar;&dollar;','<b>bold $$x$$</b>','<script>$$bad$$</script>safe','<style>x</style><br>$$x<y$$','ﬂ°amp¶ß $$xﬂ°amp¶ßy$$','**bold** $$x$$','$$\\begin{matrix}a&b\\\\c&d\\end{matrix}$$','<a href="https://example.test" target="_blank">$$x$$</a>'];
+let cases=0;
+for(const htmlLabels of (process.argv.includes('--svg-first')?[false,true]:[true,false]))for(const role of ['section','title','ticket','assigned'])for(const input of corpus){
+ mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels});
+ const db=diagram.db;db.clear();
+ // Empty metadata is falsy, so the original base value is also empty.
+ const labelRole=role==='section'||role==='title';
+ db.addNode(0,'column',role==='section'?'':'Column',2,role==='section'?`label: ${JSON.stringify(input)}`:undefined);
+ db.addNode(1,'item','',2,role==='section'?undefined:`${labelRole?'label':role}: ${JSON.stringify(input)}`);
+ const data=db.getData().nodes;
+ const fromDb=role==='section'?data[0].label:role==='title'?data[1].label:(data[1][role]||'');
+ getConfig().htmlLabels=false;
+ const expected=role==='section'?fromDb:sanitizeText(decodeEntities(fromDb),getConfig());
+ const actual=await normalizeKanbanField(ProvenanceText.identity(input),role,htmlLabels);
+ if(labelRole)assert.equal(actual.db.value.text,fromDb);
+ else assert.equal(actual.db,undefined);
+ assert.equal(actual.nativeInput.text,expected,`${role}, htmlLabels=${htmlLabels}, input=${input}`);
+ if(role==='section')assert.equal(actual.renderer,undefined);
+ else assert.equal(actual.renderer.value.text,expected);
+ assert.equal(actual.inputs.length,role==='section'?2:role==='title'?4:3);
+ cases++;
+}
+window.close();console.log(JSON.stringify({cases}));

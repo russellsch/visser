@@ -1,0 +1,9 @@
+{"label":"true","value":true,"rendered":false,"error":"TypeError: Cannot read properties of undefined (reading 'replace')"}
+{"label":"12","value":12,"rendered":false,"error":"TypeError: Cannot read properties of undefined (reading 'replace')"}
+{"label":"false","value":"Before","rendered":true,"math":0,"text":"Before"}
+{"label":"0","value":"Before","rendered":true,"math":0,"text":"Before"}
+{"label":"null","value":"Before","rendered":true,"math":0,"text":"Before"}
+{"label":"\"\"","value":"Before","rendered":true,"math":0,"text":"Before"}
+{"label":"[\"$$x$$\", \"$$y$$\"]","value":["$$x$$","$$y$$"],"rendered":true,"math":1,"text":"x"}
+{"label":"{text: \"$$x$$\"}","rendered":false,"error":"Error: Lexical error on line 3. Unrecognized text.\n...el: {text: \"$$x$$\"} }\n-----------------------^"}
+{"label":"\"\\u0024\\u0024x\\u0024\\u0024\"","value":"$$x$$","rendered":true,"math":1,"text":"x"}

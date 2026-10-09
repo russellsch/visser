@@ -907,7 +907,7 @@ Required attributes: `id`, `title`, `question`, and `source` reference. `annotat
 
 Before and after (revision 1.27, IMPROVEMENTS.md §14.7): an optional `before` names a second captured text source, and an `annotation` takes `side="before" | "after"` (default `after`) with `lines` in that source's numbering. The build computes a line diff (the longest common subsequence of lines, `model/diff.ts`), so the output is deterministic. On a window 900 px or wider the two sources sit side by side, with gap rows that keep equal lines in line; below that they stack. A removed line has a "−" sign and an added line a "+" sign; the tint is the second cue. The text projection names both sources, prints the diff as a `diff` fence, and gives each annotation its side. Above 80 lines on one side the validator gives `W_VISUAL_DENSITY`, and above 2,000 lines on one side `E_LIMIT` (revision 1.28). The diff strips the common prefix and suffix before it compares, and its table is a flat `Uint32Array`, so the memory stays bounded; the build computes the diff once and the page and the projection share it. Every fence of the projection is one backtick longer than the longest run of backticks in its content, so no excerpt line closes it. The sign of a changed line is `aria-hidden`, and a visually hidden word ("removed:", "added:") names the change. Each line of an annotated excerpt has a fixed marker column, so the code starts in one column.
 
-Desktop: artifact with annotations beside it; mobile: annotated spans/regions with an ordered annotation list. The image's explanatory text and each meaningful region description must exist in source. Code is syntax-highlighted at build time; unknown languages remain escaped plain code. Inline formulas are ordinary text/code in v1; a specialized mathematical typesetter is deferred.
+Desktop: artifact with annotations beside it; mobile: annotated spans/regions with an ordered annotation list. The image's explanatory text and each meaningful region description must exist in source. Code is syntax-highlighted at build time; unknown languages remain escaped plain code. Authored explanatory text supports `$...$`, standalone `$$` blocks, and numbered `equation`/`eqref` syntax through the pinned MathJax base+AMS profile. Code and captured source remain literal. Conversion failure retains readable LaTeX; Mermaid math support is deferred.
 
 ### 9.11 What is deliberately not a component
 
@@ -2250,7 +2250,7 @@ At least the Phase 1 vertical slice must be completed before spending effort on 
 
 The product is not a live repository browser or incident-analysis engine. It cannot guarantee source hosting remains available, prevent a human from reusing an ID incorrectly, fully sandbox trusted extensions, eliminate all races with arbitrary filesystem writers, or prove that an explanation is true or pedagogically effective.
 
-The first release has one primary narrative file, no arbitrary HTML/JS, no live common-content includes, no custom mathematical typesetter, no browser editor, no source execution, no automated public deployment, and no cross-origin runtime CDN mode.
+The first release has one primary narrative file, no arbitrary HTML/JS, no live common-content includes, no browser editor, no source execution, no automated public deployment, and no cross-origin runtime CDN mode.
 
 These are scope boundaries, not missing hidden requirements. They preserve the core: readable canonical source, high-quality visual explanation, compact shared delivery, and reliable human-to-agent references.
 

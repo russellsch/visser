@@ -5,8 +5,9 @@
 import { DOM } from './dom-contract.ts';
 import { h, type HNode } from './html.ts';
 import { depthAction, type InspectionDepth } from '../model/inspection.ts';
-import { chooseLabelWidth, LINE_HEIGHT, MARKED_PAD_X, NODE_LABEL_WIDTHS, NODE_PAD_X, round3, textWidth, wrapText, type GraphLayout, type Point } from './layout.ts';
+import { chooseLabelWidth, LINE_HEIGHT, MARKED_PAD_X, NODE_LABEL_WIDTHS, NODE_PAD_X, round3, textWidth, wrapText, type GraphInput, type GraphLayout, type Point } from './layout.ts';
 import { BAND_FILL, BAND_STROKE, BRANCH_BANDS, CATEGORY_HEX, catClasses, EVENT_CUES, filterToken, NODE_FILL, outline, presentationHue, styleFor, type Category, type PartStyle } from './encoding.ts';
+import { measureRichSegments, type RichLine, type RichMathRun, type RichTextRun } from './math-text.ts';
 
 export type SvgInput = {
   figureId: string;
@@ -41,6 +42,8 @@ export type SvgInput = {
   collapsed?: readonly string[];
   parentOf?: (id: string) => string | undefined;
   depthOf?: (id: string, view: 'map') => InspectionDepth;
+  /** Called for every native math slot, including folded and proxy labels. */
+  onMath?: (key: string, tex: string) => void;
 };
 
 /** Split a label line into plain text and uses of defined terms. */
@@ -132,6 +135,91 @@ function textLines(lines: string[], cx: number, top: number, className: string, 
       : h('tspan', { class: 'vs-node-meta', x: n(cx), dy: i === 0 ? '1em' : String(LINE_HEIGHT), 'fill-opacity': MUTED_OPACITY }, line)));
 }
 
+/** Keep term identities across wrapped plain runs, stopping at math boundaries. */
+function richTextContent(lines: readonly RichLine[], termsOf: TermsOf | undefined, quantity: string | undefined): Map<object, Array<HNode | string>> {
+  const out = new Map<object, Array<HNode | string>>();
+  const seen = new Set<string>();
+  const quantityToken = quantity ? `(${quantity.split(/\s+/).filter(Boolean).join(' ')})` : '';
+  let joined = '';
+  let pieces: Array<{ run: { kind: 'text'; text: string }; from: number; to: number }> = [];
+  let previousLine = -1;
+  const flush = () => {
+    if (pieces.length === 0) return;
+    const quantityAt = quantityToken ? joined.lastIndexOf(quantityToken) : -1;
+    const quantityEnd = quantityAt < 0 ? -1 : quantityAt + quantityToken.length;
+    let position = 0;
+    for (const segment of termsOf ? termsOf(joined) : [joined]) {
+      const value = typeof segment === 'string' ? segment : segment.text;
+      const from = position, to = position + value.length;
+      position = to;
+      const quiet = typeof segment !== 'string' && seen.has(segment.defId);
+      if (typeof segment !== 'string') seen.add(segment.defId);
+      for (const piece of pieces) {
+        const start = Math.max(from, piece.from), end = Math.min(to, piece.to);
+        if (start >= end) continue;
+        const cuts = [start, ...[quantityAt, quantityEnd].filter((n) => n > start && n < end), end];
+        const content = out.get(piece.run) ?? [];
+        for (let i = 0; i + 1 < cuts.length; i++) {
+          const a = cuts[i]!, b = cuts[i + 1]!;
+          const text = joined.slice(a, b);
+          if (quantityAt >= 0 && a >= quantityAt && b <= quantityEnd) {
+            content.push(h('tspan', { class: 'vs-edge-quantity', 'fill-opacity': MUTED_OPACITY }, text));
+          } else if (typeof segment === 'string') content.push(text);
+          else content.push(h('tspan', { class: quiet ? 'vs-term vs-term-quiet' : 'vs-term', [DOM.attr.term]: segment.defId }, text));
+        }
+        out.set(piece.run, content);
+      }
+    }
+    joined = ''; pieces = []; previousLine = -1;
+  };
+  lines.forEach((line, lineIndex) => {
+    for (const run of line.runs) {
+      if (run.kind === 'math') { flush(); continue; }
+      if (!run.text) continue;
+      if (pieces.length > 0 && previousLine !== lineIndex) joined += ' ';
+      pieces.push({ run, from: joined.length, to: joined.length + run.text.length });
+      joined += run.text;
+      previousLine = lineIndex;
+    }
+  });
+  flush();
+  return out;
+}
+
+function richVisual(
+  lines: readonly RichLine[], x: number, top: number, className: string,
+  termsOf: TermsOf | undefined, onMath: SvgInput['onMath'],
+  opts: { centered?: boolean; muted?: number; fill?: string; quantity?: string } = {},
+): HNode {
+  let y = top;
+  const labelCount = Math.max(0, lines.length - (opts.muted ?? 0));
+  const contentOf = richTextContent(lines.slice(0, labelCount), termsOf, opts.quantity);
+  const segments = lines.map((line, i) => {
+    const baseline = y + line.ascent;
+    let at = opts.centered === false ? x : x - line.width / 2;
+    const muted = i >= labelCount;
+    const out: HNode[] = [];
+    for (const run of line.runs) {
+      if (run.kind === 'math') {
+        onMath?.(run.key, run.tex);
+        const metric = run as RichMathRun;
+        out.push(h('svg', { class: 'vs-math-native', 'data-vs-math-native': '', 'data-vs-math-key': run.key,
+          x: n(at), y: n(baseline - metric.ascent), width: n(metric.width), height: n(metric.height),
+          viewBox: `0 0 ${n(metric.width)} ${n(metric.height)}`, 'aria-hidden': 'true', focusable: 'false',
+          'fill-opacity': muted ? MUTED_OPACITY : undefined }));
+      } else if (run.text) {
+        out.push(h('text', { class: muted ? 'vs-node-meta' : undefined, x: n(at), y: n(baseline), 'font-size': 14,
+          fill: opts.fill ?? '#1a1a1a', 'fill-opacity': muted ? MUTED_OPACITY : undefined },
+          muted ? run.text : contentOf.get(run) ?? run.text));
+      }
+      at += run.width;
+    }
+    y += line.height;
+    return h('g', { class: 'vs-rich-line' }, out);
+  });
+  return h('g', { class: className }, segments);
+}
+
 function arrowMarker(id: string, fill: string, className?: string): HNode {
   return h('marker', { id, class: className, viewBox: '0 0 10 10', refX: '10', refY: '5', markerWidth: '8', markerHeight: '8', orient: 'auto-start-reverse', markerUnits: 'userSpaceOnUse' },
     h('path', { d: 'M0,0 L10,5 L0,10 z', fill }));
@@ -216,6 +304,9 @@ export function graphSvg(input: SvgInput): HNode {
       e.points.length > 1 ? h('path', { class: 'vs-line', d, fill: 'none', stroke, 'stroke-width': style.emphasis ? '2.5' : '1.5', 'stroke-dasharray': style.dash, 'marker-start': style.marks?.includes('diamond') ? `url(#${marker}-diamond)` : undefined, 'marker-end': endMarker(style) }) : null,
       style.marks?.includes('loop') ? loopMark(e.points) : null,
       e.label ? h('rect', { class: 'vs-edge-label-bg', x: n(e.label.x + MARGIN), y: n(e.label.y + MARGIN), width: n(e.label.width), height: n(e.label.height), rx: '3', ry: '3', fill: '#ffffff' }) : null,
+      e.label?.richLines ? richVisual(e.label.richLines, e.label.x + MARGIN + e.label.width / 2,
+        e.label.y + MARGIN + Math.max(1, (e.label.height - e.label.richLines.reduce((sum, line) => sum + line.height, 0)) / 2),
+        'vs-edge-label', input.termsOf, input.onMath, { fill: labelFill, quantity }) :
       e.label ? h('text', { class: 'vs-edge-label', x: n(e.label.x + MARGIN + e.label.width / 2), y: n(e.label.y + MARGIN), 'text-anchor': 'middle', 'font-size': 14, fill: labelFill },
         ((content) => e.label!.lines.map((_, i) => h('tspan', { x: n(e.label!.x + MARGIN + e.label!.width / 2), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, content[i])))(labelContent(e.label.lines, input.termsOf, quantityRange(e.label.lines, quantity)))) : null,
       e.label ? depthMeter(depth, e.label.x + MARGIN + e.label.width - 9, e.label.y + MARGIN + 3) : null);
@@ -248,9 +339,11 @@ export function graphSvg(input: SvgInput): HNode {
       ((depth) => h(depth === 'bare' ? 'g' : 'a', { class: 'vs-group', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(g.id)}`, id: DOM.svgInstanceId(figureId, g.id), [DOM.attr.target]: g.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${input.labelOf(g.id)} (boundary); ${depthAction(depth)}` },
         h('rect', { x: n(g.x + MARGIN), y: n(g.y + MARGIN), width: n(g.width), height: n(g.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1' }),
         interactionBox(g.x + MARGIN, g.y + MARGIN, g.width, g.height),
-        h('text', { class: 'vs-group-label', x: n(g.x + MARGIN + 12), y: n(g.y + MARGIN + 20), 'font-size': 13, fill: '#3a4250' }, labelContent([input.labelOf(g.id)], input.termsOf)[0]),
+        g.richLines ? richVisual(g.richLines, g.x + MARGIN + 12, g.y + MARGIN + 6,
+          'vs-group-label', input.termsOf, input.onMath, { centered: false, fill: '#3a4250' })
+          : h('text', { class: 'vs-group-label', x: n(g.x + MARGIN + 12), y: n(g.y + MARGIN + 20), 'font-size': 13, fill: '#3a4250' }, labelContent([input.labelOf(g.id)], input.termsOf)[0]),
         depthMeter(depth, g.x + MARGIN + g.width - 12, g.y + MARGIN + 5)))(input.depthOf?.(g.id, 'map') ?? 'explanation'),
-      boxOf.has(g.id) ? foldBox(boxOf.get(g.id)!, input.labelOf(g.id)) : null,
+      boxOf.has(g.id) ? foldBox(boxOf.get(g.id)!, input.labelOf(g.id), input) : null,
       boxOf.has(g.id) ? foldToggle(boxOf.get(g.id)!, input.labelOf(g.id)) : null,
     ]),
     layout.edges.map((e) => edgeElement(e)),
@@ -267,7 +360,10 @@ export function graphSvg(input: SvgInput): HNode {
       return h(depth === 'bare' ? 'g' : 'a', { class: classes, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${accessible}${style.emphasis ? '; emphasized' : ''}; ${depthAction(depth)}`, 'data-vs-emphasis': style.emphasis, [DOM.attr.filter]: input.filterOf?.(node.id) },
         outline(style, node.x + MARGIN, node.y + MARGIN, node.width, node.height),
         interactionBox(node.x + MARGIN, node.y + MARGIN, node.width, node.height),
-        textLines(node.lines, node.x + MARGIN + node.width / 2, node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.mutedLinesOf?.(node.id) ?? 0),
+        node.richLines ? richVisual(node.richLines, node.x + MARGIN + node.width / 2,
+          node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.onMath,
+          { muted: input.mutedLinesOf?.(node.id) ?? 0 })
+          : textLines(node.lines, node.x + MARGIN + node.width / 2, node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.mutedLinesOf?.(node.id) ?? 0),
         depthMeter(depth, node.x + MARGIN + node.width - 12, node.y + MARGIN + 5));
     }),
     // A terminal proxy-label fallback sits in the right gutter. It overlays
@@ -288,9 +384,15 @@ export function graphSvg(input: SvgInput): HNode {
         h('rect', { class: 'vs-proxy-callout-bg', x: n(rect.x + MARGIN), y: n(rect.y + MARGIN), width: n(rect.width), height: n(rect.height), rx: '3', ry: '3' }),
         h('rect', { class: 'vs-proxy-callout-key', x: n(keyX + MARGIN - 7), y: n(keyY + MARGIN - 7), width: '14', height: '14', rx: '7', ry: '7', 'aria-hidden': 'true' }),
         h('text', { class: 'vs-proxy-callout-key-text', x: n(keyX + MARGIN), y: n(keyY + MARGIN + 4), 'text-anchor': 'middle', 'font-size': '12', 'aria-hidden': 'true' }, callout.key),
-        h('text', { class: 'vs-proxy-callout-context', x: n(rect.x + MARGIN + 20), y: n(rect.y + MARGIN + 15), 'font-size': '12' }, text),
-        h('text', { class: 'vs-edge-label', x: n(rect.x + MARGIN + rect.width / 2), y: n(rect.y + MARGIN + 18), 'text-anchor': 'middle', 'font-size': 14 },
-          proxy.edge.label!.lines.map((line, i) => h('tspan', { x: n(rect.x + MARGIN + rect.width / 2), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, line))));
+        callout.contextRich ? richVisual([callout.contextRich], rect.x + MARGIN + 20,
+          rect.y + MARGIN + 1, 'vs-proxy-callout-context', undefined, input.onMath, { centered: false })
+          : h('text', { class: 'vs-proxy-callout-context', x: n(rect.x + MARGIN + 20), y: n(rect.y + MARGIN + 15), 'font-size': '12' }, text),
+        proxy.edge.label!.richLines ? richVisual(proxy.edge.label!.richLines, rect.x + MARGIN + rect.width / 2,
+          rect.y + MARGIN + (callout.contextRich?.height ?? LINE_HEIGHT) + 2, 'vs-edge-label', input.termsOf, input.onMath)
+          : h('text', { class: 'vs-edge-label', x: n(rect.x + MARGIN + rect.width / 2),
+            y: n(rect.y + MARGIN + (callout.contextRich ? callout.contextRich.height + 2 : 18)),
+            'text-anchor': 'middle', 'font-size': 14 },
+            proxy.edge.label!.lines.map((line, i) => h('tspan', { x: n(rect.x + MARGIN + rect.width / 2), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, line))));
     }));
 }
 
@@ -306,8 +408,8 @@ export function graphSvg(input: SvgInput): HNode {
 // group, so no proxy crosses a part that stays visible.
 
 type Rect = { x: number; y: number; width: number; height: number };
-type FoldBox = Rect & { group: string; count: number; hide: string[]; area: Rect };
-type ProxyCallout = { rect: Rect; attachment: Point; keyPoint: Point; text: string; key: string };
+type FoldBox = Rect & { group: string; count: number; hide: string[]; area: Rect; richLines?: RichLine[] };
+type ProxyCallout = { rect: Rect; attachment: Point; keyPoint: Point; text: string; key: string; contextRich?: RichLine };
 type Proxy = { edge: GraphLayout['edges'][number]; id: string; from: string; to: string; ends: string; callout?: ProxyCallout };
 
 const FOLD_BOX_HEIGHT = LINE_HEIGHT + 16;
@@ -351,6 +453,29 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
   // The collapsible groups around a node, innermost first.
   const chain = (id: string): string[] => collapsed.filter((g) => inside(id, g)).sort((a, b) => (inside(a, b) ? -1 : inside(b, a) ? 1 : 0));
   const ends = new Map(layout.edges.map((e) => [e.id, input.relationship(e.id)]));
+  const richLabels = new Map<string, RichLine[]>([
+    ...layout.nodes.map((n) => [n.id, n.richLines] as const),
+    ...layout.groups.map((g) => [g.id, g.richLines] as const),
+    ...layout.edges.map((e) => [e.id, e.label?.richLines] as const),
+  ].filter((entry): entry is readonly [string, RichLine[]] => entry[1] !== undefined));
+  const contextLine = (ids: readonly string[]): RichLine | undefined => {
+    if (!ids.some((id) => richLabels.has(id))) return undefined;
+    const runs: Array<RichTextRun | RichMathRun> = [];
+    const addText = (text: string) => runs.push({ kind: 'text', text, width: textWidth(text) });
+    ids.forEach((id, index) => {
+      if (index > 0) addText(' → ');
+      const lines = richLabels.get(id);
+      if (!lines) addText(input.labelOf(id));
+      else lines.forEach((line, lineIndex) => {
+        if (lineIndex > 0) addText(' ');
+        runs.push(...line.runs);
+      });
+    });
+    const ascent = Math.max(14, ...runs.map((run) => run.kind === 'math' ? run.ascent : 14));
+    const descent = Math.max(4, ...runs.map((run) => run.kind === 'math' ? run.descent : 4));
+    return { runs, width: round3(runs.reduce((sum, run) => sum + run.width, 0)), ascent, descent,
+      height: Math.max(LINE_HEIGHT, round3(ascent + descent)) };
+  };
   const boxes: FoldBox[] = [];
   for (const group of collapsed) {
     const area = groupRects.get(group);
@@ -362,11 +487,14 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
       return r !== undefined && inside(r.from, group) && inside(r.to, group);
     }).map((e) => e.id);
     const text = foldText(input.labelOf(group), nodes.length);
-    const width = Math.min(area.width, Math.ceil(textWidth(text.label + text.count) + 2 * NODE_PAD_X));
-    const height = Math.min(area.height, FOLD_BOX_HEIGHT);
+    const contextRich = area.richLines?.[0];
+    const contentWidth = contextRich ? contextRich.width + textWidth(text.count) : textWidth(text.label + text.count);
+    const width = Math.min(area.width, Math.ceil(contentWidth + 2 * NODE_PAD_X));
+    const height = Math.min(area.height, contextRich ? Math.ceil(contextRich.height + 16) : FOLD_BOX_HEIGHT);
     boxes.push({
       group, count: nodes.length, hide: [...nodes, ...groups, ...edges], area,
       x: round3(area.x + (area.width - width) / 2), y: round3(area.y + (area.height - height) / 2), width, height,
+      ...(area.richLines ? { richLines: area.richLines } : {}),
     });
   }
   const boxOf = new Map(boxes.map((b) => [b.group, b]));
@@ -447,11 +575,12 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     const state = edgeState(rel.from, rel.to, c.from, c.to);
     const obstacles = [...fixed, ...placed].filter((item) => compatible(state, item.state)).map((item) => item.rect);
     const calloutText = `${input.labelOf(rel.from)} → ${input.labelOf(e.id)} → ${input.labelOf(rel.to)}`;
-    const calloutSize = e.label ? calloutSizeFor(e.label, calloutText) : undefined;
+    const contextRich = contextLine([rel.from, e.id, rel.to]);
+    const calloutSize = e.label ? calloutSizeFor(e.label, calloutText, contextRich) : undefined;
     const placement = e.label && [...folded, ...obstacles].some((a) => overlaps(e.label!, a))
       ? labelAt(points, folded, obstacles, e.label, layout, calloutSize) : undefined;
     const label = e.label && placement ? { ...e.label, x: placement.x, y: placement.y } : e.label;
-    const callout = label && placement?.callout && calloutSize ? calloutFor(points, label, calloutSize, calloutText) : undefined;
+    const callout = label && placement?.callout && calloutSize ? calloutFor(points, label, calloutSize, calloutText, contextRich) : undefined;
     if (label) placed.push({ rect: callout?.rect ?? label, state });
     proxies.push({
       edge: { id: e.id, points, ...(label ? { label } : {}) },
@@ -560,12 +689,13 @@ function labelAt(points: Point[], folded: Rect[], obstacles: Rect[], label: Rect
   return { x: placed.x, y: placed.y, callout: true };
 }
 
-function calloutSizeFor(label: Rect, text: string): Pick<Rect, 'width' | 'height'> {
-  return { width: Math.max(label.width, Math.ceil(textWidth(text) + 30)), height: label.height + LINE_HEIGHT + 2 };
+function calloutSizeFor(label: Rect, text: string, rich?: RichLine): Pick<Rect, 'width' | 'height'> {
+  return { width: Math.max(label.width, Math.ceil((rich?.width ?? textWidth(text)) + 30)),
+    height: label.height + (rich?.height ?? LINE_HEIGHT) + 2 };
 }
 
 /** The terminal fallback's foreground panel and its deterministic route key. */
-function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'height'>, text: string): ProxyCallout {
+function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'height'>, text: string, contextRich?: RichLine): ProxyCallout {
   const rect = { ...label, ...size };
   const target = { x: label.x + label.width / 2, y: label.y + label.height / 2 };
   let attachment = points[0]!;
@@ -581,18 +711,24 @@ function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'he
       distance = d;
     }
   }
-  return { rect, attachment, keyPoint: attachment, text, key: '' };
+  return { rect, attachment, keyPoint: attachment, text, key: '', ...(contextRich ? { contextRich } : {}) };
 }
 
 /** The fold box of a group: a button that unfolds the group. It is hidden until the runtime folds the group. */
-function foldBox(b: FoldBox, label: string): HNode {
+function foldBox(b: FoldBox, label: string, input: SvgInput): HNode {
   const text = foldText(label, b.count);
   const cx = b.x + MARGIN + b.width / 2;
   return h('g', { class: 'vs-fold', [DOM.attr.fold]: b.group, [DOM.attr.foldHide]: b.hide.join(' '), role: 'button', tabindex: '0', 'aria-label': `Unfold ${label} (${b.count} ${b.count === 1 ? 'node' : 'nodes'})`, hidden: true },
     // A second outline behind the box: the box stands for several parts.
     h('rect', { class: 'vs-fold-back', x: n(b.x + MARGIN + 4), y: n(b.y + MARGIN + 4), width: n(b.width), height: n(b.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1' }),
     h('rect', { class: 'vs-fold-shape', x: n(b.x + MARGIN), y: n(b.y + MARGIN), width: n(b.width), height: n(b.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1.5' }),
-    h('text', { class: 'vs-fold-label', x: n(cx), y: n(b.y + MARGIN + 8), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
+    b.richLines?.[0] ? (() => {
+      const line = b.richLines![0]!;
+      const countWidth = textWidth(text.count);
+      return richVisual([{ ...line, width: line.width + countWidth,
+        runs: [...line.runs, { kind: 'text', text: text.count, width: countWidth }] }],
+      cx, b.y + MARGIN + 8, 'vs-fold-label', input.termsOf, input.onMath);
+    })() : h('text', { class: 'vs-fold-label', x: n(cx), y: n(b.y + MARGIN + 8), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
       h('tspan', { x: n(cx), dy: '1em' }, text.label, h('tspan', { class: 'vs-fold-count', 'fill-opacity': MUTED_OPACITY }, text.count))));
 }
 
@@ -616,10 +752,13 @@ export type TraceSvgEvent = {
   id: string;
   actor: string;
   label: string;
+  labelSegments?: string[];
   kind: string;
   layer: number; // 1-based order layer
   meta: string[]; // generated lines shown under the label, such as the message receiver
+  metaSegments?: string[][];
   time?: string; // the generated "at T" line on a time scale, after `meta`; the reader mutes only this line
+  timeSegments?: string[];
   // The `time` of the event on a time scale. Events in one slot stack in
   // time order, not in authored order (phase 6a review C6).
   timeValue?: number;
@@ -630,14 +769,14 @@ export type TraceSvgEvent = {
 // A branch that mutually excludes one or more others (§9.4). Branches that do
 // not declare `exclusiveWith` render as before (no sub-column, no fork mark):
 // only a real fork needs the side-by-side treatment (dogfood-3 F2).
-export type TraceSvgBranch = { id: string; label: string; exclusiveWith: string[] };
+export type TraceSvgBranch = { id: string; label: string; labelSegments?: string[]; exclusiveWith: string[] };
 
 export type TraceSvgInput = {
   figureId: string;
   title: string;
   // `implicit`: the one lane of a time-scaled trace with no actors
   // (docs/IMPROVEMENTS.md §14.6). It has a lifeline and no header.
-  actors: Array<{ id: string; label: string; implicit?: boolean }>;
+  actors: Array<{ id: string; label: string; labelSegments?: string[]; implicit?: boolean }>;
   events: TraceSvgEvent[];
   orders: Array<{ id: string; from: string; to: string }>; // relationship ID, prerequisite event, event
   messages: Array<{ event: string; to: string }>; // event ID, receiving actor ID
@@ -648,6 +787,8 @@ export type TraceSvgInput = {
   // Uses of defined terms in actor and event labels (docs/IMPROVEMENTS.md §13.4).
   termsOf?: TermsOf;
   depthOf?: (id: string, view: 'map') => InspectionDepth;
+  mathMetrics?: GraphInput['mathMetrics'];
+  onMath?: SvgInput['onMath'];
 };
 
 const AXIS_WIDTH = 64;
@@ -693,6 +834,16 @@ function metaLines(e: TraceSvgEvent): string[] {
   return e.time === undefined ? e.meta : [...e.meta, e.time];
 }
 
+function traceSegments(text: string, segments?: readonly string[]): readonly string[] {
+  if (segments && segments.join('') !== text) throw Object.assign(new Error('trace math segments do not match displayed text'), { code: 'E_MATH_INVALID' });
+  return segments ?? [text];
+}
+
+function tracePlainLine(text: string): RichLine {
+  const width = textWidth(text);
+  return { runs: [{ kind: 'text', text, width }], width, height: LINE_HEIGHT, ascent: 14, descent: 4 };
+}
+
 function traceText(lines:Array<{ text: string; className: string }>, x: number, top: number, termsOf?: TermsOf): HNode {
   // Terms are linked in the event label only, not in the generated lines under it.
   const labelLines = lines.filter((l) => l.className === 'vs-trace-label').map((l) => l.text);
@@ -705,6 +856,8 @@ function traceText(lines:Array<{ text: string; className: string }>, x: number, 
 export function traceSvg(input: TraceSvgInput): HNode {
   const { figureId } = input;
   const layers = Math.max(1, ...input.events.map((e) => e.layer));
+  const richOf = (text: string, segments: readonly string[] | undefined, width: number) =>
+    measureRichSegments(traceSegments(text, segments), width, input.mathMetrics, textWidth);
   // The style of each event. A failure has a "✕" mark in its right padding,
   // so its label keeps the wider padding on each side and stays centred.
   const styleOf = new Map(input.events.map((e) => [e.id, styleFor(EVENT_CUES[e.kind], input.hue ?? false)]));
@@ -713,9 +866,39 @@ export function traceSvg(input: TraceSvgInput): HNode {
   // One box width per lane: the rule of chooseLabelWidth, over the lane's events.
   const laneBoxWidth = new Map(input.actors.map((a) => {
     const own = input.events.filter((e) => e.actor === a.id);
-    const width = own.length === 0 ? BOX_WIDTH : chooseLabelWidth(own.map((e) => ({ label: e.label, extra: metaLines(e), inset: inset(e) })), BOX_WIDTHS, BOX_WIDTHS[2]!);
+    const legacy = own.length === 0 ? BOX_WIDTH : chooseLabelWidth(own.map((e) => ({ label: e.label, extra: metaLines(e), inset: inset(e) })), BOX_WIDTHS, BOX_WIDTHS[2]!);
+    const anyRich = own.some((e) => richOf(e.label, e.labelSegments, BOX_WIDTHS[0]!) ||
+      e.meta.some((m, i) => richOf(m, e.metaSegments?.[i], BOX_WIDTHS[0]!)) ||
+      (e.time !== undefined && richOf(e.time, e.timeSegments, BOX_WIDTHS[0]!)));
+    if (!anyRich) return [a.id, legacy];
+    const labelLines = (e: TraceSvgEvent, w: number) => richOf(e.label, e.labelSegments, w - inset(e))?.lines.length ?? wrapText(e.label, w - inset(e)).length;
+    const extrasFit = (e: TraceSvgEvent, w: number) => [
+      ...e.meta.map((m, i) => [m, e.metaSegments?.[i]] as const),
+      ...(e.time === undefined ? [] : [[e.time, e.timeSegments] as const]),
+    ].every(([text, segments]) => (richOf(text, segments, w - inset(e))?.lines.length ?? wrapText(text, w - inset(e)).length) === 1);
+    const oneLine = BOX_WIDTHS.find((w) => w <= BOX_WIDTHS[2]! && own.every((e) => labelLines(e, w) === 1 && extrasFit(e, w)));
+    const width = oneLine ?? BOX_WIDTHS.find((w) => own.every((e) => labelLines(e, w) <= 2 && extrasFit(e, w))) ?? BOX_WIDTHS.at(-1)!;
     return [a.id, width];
   }));
+  // A single indivisible formula in a header or branch heading can be wider
+  // than the regular event-box choices. Grow that lane before routing.
+  for (const actor of input.actors) {
+    let width = laneBoxWidth.get(actor.id)!;
+    for (const event of input.events.filter((e) => e.actor === actor.id)) {
+      const available = width - inset(event);
+      const candidates = [richOf(event.label, event.labelSegments, available),
+        ...event.meta.map((meta, i) => richOf(meta, event.metaSegments?.[i], available)),
+        ...(event.time === undefined ? [] : [richOf(event.time, event.timeSegments, available)])];
+      for (const measured of candidates) if (measured) width = Math.max(width, Math.ceil(measured.width + inset(event)));
+    }
+    const heading = richOf(actor.label, actor.labelSegments, width);
+    if (heading) width = Math.max(width, Math.ceil(heading.width + 2 * PAD));
+    for (const branch of input.branches) if (input.events.some((e) => e.actor === actor.id && e.branch === branch.id)) {
+      const measured = richOf(branch.label, branch.labelSegments, width - 2 * BAND_PAD);
+      if (measured) width = Math.max(width, Math.ceil(measured.width + 2 * BAND_PAD));
+    }
+    laneBoxWidth.set(actor.id, width);
+  }
   const boxW = (actor: string) => laneBoxWidth.get(actor) ?? BOX_WIDTH;
   const wrapped = new Map(input.events.map((e) => {
     const textWidth = boxW(e.actor) - inset(e);
@@ -725,7 +908,25 @@ export function traceSvg(input: TraceSvgInput): HNode {
       ...(e.time === undefined ? [] : wrapText(e.time, textWidth).map((text) => ({ text, className: 'vs-trace-meta vs-trace-time' }))),
     ]];
   }));
-  const boxHeight = (id: string) => 2 * PAD + LINE_HEIGHT * wrapped.get(id)!.length - 4;
+  type TraceRichEntry = { line: RichLine; className: string };
+  const richWrapped = new Map<string, TraceRichEntry[]>();
+  for (const e of input.events) {
+    const width = boxW(e.actor) - inset(e);
+    const labelRich = richOf(e.label, e.labelSegments, width);
+    const metaRich = e.meta.map((m, i) => richOf(m, e.metaSegments?.[i], width));
+    const timeRich = e.time === undefined ? undefined : richOf(e.time, e.timeSegments, width);
+    if (!labelRich && !metaRich.some(Boolean) && !timeRich) continue;
+    const entries: TraceRichEntry[] = [];
+    const add = (text: string, rich: ReturnType<typeof richOf>, className: string) => {
+      for (const line of rich?.lines ?? wrapText(text, width).map(tracePlainLine)) entries.push({ line, className });
+    };
+    add(e.label, labelRich, 'vs-trace-label');
+    e.meta.forEach((m, i) => add(m, metaRich[i], 'vs-trace-meta'));
+    if (e.time !== undefined) add(e.time, timeRich, 'vs-trace-meta vs-trace-time');
+    richWrapped.set(e.id, entries);
+  }
+  const boxHeight = (id: string) => 2 * PAD + (richWrapped.get(id)?.reduce((sum, entry) => sum + entry.line.height, 0)
+    ?? LINE_HEIGHT * wrapped.get(id)!.length) - 4;
 
   // Exclusive branches (dogfood-3 F2): each gets its own sub-column inside the
   // actor's lane, side by side, so their events never interleave vertically
@@ -798,7 +999,7 @@ export function traceSvg(input: TraceSvgInput): HNode {
   // Each has a heading above its first box. The heading wraps to the box width,
   // and its row gets headroom for it, so two headings at one fork never share
   // space and never cover a box (F8).
-  type SubColumn = { actor: string; branch: string; slot: number; events: TraceSvgEvent[]; first: TraceSvgEvent; heading: string[] };
+  type SubColumn = { actor: string; branch: string; slot: number; events: TraceSvgEvent[]; first: TraceSvgEvent; heading: string[]; headingRich?: RichLine[] };
   const subColumns: SubColumn[] = [];
   for (const a of input.actors) {
     const byBranch = new Map<string, TraceSvgEvent[]>();
@@ -808,18 +1009,27 @@ export function traceSvg(input: TraceSvgInput): HNode {
     }
     for (const [branch, evs] of byBranch) {
       const first = evs.reduce((best, e) => (e.layer < best.layer || (e.layer === best.layer && slotTop.get(e.id)! < slotTop.get(best.id)!) ? e : best));
-      subColumns.push({ actor: a.id, branch, slot: slotInfo(first)!.slot, events: evs, first, heading: wrapText(branchLabel.get(branch) ?? branch, boxW(a.id) - 2 * BAND_PAD) });
+      const branchRecord = input.branches.find((item) => item.id === branch);
+      const label = branchLabel.get(branch) ?? branch;
+      const headingRich = richOf(label, branchRecord?.labelSegments, boxW(a.id) - 2 * BAND_PAD);
+      subColumns.push({ actor: a.id, branch, slot: slotInfo(first)!.slot, events: evs, first,
+        heading: wrapText(label, boxW(a.id) - 2 * BAND_PAD), ...(headingRich ? { headingRich: headingRich.lines } : {}) });
     }
   }
   const headroom = new Map<number, number>();
   for (const c of subColumns) {
-    const need = BAND_TOP + LINE_HEIGHT * c.heading.length + HEADING_GAP;
+    const need = BAND_TOP + (c.headingRich?.reduce((sum, line) => sum + line.height, 0) ?? LINE_HEIGHT * c.heading.length) + HEADING_GAP;
     headroom.set(c.first.layer, Math.max(headroom.get(c.first.layer) ?? 0, need));
   }
   const room = (layer: number) => headroom.get(layer) ?? 0;
 
   const headLines = new Map(input.actors.map((a) => [a.id, wrapText(a.label, boxW(a.id))]));
-  const header = 2 * PAD + LINE_HEIGHT * Math.max(1, ...[...headLines.values()].map((l) => l.length)) + 8;
+  const headRich = new Map(input.actors.flatMap((a) => {
+    const rich = richOf(a.label, a.labelSegments, boxW(a.id));
+    return rich ? [[a.id, rich.lines] as const] : [];
+  }));
+  const header = 2 * PAD + Math.max(LINE_HEIGHT, ...input.actors.map((a) => headRich.get(a.id)?.reduce((sum, line) => sum + line.height, 0)
+    ?? LINE_HEIGHT * headLines.get(a.id)!.length)) + 8;
   const rowTop = new Map<number, number>();
   let y = MARGIN + header + VGAP / 2;
   for (let layer = 1; layer <= layers; layer++) {
@@ -901,8 +1111,10 @@ export function traceSvg(input: TraceSvgInput): HNode {
         h('path', { class: 'vs-lifeline', d: `M${n(cx)},${n(MARGIN + header)} L${n(cx)},${n(height - MARGIN)}`, fill: 'none', stroke: '#9aa3af', 'stroke-width': '1', 'stroke-dasharray': '4 4' }),
         h('rect', { x: n((colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2), y: n(MARGIN), width: n(regionW), height: n(header - 8), rx: '6', ry: '6', fill: '#eef1f5', stroke: '#2f3a4a', 'stroke-width': '1.5' }),
         interactionBox((colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2, MARGIN, regionW, header - 8),
-        h('text', { class: 'vs-lane-label', x: n(cx), y: n(MARGIN + PAD - 2), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
-          ((content) => lines.map((_, j) => h('tspan', { x: n(cx), dy: j === 0 ? '1em' : String(LINE_HEIGHT) }, content[j])))(labelContent(lines, input.termsOf))),
+        headRich.get(a.id) ? richVisual(headRich.get(a.id)!, cx, MARGIN + PAD,
+          'vs-lane-label', input.termsOf, input.onMath)
+          : h('text', { class: 'vs-lane-label', x: n(cx), y: n(MARGIN + PAD - 2), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
+            ((content) => lines.map((_, j) => h('tspan', { x: n(cx), dy: j === 0 ? '1em' : String(LINE_HEIGHT) }, content[j])))(labelContent(lines, input.termsOf))),
         depthMeter(depth, (colLeft.get(a.id) ?? MARGIN + AXIS_WIDTH) + GUTTER / 2 + regionW - 12, MARGIN + 5));
     }),
     // Messages: a dashed arrow from the event to the receiving actor's lifeline.
@@ -983,8 +1195,10 @@ export function traceSvg(input: TraceSvgInput): HNode {
       const b = box(c.first.id);
       const cx = b.x + b.w / 2;
       const tone = BRANCH_BANDS[c.slot % BRANCH_BANDS.length]!;
-      return h('text', { class: `vs-trace-branch-heading vs-band-${tone}`, x: n(cx), y: n(rowTop.get(c.first.layer)! + BAND_TOP), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
-        c.heading.map((line, i) => h('tspan', { x: n(cx), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, line)));
+      return c.headingRich ? richVisual(c.headingRich, cx, rowTop.get(c.first.layer)! + BAND_TOP,
+        `vs-trace-branch-heading vs-band-${tone}`, undefined, input.onMath)
+        : h('text', { class: `vs-trace-branch-heading vs-band-${tone}`, x: n(cx), y: n(rowTop.get(c.first.layer)! + BAND_TOP), 'text-anchor': 'middle', 'font-size': 14, fill: '#1a1a1a' },
+          c.heading.map((line, i) => h('tspan', { x: n(cx), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, line)));
     }),
     input.events.map((e) => {
       const b = box(e.id);
@@ -994,7 +1208,19 @@ export function traceSvg(input: TraceSvgInput): HNode {
       return h(depth === 'bare' ? 'g' : 'a', { class: `vs-node vs-event-box vs-kind-${e.kind}${cats ? ` ${cats}` : ''}`, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(e.id)}`, id: DOM.svgInstanceId(figureId, e.id), [DOM.attr.target]: e.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${e.label} (${[e.actor ? input.labelOf(e.actor) : '', ...(e.notes ?? metaLines(e))].filter(Boolean).join('; ')}); ${depthAction(depth)}`, [DOM.attr.filter]: filterToken('kind', e.kind) },
         outline(style, b.x, b.y, b.w, b.h, style.danger ? '2' : '1.5'),
         interactionBox(b.x, b.y, b.w, b.h),
-        traceText(wrapped.get(e.id)!, b.x + b.w / 2, b.y + PAD - 2, input.termsOf),
+        richWrapped.has(e.id) ? (() => {
+          let top = b.y + PAD;
+          const entries = richWrapped.get(e.id)!;
+          const labelLines = entries.filter((entry) => entry.className === 'vs-trace-label').map((entry) => entry.line);
+          const label = richVisual(labelLines, b.x + b.w / 2, top, 'vs-trace-label', input.termsOf, input.onMath);
+          top += labelLines.reduce((sum, line) => sum + line.height, 0);
+          return h('g', { class: 'vs-trace-text' }, label,
+            entries.filter((entry) => entry.className !== 'vs-trace-label').map((entry) => {
+            const visual = richVisual([entry.line], b.x + b.w / 2, top, entry.className, undefined, input.onMath);
+            top += entry.line.height;
+            return visual;
+          }));
+        })() : traceText(wrapped.get(e.id)!, b.x + b.w / 2, b.y + PAD - 2, input.termsOf),
         depthMeter(depth, b.x + b.w - 12, b.y + 5));
     }));
 }

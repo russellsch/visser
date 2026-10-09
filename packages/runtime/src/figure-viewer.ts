@@ -1,5 +1,6 @@
 // A viewer owns presentation only: figures and canonical details are never cloned.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
+import { copyRichContent } from './rich-copy.ts';
 
 type Point = { x: number; y: number };
 export type ViewerHooks = {
@@ -92,7 +93,9 @@ export class FigureViewer {
     figure.before(placeholder); this.placeholder = placeholder;
     const dialog = document.createElement('dialog'); this.dialog = dialog; dialog.className = 'vs-figure-viewer'; dialog.setAttribute('aria-label', `Explore ${figure.getAttribute(DOM.attr.label) ?? 'diagram'}`);
     const tools = document.createElement('div'); tools.className = 'vs-viewer-tools'; tools.setAttribute(DOM.attr.generated, '');
-    const title = document.createElement('strong'); title.className = 'vs-viewer-title'; title.textContent = figure.getAttribute(DOM.attr.label) ?? 'Diagram';
+    const title = document.createElement('strong'); title.className = 'vs-viewer-title';
+    const fallbackTitle = figure.getAttribute(DOM.attr.label) ?? 'Diagram';
+    title.textContent = fallbackTitle;
     const back = this.control('Back', () => this.close()); back.setAttribute('aria-label', 'Back to article');
     const ref = this.control('Reference mode', () => { this.hooks.setReferenceMode(!this.hooks.referenceMode()); ref.setAttribute('aria-pressed', String(this.hooks.referenceMode())); }); ref.setAttribute('aria-pressed', String(this.previousRef));
     const menu = document.createElement('details'); menu.className = 'vs-viewer-menu';
@@ -105,6 +108,8 @@ export class FigureViewer {
     for (const node of Array.from(figure.querySelectorAll('.vs-lists, .vs-glossary-wrap'))) { const marker = document.createComment('viewer list'); node.before(marker); this.lists.push({node, marker}); parts.append(node); }
     const hint = document.createElement('p'); hint.className = 'vs-viewer-hint'; hint.textContent = 'Pinch to zoom · Drag to pan'; hint.setAttribute(DOM.attr.generated, '');
     figure.classList.add('vs-in-viewer'); dialog.append(tools, hint, figure, parts); document.body.append(dialog);
+    const caption = figure.querySelector(':scope > figcaption');
+    if (caption?.textContent?.trim()) void copyRichContent(caption, title).catch(() => { title.textContent = fallbackTitle; });
     dialog.addEventListener('cancel', e => { e.preventDefault(); if (!this.hooks.escape()) this.close(); });
     dialog.showModal(); back.focus({preventScroll: true});
     // Start at readable SVG units instead of shrinking an entire wide graph.

@@ -6,36 +6,29 @@
 
 ## Use it when
 
-- The reader must know which part owns a responsibility and which part it calls.
-- A boundary matters: a deployment unit, a trust boundary, or an owner.
+- Explain responsibility, calls, and a meaningful deployment, trust, or ownership boundary.
 
 ## Do not use it when
 
-- The point is the order of events. Left-to-right placement never means
-  "happens first". Use `trace`.
-- Only two parts interact. A sentence is clearer.
-- The map would have more than about 25 nodes. Split it by question.
+- The point is event order: left-to-right never means "happens first"; use `trace`.
+- Two parts suffice in prose, or more than about 25 visible nodes need a narrower question.
 
 ## Misleading example
 
-**Reject:** a left-to-right map whose arrows are labelled only "data", followed
-by a claim that it shows execution order.
+**Reject:** arrows labelled only "data" and presented as execution order.
 
-**Prefer:** a map for responsibilities with labelled edges such as "enqueue
-charge request", and a `trace` for order. Both share node IDs through `entity`.
+**Prefer:** responsibility edges such as "enqueue charge request"; use a `trace`
+for order. Both can share node IDs through `entity`.
 
 ## Figure-specific review
 
-- Trace one reader-relevant responsibility across nodes. Check the actor,
-  direction, and relationship kind against the source; placement is not order.
-- Distinguish calling, moving data, owning, and depending. A write to a file is
-  not ownership of that file; an arrow does not imply successful completion.
-- Check each group boundary's meaning. Do not imply shared deployment, trust,
-  or ownership merely because components serve a related purpose.
-- Ask what changes at an important edge and under which condition. Keep the
-  condition visible; use depth for its mechanism or consequence, not a label echo.
-- Preserve useful hubs and cross-boundary edges. Split by reader question only
-  when the rendered paths become hard to follow, not to enforce symmetry.
+- Trace one reader-relevant responsibility: verify actor, direction, and kind
+  against the source; placement is not order.
+- Separate call, data movement, ownership, and dependency. An arrow neither
+  grants file ownership nor promises completion.
+- Give every group a source-supported boundary meaning. Keep important changes
+  and conditions visible; use depth for mechanism or consequence. Preserve useful
+  hubs and cross-boundary edges; split only when paths no longer answer the question.
 
 ## Tags and attributes
 
@@ -52,33 +45,26 @@ charge request", and a `trace` for order. Both share node IDs through `entity`.
 
 ## Rules
 
-- Optional `emphasis` (`teal`, `violet`, or `amber`) draws attention to a part.
-  All three values mean the same thing. Omit it when no cue helps. It does
-  not encode role or relationship kind. See [visual language](../visual-language.md).
+- Optional `emphasis` (`teal`, `violet`, or `amber`) draws attention only; all
+  values mean the same thing and never encode role or kind. See [visual language](../visual-language.md).
 - `group`, `node`, and `edge` go directly inside the `graph`.
-- Group only a source-supported function. Its body is optional.
+- Group only a source-supported function; its body is optional.
 - A `node` needs `label` or `entity`; with `entity`, the label is inherited.
-- `edge` endpoints are nodes in the same figure. `node group` and `group
-  parent` name groups in the same figure. Group nesting must not form a cycle.
+- `edge` endpoints are nodes here; `node group` and `group parent` name local
+  groups; nesting must not cycle.
 - `entity` names an existing `node` that has no `entity` itself.
-- `evidence=["src_handler"]` names `source` targets: the code that shows
-  this node. A `cite` supports one sentence in the body.
-- `collapsed=true` starts a group folded into one counted box. Its dashed
-  boundary stays. Fold only an existing source-supported function or ownership
-  boundary. Otherwise split the map by question. No-JavaScript, print, and
-  lists show every node.
-- `quantity="1,200 req/s"` on an `edge` shows after its label. Name the
-  source of the number in `evidence` on the edge.
-- Above 25 visible nodes you get `W_VISUAL_DENSITY`. The hard cap is 200
-  nodes and 400 edges (`E_LAYOUT_LIMIT`).
+- `evidence=["src_handler"]` names source targets; a `cite` supports one body sentence.
+- `collapsed=true` folds one counted box but keeps its dashed boundary. Fold only
+  a source-supported function or ownership boundary; otherwise split by question.
+  No-JavaScript, print, and lists show every node.
+- `quantity="1,200 req/s"` follows an edge label; its edge `evidence` names the source.
+- More than 25 visible nodes gives `W_VISUAL_DENSITY`; caps are 200 nodes and 400 edges (`E_LAYOUT_LIMIT`).
 - Write an edge label that says what the relationship does, not "connects".
 
 ## Narrow screens and text
 
-On a narrow screen, keep the main answer in the article. The diagram preview
-opens a viewer for exploration. The document-level Text view lists nodes and
-relationships. The Markdown projection lists every edge with its label, so
-the text alone must make sense.
+On narrow screens the article keeps the answer and the viewer supports exploration.
+Text and Markdown list nodes and labelled edges, so they must stand alone.
 
 ## Template
 
@@ -112,11 +98,8 @@ A retry with the same key cannot charge twice.
 
 ## Diagnostics
 
-- `E_REF_BROKEN`: an edge endpoint is not a node in this figure, or `evidence`
-  names something that is not a `source`. Fix the ID.
+- `E_REF_BROKEN`: an endpoint is not a local node, or `evidence` is not a `source`. Fix the ID.
 - `E_SYNTAX`: an unknown `role` or `kind`, or a missing `label`. Use a listed value.
 - `E_SEMANTIC`: group nesting is cyclic. Remove one `parent`.
-- `W_VISUAL_DENSITY`: more than 25 nodes when the map opens. Split by question,
-  or fold an existing source-supported boundary with `collapsed=true`.
-- `W_EVIDENCE_GAP` (`check --review`): a `quantity` with no `evidence`. Name
-  the source of the number.
+- `W_VISUAL_DENSITY`: more than 25 open nodes. Split by question or fold a source-supported boundary.
+- `W_EVIDENCE_GAP` (`check --review`): quantity lacks evidence. Name its source.

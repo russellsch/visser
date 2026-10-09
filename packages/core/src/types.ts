@@ -59,11 +59,27 @@ export type ParsedTarget = {
   endByte: number;
 };
 
+/** Source-owned math; spans use half-open offsets in the original UTF-8 bytes. */
+export type MathExpression = {
+  kind: 'inline' | 'display' | 'equation';
+  tex: string;
+  span: Pick<SourceSpan, 'path' | 'startByte' | 'endByte' | 'startLine' | 'endLine'>;
+  /** The numbered target itself, only for an equation. */
+  targetId?: TargetId;
+  /** The smallest addressable target containing this expression, excluding its own equation target. */
+  enclosingTargetId?: TargetId;
+  /** Decoded rich-text attribute, when TeX came from a quoted tag value. */
+  field?: string;
+  /** Attribute escapes make its container span coarser than the TeX spelling. */
+  spanPrecision?: 'containing-attribute';
+};
+
 export type ParsedSource = {
   path: string;
   rawBytes: Uint8Array;
   frontmatter: Record<string, unknown>;
   ast: unknown; // Markdoc AST (fences reduced to raw leaves)
   targets: ParsedTarget[]; // document order
+  math?: MathExpression[]; // source order; absent for older callers
   diagnostics: Diagnostic[];
 };

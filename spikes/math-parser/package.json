@@ -1,0 +1,8 @@
+{
+  "name": "visser-math-parser-spike",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "markdown-it": "12.3.2"
+  }
+}

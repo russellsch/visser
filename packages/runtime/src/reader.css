@@ -219,7 +219,7 @@ html { scroll-padding-top: 3.5rem; }
 /* Trace: order layers are partial-order depth, not time. */
 .vs-event-layer { margin-right: 0.25rem; }
 
-.vs-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.125rem 0.75rem; margin: 0.5rem 0; font-size: 0.875rem; }
+.vs-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.125rem 0.75rem; margin: 0.5rem 0; font-size: 0.875rem; }
 .vs-facts dt { color: var(--vs-muted); }
 .vs-facts dd { margin: 0; }
 
@@ -795,7 +795,7 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-btn, .vs-toolbar button, .vs-refpanel__parent select { min-height: 2.75rem; min-width: 2.75rem; }
   .vs-appendix-filter input[type="search"] { min-height: 2.75rem; }
   .vs-detail > summary {
-    display: inline-block; min-height: 2.75rem; padding: 0.625rem 0;
+    display: inline-block; max-width: 100%; min-height: 2.75rem; padding: 0.625rem 0;
     vertical-align: top;
   }
   /* Relationship links stay inline, so the list number and the kind label stay
@@ -852,6 +852,8 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   .vs-viewport { overflow: visible; }
   /* Print the drawing if it rendered, and the source otherwise (§9.12). */
   .vs-mermaid-rendered .vs-mermaid-source, .vs-source-toggle { display: none !important; }
+  .vs-mermaid[data-vs-mermaid-math] .vs-mermaid-source { display: block !important; white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+  .vs-mermaid[data-vs-mermaid-math] .vs-viewport { display: none !important; }
   .vs-view-bar { display: none !important; }
   .vs-figure.vs-view-list .vs-viewport, .vs-figure.vs-view-map .vs-lists { display: block !important; }
   .vs-figure.vs-view-list .vs-legend { display: flex !important; }
@@ -1185,3 +1187,63 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
 .vs-viewer-menu > summary { min-height: 44px; padding: .65rem .25rem; cursor: pointer; }
 .vs-viewer-actions { position: absolute; right: 0; top: 100%; width: 10rem; display: grid; gap: .3rem; padding: .5rem; background: var(--vs-panel); border: 1px solid var(--vs-rule); }
 .vs-viewer-hint { margin: .5rem; color: var(--vs-muted); font-size: .85rem; }
+/* Math source stays in the DOM for accessible reading, selections and print. */
+.vs-math { max-width: 100%; }
+.vs-math-source { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
+.vs-math-display { overflow-x: auto; padding: .5rem 0; }
+.vs-math-visual { white-space: nowrap; }
+.vs-math-visual > svg { display: inline-block; max-width: none; }
+.vs-math:not(.vs-math-display) > .vs-math-visual {
+  display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden;
+  line-height: 0;
+}
+.vs-math:not(.vs-math-display) > .vs-math-visual > svg { display: block; }
+.vs-math[data-vs-math-rendered] > .vs-math-source {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.vs-math button[data-vs-math-copy] {
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle; width: 24px; height: 24px; margin-left: .25rem;
+  padding: 0; font: inherit; color: inherit; background: transparent;
+  border: 0; border-radius: 3px; cursor: pointer; opacity: .7;
+}
+.vs-math button[data-vs-math-copy]:hover,
+.vs-math button[data-vs-math-copy]:focus-visible { opacity: 1; }
+.vs-math button[data-vs-math-copy]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.vs-math-copy-icon { position: relative; display: block; width: 16px; height: 16px; }
+.vs-math-copy-icon::before, .vs-math-copy-icon::after {
+  content: ''; position: absolute; width: 9px; height: 10px;
+  border: 1.5px solid currentColor; border-radius: 1px; box-sizing: border-box;
+}
+.vs-math-copy-icon::before { left: 2px; top: 2px; border-right: 0; border-bottom: 0; }
+.vs-math-copy-icon::after { left: 5px; top: 5px; }
+[data-vs-copy-state="copied"] .vs-math-copy-icon::before,
+[data-vs-copy-state="unavailable"] .vs-math-copy-icon::before { display: none; }
+[data-vs-copy-state="copied"] .vs-math-copy-icon::after {
+  width: 6px; height: 11px; top: 1px; border: solid currentColor;
+  border-width: 0 2px 2px 0; border-radius: 0; transform: rotate(45deg);
+}
+[data-vs-copy-state="unavailable"] .vs-math-copy-icon::after {
+  content: '!'; inset: 0; width: 16px; height: 16px; border: 0;
+  text-align: center; font: bold 16px/16px sans-serif;
+}
+.vs-math-copy-status {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.vs-equation-number { display: block; font-size: .85em; }
+.vs-math-notice { display: block; font-size: .85em; }
+.vs-figure[data-vs-math-figure]:not([data-vs-math-ready]) .vs-viewport { display: none !important; }
+.vs-figure[data-vs-math-figure]:not([data-vs-math-ready]) .vs-lists { display: block !important; }
+@media print {
+  .vs-figure[data-vs-math-figure] .vs-viewport { display: none !important; }
+  .vs-figure[data-vs-math-figure] .vs-lists { display: block !important; }
+  .vs-math-visual, .vs-math button[data-vs-math-copy], .vs-math-notice { display: none !important; }
+  .vs-math-display { overflow: visible; }
+  .vs-math[data-vs-math-rendered] > .vs-math-source {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible;
+    clip-path: none; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .vs-equation, .vs-math-display { break-inside: auto; }
+}

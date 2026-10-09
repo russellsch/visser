@@ -13,12 +13,14 @@
 import { dirname, resolve } from 'node:path';
 import type { Diagnostic } from '../../../core/src/types.ts';
 import { loadBundle } from '../../../core/src/model/bundle.ts';
+import { mermaidMathTotal } from '../../../core/src/mermaid/index.ts';
 import { HashError } from '../../../core/src/model/hash.ts';
 import { documentRepository, parseRepoMapEntry, userRepositoryMap, verifyOrigins, type OriginResult } from '../../../core/src/provenance/index.ts';
 import { CliError, EXIT, exitCodeFor, type ParsedArgs, printDiagnostics, printJson, stringFlag } from '../cli-util.ts';
 import { reviewDocument } from '../../../core/src/review/index.ts';
 import { loadDocument } from './load.ts';
 import { resolveForDocument } from '../toolkit.ts';
+import { parsedMathRequests, validateMath } from '../../../core/src/math/validate.ts';
 
 function repositoryMap(args: ParsedArgs, bundleRoot: string): Map<string, string> {
   const map = userRepositoryMap();
@@ -66,6 +68,9 @@ export async function runCheck(args: ParsedArgs): Promise<number> {
   if (release) resolveForDocument(dirname(resolve(args.positional[0]!)), stringFlag(args, 'toolkit-dir'), undefined);
   let origins: OriginResult[] | undefined;
   const all: Diagnostic[] = [...diagnostics];
+  if (!all.some(d => d.severity === 'error')) {
+    all.push(...(await validateMath(parsedMathRequests(bundle.parsed), { initialTotal: mermaidMathTotal(bundle.model.mermaid.values()) })).diagnostics);
+  }
   if (verify && !diagnostics.some((d) => d.severity === 'error')) {
     const result = verifyOrigins(bundle, repositoryMap(args, dirname(resolve(args.positional[0]!))));
     origins = result.origins;

@@ -1,0 +1,82 @@
+const {planERLabelSlots}=await import('../../../packages/core/src/mermaid/er-slot-plan.ts');
+import assert from 'node:assert/strict';import {registerHooks} from 'node:module';
+const [state,nodeDb,hook,stub]=process.argv.slice(2);const {erContractLoadHook}=await import(hook);
+registerHooks({load:erContractLoadHook(),resolve(specifier,context,next){return specifier==='dompurify'?{url:stub,shortCircuit:true}:next(specifier,context);}});
+const mermaid=(await import('mermaid')).default,{installERNodeDb}=await import(nodeDb),{reconcileERNodeState}=await import(state);
+const {tagERLayoutOwners}=await import('../../../packages/core/src/mermaid/er-layout-owners.ts');
+const {planERElkLabels,mapERElkEdgeInput}=await import('../../../packages/core/src/mermaid/er-elk-labels.ts');
+const {ProvenanceText}=await import('../../../packages/core/src/mermaid/source-provenance.ts');
+const {lineBreakRegex}=await import('../../../node_modules/mermaid/dist/chunks/mermaid.core/chunk-O7XYJQB3.mjs');
+const {reserveERPlannedMath}=await import('../../../packages/core/src/mermaid/er-copy-budget.ts');
+const {prepareERPlannedMath}=await import('../../../packages/core/src/mermaid/er-planned-math.ts');
+const {MATH_LIMITS}=await import('../../../packages/core/src/math/policy.ts');
+await installERNodeDb();
+async function prepare(source,look='default',htmlLabels=true){
+ mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels,look});
+ const diagram=await mermaid.mermaidAPI.getDiagramFromText(source),checked=await reconcileERNodeState(diagram.db,diagram.text,source);
+ assert.equal(checked.completed.layout,'elk');
+ const {owners}=checked,tagged=tagERLayoutOwners(checked.completed.data,[...owners.displayGroupOrder.map(index=>({kind:'group',index})),...owners.displayEntityOrder.map(index=>({kind:'entity',index}))],owners.relationships.map(r=>({kind:'relationship',index:r.relationshipIndex})));
+ const plan=()=>planERElkLabels(checked.labels,checked.normalized,owners,tagged);
+ const copies=planERLabelSlots(checked.labels,checked.normalized,owners,tagged,{kind:'elk'}),bound=await prepareERPlannedMath(source,checked.labels,checked.normalized,copies,'elk',htmlLabels);
+ return {source,checked,tagged,plan,labels:copies,bound};
+}
+const groups=await prepare('erDiagram\nsubgraph g[First]\n A\nend\nsubgraph g[Second]\n B\nend\nsubgraph empty[Empty]\nend\nsubgraph blank[" "]\nend\n','handDrawn');
+assert.deepEqual(groups.labels.filter(p=>p.ownerKind==='group').map(p=>[p.ownerIndex,p.lifetime,p.value.text,p.path]),[
+ [3,'retained','','group-cluster'],[2,'measurement','Empty','group-node'],[2,'retained','Empty','group-cluster'],[1,'measurement','Second','group-node'],[1,'retained','Second','group-cluster'],[0,'measurement','First','group-node'],[0,'retained','First','group-cluster']]);
+assert.equal(groups.labels.filter(p=>p.ownerKind==='entity').length,4);
+const before=new Map(groups.labels.map(p=>[p.key,p.value.text]));groups.tagged.data.nodes.reverse();assert.deepEqual(new Map(groups.plan().map(p=>[p.key,p.value.text])),before);
+const collision=await prepare('erDiagram\nA[Alias]\nsubgraph entity-A-0[Group]\n B\nend\n');
+assert.deepEqual(collision.labels.filter(p=>p.ownerKind==='entity'&&p.ownerIndex===0).map(p=>[p.value.text,p.path]),[['Alias','simple-header']]);
+assert.equal(collision.labels.filter(p=>p.ownerKind==='group').length,2);
+const loops=await prepare('erDiagram\nA ||--|| A : "Before<br>line"\nA ||--|| A : After\n');
+assert.deepEqual(loops.labels.filter(p=>p.ownerKind==='relationship').map(p=>[p.ownerIndex,p.value.text]),[[0,'Before\nline'],[1,'After']]);
+const tableSource='erDiagram\nA[Header] {\n string field PK, FK "Comment"\n}\n';
+for(const look of ['default','handDrawn']){
+ const table=await prepare(tableSource,look),copies=look==='default'?1:2;
+ assert.equal(table.labels.length,5*copies);assert.equal(new Set(table.labels.map(p=>p.key)).size,table.labels.length);
+ const keys=table.labels.find(p=>p.field==='row:0:keys');assert.equal(keys.value.text,'PK,FK');assert.deepEqual(keys.value.mapRange(2,3),{synthetic:true,intervals:[]});
+ table.tagged.data.nodes[0].attributes[0].name='forged';assert.throws(table.plan,/attribute native field differs/);
+}
+const emptyRole=await prepare('erDiagram\nA ||--|| A : ""\n');assert.equal(emptyRole.labels.filter(p=>p.ownerKind==='relationship').length,0);
+for(const input of ['a<BR />b','a</br>b','<br><br/>','a<br\t/>b','plain'])assert.equal(mapERElkEdgeInput(ProvenanceText.identity(input)).text,input.replace(lineBreakRegex,'\n'));
+const duplicate=await prepare('erDiagram\nA\n');duplicate.tagged.data.nodes.push(duplicate.tagged.data.nodes[0]);assert.throws(duplicate.plan,/identity differs/);
+const missing=await prepare('erDiagram\nA\n');missing.tagged.data.nodes.length=0;assert.throws(missing.plan,/unconsumed/);
+const mathGroup=await prepare('erDiagram\nsubgraph "$$x$$"\n A\nend\n');
+const groupBudget=reserveERPlannedMath(mathGroup.checked.math,mathGroup.labels);
+assert.equal(mathGroup.checked.math.total.occurrences,1);assert.equal(groupBudget.total.occurrences,2);assert.equal(groupBudget.temporaryOccurrences,1);assert.equal(groupBudget.retainedOccurrences,1);
+const reordered=reserveERPlannedMath(mathGroup.checked.math,[...mathGroup.labels].reverse());assert.deepEqual(reordered,groupBudget);
+const mathRough=await prepare('erDiagram\nA["$$x$$"] {\n string field "$$x$$"\n}\n','handDrawn');
+const roughBudget=reserveERPlannedMath(mathRough.checked.math,mathRough.labels);
+assert.equal(mathRough.checked.math.total.occurrences,2);assert.equal(roughBudget.total.occurrences,4);assert.equal(roughBudget.retainedOccurrences,4);assert.equal(roughBudget.temporaryOccurrences,0);
+const near={...mathGroup.checked.math,total:{...mathGroup.checked.math.total,occurrences:MATH_LIMITS.documentOccurrences-1}};
+assert.equal(reserveERPlannedMath(near,mathGroup.labels).total.occurrences,MATH_LIMITS.documentOccurrences);
+assert.throws(()=>reserveERPlannedMath({...near,total:{...near.total,occurrences:MATH_LIMITS.documentOccurrences}},mathGroup.labels),/document budget/);
+assert.throws(()=>reserveERPlannedMath(mathGroup.checked.math,[...mathGroup.labels,mathGroup.labels[0]]),/duplicate/);
+assert.throws(()=>reserveERPlannedMath(mathGroup.checked.math,[{...mathGroup.labels[0],path:'table'}]),/unvalidated copy path/);
+assert.deepEqual(mathGroup.bound.budget,groupBudget);
+assert.deepEqual(mathRough.bound.budget,roughBudget);
+assert.equal(mathGroup.bound.copies.filter(c=>c.lifetime==='measurement').flatMap(c=>c.math?.parts??[]).filter(p=>p.kind==='math').length,1);
+for(const htmlLabels of [true,false]){
+ const source='\uFEFF erDiagram\r\n A ||--|| B : "Ω<br>$$x$$"\r\n';
+ const edge=await prepare(source,'default',htmlLabels),role=edge.bound.copies.find(c=>c.ownerKind==='relationship');
+ assert.equal(role.hookInput.text,'Ω\n$$x$$');assert.equal(role.math.input.text,'Ω\n$$x$$');
+ const part=role.math.parts.find(p=>p.kind==='math'),start=source.indexOf('$$x$$');
+ assert.equal(part.origins[0].sourceStart,start);assert.equal(part.origins[0].startByte,Buffer.byteLength(source.slice(0,start)));
+ assert.equal(part.origins[0].sourceEnd,start+5);assert.equal(part.synthetic,false);
+}
+const forged=mathGroup.labels.map(copy=>({...copy,value:ProvenanceText.identity(copy.value.text)}));
+const rebuilt=await prepareERPlannedMath(mathGroup.source,mathGroup.checked.labels,mathGroup.checked.normalized,forged,'elk',true);
+assert.ok(rebuilt.copies.every(copy=>copy.value.source===mathGroup.source));
+const groupInput=[mathGroup.source,mathGroup.checked.labels,mathGroup.checked.normalized];
+await assert.rejects(prepareERPlannedMath(...groupInput,[{...mathGroup.labels[0],value:ProvenanceText.identity('forged')}],'elk',true),/input differs/);
+await assert.rejects(prepareERPlannedMath(...groupInput,mathGroup.labels,'other',true),/resolved layout/);
+await assert.rejects(prepareERPlannedMath(...groupInput,mathGroup.labels,'elk',false),/mode differs/);
+await assert.rejects(prepareERPlannedMath(...groupInput,mathGroup.labels,'dagre',true),/no temporary/);
+await assert.rejects(prepareERPlannedMath(...groupInput,[...mathGroup.labels,mathGroup.labels[0]],'elk',true),/duplicate/);
+const inherited={svgBytes:0,elementCount:0,occurrences:MATH_LIMITS.documentOccurrences-2};
+assert.equal((await prepareERPlannedMath(...groupInput,mathGroup.labels,'elk',true,inherited)).budget.total.occurrences,MATH_LIMITS.documentOccurrences);
+await assert.rejects(prepareERPlannedMath(...groupInput,mathGroup.labels,'elk',true,{...inherited,occurrences:inherited.occurrences+1}),/document budget/);
+const equalSource='erDiagram\nA["$$same$$"]\nB["$$same$$"]\n',equal=await prepare(equalSource);
+assert.equal(equal.bound.authored.total.occurrences,2);assert.equal(equal.bound.budget.retainedOccurrences,2);
+assert.deepEqual(equal.bound.copies.flatMap(copy=>copy.math?.parts??[]).filter(p=>p.kind==='math').map(p=>({start:p.origins[0].sourceStart,end:p.origins[0].sourceEnd})),[equalSource.indexOf('$$same$$'),equalSource.lastIndexOf('$$same$$')].map(start=>({start,end:start+'$$same$$'.length})));
+console.log('ok');

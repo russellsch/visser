@@ -27,8 +27,10 @@ describe('Mermaid element mapping (§9.12)', () => {
   it('uses the fixed configuration: strict security and natural size for every diagram type', () => {
     const config = mermaidConfig();
     expect(config).toMatchObject({ startOnLoad: false, securityLevel: 'strict' });
-    for (const key of ['flowchart', 'sequence', 'state', 'er', 'class', 'gantt', 'mindmap']) {
-      expect(config[key]).toEqual({ useMaxWidth: false });
+    for (const key of ['flowchart', 'agentflow', 'sequence', 'state', 'er', 'class', 'gantt', 'mindmap']) {
+      expect(config[key]).toEqual(key === 'sequence'
+        ? { useMaxWidth: false, mirrorActors: true, hideUnusedParticipants: false }
+        : { useMaxWidth: false });
     }
   });
 
@@ -58,6 +60,30 @@ describe('Mermaid element mapping (§9.12)', () => {
     expect(findDrawn(svg, FLOW, 'group:backend')).toHaveLength(1);
     expect(findDrawn(svg, FLOW, 'edge:L_Producer_Queue_0')).toHaveLength(2);
     expect(findDrawn(svg, FLOW, 'edge:e1')).toHaveLength(1);
+  });
+
+  it('maps exact unique native swimlane groups without accepting unprefixed ordinary groups', () => {
+    const svg = dom('<svg aria-roledescription="swimlane"><g id="lane" class="cluster swimlane"></g><g id="lane-extra" class="cluster swimlane"></g></svg>').querySelector('svg')!;
+    expect(findDrawn(svg, FLOW, 'group:lane').map(e => e.id)).toEqual(['lane']);
+    svg.removeAttribute('aria-roledescription');
+    expect(findDrawn(svg, FLOW, 'group:lane')).toEqual([]);
+    svg.setAttribute('aria-roledescription', 'swimlane');
+    svg.append(svg.firstElementChild!.cloneNode(true));
+    expect(findDrawn(svg, FLOW, 'group:lane')).toEqual([]);
+  });
+
+  it('maps native swimlane edge labels by exact ID alongside their path', () => {
+    const svg = dom('<svg aria-roledescription="swimlane"><path data-id="foo"></path><g data-vs-native-edge-id="foo"></g><g data-vs-native-edge-id="bar-foo"></g></svg>').querySelector('svg')!;
+    expect(findDrawn(svg, FLOW, 'edge:foo')).toHaveLength(2);
+    svg.removeAttribute('aria-roledescription');
+    expect(findDrawn(svg, FLOW, 'edge:foo')).toHaveLength(1);
+  });
+
+  it('uses the Agentflow node prefix only for a native Agentflow SVG', () => {
+    const svg = dom(`<svg aria-roledescription="agentflow"><g id="${FLOW}-agentflow-A-1"></g><g id="${FLOW}-flowchart-A-2"></g></svg>`).querySelector('svg')!;
+    expect(findDrawn(svg, FLOW, 'node:A').map(e => e.id)).toEqual([`${FLOW}-agentflow-A-1`]);
+    svg.removeAttribute('aria-roledescription');
+    expect(findDrawn(svg, FLOW, 'node:A').map(e => e.id)).toEqual([`${FLOW}-flowchart-A-2`]);
   });
 
   it('finds states by name and transitions by edge index', () => {
@@ -92,6 +118,8 @@ describe('Mermaid element mapping (§9.12)', () => {
     const svg = figure.querySelector('svg')!;
     const missing = attachTargets(figure, svg, FLOW);
     expect(missing).toBe(1);
+    expect(attachTargets(figure, svg, FLOW, new Set(['node:Gone']))).toBe(0);
+    expect(attachTargets(figure, svg, FLOW, new Set(['node:Other']))).toBe(1);
     const node = svg.querySelector(`#${FLOW}-flowchart-Producer-0`)!;
     expect(node.getAttribute('data-vs-target')).toBe('producer');
     expect(node.hasAttribute('data-vs-interactive')).toBe(true);

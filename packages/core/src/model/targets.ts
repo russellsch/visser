@@ -1,7 +1,8 @@
 // Target records with the derived fields of §7.1, and relationships (§9.2).
-import type { Diagnostic, ParsedSource, ParsedTarget, TargetId, TargetRecord } from '../types.ts';
+import type { Diagnostic, MathExpression, ParsedSource, ParsedTarget, TargetId, TargetRecord } from '../types.ts';
 import { bodySha256, sha256Hex } from './hash.ts';
 import { resolveMermaidFigures, type MermaidFigure } from '../mermaid/index.ts';
+import { lineByteRange, loadSourceText } from '../syntax/source-text.ts';
 
 // Structural view of the Markdoc AST nodes read here (see syntax/parse.ts).
 export type MNode = {
@@ -29,7 +30,10 @@ export type TargetModel = {
   relationships: SemanticRelationship[];
   diagnostics: Diagnostic[];
   mermaid: Map<TargetId, MermaidFigure>; // §9.12, keyed by figure ID
+  equations: Map<TargetId, EquationEntry>; // source-order ordinals, stable target IDs
 };
+
+export type EquationEntry = { id: TargetId; ordinal: number; expression: MathExpression; parentId?: TargetId };
 
 // Attributes whose values name document-local IDs (§7.1 `dependencies`). The
 // spec list is extended with the other ID-valued attributes of §9 (evidence,
@@ -42,7 +46,7 @@ const REF_ATTRIBUTES = ['from', 'to', 'actor', 'after', 'entity', 'source', 'opt
 // names are text, not references (phase 4 review D9).
 const TAG_REF_ATTRIBUTES: Readonly<Record<string, readonly string[]>> = { concept: ['definition'], step: ['targets'], annotated: ['before'] };
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
-const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus']);
+const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus', 'eqref']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).
 const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
 // A walkthrough and its steps render in their figure, not in the appendix
@@ -82,7 +86,14 @@ export function inlineText(node: MNode, isTarget: (n: MNode) => boolean): string
         return;
       case 'tag':
         if (n.tag === 'cite') return; // a citation marker is not prose
+        if (n.tag === 'eqref') return; // rendered ordinal is generated, not authored review prose
         break;
+      case 'math_inline':
+        parts.push(`$${String(n.children[0]?.attributes['content'] ?? '')}$`);
+        return;
+      case 'math_display':
+        parts.push(`$$\n${String(n.children[0]?.attributes['content'] ?? '')}$$`);
+        return;
     }
     const blockBreak = ['paragraph', 'heading', 'item', 'blockquote', 'fence', 'tr'].includes(n.type);
     const before = parts.length;
@@ -148,8 +159,17 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
   const targets = new Map<TargetId, TargetRecord>();
   const relationships: SemanticRelationship[] = [];
   const ast = parsed.ast as MNode | null;
+  const equations = new Map<TargetId, EquationEntry>();
   if (!ast || parsed.diagnostics.some((d) => d.severity === 'error')) {
-    return { targets, nodes: new Map(), relationships, diagnostics, mermaid: new Map() };
+    return { targets, nodes: new Map(), relationships, diagnostics, mermaid: new Map(), equations };
+  }
+
+  for (const expression of (parsed.math ?? []).filter((m) => m.kind === 'equation' && m.targetId)
+    .sort((a, b) => a.span.startByte - b.span.startByte)) {
+    const id = expression.targetId!;
+    if (equations.has(id)) continue;
+    equations.set(id, { id, ordinal: equations.size + 1, expression,
+      ...(expression.enclosingTargetId ? { parentId: expression.enclosingTargetId } : {}) });
   }
 
   const nodes = findNodes(ast, parsed);
@@ -202,8 +222,9 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
     const entityRef = typeof t.attributes['entity'] === 'string' ? (t.attributes['entity'] as string) : undefined;
     let label = explicitLabel(t);
     if (label === undefined && entityRef) label = explicitLabel(byId.get(entityRef) ?? t);
+    if (kind === 'equation' && equations.has(t.id)) label = `Equation (${equations.get(t.id)!.ordinal})`;
     if (label === undefined) label = kind === 'heading' ? body : codePoints(body.replace(/\s+/g, ' '), LABEL_LIMIT);
-    const plainText = isEntity ? (body ? `${label}\n${body}` : label) : body;
+    const plainText = kind === 'equation' ? `${label}: ${body}` : isEntity ? (body ? `${label}\n${body}` : label) : body;
     const section = sectionOf.get(root.id);
 
     const record: TargetRecord = {
@@ -269,7 +290,7 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
     }
   }
 
-  return { targets, nodes, relationships, diagnostics, mermaid };
+  return { targets, nodes, relationships, diagnostics, mermaid, equations };
 }
 
 /**
@@ -309,9 +330,18 @@ function addMermaidTargets(
   diagnostics: Diagnostic[],
 ): Map<TargetId, MermaidFigure> {
   const figures = parsed.targets.filter((t) => t.tagName === 'mermaid' && targets.has(t.id));
+  const sourceText = loadSourceText(parsed.rawBytes);
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   const inputs = figures.flatMap((t) => {
     const fence = mermaidFence(nodes.get(t.id)!);
-    return fence ? [{ figureId: t.id, source: String(fence.attributes['content'] ?? '') }] : [];
+    if (!fence) return [];
+    const source = String(fence.attributes['content'] ?? '');
+    const first = fence.lines[0];
+    const last = fence.lines[1];
+    if (first === undefined || last === undefined || last <= first) return [{ figureId: t.id, source }];
+    // Markdoc fence map ends *after* the closing ``` line. Exclude that line.
+    const [start, end] = lineByteRange(sourceText, first + 1, last - 1);
+    return [{ figureId: t.id, source, originalSource: decoder.decode(parsed.rawBytes.subarray(start, end)), mathBodyStartByte: start }];
   });
   const out = new Map<TargetId, MermaidFigure>();
   if (inputs.length === 0) return out;

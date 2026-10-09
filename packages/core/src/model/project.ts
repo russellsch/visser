@@ -3,7 +3,7 @@ import { nativeEmphasis } from './presentation.ts';
 // stripping tags from source or scraping HTML. Every object is preceded by an
 // `visser-text/1` ID line so tests can extract target IDs.
 import type { ParsedSource, TargetId, TargetRecord } from '../types.ts';
-import { buildTargetRecords, inlineText, type MNode, type SemanticRelationship } from './targets.ts';
+import { buildTargetRecords, inlineText, type EquationEntry, type MNode, type SemanticRelationship } from './targets.ts';
 import type { MermaidFigure } from '../mermaid/types.ts';
 import { stripMermaidComments } from '../mermaid/rules.ts';
 import { inCitationOrder, sourceOrder } from './citations.ts';
@@ -90,54 +90,68 @@ function attr(node: MNode, name: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/** Escapes literal table text before adding entities, so `&` cannot consume a pipe entity. */
+function tableLiteral(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/([`*_{}\[\]()#+.!<>$])/g, '\\$1').replace(/&/g, '&amp;').replace(/\|/g, '&#124;');
+}
+
 /** Markdown for ordinary blocks and inline content. */
-function renderInline(node: MNode): string {
+function renderInline(node: MNode, equations: ReadonlyMap<TargetId, EquationEntry>, inTable = false): string {
   const out: string[] = [];
   for (const child of node.children) {
     switch (child.type) {
-      case 'text': out.push(String(child.attributes['content'] ?? '')); break;
+      case 'text': out.push(inTable ? tableLiteral(String(child.attributes['content'] ?? '')) : String(child.attributes['content'] ?? '')); break;
       case 'code': out.push('`' + String(child.attributes['content'] ?? '') + '`'); break;
       case 'softbreak': out.push(' '); break;
       case 'hardbreak': out.push('\n'); break;
-      case 'em': out.push(`*${renderInline(child)}*`); break;
-      case 'strong': out.push(`**${renderInline(child)}**`); break;
-      case 'link': out.push(`[${renderInline(child)}](${attr(child, 'href') ?? ''})`); break;
+      case 'math_inline': {
+        const tex = String(child.children[0]?.attributes['content'] ?? '');
+        out.push(inTable ? `\\$${tableLiteral(tex)}\\$` : `$${tex}$`);
+        break;
+      }
+      case 'em': out.push(`*${renderInline(child, equations, inTable)}*`); break;
+      case 'strong': out.push(`**${renderInline(child, equations, inTable)}**`); break;
+      case 'link': out.push(`[${renderInline(child, equations, inTable)}](${attr(child, 'href') ?? ''})`); break;
       case 'image': out.push(`![${attr(child, 'alt') ?? ''}](${attr(child, 'src') ?? ''})`); break;
       case 'tag':
         if (child.tag === 'cite') out.push(` [cite: ${attr(child, 'ref') ?? '?'}]`);
-        else out.push(renderInline(child)); // term, focus, detail-link keep their visible text
+        else if (child.tag === 'eqref') {
+          const id = attr(child, 'ref') ?? '?';
+          out.push(`[Equation (${equations.get(id)?.ordinal ?? id})](#x-${id})`);
+        } else out.push(renderInline(child, equations, inTable)); // term, focus, detail-link keep their visible text
         break;
-      default: out.push(renderInline(child));
+      default: out.push(renderInline(child, equations, inTable));
     }
   }
   return out.join('').replace(/ +\[cite:/g, ' [cite:');
 }
 
-function renderBlock(node: MNode): string {
+function renderBlock(node: MNode, equations: ReadonlyMap<TargetId, EquationEntry>): string {
   switch (node.type) {
-    case 'heading': return `${'#'.repeat(Number(node.attributes['level'] ?? 1))} ${renderInline(node)}`;
-    case 'paragraph': return renderInline(node);
-    case 'inline': return renderInline(node);
+    case 'heading': return `${'#'.repeat(Number(node.attributes['level'] ?? 1))} ${renderInline(node, equations)}`;
+    case 'paragraph': return renderInline(node, equations);
+    case 'inline': return renderInline(node, equations);
+    case 'math_display': return `$$\n${String(node.children[0]?.attributes['content'] ?? '')}$$`;
     case 'fence': {
       const content = String(node.attributes['content'] ?? '');
       const marker = fenceMarker(content);
       return marker + (attr(node, 'language') ?? '') + '\n' + content + marker;
     }
     case 'hr': return '---';
-    case 'blockquote': return node.children.map(renderBlock).join('\n\n').split('\n').map((l) => `> ${l}`.trimEnd()).join('\n');
+    case 'blockquote': return node.children.map((child) => renderBlock(child, equations)).join('\n\n').split('\n').map((l) => `> ${l}`.trimEnd()).join('\n');
     case 'list': {
       const ordered = node.attributes['ordered'] === true;
       return node.children.map((item, i) => {
-        const text = item.children.map(renderBlock).join('\n');
+        const text = item.children.map((child) => renderBlock(child, equations)).join('\n');
         const bullet = ordered ? `${i + 1}.` : '-';
         return `${bullet} ${text.split('\n').join('\n  ')}`;
       }).join('\n');
     }
-    case 'item': return node.children.map(renderBlock).join('\n');
+    case 'item': return node.children.map((child) => renderBlock(child, equations)).join('\n');
     case 'table': {
       const rows: string[][] = [];
       const collect = (n: MNode) => {
-        if (n.type === 'tr') rows.push(n.children.map((cell) => renderInline(cell).trim()));
+        if (n.type === 'tr') rows.push(n.children.map((cell) => renderInline(cell, equations, true).trim()));
         else n.children.forEach(collect);
       };
       collect(node);
@@ -145,7 +159,7 @@ function renderBlock(node: MNode): string {
       const [head, ...body] = rows;
       return [`| ${head!.join(' | ')} |`, `|${head!.map(() => '---').join('|')}|`, ...body.map((r) => `| ${r.join(' | ')} |`)].join('\n');
     }
-    default: return node.children.map(renderBlock).join('\n\n');
+    default: return node.children.map((child) => renderBlock(child, equations)).join('\n\n');
   }
 }
 
@@ -155,6 +169,7 @@ type Context = {
   relationships: SemanticRelationship[];
   targetNodes: Set<MNode>;
   mermaid: Map<TargetId, MermaidFigure>;
+  equations: Map<TargetId, EquationEntry>;
   // The line diff of each annotated figure with a `before` source, when the
   // compiler already computed it for the page (phase 6a review C1).
   diffs: ReadonlyMap<TargetId, readonly DiffRow[]>;
@@ -168,7 +183,7 @@ function labelOf(ctx: Context, id: string): string {
 function bodyOf(ctx: Context, node: MNode): string {
   const parts = node.children
     .filter((c) => !ctx.targetNodes.has(c))
-    .map(renderBlock)
+    .map((child) => renderBlock(child, ctx.equations))
     .map((s) => s.trim())
     .filter((s) => s !== '');
   return parts.join('\n\n');
@@ -332,6 +347,7 @@ function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
 
 /** One child block: ID line, lines, body, evidence, then nested detail targets. */
 function childBlock(ctx: Context, child: TargetRecord): string {
+  if (child.kind === 'equation') return equationBlock(ctx, child);
   const node = ctx.nodes.get(child.id)!;
   const parts = [idLine(child.id), ...childLines(ctx, child, node)];
   const body = bodyOf(ctx, node);
@@ -348,6 +364,13 @@ function childBlock(ctx: Context, child: TargetRecord): string {
   }
   const nested = childTargets(ctx, child.id).map((d) => childBlock(ctx, d));
   return [parts.join('\n'), ...nested].join('\n\n');
+}
+
+function equationBlock(ctx: Context, record: TargetRecord): string {
+  const entry = ctx.equations.get(record.id);
+  const tex = entry?.expression.tex ?? String(ctx.nodes.get(record.id)?.children[0]?.attributes['content'] ?? '');
+  const marker = fenceMarker(tex);
+  return [idLine(record.id), `Equation (${entry?.ordinal ?? '?'})`, `${marker}latex\n${tex}${tex.endsWith('\n') ? '' : '\n'}${marker}`].join('\n');
 }
 
 /**
@@ -602,6 +625,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
     relationships: model.relationships,
     targetNodes: new Set(model.nodes.values()),
     mermaid: model.mermaid,
+    equations: model.equations,
     diffs,
   };
   const title = typeof parsed.frontmatter['title'] === 'string' ? parsed.frontmatter['title'] : undefined;
@@ -613,6 +637,10 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
   }
   for (const record of topLevel) {
     const node = ctx.nodes.get(record.id)!;
+    if (record.kind === 'equation') {
+      blocks.push(equationBlock(ctx, record));
+      continue;
+    }
     if (record.kind === 'mermaid') {
       blocks.push([idLine(record.id), renderMermaid(ctx, record, node, ctx.mermaid.get(record.id)).join('\n\n')].join('\n'));
       continue;
@@ -623,15 +651,18 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
       const text = record.kind === 'note'
         ? `${noteWord(attr(node, 'kind'))}: ${body}`
         : `Self-check: ${attr(node, 'question') ?? record.label}\n\nAnswer: ${body}`;
-      blocks.push([idLine(record.id), text].join('\n'));
+      blocks.push([`${idLine(record.id)}\n${text}`, ...childTargets(ctx, record.id).map((child) => childBlock(ctx, child))].join('\n\n'));
+      continue;
+    }
+    if (['definition', 'source', 'detail'].includes(record.kind)) {
+      blocks.push([idLine(record.id), ...renderEntity(ctx, record, node),
+        ...childTargets(ctx, record.id).map((child) => childBlock(ctx, child))].join('\n\n'));
       continue;
     }
     const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'extension'].includes(record.kind);
     const parts = isComponent
       ? renderComponent(ctx, record, node)
-      : ['definition', 'source', 'detail'].includes(record.kind)
-        ? renderEntity(ctx, record, node)
-        : [renderBlock(node)];
+      : [renderBlock(node, ctx.equations)];
     blocks.push([idLine(record.id), parts.join('\n\n')].join('\n'));
   }
   return blocks.join('\n\n') + '\n';

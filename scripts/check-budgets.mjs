@@ -49,6 +49,8 @@ const RUNS = 5;
 const LIMITS = {
   readerJsGzip: 100 * 1024,
   readerCssGzip: 50 * 1024,
+  mathJsBytes: 2 * 1024 * 1024,
+  mathJsGzip: 768 * 1024,
   skillWords: 2500,
   fixtureMaxNodes: 40,
   fixtureMaxEdges: 80,
@@ -148,6 +150,11 @@ const html = readFileSync(join(out, page), 'utf8');
 const readerJs = gz(join(release, 'browser', 'reader.js'));
 const readerCss = gz(join(release, 'browser', 'reader.css'));
 const mermaidBytes = statSync(join(release, 'browser', 'mermaid.js')).size;
+const mathBytes = statSync(join(release, 'browser', 'math.js')).size;
+const mathGzip = gz(join(release, 'browser', 'math.js'));
+reported.math = { bytes: mathBytes, gzip: mathGzip };
+gate('conditional math JS raw', mathBytes <= LIMITS.mathJsBytes, mathBytes, LIMITS.mathJsBytes);
+gate('conditional math JS gzip -9', mathGzip <= LIMITS.mathJsGzip, mathGzip, LIMITS.mathJsGzip);
 reported.assets = { readerJsBytes: statSync(join(release, 'browser', 'reader.js')).size, readerJsGzip: readerJs, readerCssBytes: statSync(join(release, 'browser', 'reader.css')).size, readerCssGzip: readerCss, mermaidBytes, mermaidGzip: gz(join(release, 'browser', 'mermaid.js')) };
 reported.page = { htmlBytes: Buffer.byteLength(html), htmlGzip: gzipSync(html, { level: 9 }).length, documentMdBytes: statSync(join(out, page.replace(/index\.html$/, 'document.md'))).size };
 gate('shared browser JS (reader.js, gzip -9)', readerJs <= LIMITS.readerJsGzip, readerJs, LIMITS.readerJsGzip);
@@ -168,8 +175,8 @@ gate('per-document JS: none', inline.length === 0 && handlers.length === 0 && js
 const manifest = JSON.parse(readFileSync(join(release, 'release.json'), 'utf8'));
 const browserFiles = manifest.files.map((f) => f.path).filter((p) => p.startsWith('browser/')).sort();
 const packFiles = outFiles.filter((f) => f.startsWith('_visser/')).map((f) => f.replace(/^_visser\/assets\/[0-9a-f]{64}\//, '')).sort();
-gate('release browser assets: reader.js + reader.css (+ mermaid.js exception)', JSON.stringify(browserFiles) === JSON.stringify(['browser/mermaid.js', 'browser/reader.css', 'browser/reader.js']), browserFiles.join(', '), 'browser/{reader.js,reader.css,mermaid.js}');
-gate('built pack: browser assets only', packFiles.every((f) => ['reader.js', 'reader.css', 'mermaid.js'].includes(f)), packFiles.join(', '), 'reader.js, reader.css, mermaid.js');
+gate('release browser assets: reader, Mermaid, conditional math', JSON.stringify(browserFiles) === JSON.stringify(['browser/math.js', 'browser/mermaid.js', 'browser/reader.css', 'browser/reader.js']), browserFiles.join(', '), 'browser/{reader.js,reader.css,mermaid.js,math.js}');
+gate('built pack: browser assets only', packFiles.every((f) => ['reader.js', 'reader.css', 'mermaid.js', 'math.js'].includes(f)), packFiles.join(', '), 'reader.js, reader.css, mermaid.js, math.js');
 
 // Core skill size.
 const skillWords = words(readFileSync(join(release, 'skills', 'visser-visual-explain', 'SKILL.md'), 'utf8'));

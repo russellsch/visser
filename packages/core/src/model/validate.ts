@@ -9,6 +9,7 @@ import type { Diagnostic, ParsedSource, ParsedTarget, TargetId } from '../types.
 import { normalizeText, sha256Hex } from './hash.ts';
 import { inlineText, type MNode, type TargetModel } from './targets.ts';
 import { DIFF_MAX_LINES, excerptLines } from './diff.ts';
+import { EQUATION_PARENTS } from '../syntax/profile.ts';
 
 type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'strings' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region' | 'date';
 
@@ -167,6 +168,7 @@ const SPECS: Record<string, TagSpec> = {
   // `aliases` adds plurals and short forms to the term auto-link; `auto=false`
   // turns the auto-link off for this definition (docs/IMPROVEMENTS.md §13.3).
   definition: { required: { id: 'id', term: 'string' }, optional: { aliases: 'strings', auto: 'boolean' } },
+  equation: { required: { id: 'id' }, optional: {}, parents: [...EQUATION_PARENTS], topLevel: true },
   detail: { required: { id: 'id', label: 'string' }, optional: { summary: 'string' }, parents: DETAIL_PARENTS, topLevel: true },
   source: {
     required: { id: 'id', kind: 'string', title: 'string' },
@@ -193,6 +195,7 @@ const INLINE_SPECS: Record<string, { required: Record<string, AttrType>; optiona
   cite: { required: { ref: 'id' }, optional: { note: 'string' }, refKind: 'source' },
   'detail-link': { required: { ref: 'id' }, optional: {}, refKind: 'detail' },
   focus: { required: { targets: 'ids' }, optional: {} },
+  eqref: { required: { ref: 'id' }, optional: {}, refKind: 'equation' },
 };
 
 // Additional origin metadata required per source kind (§8.1).

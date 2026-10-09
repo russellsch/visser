@@ -4,13 +4,17 @@
 // render keys on the static list instances. The static page stays complete
 // without this code: source text and lists are already present.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
+import { bindMermaidSource } from './mermaid-source.ts';
+import { stampStateMathLabels } from './mermaid-state-source.ts';
+import { stampFlowchartMathLabels } from './mermaid-flowchart-source.ts';
+import { SEQUENCE_RENDER_OPTIONS } from '../../core/src/mermaid/types.ts';
 
 const A = DOM.attr;
 
 // Every Mermaid diagram type keeps its natural size: with the default
 // useMaxWidth, a wide flowchart at 320 px had an effective label size of 2.5 px.
 const DIAGRAM_CONFIG_KEYS = [
-  'flowchart', 'sequence', 'gantt', 'journey', 'timeline', 'class', 'state', 'er', 'pie', 'quadrantChart',
+  'flowchart', 'agentflow', 'sequence', 'gantt', 'journey', 'timeline', 'class', 'state', 'er', 'pie', 'quadrantChart',
   'xyChart', 'requirement', 'architecture', 'mindmap', 'kanban', 'gitGraph', 'c4', 'sankey', 'packet', 'block', 'radar',
 ] as const;
 
@@ -80,6 +84,7 @@ export function mermaidConfig(tokens: PageTokens = LIGHT_TOKENS): Record<string,
     },
   };
   for (const key of DIAGRAM_CONFIG_KEYS) config[key] = { useMaxWidth: false };
+  config.sequence = { useMaxWidth: false, ...SEQUENCE_RENDER_OPTIONS };
   return config;
 }
 
@@ -109,10 +114,17 @@ export function findDrawn(svg: Element, renderId: string, key: string): Element[
   const kind = key.slice(0, colon);
   const value = key.slice(colon + 1);
   switch (kind) {
-    case 'node': return byIdPattern(svg, `${renderId}-flowchart-${value}-`);
+    case 'node': return byIdPattern(svg, `${renderId}-${svg.getAttribute('aria-roledescription') === 'agentflow' ? 'agentflow' : 'flowchart'}-${value}-`);
     case 'state': return byIdPattern(svg, `${renderId}-state-${value}-`);
-    case 'group': return Array.from(svg.querySelectorAll('[id]')).filter((e) => e.getAttribute('id') === `${renderId}-${value}`);
-    case 'edge': return withAttr(svg, 'data-id', value);
+    case 'group': {
+      if (svg.getAttribute('aria-roledescription') === 'swimlane') {
+        const lanes = Array.from(svg.querySelectorAll('g.cluster.swimlane')).filter(e => e.id === value);
+        return lanes.length === 1 ? lanes : [];
+      }
+      return Array.from(svg.querySelectorAll('[id]')).filter(e => e.id === `${renderId}-${value}`);
+    }
+    case 'edge': return [...withAttr(svg, 'data-id', value), ...(svg.getAttribute('aria-roledescription') === 'swimlane'
+      ? withAttr(svg, 'data-vs-native-edge-id', value) : [])];
     case 'transition': return withAttr(svg, 'data-id', `edge${value}`);
     case 'participant': return withAttr(svg, 'data-id', value, (e) => e.getAttribute('data-et') === 'participant');
     case 'message': return withAttr(svg, 'data-id', `i${value}`, (e) => e.getAttribute('data-et') === 'message');
@@ -125,7 +137,7 @@ export function findDrawn(svg: Element, renderId: string, key: string): Element[
  * instances, so inspection and reference mode work on the drawing. Returns the
  * number of instances that found no drawn element.
  */
-export function attachTargets(figure: Element, svg: Element, renderId: string): number {
+export function attachTargets(figure: Element, svg: Element, renderId: string, hiddenKeys: ReadonlySet<string> = new Set()): number {
   let missing = 0;
   for (const instance of Array.from(figure.querySelectorAll(`[${A.mermaidKey}]`))) {
     const key = instance.getAttribute(A.mermaidKey) ?? '';
@@ -133,7 +145,7 @@ export function attachTargets(figure: Element, svg: Element, renderId: string): 
     const rel = instance.getAttribute(A.rel);
     const depth = instance.getAttribute(A.depth);
     const drawn = findDrawn(svg, renderId, key);
-    if (drawn.length === 0) missing++;
+    if (drawn.length === 0 && !hiddenKeys.has(key)) missing++;
     // A derived relationship (no edge ID of its own) points at the figure: its
     // relationship ID differs from its target. It is not interactive (§9.12).
     const derived = rel !== null && rel !== target;
@@ -208,18 +220,39 @@ async function renderFigure(api: MermaidApi, figure: HTMLElement): Promise<void>
   if (!viewport || !figureId) return;
   const renderId = renderIdFor(figureId);
   try {
+    if ((figure.hasAttribute('data-vs-mermaid-math') || source.includes('$$')) && typeof (window as unknown as { MathMLElement?: unknown }).MathMLElement === 'undefined') {
+      throw new Error('This browser cannot render Mermaid MathML');
+    }
     const { svg } = await api.render(renderId, source);
     viewport.innerHTML = svg;
     removeStray(renderId, viewport);
     const drawn = viewport.querySelector('svg');
     if (!drawn) throw new Error('no SVG');
+    if (figure.hasAttribute('data-vs-mermaid-source-map')) {
+      if (figure.getAttribute(A.mermaid) === 'flowchart') {
+        stampFlowchartMathLabels(drawn, renderId, JSON.parse(figure.getAttribute('data-vs-mermaid-flowchart-slots') ?? 'null'));
+      }
+      if (figure.getAttribute(A.mermaid) === 'state') {
+        stampStateMathLabels(drawn, renderId, JSON.parse(figure.getAttribute('data-vs-mermaid-state-slots') ?? 'null'));
+      }
+      bindMermaidSource(figure, drawn);
+      viewport.setAttribute(A.generated, '');
+    }
     drawn.setAttribute('focusable', 'false');
     // Accessible name from the figure unless the author wrote accTitle.
     if (!drawn.querySelector(':scope > title')) {
       drawn.setAttribute('aria-labelledby', `vs-t-${figureId}`);
       drawn.setAttribute('aria-describedby', `vs-q-${figureId}`);
     }
-    const missing = attachTargets(figure, drawn, renderId);
+    let hiddenKeys = new Set<string>();
+    if (figure.hasAttribute('data-vs-mermaid-flowchart-slots')) {
+      const hidden: unknown = JSON.parse(figure.getAttribute('data-vs-mermaid-hidden-keys') ?? '[]');
+      if (!Array.isArray(hidden) || !hidden.every(key => typeof key === 'string' && /^(node|group|edge):.+/.test(key))) {
+        throw new Error('Invalid hidden flowchart targets');
+      }
+      hiddenKeys = new Set(hidden);
+    }
+    const missing = attachTargets(figure, drawn, renderId, hiddenKeys);
     if (missing === 0 && figure.querySelector(`.vs-lists [${A.mermaidKey}]`) && ['flowchart', 'state', 'sequence'].includes(figure.getAttribute(A.mermaid) ?? '')) figure.setAttribute('data-vs-viewer-ready', 'true');
     // A wide drawing scrolls inside its viewport; drawn elements are not
     // focusable, so the viewport itself must take focus for keyboard scrolling.

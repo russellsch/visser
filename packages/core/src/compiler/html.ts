@@ -35,13 +35,13 @@ const ELEMENT_ATTRS: Record<string, readonly string[]> = {
   figure: [], figcaption: [], details: ['open'], summary: [],
   a: ['href', 'rel'], img: ['src', 'alt', 'width', 'height'], button: ['type'],
   // SVG (presentation attributes are allowed; `style` is not).
-  svg: ['xmlns', 'viewBox', 'width', 'height', 'focusable', 'preserveAspectRatio'],
+  svg: ['xmlns', 'viewBox', 'width', 'height', 'x', 'y', 'focusable', 'preserveAspectRatio', 'fill-opacity'],
   g: ['transform'], defs: [],
   marker: ['viewBox', 'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'markerUnits'],
   rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray'],
   path: ['d', 'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'marker-start', 'marker-end', 'stroke-linecap', 'stroke-linejoin'],
   polygon: ['points', 'fill', 'stroke'],
-  text: ['x', 'y', 'text-anchor', 'dominant-baseline', 'fill', 'font-size'],
+  text: ['x', 'y', 'text-anchor', 'dominant-baseline', 'fill', 'font-size', 'fill-opacity'],
   // `fill-opacity` mutes a secondary line in a node box, such as a task's
   // `due` date, in the theme's text colour (docs/IMPROVEMENTS.md §4.4).
   tspan: ['x', 'y', 'dy', 'fill-opacity'],
