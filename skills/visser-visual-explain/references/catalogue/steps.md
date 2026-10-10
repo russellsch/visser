@@ -2,7 +2,7 @@
 
 **Question:** Which sequence of observations helps the reader understand this figure?
 
-**Confused with:** `trace` (execution order) and a numbered list (no links to parts).
+**Confused with:** `flowchart` (process execution), `trace` (execution order), and a numbered list (no links to parts).
 
 ## Use it when
 
@@ -12,6 +12,7 @@
 
 ## Do not use it when
 
+- The order is process control with alternatives or retries. Use a `flowchart`.
 - The order is events at run time. Use a `trace`.
 - The walkthrough spans two figures. Use one per figure.
 - The figure has four parts or fewer. The prose after it is enough.
@@ -36,8 +37,8 @@ domain walkthroughs print "Reading order, not execution order."
 
 ## Rules
 
-- `steps` goes inside `graph`, `trace`, `transform`, `compare`, `annotated`, or
-  `domain`. One figure has one `steps`.
+- `steps` goes inside `graph`, `flowchart`, `trace`, `transform`, `compare`,
+  `annotated`, or `domain`. One figure has one `steps`.
 - `steps` has at least two `step` children. `step` goes directly inside the
   `steps`, names at least one target without duplicates, and has a body. The
   body is one or two sentences of explanation; a citation alone is not a body.
@@ -53,6 +54,7 @@ domain walkthroughs print "Reading order, not execution order."
   encoding, location, or owner.
 - **Compare:** group cells or options into a contrast.
 - **Trace:** group events into explanatory phases; do not replay the trace.
+- **Flowchart:** group a branch or retry rule; do not treat reading order as execution.
 - **Annotated:** connect annotations into one claim about the source.
 
 ## Narrow screens and text

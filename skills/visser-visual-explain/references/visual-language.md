@@ -36,7 +36,13 @@ only when its boundary has a source-supported function, such as shared
 deployment, ownership, or trust. The label names that function. An optional
 group body explains why the boundary matters when that adds information.
 Keep external edges attached to their actual nodes. A group does not turn
-every child into one component.
+every child into one component. Architecture groups have no `color` attribute.
+
+Flowchart groups identify a process phase or responsibility. Their optional
+`color` uses the discrete `neutral`, `teal`, `violet`, or `amber` palette. It
+does not carry emphasis, status, confidence, ownership, or control-flow
+meaning. The same color may occur in distinct groups. Do not color a group
+only to make a neutral process look more important.
 
 **Useful:** an "Order service" group contains an API and worker that deploy
 together. An external provider stays outside. The API-to-provider path still

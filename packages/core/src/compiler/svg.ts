@@ -8,6 +8,7 @@ import { depthAction, type InspectionDepth } from '../model/inspection.ts';
 import { chooseLabelWidth, LINE_HEIGHT, MARKED_PAD_X, NODE_LABEL_WIDTHS, NODE_PAD_X, round3, textWidth, wrapText, type GraphInput, type GraphLayout, type Point } from './layout.ts';
 import { BAND_FILL, BAND_STROKE, BRANCH_BANDS, CATEGORY_HEX, catClasses, EVENT_CUES, filterToken, NODE_FILL, outline, presentationHue, styleFor, type Category, type PartStyle } from './encoding.ts';
 import { measureRichSegments, type RichLine, type RichMathRun, type RichTextRun } from './math-text.ts';
+import { GeometryBudget, intersectsInterior, overlap as geometryOverlap } from './flowchart-geometry.ts';
 
 export type SvgInput = {
   figureId: string;
@@ -40,6 +41,10 @@ export type SvgInput = {
   // of a group. For each such group the SVG holds a hidden fold box, a Fold
   // control, and proxy edges; the reader runtime shows them.
   collapsed?: readonly string[];
+  /** Flowchart initial fold state is separate from the complete foldable set. */
+  initialCollapsed?: readonly string[];
+  flowchart?: boolean;
+  groupColorOf?: (id: string) => 'neutral' | 'teal' | 'violet' | 'amber' | undefined;
   parentOf?: (id: string) => string | undefined;
   depthOf?: (id: string, view: 'map') => InspectionDepth;
   /** Called for every native math slot, including folded and proxy labels. */
@@ -257,12 +262,33 @@ function interactionBox(x: number, y: number, width: number, height: number): HN
     return h('rect', { class: `vs-${kind}-outline`, x: n(x - gap), y: n(y - gap), width: n(width + gap * 2), height: n(height + gap * 2), rx: '5', fill: 'none', stroke: 'none', 'aria-hidden': 'true', [DOM.attr.generated]: true });
   });
 }
+function flowShape(kind: string | undefined, x: number, y: number, width: number, height: number): HNode {
+  if (kind === 'decision') return h('path', { class: 'vs-shape vs-flow-decision',
+    d: `M${n(x + width / 2)},${n(y)} L${n(x + width)},${n(y + height / 2)} L${n(x + width / 2)},${n(y + height)} L${n(x)},${n(y + height / 2)} Z`,
+    'stroke-width': '1.5' });
+  return h('rect', { class: kind === 'start' || kind === 'end' ? 'vs-shape vs-flow-terminal' : 'vs-shape vs-flow-action',
+    x: n(x), y: n(y), width: n(width), height: n(height), rx: kind === 'start' || kind === 'end' ? n(height / 2) : '6', 'stroke-width': '1.5' });
+}
+function flowInteractionShape(kind: string | undefined, x: number, y: number, width: number, height: number): HNode[] {
+  if (kind !== 'decision' && kind !== 'start' && kind !== 'end') return interactionBox(x, y, width, height);
+  return ['selection', 'focus'].map((state, i) => {
+    const gap = 3 + i * 3;
+    if (kind === 'decision') return h('polygon', { class: `vs-${state}-outline`,
+      points: `${n(x + width / 2)},${n(y - gap)} ${n(x + width + gap)},${n(y + height / 2)} ${n(x + width / 2)},${n(y + height + gap)} ${n(x - gap)},${n(y + height / 2)}`,
+      fill: 'none', stroke: 'none', 'aria-hidden': 'true', [DOM.attr.generated]: true });
+    return h('rect', { class: `vs-${state}-outline`, x: n(x - gap), y: n(y - gap),
+      width: n(width + 2 * gap), height: n(height + 2 * gap), rx: n(height / 2 + gap),
+      fill: 'none', stroke: 'none', 'aria-hidden': 'true', [DOM.attr.generated]: true });
+  });
+}
 function interactionPath(d: string, dash?: string): HNode[] {
   return ['selection', 'focus'].map((kind) => h('path', { class: `vs-${kind}-outline`, d, fill: 'none', stroke: 'none', 'stroke-dasharray': dash, 'aria-hidden': 'true', [DOM.attr.generated]: true }));
 }
 
 export function graphSvg(input: SvgInput): HNode {
   const { figureId, layout } = input;
+  const geometryBudget = input.flowchart ? new GeometryBudget() : undefined;
+  if (geometryBudget) geometryBudget.used = layout.flowchartGeometryWork ?? 0;
   let width = layout.width + 2 * MARGIN;
   let height = layout.height + 2 * MARGIN;
   const marker = `m-${figureId}.arrow`;
@@ -311,7 +337,7 @@ export function graphSvg(input: SvgInput): HNode {
         ((content) => e.label!.lines.map((_, i) => h('tspan', { x: n(e.label!.x + MARGIN + e.label!.width / 2), dy: i === 0 ? '1em' : String(LINE_HEIGHT) }, content[i])))(labelContent(e.label.lines, input.termsOf, quantityRange(e.label.lines, quantity)))) : null,
       e.label ? depthMeter(depth, e.label.x + MARGIN + e.label.width - 9, e.label.y + MARGIN + 3) : null);
   };
-  const folds = foldPlan(input);
+  const folds = foldPlan(input, geometryBudget);
   for (const proxy of folds.proxies) {
     const rect = proxy.callout?.rect ?? proxy.edge.label;
     if (rect) {
@@ -324,7 +350,43 @@ export function graphSvg(input: SvgInput): HNode {
     }
   }
   const boxOf = new Map(folds.boxes.map((b) => [b.group, b]));
-  return h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${n(width)} ${n(height)}`, width: n(width), height: n(height), role: 'group', 'aria-label': input.title, focusable: 'false' },
+  // Author order permits forward parent references. Paint parents first so
+  // their filled hit regions cannot cover a descendant group's surface.
+  const groupDepth = (id: string): number => {
+    let depth = 0;
+    while (depth <= layout.groups.length) {
+      geometryBudget?.check();
+      const parent = input.parentOf?.(id);
+      if (!parent) return depth;
+      id = parent; depth++;
+    }
+    throw Object.assign(new Error('cyclic flowchart group ancestry'), { code: 'E_LAYOUT_LIMIT' });
+  };
+  const drawingGroups = input.flowchart ? [...layout.groups].sort((a, b) => {
+    geometryBudget?.check();
+    return groupDepth(a.id) - groupDepth(b.id);
+  }) : layout.groups;
+  const renderNodes = () => layout.nodes.map((node) => {
+      const role = input.roleOf(node.id);
+      const style = input.nodeStyleOf?.(node.id) ?? {};
+      const note = role ?? input.noteOf?.(node.id);
+      const roleClass = role && /^[a-z][a-z-]*$/.test(role) ? ` vs-role-${role}` : '';
+      const cats = catClasses(style);
+      const classes = `vs-node${roleClass}${style.className ? ` ${style.className}` : ''}${cats ? ` ${cats}` : ''}`;
+      const depth = input.depthOf?.(node.id, 'map') ?? 'explanation';
+      const accessible = note ? `${input.labelOf(node.id)} (${note})` : input.labelOf(node.id);
+      return h(depth === 'bare' ? 'g' : 'a', { class: classes, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${accessible}${style.emphasis ? '; emphasized' : ''}; ${depthAction(depth)}`, 'data-vs-emphasis': style.emphasis, [DOM.attr.filter]: input.filterOf?.(node.id) },
+        input.flowchart ? flowShape(input.kindOf(node.id), node.x + MARGIN, node.y + MARGIN, node.width, node.height) : outline(style, node.x + MARGIN, node.y + MARGIN, node.width, node.height),
+        input.flowchart ? flowInteractionShape(input.kindOf(node.id), node.x + MARGIN, node.y + MARGIN, node.width, node.height)
+          : interactionBox(node.x + MARGIN, node.y + MARGIN, node.width, node.height),
+        input.flowchart && (input.kindOf(node.id) === 'start' || input.kindOf(node.id) === 'end') ? h('text', { class: 'vs-flow-terminal-cue', x: n(node.x + MARGIN + node.width / 2), y: n(node.y + MARGIN + 16), 'text-anchor': 'middle', 'font-size': 11 }, input.kindOf(node.id) === 'start' ? 'Start' : 'End') : null,
+        node.richLines ? richVisual(node.richLines, node.x + MARGIN + node.width / 2,
+          input.flowchart ? node.y + MARGIN + (node.height - node.richLines.reduce((sum, line) => sum + line.height, 0) + ((input.kindOf(node.id) === 'start' || input.kindOf(node.id) === 'end') ? 18 : 0)) / 2 : node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.onMath,
+          { muted: input.mutedLinesOf?.(node.id) ?? 0 })
+          : textLines(node.lines, node.x + MARGIN + node.width / 2, input.flowchart ? node.y + MARGIN + (node.height - node.lines.length * LINE_HEIGHT + ((input.kindOf(node.id) === 'start' || input.kindOf(node.id) === 'end') ? 18 : 0)) / 2 : node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.mutedLinesOf?.(node.id) ?? 0),
+        depthMeter(depth, node.x + MARGIN + node.width - 12, node.y + MARGIN + 5));
+    });
+  return h('svg', { xmlns: 'http://www.w3.org/2000/svg', viewBox: `0 0 ${n(width)} ${n(height)}`, width: n(width), height: n(height), role: 'group', 'aria-label': input.title, focusable: 'false', 'data-vs-flowchart': input.flowchart ? 'true' : undefined },
     h('defs', {},
       arrowMarker(marker, '#444444'),
       edgeCats.map((c) => arrowMarker(`${marker}-${c}`, CATEGORY_HEX[c].stroke, `vs-cat vs-cat-${c}`)),
@@ -335,37 +397,29 @@ export function graphSvg(input: SvgInput): HNode {
     // outline covers an arrowhead (phase 6b review F3). The Fold control comes
     // right after its group, so the next Tab after a keyboard unfold goes on
     // into the figure, not out of it (F9).
-    layout.groups.map((g) => [
-      ((depth) => h(depth === 'bare' ? 'g' : 'a', { class: 'vs-group', href: depth === 'bare' ? undefined : `#${DOM.canonicalId(g.id)}`, id: DOM.svgInstanceId(figureId, g.id), [DOM.attr.target]: g.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${input.labelOf(g.id)} (boundary); ${depthAction(depth)}` },
-        h('rect', { x: n(g.x + MARGIN), y: n(g.y + MARGIN), width: n(g.width), height: n(g.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1' }),
+    drawingGroups.map((g) => [
+      ((depth) => h(depth === 'bare' ? 'g' : 'a', { class: `vs-group${input.flowchart ? ` vs-flow-group-color-${input.groupColorOf?.(g.id) ?? 'neutral'}` : ''}`, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(g.id)}`, id: DOM.svgInstanceId(figureId, g.id), [DOM.attr.target]: g.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${input.labelOf(g.id)} (boundary); ${depthAction(depth)}`, 'data-vs-fold-initial': input.flowchart ? String(input.initialCollapsed?.includes(g.id) ?? false) : undefined },
+        h('rect', { class: input.flowchart ? `vs-flow-group-color-${input.groupColorOf?.(g.id) ?? 'neutral'}` : undefined, x: n(g.x + MARGIN), y: n(g.y + MARGIN), width: n(g.width), height: n(g.height), rx: '8', ry: '8', fill: input.flowchart ? undefined : '#f5f7fa', stroke: input.flowchart ? undefined : '#8a94a3', 'stroke-width': '1' }),
         interactionBox(g.x + MARGIN, g.y + MARGIN, g.width, g.height),
         g.richLines ? richVisual(g.richLines, g.x + MARGIN + 12, g.y + MARGIN + 6,
           'vs-group-label', input.termsOf, input.onMath, { centered: false, fill: '#3a4250' })
           : h('text', { class: 'vs-group-label', x: n(g.x + MARGIN + 12), y: n(g.y + MARGIN + 20), 'font-size': 13, fill: '#3a4250' }, labelContent([input.labelOf(g.id)], input.termsOf)[0]),
         depthMeter(depth, g.x + MARGIN + g.width - 12, g.y + MARGIN + 5)))(input.depthOf?.(g.id, 'map') ?? 'explanation'),
-      boxOf.has(g.id) ? foldBox(boxOf.get(g.id)!, input.labelOf(g.id), input) : null,
-      boxOf.has(g.id) ? foldToggle(boxOf.get(g.id)!, input.labelOf(g.id)) : null,
+      !input.flowchart && boxOf.has(g.id) ? foldBox(boxOf.get(g.id)!, input.labelOf(g.id), input) : null,
+      !input.flowchart && boxOf.has(g.id) ? foldToggle(boxOf.get(g.id)!, input.labelOf(g.id)) : null,
     ]),
     layout.edges.map((e) => edgeElement(e)),
     folds.proxies.map((p) => edgeElement(p.edge, p)),
-    layout.nodes.map((node) => {
-      const role = input.roleOf(node.id);
-      const style = input.nodeStyleOf?.(node.id) ?? {};
-      const note = role ?? input.noteOf?.(node.id);
-      const roleClass = role && /^[a-z][a-z-]*$/.test(role) ? ` vs-role-${role}` : '';
-      const cats = catClasses(style);
-      const classes = `vs-node${roleClass}${style.className ? ` ${style.className}` : ''}${cats ? ` ${cats}` : ''}`;
-      const depth = input.depthOf?.(node.id, 'map') ?? 'explanation';
-      const accessible = note ? `${input.labelOf(node.id)} (${note})` : input.labelOf(node.id);
-      return h(depth === 'bare' ? 'g' : 'a', { class: classes, href: depth === 'bare' ? undefined : `#${DOM.canonicalId(node.id)}`, id: DOM.svgInstanceId(figureId, node.id), [DOM.attr.target]: node.id, [DOM.attr.depth]: depth, [DOM.attr.interactive]: depth === 'bare' ? undefined : true, 'aria-label': depth === 'bare' ? undefined : `${accessible}${style.emphasis ? '; emphasized' : ''}; ${depthAction(depth)}`, 'data-vs-emphasis': style.emphasis, [DOM.attr.filter]: input.filterOf?.(node.id) },
-        outline(style, node.x + MARGIN, node.y + MARGIN, node.width, node.height),
-        interactionBox(node.x + MARGIN, node.y + MARGIN, node.width, node.height),
-        node.richLines ? richVisual(node.richLines, node.x + MARGIN + node.width / 2,
-          node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.onMath,
-          { muted: input.mutedLinesOf?.(node.id) ?? 0 })
-          : textLines(node.lines, node.x + MARGIN + node.width / 2, node.y + MARGIN + 8, 'vs-node-label', input.termsOf, input.mutedLinesOf?.(node.id) ?? 0),
-        depthMeter(depth, node.x + MARGIN + node.width - 12, node.y + MARGIN + 5));
-    }),
+    input.flowchart ? null : renderNodes(),
+    // Flowchart controls and summaries stay above edge hit paths. Their header
+    // lane is checked below, so this stacking does not hide route meaning.
+    input.flowchart ? layout.groups.map((g) => boxOf.has(g.id) ? [
+      foldBox(boxOf.get(g.id)!, input.labelOf(g.id), input),
+      foldToggle(boxOf.get(g.id)!, input.labelOf(g.id), true),
+      foldExpand(boxOf.get(g.id)!, input.labelOf(g.id)),
+    ] : null) : null,
+    // Keep controls above edge hit paths and before revealed steps in Tab order.
+    input.flowchart ? renderNodes() : null,
     // A terminal proxy-label fallback sits in the right gutter. It overlays
     // nodes, so its two matching keys remain visible even when a node covers
     // every route point, and shares the proxy metadata for fold visibility.
@@ -408,7 +462,7 @@ export function graphSvg(input: SvgInput): HNode {
 // group, so no proxy crosses a part that stays visible.
 
 type Rect = { x: number; y: number; width: number; height: number };
-type FoldBox = Rect & { group: string; count: number; hide: string[]; area: Rect; richLines?: RichLine[] };
+type FoldBox = Rect & { group: string; count: number; hide: string[]; area: Rect & { richLines?: RichLine[] }; richLines?: RichLine[] };
 type ProxyCallout = { rect: Rect; attachment: Point; keyPoint: Point; text: string; key: string; contextRich?: RichLine };
 type Proxy = { edge: GraphLayout['edges'][number]; id: string; from: string; to: string; ends: string; callout?: ProxyCallout };
 
@@ -427,7 +481,9 @@ function foldText(label: string, count: number): { label: string; count: string 
 /** Where a route leaves a folded group: the point, the side of the group, and the index of the first point outside. */
 type Exit = { at: Point; side: 'left' | 'right' | 'top' | 'bottom'; index: number };
 
-function exitOf(points: Point[], area: Rect): Exit | undefined {
+function exitOf(points: Point[], area: Rect, budget?: GeometryBudget): Exit | undefined {
+  // Precharge each possible point containment, four clipping planes and side tests.
+  budget?.check(points.length + 8);
   const i = points.findIndex((p, k) => k > 0 && outside(p, area));
   if (i < 0) return undefined;
   const at = exitPoint(points[i - 1]!, points[i]!, area);
@@ -438,7 +494,7 @@ function exitOf(points: Point[], area: Rect): Exit | undefined {
   return { at, side, index: i };
 }
 
-function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
+function foldPlan(input: SvgInput, budget?: GeometryBudget): { boxes: FoldBox[]; proxies: Proxy[] } {
   const collapsed = input.collapsed ?? [];
   const parentOf = input.parentOf;
   if (collapsed.length === 0 || !parentOf) return { boxes: [], proxies: [] };
@@ -446,12 +502,13 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
   const groupRects = new Map(layout.groups.map((g) => [g.id, g]));
   // True when `id` (a node or a group) is inside `group`, at any depth.
   const inside = (id: string, group: string): boolean => {
+    budget?.check();
     let p = parentOf(id);
-    for (let i = 0; p !== undefined && i < 1000; i++, p = parentOf(p)) if (p === group) return true;
+    for (let i = 0; p !== undefined && i < 1000; i++, p = parentOf(p)) { budget?.check(2); if (p === group) return true; }
     return false;
   };
   // The collapsible groups around a node, innermost first.
-  const chain = (id: string): string[] => collapsed.filter((g) => inside(id, g)).sort((a, b) => (inside(a, b) ? -1 : inside(b, a) ? 1 : 0));
+  const chain = (id: string): string[] => collapsed.filter((g) => inside(id, g)).sort((a, b) => { budget?.check(); return inside(a, b) ? -1 : inside(b, a) ? 1 : 0; });
   const ends = new Map(layout.edges.map((e) => [e.id, input.relationship(e.id)]));
   const richLabels = new Map<string, RichLine[]>([
     ...layout.nodes.map((n) => [n.id, n.richLines] as const),
@@ -478,6 +535,7 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
   };
   const boxes: FoldBox[] = [];
   for (const group of collapsed) {
+    budget?.check();
     const area = groupRects.get(group);
     if (!area) continue;
     const nodes = layout.nodes.filter((nd) => inside(nd.id, group)).map((nd) => nd.id);
@@ -488,9 +546,10 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     }).map((e) => e.id);
     const text = foldText(input.labelOf(group), nodes.length);
     const contextRich = area.richLines?.[0];
-    const contentWidth = contextRich ? contextRich.width + textWidth(text.count) : textWidth(text.label + text.count);
+    const contentWidth = Math.max(input.flowchart ? textWidth('Contains selection') : 0,
+      contextRich ? contextRich.width + textWidth(text.count) : textWidth(text.label + text.count));
     const width = Math.min(area.width, Math.ceil(contentWidth + 2 * NODE_PAD_X));
-    const height = Math.min(area.height, contextRich ? Math.ceil(contextRich.height + 16) : FOLD_BOX_HEIGHT);
+    const height = Math.min(area.height, (contextRich ? Math.ceil(contextRich.height + 16) : FOLD_BOX_HEIGHT) + (input.flowchart ? 44 : 0));
     boxes.push({
       group, count: nodes.length, hide: [...nodes, ...groups, ...edges], area,
       x: round3(area.x + (area.width - width) / 2), y: round3(area.y + (area.height - height) / 2), width, height,
@@ -502,6 +561,7 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
   type Combo = { e: GraphLayout['edges'][number]; from: string; to: string; ends: string };
   const combos: Combo[] = [];
   for (const e of layout.edges) {
+    budget?.check();
     const r = ends.get(e.id);
     if (!r || e.points.length < 2) continue;
     const fromChain = chain(r.from).filter((g) => boxOf.has(g));
@@ -509,6 +569,7 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     if (fromChain.length === 0 && toChain.length === 0) continue;
     for (const f of ['', ...fromChain]) {
       for (const t of ['', ...toChain]) {
+        budget?.check();
         // A combination that cannot show: no fold, one fold for both ends,
         // or a fold that holds the other end too.
         if ((f === '' && t === '') || f === t || (t !== '' && inside(r.from, t)) || (f !== '' && inside(r.to, f))) continue;
@@ -528,17 +589,17 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     for (const [which, group] of [['from', c.from], ['to', c.to]] as const) {
       if (group === '') continue;
       const box = boxOf.get(group)!;
-      const exit = exitOf(which === 'from' ? c.e.points : [...c.e.points].reverse(), box.area);
+      const exit = exitOf(which === 'from' ? c.e.points : [...c.e.points].reverse(), box.area, budget);
       if (!exit) continue;
       const key = endKey(c.e.id, which, group);
       const face = `${group}|${exit.side}`;
       const list = faces.get(face) ?? [];
-      if (!list.some((x) => x.key === key)) list.push({ key, u: exit.side === 'left' || exit.side === 'right' ? exit.at.y : exit.at.x });
+      if (!list.some((x) => { budget?.check(); return x.key === key; })) list.push({ key, u: exit.side === 'left' || exit.side === 'right' ? exit.at.y : exit.at.x });
       faces.set(face, list);
     }
   }
   for (const list of faces.values()) {
-    list.sort((a, b) => a.u - b.u || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    list.sort((a, b) => { budget?.check(2); return a.u - b.u || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
     list.forEach((x, k) => slots.set(x.key, { k, n: list.length }));
   }
   // A visible endpoint requires its outermost folded ancestor, or every
@@ -548,7 +609,7 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     .filter((g) => standIn === '' || g === standIn || inside(standIn, g))
     .map((g) => [g, g === standIn]));
   const edgeState = (from: string, to: string, f = '', t = ''): State => new Map([...endpointState(from, f), ...endpointState(to, t)]);
-  const compatible = (a: State, b: State) => [...a].every(([g, value]) => !b.has(g) || b.get(g) === value);
+  const compatible = (a: State, b: State) => [...a].every(([g, value]) => { budget?.check(); return !b.has(g) || b.get(g) === value; });
   const fixed: Array<{ rect: Rect; state: State }> = [
     ...layout.nodes.map((node) => ({ rect: node, state: endpointState(node.id) })),
     ...boxes.map((box) => ({ rect: box, state: new Map([...endpointState(box.group), [box.group, true] as const]) })),
@@ -560,14 +621,15 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
   const placed: Array<{ rect: Rect; state: State }> = [];
   const proxies: Proxy[] = [];
   for (const c of combos) {
+    budget?.check();
     let points = c.e.points;
     const folded: Rect[] = [];
     if (c.from !== '') {
-      points = toBox(points, boxOf.get(c.from)!, slots.get(endKey(c.e.id, 'from', c.from)));
+      points = toBox(points, boxOf.get(c.from)!, slots.get(endKey(c.e.id, 'from', c.from)), budget);
       folded.push(boxOf.get(c.from)!.area);
     }
     if (c.to !== '') {
-      points = toBox([...points].reverse(), boxOf.get(c.to)!, slots.get(endKey(c.e.id, 'to', c.to))).reverse();
+      points = toBox([...points].reverse(), boxOf.get(c.to)!, slots.get(endKey(c.e.id, 'to', c.to)), budget).reverse();
       folded.push(boxOf.get(c.to)!.area);
     }
     const e = c.e;
@@ -577,17 +639,17 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     const calloutText = `${input.labelOf(rel.from)} → ${input.labelOf(e.id)} → ${input.labelOf(rel.to)}`;
     const contextRich = contextLine([rel.from, e.id, rel.to]);
     const calloutSize = e.label ? calloutSizeFor(e.label, calloutText, contextRich) : undefined;
-    const placement = e.label && [...folded, ...obstacles].some((a) => overlaps(e.label!, a))
-      ? labelAt(points, folded, obstacles, e.label, layout, calloutSize) : undefined;
+    const placement = e.label && [...folded, ...obstacles].some((a) => { budget?.check(); return overlaps(e.label!, a); })
+      ? labelAt(points, folded, obstacles, e.label, layout, calloutSize, budget) : undefined;
     const label = e.label && placement ? { ...e.label, x: placement.x, y: placement.y } : e.label;
-    const callout = label && placement?.callout && calloutSize ? calloutFor(points, label, calloutSize, calloutText, contextRich) : undefined;
+    const callout = label && placement?.callout && calloutSize ? calloutFor(points, label, calloutSize, calloutText, contextRich, budget) : undefined;
     if (label) placed.push({ rect: callout?.rect ?? label, state });
     proxies.push({
       edge: { id: e.id, points, ...(label ? { label } : {}) },
       id: `${DOM.svgInstanceId(figureId, e.id)}~${c.from || '-'}~${c.to || '-'}`, from: c.from, to: c.to, ends: c.ends, callout,
     });
   }
-  const calloutKeys = new Map([...new Set(proxies.flatMap((p) => p.callout ? [p.edge.id] : []))].sort().map((id, i) => [id, String(i + 1)]));
+  const calloutKeys = new Map([...new Set(proxies.flatMap((p) => p.callout ? [p.edge.id] : []))].sort((a,b) => { budget?.check(); return a < b ? -1 : a > b ? 1 : 0; }).map((id, i) => [id, String(i + 1)]));
   for (const proxy of proxies) if (proxy.callout) proxy.callout.key = calloutKeys.get(proxy.edge.id)!;
   // Place foreground route keys against full panels and earlier co-visible
   // keys. One downward pass over sorted obstacles is finite, including when
@@ -601,13 +663,111 @@ function foldPlan(input: SvgInput): { boxes: FoldBox[]; proxies: Proxy[] } {
     const callout = proxy.callout, rel = ends.get(proxy.edge.id)!;
     const state = edgeState(rel.from, rel.to, proxy.from, proxy.to);
     const rect = { x: Math.max(0, callout.attachment.x - 7), y: Math.max(0, callout.attachment.y - 7), width: 14, height: 14 };
-    for (const obstacle of keyObstacles.filter((item) => compatible(state, item.state)).map((item) => item.rect).sort((a, b) => a.y - b.y)) {
+    for (const obstacle of keyObstacles.filter((item) => compatible(state, item.state)).map((item) => item.rect).sort((a, b) => { budget?.check(); return a.y - b.y; })) {
+      budget?.check();
       if (overlaps(rect, { x: obstacle.x - 2, y: obstacle.y - 2, width: obstacle.width + 4, height: obstacle.height + 4 })) {
         rect.y = obstacle.y + obstacle.height + 2;
       }
     }
     callout.keyPoint = { x: round3(rect.x + 7), y: round3(rect.y + 7) };
     keyObstacles.push({ rect, state });
+  }
+  if (input.flowchart && budget) {
+    const original = new Map(layout.edges.map((edge) => [edge.id, edge]));
+    const onBoundary = (p: Point, r: Rect) => p.x >= r.x - 0.02 && p.x <= r.x + r.width + 0.02
+      && p.y >= r.y - 0.02 && p.y <= r.y + r.height + 0.02
+      && Math.min(Math.abs(p.x - r.x), Math.abs(p.x - r.x - r.width),
+        Math.abs(p.y - r.y), Math.abs(p.y - r.y - r.height)) <= 0.02;
+    const same = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) <= 0.02;
+    const headers = boxes.flatMap((box) => {
+      const titleWidth = box.area.richLines?.[0]?.width ?? textWidth(input.labelOf(box.group));
+      return [
+        { group: box.group, control: false, rect: { x: box.area.x + 12, y: box.area.y + 5, width: titleWidth, height: box.area.richLines?.[0]?.height ?? LINE_HEIGHT } },
+        { group: box.group, control: true, rect: { x: flowControlX(box, input.labelOf(box.group)), y: box.area.y + 3, width: FOLD_TOGGLE_WIDTH, height: FOLD_TOGGLE_HEIGHT } },
+      ];
+    });
+    const fail = (id: string, reason: string): never => {
+      throw Object.assign(new Error(`flowchart proxy ${id}: ${reason}`), { code: 'E_LAYOUT_LIMIT' });
+    };
+    const checkHeaders = (id: string, points: Point[], visible: (group: string) => boolean) => {
+      for (const header of headers) {
+        if (!visible(header.group)) continue;
+        for (let i = 1; i < points.length; i++) {
+          budget.check();
+          if (intersectsInterior(points[i - 1]!, points[i]!, header.rect)) fail(id, `route crosses group header ${header.group}`);
+        }
+      }
+    };
+    for (const edge of layout.edges) checkHeaders(edge.id, edge.points, () => true);
+    const coVisible = (id: string, state: State) => compatible(state, endpointState(id));
+    for (const proxy of proxies) {
+      const rel = ends.get(proxy.edge.id)!;
+      const full = original.get(proxy.edge.id)!;
+      const points = proxy.edge.points;
+      const state = edgeState(rel.from, rel.to, proxy.from, proxy.to);
+      checkHeaders(proxy.edge.id, points, (group) => compatible(state, new Map([...endpointState(group), [group, false] as const])));
+      if (proxy.callout) {
+        const { rect, keyPoint, attachment } = proxy.callout;
+        const keyRect = { x: keyPoint.x - 7, y: keyPoint.y - 7, width: 14, height: 14 };
+        for (const header of headers) {
+          if (!compatible(state, new Map([...endpointState(header.group), [header.group, false] as const]))) continue;
+          budget.check(3);
+          if (geometryOverlap(rect, header.rect) || geometryOverlap(keyRect, header.rect)
+            || intersectsInterior(attachment, keyPoint, header.rect)) fail(proxy.edge.id, `callout overlaps group header ${header.group}`);
+        }
+        for (const box of boxes) {
+          if (!compatible(state, new Map([...endpointState(box.group), [box.group, true] as const]))) continue;
+          const control = flowExpandRect(box);
+          budget.check(3);
+          if (geometryOverlap(rect, control) || geometryOverlap(keyRect, control)
+            || intersectsInterior(attachment, keyPoint, control)) fail(proxy.edge.id, `callout overlaps group Expand ${box.group}`);
+        }
+      }
+      budget.check(points.length * 2 + 2);
+      if (points.length < 2 || !points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) fail(proxy.edge.id, 'nonfinite or missing route');
+      if (proxy.from ? !onBoundary(points[0]!, boxOf.get(proxy.from)!) : !same(points[0]!, full.points[0]!)) fail(proxy.edge.id, 'source docking lost');
+      if (proxy.to ? !onBoundary(points.at(-1)!, boxOf.get(proxy.to)!) : !same(points.at(-1)!, full.points.at(-1)!)) fail(proxy.edge.id, 'destination docking lost');
+      for (const node of layout.nodes) {
+        if (!coVisible(node.id, state) || node.id === rel.from || node.id === rel.to) continue;
+        if (proxy.edge.label) { budget.check(); if (geometryOverlap(proxy.callout?.rect ?? proxy.edge.label, node)) fail(proxy.edge.id, `label overlaps ${node.id}`); }
+        for (let i = 1; i < points.length; i++) {
+          budget.check();
+          if (intersectsInterior(points[i - 1]!, points[i]!, node)) fail(proxy.edge.id, `route crosses ${node.id}`);
+        }
+      }
+      for (const box of boxes) {
+        if (box.group === proxy.from || box.group === proxy.to || !compatible(state, new Map([...endpointState(box.group), [box.group, true] as const]))) continue;
+        if (proxy.edge.label) { budget.check(); if (geometryOverlap(proxy.callout?.rect ?? proxy.edge.label, box)) fail(proxy.edge.id, `label overlaps fold ${box.group}`); }
+        for (let i = 1; i < points.length; i++) {
+          budget.check();
+          if (intersectsInterior(points[i - 1]!, points[i]!, box)) fail(proxy.edge.id, `route crosses fold ${box.group}`);
+        }
+      }
+    }
+    const labeled = [
+      ...layout.edges.filter((edge) => edge.label).map((edge) => {
+        const rel = ends.get(edge.id)!;
+        return { id: edge.id, rect: edge.label!, state: edgeState(rel.from, rel.to) };
+      }),
+      ...proxies.filter((proxy) => proxy.edge.label).map((proxy) => {
+        const rel = ends.get(proxy.edge.id)!;
+        return { id: proxy.edge.id, rect: proxy.callout?.rect ?? proxy.edge.label!,
+          state: edgeState(rel.from, rel.to, proxy.from, proxy.to) };
+      }),
+    ];
+    for (const proxy of proxies) {
+      const rel = ends.get(proxy.edge.id)!;
+      const state = edgeState(rel.from, rel.to, proxy.from, proxy.to);
+      const ownRect = proxy.callout?.rect ?? proxy.edge.label;
+      for (const other of labeled) {
+        if (other.id === proxy.edge.id || !compatible(state, other.state)) continue;
+        if (ownRect) { budget.check(); if (geometryOverlap(ownRect, other.rect)) fail(proxy.edge.id, `label overlaps flow ${other.id}`); }
+        for (let i = 1; i < proxy.edge.points.length; i++) {
+          budget.check();
+          if (intersectsInterior(proxy.edge.points[i - 1]!, proxy.edge.points[i]!, other.rect)) fail(proxy.edge.id, `route crosses label ${other.id}`);
+        }
+      }
+    }
   }
   return { boxes, proxies };
 }
@@ -639,9 +799,10 @@ function exitPoint(a: Point, b: Point, r: Rect): Point {
  * of its own, then along that level, then straight to the exit: a Z, or one
  * line when the two ends are in line.
  */
-function toBox(points: Point[], box: FoldBox, slot: { k: number; n: number } | undefined): Point[] {
+function toBox(points: Point[], box: FoldBox, slot: { k: number; n: number } | undefined, budget?: GeometryBudget): Point[] {
+  budget?.check(2 * (points.length + 4) + 8); // Join geometry and duplicate-point comparisons, before allocation.
   const area = box.area;
-  const exit = exitOf(points, area);
+  const exit = exitOf(points, area, budget);
   const cx = round3(box.x + box.width / 2);
   if (!exit) return [{ x: cx, y: round3(box.y + box.height) }, ...points.slice(1)];
   const { k, n } = slot ?? { k: 0, n: 1 };
@@ -664,18 +825,20 @@ function toBox(points: Point[], box: FoldBox, slot: { k: number; n: number } | u
  * If none fits, a right gutter guarantees a free rectangle in bounded work;
  * graphSvg includes that gutter in its viewBox. No unbounded search is needed.
  */
-function labelAt(points: Point[], folded: Rect[], obstacles: Rect[], label: Rect, layout: { width: number; height: number }, calloutSize: Pick<Rect, 'width' | 'height'> | undefined): { x: number; y: number; callout?: true } {
+function labelAt(points: Point[], folded: Rect[], obstacles: Rect[], label: Rect, layout: { width: number; height: number }, calloutSize: Pick<Rect, 'width' | 'height'> | undefined, budget?: GeometryBudget): { x: number; y: number; callout?: true } {
   const blocked = [...folded, ...obstacles];
-  const free = (p: Point, size: Pick<Rect, 'width' | 'height'> = label) => p.x >= 0 && p.y >= 0 && p.y + size.height <= layout.height
-    && !blocked.some((r) => overlaps({ ...size, ...p }, r));
+  const free = (p: Point, size: Pick<Rect, 'width' | 'height'> = label) => { budget?.check(3); return p.x >= 0 && p.y >= 0 && p.y + size.height <= layout.height
+    && !blocked.some((r) => { budget?.check(); return overlaps({ ...size, ...p }, r); }); };
   const candidates = points.slice(1).map((b, k) => {
+    budget?.check(3);
     const a = points[k]!;
     return { x: round3((a.x + b.x - label.width) / 2), y: round3((a.y + b.y - label.height) / 2), len: Math.hypot(b.x - a.x, b.y - a.y) };
-  }).sort((a, b) => b.len - a.len);
+  }).sort((a, b) => { budget?.check(); return b.len - a.len; });
   for (const p of candidates) if (free(p)) return { x: p.x, y: p.y };
   if (free(label)) return { x: label.x, y: label.y };
   // At most four candidates per obstacle, in source order.
   for (const r of blocked) {
+    budget?.check();
     for (const p of [
       { x: r.x + r.width + 4, y: r.y }, { x: r.x - label.width - 4, y: r.y },
       { x: r.x, y: r.y + r.height + 4 }, { x: r.x, y: r.y - label.height - 4 },
@@ -684,7 +847,7 @@ function labelAt(points: Point[], folded: Rect[], obstacles: Rect[], label: Rect
       return { x: placed.x, y: placed.y, callout: true };
     }
   }
-  const right = blocked.reduce((x, r) => Math.max(x, r.x + r.width), layout.width);
+  const right = blocked.reduce((x, r) => { budget?.check(); return Math.max(x, r.x + r.width); }, layout.width);
   const placed = { ...label, x: round3(right + 4), y: 0 };
   return { x: placed.x, y: placed.y, callout: true };
 }
@@ -695,7 +858,8 @@ function calloutSizeFor(label: Rect, text: string, rich?: RichLine): Pick<Rect, 
 }
 
 /** The terminal fallback's foreground panel and its deterministic route key. */
-function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'height'>, text: string, contextRich?: RichLine): ProxyCallout {
+function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'height'>, text: string, contextRich?: RichLine, budget?: GeometryBudget): ProxyCallout {
+  budget?.check(4 * points.length); // Segment projection, clamping, distance and minimum comparisons.
   const rect = { ...label, ...size };
   const target = { x: label.x + label.width / 2, y: label.y + label.height / 2 };
   let attachment = points[0]!;
@@ -718,6 +882,22 @@ function calloutFor(points: Point[], label: Rect, size: Pick<Rect, 'width' | 'he
 function foldBox(b: FoldBox, label: string, input: SvgInput): HNode {
   const text = foldText(label, b.count);
   const cx = b.x + MARGIN + b.width / 2;
+  const depth = input.depthOf?.(b.group, 'map') ?? 'explanation';
+  if (input.flowchart) return h('a', { class: `vs-fold vs-flow-fold-summary vs-flow-group-color-${input.groupColorOf?.(b.group) ?? 'neutral'}`, href: `#${DOM.canonicalId(b.group)}`,
+    id: `${DOM.svgInstanceId(input.figureId, b.group)}~fold`, [DOM.attr.target]: b.group,
+    [DOM.attr.depth]: depth, [DOM.attr.interactive]: true,
+    [DOM.attr.fold]: b.group, [DOM.attr.foldHide]: b.hide.join(' '),
+    'data-vs-fold-initial': String(input.initialCollapsed?.includes(b.group) ?? false),
+    'aria-label': `${label} · ${b.count} steps; ${depthAction(depth)}`, hidden: true },
+    h('rect', { class: `vs-fold-shape vs-flow-group-color-${input.groupColorOf?.(b.group) ?? 'neutral'}`, x: n(b.x + MARGIN), y: n(b.y + MARGIN), width: n(b.width), height: n(b.height), rx: '8', ry: '8' }),
+    interactionBox(b.x + MARGIN, b.y + MARGIN, b.width, b.height),
+    b.richLines?.[0] ? richVisual([b.richLines[0]], b.x + MARGIN + 12,
+      b.y + MARGIN + 8, 'vs-fold-label vs-group-label', input.termsOf, input.onMath, { centered: false })
+      : h('text', { class: 'vs-fold-label vs-group-label', x: n(b.x + MARGIN + 12), y: n(b.y + MARGIN + 23), 'font-size': 14 }, label),
+    h('text', { class: 'vs-fold-count', x: n(b.x + MARGIN + 12), y: n(b.y + MARGIN + b.height - 27), 'font-size': 12 }, `${b.count} ${b.count === 1 ? 'step' : 'steps'}`),
+    depthMeter(depth, b.x + MARGIN + b.width - 12, b.y + MARGIN + 5),
+    h('text', { class: 'vs-fold-selection', 'data-vs-fold-selection': '', x: n(cx), y: n(b.y + MARGIN + b.height - 5),
+      'text-anchor': 'middle', 'font-size': 12, 'aria-hidden': 'true', hidden: true }, 'Contains selection'));
   return h('g', { class: 'vs-fold', [DOM.attr.fold]: b.group, [DOM.attr.foldHide]: b.hide.join(' '), role: 'button', tabindex: '0', 'aria-label': `Unfold ${label} (${b.count} ${b.count === 1 ? 'node' : 'nodes'})`, hidden: true },
     // A second outline behind the box: the box stands for several parts.
     h('rect', { class: 'vs-fold-back', x: n(b.x + MARGIN + 4), y: n(b.y + MARGIN + 4), width: n(b.width), height: n(b.height), rx: '8', ry: '8', fill: '#f5f7fa', stroke: '#8a94a3', 'stroke-width': '1' }),
@@ -732,9 +912,26 @@ function foldBox(b: FoldBox, label: string, input: SvgInput): HNode {
       h('tspan', { x: n(cx), dy: '1em' }, text.label, h('tspan', { class: 'vs-fold-count', 'fill-opacity': MUTED_OPACITY }, text.count))));
 }
 
+function flowControlX(b: FoldBox, label: string): number {
+  return b.area.x + MARGIN + 12 + (b.area.richLines?.[0]?.width ?? textWidth(label)) + 12;
+}
+
+function flowExpandRect(b: FoldBox): Rect {
+  return { x: b.x + b.width - 32, y: b.y + b.height - 44, width: 24, height: 24 };
+}
+
+function foldExpand(b: FoldBox, label: string): HNode {
+  const rect = flowExpandRect(b), x = rect.x + MARGIN, y = rect.y + MARGIN;
+  return h('g', { class: 'vs-fold-expand', 'data-vs-fold-expand': b.group,
+    role: 'button', tabindex: '0', 'aria-label': `Expand ${label}`, hidden: true },
+    h('title', {}, `Expand ${label}`),
+    h('rect', { x: n(x), y: n(y), width: '24', height: '24', rx: '4', ry: '4' }),
+    h('path', { d: `M${n(x + 7)} ${n(y + 12)}h10 M${n(x + 12)} ${n(y + 7)}v10`, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'aria-hidden': 'true' }));
+}
+
 /** The Fold control at the top right of an unfolded group. It is hidden until the runtime runs. */
-function foldToggle(b: FoldBox, label: string): HNode {
-  const right = b.area.x + MARGIN + b.area.width - 6;
+function foldToggle(b: FoldBox, label: string, flowchart = false): HNode {
+  const right = flowchart ? flowControlX(b, label) + FOLD_TOGGLE_WIDTH : b.area.x + MARGIN + b.area.width - 6;
   const top = b.area.y + MARGIN + 3;
   return h('g', { class: 'vs-fold-toggle', [DOM.attr.foldToggle]: b.group, role: 'button', tabindex: '0', 'aria-label': `Fold ${label}`, hidden: true },
     h('rect', { x: n(right - FOLD_TOGGLE_WIDTH), y: n(top), width: n(FOLD_TOGGLE_WIDTH), height: n(FOLD_TOGGLE_HEIGHT), rx: '4', ry: '4', fill: '#ffffff', stroke: '#8a94a3', 'stroke-width': '1' }),

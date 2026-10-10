@@ -2,7 +2,7 @@
 
 **Question:** What depends on what, and what makes each step complete?
 
-**Confused with:** `state` (states of one object, not steps) and a numbered list (steps in one straight line).
+**Confused with:** `flowchart` (executable next steps), `state` (states of one object, not steps), and a numbered list (steps in one straight line).
 
 ## Use it when
 
@@ -13,6 +13,7 @@
 ## Do not use it when
 
 - The steps run strictly one after another. A numbered list is enough.
+- The chart selects a process path after a condition or retry. Use `flowchart`.
 - You need bar lengths, durations, or percentages. A `due` date is text on
   the task, never a bar. Do not invent a date.
 - The steps are states of one object. Use `state`.

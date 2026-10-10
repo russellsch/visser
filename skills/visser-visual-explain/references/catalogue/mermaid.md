@@ -2,7 +2,7 @@
 
 **Question:** Is there no native component for this, and does the reader accept a figure without inspectable parts?
 
-**Confused with:** `architecture` and `transform` (a flowchart), `trace` (a sequence diagram), `state` (a state diagram), and `domain` (an ER or class diagram).
+**Confused with:** `flowchart` (a process diagram), `architecture` and `transform`, `trace` (a sequence diagram), `state` (a state diagram), and `domain` (an ER or class diagram).
 
 Mermaid is an escape hatch, not a catalogue answer. `visser check --review`
 gives one `W_MERMAID` prompt for each Mermaid figure.
@@ -18,8 +18,8 @@ gives one `W_MERMAID` prompt for each Mermaid figure.
 
 - A native component answers the question. The first line of the fence names
   the component to use:
-  - `flowchart` or `graph`: `architecture` for who calls whom, or `transform`
-    for how one value changes;
+  - `flowchart` or `graph`: `flowchart` for process paths, `architecture` for
+    who calls whom, or `transform` for how one value changes;
   - `sequenceDiagram`: `trace`;
   - `stateDiagram-v2`: `state`;
   - `erDiagram` or `classDiagram`: `domain`;

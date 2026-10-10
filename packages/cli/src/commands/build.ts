@@ -1,3 +1,4 @@
+import { flowchartReaderContracts } from '../../../core/src/compiler/flowchart-contract.ts';
 // `visser build DOC [--out DIR] [--toolkit-dir DIR | --dev-toolkit DIR]
 //   [--allow-layout-fallback]` (§13.1, §17.1). No source mutation, no network.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -127,6 +128,7 @@ export async function compileWithToolkit(bundle: LoadedBundle, toolkit: ToolkitS
           ...('mermaid.js' in browserAssets ? { 'mermaid.js': assetSha('mermaid.js') } : {}),
           ...('math.js' in browserAssets ? { 'math.js': assetSha('math.js') } : {}),
         },
+        readerContracts: flowchartReaderContracts(browserAssets['reader.js']!.toString('utf8'), browserAssets['reader.css']!.toString('utf8')),
         ...(integrity ? { integrity } : {}),
       },
       {

@@ -514,6 +514,294 @@
         "@M15"
       ],
       "note": "Retained source ownership, reference packets and before/after identity paths are covered. Mermaid-family selection work is deferred; Baseline release verification passed; the copy-icon delta has focused checks. Human acceptance closed by user approval/waiver on 2026-10-09; unperformed manual checks are not passes. See docs/validation/math-rendering/completion.md."
+    },
+    {
+      "id": "FC01",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC02",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC03",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC04",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCgeometry"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC05",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC06",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC07",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC08",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC09",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCgeometry"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC10",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCgeometry"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC11",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCgeometry"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC12",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCgeometry"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC13",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC14",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC15",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC16",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCdelivery"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC17",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC18",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCdelivery"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC19",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCmodel"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC20",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCprompts"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC21",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCdelivery"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC22",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCdelivery"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC23",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCprompts"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC24",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCprompts"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC25",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCprompts"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC26",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC27",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC28",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC29",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC30",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC31",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
+    },
+    {
+      "id": "FC32",
+      "phase": 5,
+      "status": "partial",
+      "tags": [
+        "@FCcompiler"
+      ],
+      "note": "Native flowchart implementation; concrete tests and remaining automated/manual evidence in docs/validation/native-flowchart/coverage.md. V01\u2013V03 acceptance remains pending; suite tag proves a passing automated slice, not the whole requirement."
     }
   ]
 }

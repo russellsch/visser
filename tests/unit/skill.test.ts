@@ -60,7 +60,13 @@ describe('core skill (§16, Appendix B) @R16', () => {
     expect(SKILL).not.toMatch(/repository shim first/);
     expect(SKILL).toContain('references/format.md');
     expect(SKILL).toContain('references/handoff.md');
+    expect(SKILL).toContain('references/math.md');
     for (const p of PATTERNS) expect(SKILL, p.name).toContain(`\`${p.name}\``);
+  });
+
+  it('routes procedural branching to flowcharts without treating every flow as a labelled relationship', () => {
+    expect(SKILL).toContain('Use a flowchart for alternative steps and retries in one process');
+    expect(SKILL).toContain('A flowchart flow\n     labels an outcome when it leaves a decision; other flows may omit it.');
   });
 
   it('keeps the authorization rules', () => {

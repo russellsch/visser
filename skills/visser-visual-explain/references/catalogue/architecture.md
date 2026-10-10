@@ -2,7 +2,7 @@
 
 **Question:** What exists, where are the boundaries, and how do responsibilities interact?
 
-**Confused with:** `trace` (the order of events) and `transform` (representations of one value, not components).
+**Confused with:** `flowchart` (procedural next steps), `trace` (the order of events), and `transform` (representations of one value, not components).
 
 ## Use it when
 
@@ -10,6 +10,7 @@
 
 ## Do not use it when
 
+- The point is alternative next steps or a retry. Use `flowchart`.
 - The point is event order: left-to-right never means "happens first"; use `trace`.
 - Two parts suffice in prose, or more than about 25 visible nodes need a narrower question.
 

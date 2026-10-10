@@ -21,7 +21,9 @@ import { QUANTITY_TAGS } from '../model/validate.ts';
 import { inCitationOrder, sourceOrder } from '../model/citations.ts';
 import { buildId as computeBuildId, canonicalJSON, HashError, normalizedTextSha256, sha256Hex } from '../model/hash.ts';
 import { DOM } from './dom-contract.ts';
-import { checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
+import { flowchartModel } from '../model/flowchart.ts';
+import { FLOWCHART_READER_CONTRACT } from './flowchart-contract.ts';
+import { assertRenderedByteLimit, checkLink, h, hasBidiControls, render, UnsafeMarkupError, visibleBidi, type Child, type HNode } from './html.ts';
 import { layoutGraph, type GraphInput, type GraphLayout, type LayoutFunction } from './layout.ts';
 import { graphSvg, traceSvg } from './svg.ts';
 import { phraseKey, TermMatcher, type LinkableDefinition, type TermSegment } from './autolink.ts';
@@ -52,6 +54,8 @@ export type Toolkit = {
   // Subresource Integrity values (e.g. `sha384-…`) for assets the runtime loads
   // lazily, such as `mermaid.js` (§9.12).
   integrity?: Record<string, string>;
+  /** Capabilities verified against the selected reader JS and CSS bytes. */
+  readerContracts?: readonly string[];
 };
 
 export type CompileOptions = {
@@ -140,14 +144,14 @@ const ENTITY_KINDS = new Set(['definition', 'source', 'detail']);
 const LINK_ONLY_TEXT = 'No captured excerpt; this origin link is not self-contained evidence.';
 const linkOnlyNotice = (): HNode => h('p', { class: 'vs-link-only', [DOM.attr.generated]: true }, LINK_ONLY_TEXT);
 
-const COMPONENTS = new Set(['graph', 'trace', 'annotated', 'transform', 'compare']);
+const COMPONENTS = new Set(['flowchart', 'graph', 'trace', 'annotated', 'transform', 'compare']);
 // Figure/component root kinds (matches COMPONENT_ROOTS in model/targets.ts): a
 // figure's owned parts group under "Figure: <title>" in the appendix (F3).
-const FIGURE_KINDS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
+const FIGURE_KINDS = new Set(['flowchart', 'graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
 
 // Graph-like families share one kernel (§9.1): graph modes plus transform
 // and domain (docs/IMPROVEMENTS.md §5.4).
-type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform' | 'domain';
+type GraphFamily = 'architecture' | 'state' | 'cause' | 'plan' | 'transform' | 'domain' | 'flowchart';
 type DefinitionRun =
   | { kind: 'text' | 'code'; source: string }
   | { kind: 'math'; source: string; tex: string; display: boolean };
@@ -157,10 +161,10 @@ const GRAPH_MODES = new Set<GraphFamily>(['architecture', 'state', 'cause', 'pla
 // (§9.7). The patterns and hues are in encoding.ts (docs/IMPROVEMENTS.md §3.2).
 
 const NODE_LIST_LABEL: Record<GraphFamily, string> = {
-  architecture: 'Elements', state: 'States', cause: 'Factors', plan: 'Tasks', transform: 'Stages', domain: 'Concepts',
+  architecture: 'Elements', state: 'States', cause: 'Factors', plan: 'Tasks', transform: 'Stages', domain: 'Concepts', flowchart: 'Steps and groups',
 };
 const REL_LIST_LABEL: Record<GraphFamily, string> = {
-  architecture: 'Relationships', state: 'Transitions', cause: 'Causal links', plan: 'Dependencies', transform: 'Conversions', domain: 'Relations',
+  architecture: 'Relationships', state: 'Transitions', cause: 'Causal links', plan: 'Dependencies', transform: 'Conversions', domain: 'Relations', flowchart: 'Flows',
 };
 const TEXT_MEDIA: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
 
@@ -241,6 +245,7 @@ class Renderer {
       [DOM.attr.kind]: r.kind,
       [DOM.attr.label]: this.safeText(r.label, id),
       [DOM.attr.depth]: r.inspectable ? this.profile(id).depth : 'bare',
+      ...(r.ownerComponentId && r.id !== r.ownerComponentId && this.targets.get(r.ownerComponentId)?.kind === 'flowchart' ? { 'data-vs-flowchart-part': 'true' } : {}),
     };
   }
 
@@ -710,6 +715,7 @@ class Renderer {
   }
 
   familyOf(id: string, node: MNode): GraphFamily {
+    if (this.targets.get(id)?.kind === 'flowchart') return 'flowchart';
     if (this.targets.get(id)?.kind === 'transform') return 'transform';
     if (this.targets.get(id)?.kind === 'domain') return 'domain';
     const mode = attrString(node, 'mode') ?? 'architecture';
@@ -747,6 +753,7 @@ class Renderer {
     const n = this.nodes.get(nodeId)!;
     const a = (k: string) => attrString(n, k);
     switch (family) {
+      case 'flowchart': return [[this.targets.get(nodeId)?.kind ?? 'step'], ...(a('group') ? [['group: ', this.label(a('group')!)]] : []), ...(a('parent') ? [['parent: ', this.label(a('parent')!)]] : [])];
       case 'state': {
         const notes: string[][] = [];
         if (n.attributes['initial'] === true) notes.push(['initial']);
@@ -777,6 +784,7 @@ class Renderer {
     const quantity = this.quantity(edgeId);
     const label = [this.label(edgeId), ...(quantity ? [' (', quantity, ')'] : [])];
     switch (family) {
+      case 'flowchart': return [a('label') ?? ''];
       case 'state': {
         const guard = a('guard');
         const basis = this.relationship(edgeId)?.basis;
@@ -839,13 +847,15 @@ class Renderer {
 
   async graph(id: string, node: MNode): Promise<HNode> {
     const family = this.familyOf(id, node);
+    const procedural = family === 'flowchart' ? flowchartModel(this.bundle.model, id) : undefined;
     const children = this.childTargets(id);
     const edges = children.filter((c) => this.relationship(c.id) !== undefined);
     const groups = children.filter((c) => c.kind === 'group');
     // A `steps` walkthrough is not a node; it renders under the figure (§14.1).
     // A `detail` in a figure is not a node either: it stays a detail in the
     // appendix. A domain map draws only its concepts (phase 4 review D10).
-    const nodes = children.filter((c) => !edges.includes(c) && c.kind !== 'group' && c.kind !== 'steps' && c.kind !== 'detail' && (family !== 'domain' || c.kind === 'concept'));
+    const proceduralIds = procedural ? new Set(procedural.nodes.map(n => n.id)) : undefined;
+    const nodes = children.filter((c) => proceduralIds ? proceduralIds.has(c.id) : !edges.includes(c) && c.kind !== 'group' && c.kind !== 'steps' && c.kind !== 'detail' && (family !== 'domain' || c.kind === 'concept'));
     if (nodes.length > GRAPH_MAX_NODES || edges.length > GRAPH_MAX_EDGES) {
       this.error('E_LAYOUT_LIMIT', `graph ${id} has ${nodes.length} nodes and ${edges.length} edges; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}`, id);
     }
@@ -854,6 +864,7 @@ class Renderer {
     const encoding = this.encoding(family, nodes.map((n) => n.id), edges.map((e) => e.id));
     const input: GraphInput = {
       id,
+      ...(procedural ? { direction: procedural.direction } : {}),
       ...(Object.keys(this.mathMetrics).length ? { mathMetrics: this.mathMetrics } : {}),
       // A domain map shares its row with the glossary, so the layout rule
       // counts the glossary height (docs/IMPROVEMENTS.md §5.4).
@@ -873,7 +884,7 @@ class Renderer {
         const style = encoding.nodes.get(n.id);
         const marked = (style?.marks ?? []).some((m) => m === 'check' || m === 'question' || m === 'initial');
         const drum = style?.shape === 'drum';
-        return { id: n.id, label: this.label(n.id), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra, extraSegments } : {}), ...(marked ? { marked } : {}), ...(drum ? { drum } : {}) };
+        return { id: n.id, label: this.label(n.id), ...(family === 'flowchart' ? { flowKind: n.kind as 'start' | 'action' | 'decision' | 'end' } : {}), ...(group ? { group } : {}), ...(extra.length > 0 ? { extra, extraSegments } : {}), ...(marked ? { marked } : {}), ...(drum ? { drum } : {}) };
       }),
       edges: edges.map((e) => {
         const r = this.relationship(e.id)!;
@@ -894,14 +905,18 @@ class Renderer {
     }
 
     const roles = new Map(nodes.map((n) => [n.id, family === 'architecture' ? attrString(this.nodes.get(n.id)!, 'role') : undefined]));
-    const collapsed = groups.filter((g) => this.nodes.get(g.id)!.attributes['collapsed'] === true).map((g) => g.id);
+    const initialCollapsed = procedural ? [...procedural.initialCollapsed] : groups.filter((g) => this.nodes.get(g.id)!.attributes['collapsed'] === true).map((g) => g.id);
+    const collapsed = family === 'flowchart' ? groups.map(g => g.id) : initialCollapsed;
     const kinds = new Map(edges.map((e) => [e.id, this.relationship(e.id)!.kind]));
-    const svg = layout
+    let svg: HNode | null = null;
+    try {
+      svg = layout
       ? graphSvg({
           figureId: id, title: attrString(node, 'title') ?? this.label(id), layout,
+          ...(family === 'flowchart' ? { flowchart: true, initialCollapsed, groupColorOf: (x: string) => (attrString(this.nodes.get(x)!, 'color') ?? 'neutral') as 'neutral' | 'teal' | 'violet' | 'amber' } : {}),
           onMath: (key, tex) => this.nativeMath(key, tex),
           labelOf: (x) => this.label(x), roleOf: (x) => roles.get(x), noteOf: (x) => notes.get(x)?.join(', ') || undefined,
-          kindOf: (x) => kinds.get(x), relationship: (x) => this.relationship(x),
+          kindOf: (x) => family === 'flowchart' ? this.targets.get(x)?.kind : kinds.get(x), relationship: (x) => this.relationship(x),
           nodeStyleOf: (x) => encoding.nodes.get(x), edgeStyleOf: (x) => encoding.edges.get(x),
           edgeNoteOf: (x) => this.edgeCueWord(family, x),
           termsOf: (x) => this.labelTerms(x),
@@ -920,6 +935,13 @@ class Renderer {
           depthOf: (x) => this.depth(x, { context: this.graphVisibleContext(x, family, 'map') }),
         })
       : null;
+      if (family === 'flowchart' && svg) assertRenderedByteLimit(svg, 2 * 1024 * 1024);
+    } catch (error) {
+      if (family !== 'flowchart') throw error;
+      svg = null;
+      if (this.options.layoutFallback) this.warn('W_LAYOUT_FALLBACK', `layout of ${id} failed; showing the complete process list (${(error as Error).message})`, id);
+      else this.error('E_LAYOUT_LIMIT', `layout of ${id} failed: ${(error as Error).message}`, id);
+    }
 
     const relList = h('ol', { class: 'vs-rel-list', 'aria-label': REL_LIST_LABEL[family] },
       edges.map((e) => {
@@ -930,7 +952,7 @@ class Renderer {
         return h('li', {},
           h('span', { class: 'vs-rel-endpoint' }, this.richLabel(r.from)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
-          this.instance(e.id, DOM.listInstanceId(id, e.id), this.label(e.id), { context: this.graphVisibleContext(e.id, family, 'list') }, { class: 'vs-rel-label', [DOM.attr.rel]: e.id }),
+          this.instance(e.id, DOM.listInstanceId(id, e.id), family === 'flowchart' ? (r.label || 'continues to') : this.label(e.id), { context: this.graphVisibleContext(e.id, family, 'list') }, { class: 'vs-rel-label', [DOM.attr.rel]: e.id }),
           ((q) => (q === undefined ? null : h('span', { class: 'vs-rel-quantity', [DOM.attr.generated]: true }, ' (', this.richText(q, e.id), ')')))(this.quantity(e.id)),
           h('span', { [DOM.attr.generated]: true }, ' → '),
           h('span', { class: 'vs-rel-endpoint' }, this.richLabel(r.to)),
@@ -954,6 +976,7 @@ class Renderer {
       // it is not the only signal (the scrollbar itself remains), but a
       // scrollbar alone is easy to miss on a trackpad or a narrow window.
       svg ? h('p', { class: 'vs-overflow-hint', hidden: true }, 'Scroll sideways to see the whole figure.') : null,
+      family === 'flowchart' ? h('p', { class: 'vs-flow-reading', [DOM.attr.generated]: true }, `Flowchart · ${attrString(node, 'direction') ?? 'down'}. One path at a time; flows define branches and loops, not list order.`) : null,
       h('div', { class: 'vs-lists' }, nodeList, relList),
     ], svg !== null, svg ? encoding.legend : null);
   }
@@ -1895,7 +1918,7 @@ class Renderer {
       case 'edge': return a('kind') ?? 'edge';
       case 'conversion': return a('loss') ? 'loss' : 'conversion';
       case 'event': return a('kind') ?? 'event';
-      case 'group': return 'boundary';
+      case 'group': return record.ownerComponentId && this.targets.get(record.ownerComponentId)?.kind === 'flowchart' ? 'group' : 'boundary';
       case 'concept': return a('category') ?? 'concept';
       case 'relation': return a('kind') ?? 'relation';
       // A tree entry's cue is its role; a reading's is its value status (§14.4, §14.5).
@@ -2086,10 +2109,10 @@ class Renderer {
     const own = rels.find((r) => r.id === id && r.kind !== 'order');
     const items: HNode[] = [];
     const arrow = (text: string) => h('span', { class: 'vs-rel-arrow' }, text);
-    const labelOf = (r: (typeof rels)[number]) => this.inspectLink(r.id, r.kind === 'order' ? r.label : this.label(r.id));
+    const labelOf = (r: (typeof rels)[number]) => this.inspectLink(r.id, r.kind === 'flow' ? this.richText(r.label || 'continues to', r.id) : r.kind === 'order' ? r.label : this.label(r.id));
     if (own) {
       items.push(h('li', { class: 'vs-rel-own' },
-        this.inspectLink(own.from, this.label(own.from)), arrow(' \u2192 '), this.richLabel(id), arrow(' \u2192 '), this.inspectLink(own.to, this.label(own.to))));
+        this.inspectLink(own.from, this.label(own.from)), arrow(' \u2192 '), own.kind === 'flow' ? this.richText(own.label || 'continues to', id) : this.richLabel(id), arrow(' \u2192 '), this.inspectLink(own.to, this.label(own.to))));
     }
     for (const r of rels) {
       if (r.id === id) continue;
@@ -2168,6 +2191,42 @@ class Renderer {
     return h('section', { class: 'vs-detail-section vs-detail-nested', [DOM.attr.generated]: true },
       h('h3', {}, 'Details'),
       h('ul', {}, details.map((detail) => h('li', {}, this.inspectLink(detail.id, this.label(detail.id))))));
+  }
+
+  /** Flowchart data feeds the same canonical details and shared reader inspector. */
+  flowchartContext(record: TargetRecord): Child {
+    const owner = record.ownerComponentId;
+    if (!owner || this.targets.get(owner)?.kind !== 'flowchart' || record.id === owner || record.kind === 'flow') return null;
+    if (!['start', 'action', 'decision', 'end', 'group'].includes(record.kind)) return null;
+    const parent = (id: string) => {
+      const target = this.targets.get(id);
+      return attrString(this.nodes.get(id)!, target?.kind === 'group' ? 'parent' : 'group');
+    };
+    const path: string[] = [];
+    for (let id = parent(record.id); id && !path.includes(id); id = parent(id)) path.unshift(id);
+    const context = h('section', { class: 'vs-detail-section vs-flow-context', [DOM.attr.generated]: true },
+      h('h3', {}, 'Context'), h('p', {}, this.safeText(record.kind), ' in ',
+        h('a', { href: `#${DOM.canonicalId(owner)}` }, this.richLabel(owner)),
+        path.length ? [' · ', path.map((id, i) => [i ? ' / ' : '', this.inspectLink(id, this.label(id))])] : null));
+    if (record.kind !== 'group') return context;
+    const all = this.childTargets(owner).filter(t => ['start', 'action', 'decision', 'end', 'group'].includes(t.kind));
+    const inside = (id: string) => {
+      const seen = new Set<string>();
+      for (let p = parent(id); p && !seen.has(p); p = parent(p)) {
+        if (p === record.id) return true;
+        seen.add(p);
+      }
+      return false;
+    };
+    const members = all.filter(t => inside(t.id));
+    const memberSet = new Set(members.map(t => t.id));
+    const tree = (group: string): HNode => h('ul', {}, members.filter(t => parent(t.id) === group).map(t => h('li', {},
+      this.inspectLink(t.id, this.label(t.id)), ` · ${t.kind}`, t.kind === 'group' ? tree(t.id) : null)));
+    const crossing = this.bundle.model.relationships.filter(r => r.kind === 'flow' && memberSet.has(r.from) !== memberSet.has(r.to));
+    return [context,
+      h('section', { class: 'vs-detail-section vs-flow-members', [DOM.attr.generated]: true }, h('h3', {}, 'Steps'), tree(record.id)),
+      crossing.length ? h('section', { class: 'vs-detail-section vs-flow-crossings', [DOM.attr.generated]: true }, h('h3', {}, 'Cross-boundary flows'),
+        h('ul', {}, crossing.map(r => h('li', {}, this.inspectLink(r.from, this.label(r.from)), ' — ', this.inspectLink(r.id, this.richText(r.label || 'continues to', r.id)), ' → ', this.inspectLink(r.to, this.label(r.to)))))) : null];
   }
 
   detail(record: TargetRecord): HNode {
@@ -2268,6 +2327,7 @@ class Renderer {
         // A concept's label is the term of its own definition, shown above.
         record.kind === 'concept' ? null : this.labelTermsLine(record.id),
         specifics,
+        this.flowchartContext(record),
         this.nestedDetailsSection(record.id),
         this.relationshipSection(record.id),
         this.appearsInSection(record.id),
@@ -2291,7 +2351,7 @@ class Renderer {
       }
       const record = this.targets.get(id)!;
       if (ENTITY_KINDS.has(record.kind)) continue; // canonical form lives in the appendix
-      if (record.kind === 'graph' || record.kind === 'transform') out.push(await this.graph(id, child));
+      if (record.kind === 'graph' || record.kind === 'transform' || record.kind === 'flowchart') out.push(await this.graph(id, child));
       else if (record.kind === 'trace') out.push(this.trace(id, child));
       else if (record.kind === 'annotated') out.push(this.annotated(id, child));
       else if (record.kind === 'compare') out.push(this.compare(id, child));
@@ -2527,6 +2587,9 @@ function sourcePermalink(repository: string, commit: string, file: string, start
 
 /** Compile one loaded bundle (§17.9 compileDocument). Throws CompileError on any error diagnostic. */
 export async function compileDocument(bundle: LoadedBundle, toolkit: Toolkit, options: CompileOptions): Promise<CompileResult> {
+  if ([...bundle.model.targets.values()].some(t => t.kind === 'flowchart') && !toolkit.readerContracts?.includes(FLOWCHART_READER_CONTRACT)) {
+    throw new CompileError([{ code: 'E_INTEGRITY', severity: 'error', message: 'flowchart requires verified compatible reader.js and reader.css; select a toolkit with the flowchart reader contract', path: 'index.md' }]);
+  }
   const upstream = bundle.diagnostics.filter((d) => d.severity === 'error');
   if (upstream.length > 0 || !bundle.docId || !bundle.sourceRevision || !bundle.manifest) {
     throw new CompileError(upstream.length > 0 ? bundle.diagnostics : [{ code: 'E_SYNTAX', severity: 'error', message: 'bundle has no docId or source revision', path: 'index.md' }]);

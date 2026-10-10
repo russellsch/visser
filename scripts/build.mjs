@@ -1,3 +1,4 @@
+import { FLOWCHART_READER_MARKER } from '../packages/core/src/compiler/flowchart-contract.ts';
 import {agentflowContractPlugin} from './mermaid-agentflow-contract.mjs';
 import {erLayoutContractPlugin} from './mermaid-er-layout-contract.mjs';
 import { erContractPlugin } from './mermaid-er-contract.mjs';
@@ -77,6 +78,7 @@ await bundle({
 await bundle({
   entryPoints: [join(root, 'packages/runtime/src/reader.ts')],
   outfile: join(out, 'browser/reader.js'),
+  banner: { js: FLOWCHART_READER_MARKER },
   bundle: true,
   format: 'iife',
   target: 'es2022',

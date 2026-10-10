@@ -1,3 +1,4 @@
+/*! visser-flowchart-reader/1 */
 // Reader runtime (§10). Enhances the static snapshot: the page stays complete and
 // readable without it. No network access, no inline styles, no dependencies.
 import { DOM } from '../../core/src/compiler/dom-contract.ts';
@@ -162,6 +163,7 @@ function returnCurrent(): void {
 function showDetail(targetId: string, push: boolean, preferredInstanceId?: string, depth?: string, activation?: Element): boolean {
   const detail = canonical(targetId);
   if (!(detail instanceof HTMLDetailsElement)) return false;
+  if (detail.hasAttribute('data-vs-flowchart-part')) revealParts([targetId]);
   const instance = activation ?? (preferredInstanceId ? byId(preferredInstanceId) : undefined);
   const nested = !instance || Boolean(instance.closest('.vs-inspector'));
   const activeOwner = state.current && nested ? state.inspector?.owner : undefined;
@@ -229,6 +231,7 @@ function showDetail(targetId: string, push: boolean, preferredInstanceId?: strin
     : 'Back');
   inspector.locate.hidden = !hasLocatableInstance(targetId);
   highlightInstances(targetId, 'vs-inspected');
+  refreshFlowchartSelection();
   if (modal) {
     const dialog = inspector.host as HTMLDialogElement;
     if (!dialog.open) dialog.showModal();
@@ -260,7 +263,7 @@ function goBack(): void {
 
 function visibleInstances(targetId: string): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(`[${A.target}="${CSS.escape(targetId)}"]`))
-    .filter((node) => node.id !== DOM.canonicalId(targetId) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}, [hidden]`) && node.getClientRects().length > 0);
+    .filter((node) => node.id !== DOM.canonicalId(targetId) && !node.closest(`#${DOM.inspector}, #${DOM.inspectorDialog}, [hidden], [aria-hidden="true"]`) && node.getClientRects().length > 0);
 }
 
 function hasLocatableInstance(targetId: string): boolean {
@@ -290,6 +293,9 @@ function locateCurrent(): void {
 }
 
 function closeInspector(restoreFocus = true): void {
+  // A direct mobile detail tap is one visit; dismiss it back to the article.
+  // Internal cleanup and Locate retain the explicit viewer lifecycle.
+  if (restoreFocus && viewer.dismissWithDetail) { viewer.close(); return; }
   returnCurrent();
   const inspector = state.inspector;
   if (inspector) {
@@ -310,7 +316,16 @@ function closeInspector(restoreFocus = true): void {
   state.origin = undefined;
   const anchor = state.articleAnchor; state.articleAnchor = undefined;
   if (restoreFocus && anchor?.node.isConnected && inspector?.host.classList.contains('vs-inspector--local')) window.scrollTo(anchor.x, window.scrollY + anchor.node.getBoundingClientRect().top - anchor.top);
-  if (restoreFocus && origin && origin.isConnected) origin.focus({preventScroll:true});
+  refreshFlowchartSelection();
+  if (restoreFocus && origin && origin.isConnected) {
+    const hiddenOrigin = origin.closest('[hidden], [aria-hidden="true"]');
+    const svg = origin.closest('svg[data-vs-flowchart]');
+    const id = origin.getAttribute(A.target);
+    const summary = hiddenOrigin && svg && id ? Array.from(svg.querySelectorAll<SVGElement>(`[${A.fold}]:not([hidden])`)).find(box => box.getAttribute(A.fold) === id || words(box.getAttribute(A.foldHide)).includes(id)) : undefined;
+    const control = summary ? svg?.querySelector<SVGElement>(`[data-vs-fold-expand="${CSS.escape(summary.getAttribute(A.fold)!)}"]:not([hidden])`)
+      : hiddenOrigin && svg && id ? svg.querySelector<SVGElement>(`[${A.foldToggle}="${CSS.escape(id)}"]:not([hidden])`) : undefined;
+    (control ?? origin).focus({preventScroll:true});
+  }
 }
 
 // ---------------------------------------------------------------- deep links, expand, print
@@ -328,6 +343,7 @@ function onHash(): void {
   const hash = decodeURIComponent(location.hash);
   if (!hash.startsWith('#x-')) return;
   const targetId = hash.slice(3);
+  if (canonical(targetId)?.hasAttribute('data-vs-flowchart-part')) { revealParts([targetId]); openInspector(targetId, undefined); return; }
   if (state.current?.el.getAttribute(A.target) === targetId) return;
   // A part with no body and no evidence has no visible appendix row
   // (docs/IMPROVEMENTS.md §4.5), so a deep link shows it in the inspector.
@@ -1013,6 +1029,20 @@ function addFilterChips(): void {
  * boundary is then out of the tab order and the accessibility tree: the
  * fold box stands for the group.
  */
+/** A folded group contains the selected target; it does not become that target. */
+function refreshFlowchartSelection(): void {
+  const selected = state.current?.el.getAttribute(A.target);
+  for (const box of Array.from(document.querySelectorAll('svg[data-vs-flowchart] [data-vs-fold]'))) {
+    const contains = selected && !box.hasAttribute('hidden') && words(box.getAttribute(A.foldHide)).includes(selected);
+    box.toggleAttribute('data-vs-contains-selection', Boolean(contains));
+    const cue = box.querySelector('[data-vs-fold-selection]');
+    if (cue) { cue.textContent = contains ? 'Contains selection' : ''; cue.toggleAttribute('hidden', !contains); }
+    if (!box.hasAttribute('data-vs-fold-label')) box.setAttribute('data-vs-fold-label', box.getAttribute('aria-label') ?? '');
+    const label = box.getAttribute('data-vs-fold-label')!;
+    box.setAttribute('aria-label', contains ? `${label}; contains selected ${state.current?.el.getAttribute(A.label) ?? selected}` : label);
+  }
+}
+
 function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
   const boxes = Array.from(svg.querySelectorAll(`[${A.fold}]`));
   const hideOf = new Map(boxes.map((b) => [b.getAttribute(A.fold)!, words(b.getAttribute(A.foldHide))]));
@@ -1025,6 +1055,10 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
     const g = box.getAttribute(A.fold)!;
     show(box, folded.has(g) && !hidden.has(g));
   }
+  for (const expand of Array.from(svg.querySelectorAll('[data-vs-fold-expand]'))) {
+    const g = expand.getAttribute('data-vs-fold-expand')!;
+    show(expand, folded.has(g) && !hidden.has(g));
+  }
   for (const toggle of Array.from(svg.querySelectorAll(`[${A.foldToggle}]`))) {
     const g = toggle.getAttribute(A.foldToggle)!;
     show(toggle, !folded.has(g) && !hidden.has(g));
@@ -1032,7 +1066,7 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
   for (const part of Array.from(svg.querySelectorAll(`.vs-group[${A.target}]`))) {
     const id = part.getAttribute(A.target)!;
     const boundary = folded.has(id) && !hidden.has(id);
-    show(part, !hidden.has(id));
+    show(part, !hidden.has(id) && !(svg.hasAttribute('data-vs-flowchart') && boundary));
     part.classList.toggle('vs-folded', boundary);
     if (boundary) {
       part.setAttribute('tabindex', '-1');
@@ -1062,18 +1096,21 @@ function applyFolds(svg: Element, folded: ReadonlySet<string>): void {
     }
   }
   updateMarks();
+  refreshFlowchartSelection();
 }
 
 /** Run `action` on a click, and on Enter or Space: the element is a button (role="button"). */
 function onActivate(node: Element, action: () => void): void {
   node.addEventListener('click', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     action();
   });
   node.addEventListener('keydown', (e) => {
     const key = (e as KeyboardEvent).key;
     if (key !== 'Enter' && key !== ' ') return;
     e.preventDefault();
+    e.stopPropagation();
     action();
   });
 }
@@ -1089,16 +1126,19 @@ function addFolds(): void {
     const boxes = Array.from(svg.querySelectorAll<SVGElement>(`[${A.fold}]`));
     const st = figureMarks(svg);
     if (boxes.length === 0 || !st) continue;
-    for (const b of boxes) st.folded.add(b.getAttribute(A.fold)!);
+    const flowchart = svg.hasAttribute('data-vs-flowchart');
+    for (const b of boxes) if (!flowchart || b.getAttribute('data-vs-fold-initial') === 'true') st.folded.add(b.getAttribute(A.fold)!);
     const set = (group: string, fold: boolean) => {
       if (fold) st.folded.add(group);
       else st.folded.delete(group);
       applyFolds(svg, st.folded);
-      if (state.current && !visibleInstances(state.current.el.getAttribute(A.target) ?? '').length) closeInspector(false);
-      const next = svg.querySelector<SVGElement>(fold ? `[${A.fold}="${CSS.escape(group)}"]` : `[${A.foldToggle}="${CSS.escape(group)}"]`);
+      if (!flowchart && state.current && !visibleInstances(state.current.el.getAttribute(A.target) ?? '').length) closeInspector(false);
+      const next = svg.querySelector<SVGElement>(fold ? `[${flowchart ? 'data-vs-fold-expand' : A.fold}="${CSS.escape(group)}"]` : `[${A.foldToggle}="${CSS.escape(group)}"]`);
       if (next && !next.hasAttribute('hidden')) next.focus();
     };
-    for (const box of boxes) onActivate(box, () => set(box.getAttribute(A.fold)!, false));
+    if (flowchart) {
+      for (const expand of Array.from(svg.querySelectorAll('[data-vs-fold-expand]'))) onActivate(expand, () => set(expand.getAttribute('data-vs-fold-expand')!, false));
+    } else for (const box of boxes) onActivate(box, () => set(box.getAttribute(A.fold)!, false));
     for (const toggle of Array.from(svg.querySelectorAll(`[${A.foldToggle}]`))) onActivate(toggle, () => set(toggle.getAttribute(A.foldToggle)!, true));
     applyFolds(svg, st.folded);
   }
@@ -1342,6 +1382,23 @@ function initOverflowHints(): void {
 
 // ---------------------------------------------------------------- events
 
+let flowPointer: { x: number; y: number; moved: boolean } | undefined;
+let suppressFlowClick = false;
+document.addEventListener('pointerdown', e => {
+  suppressFlowClick = false;
+  flowPointer = e.target instanceof Element && e.target.closest('svg[data-vs-flowchart]') ? { x: e.clientX, y: e.clientY, moved: false } : undefined;
+}, true);
+document.addEventListener('pointermove', e => {
+  if (flowPointer && Math.hypot(e.clientX - flowPointer.x, e.clientY - flowPointer.y) >= 6) flowPointer.moved = true;
+}, true);
+document.addEventListener('pointerup', () => { suppressFlowClick = flowPointer?.moved ?? false; flowPointer = undefined; }, true);
+document.addEventListener('pointercancel', () => { suppressFlowClick = true; flowPointer = undefined; }, true);
+document.addEventListener('click', e => {
+  if (suppressFlowClick && e.detail !== 0 && e.target instanceof Element && e.target.closest('svg[data-vs-flowchart]')) {
+    e.preventDefault(); e.stopImmediatePropagation(); suppressFlowClick = false;
+  }
+}, true);
+
 function onClick(e: MouseEvent): void {
   const target = e.target instanceof Element ? e.target : null;
   if (!target || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -1398,7 +1455,7 @@ function onClick(e: MouseEvent): void {
   // Generated inspector links (a part's Relationships, Appears in, and
   // Evidence sections) and the bubble's "Open definition" link open their
   // target in the inspector as well.
-  const link = target.closest<HTMLElement>(`a.vs-cite, a.vs-inspect-link, a.vs-tooltip__open, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn][${A.interactive}]:not([data-vs-mermaid-derived])`);
+  const link = target.closest<HTMLElement>(`a.vs-cite, a.vs-detail-link, a.vs-inspect-link, a.vs-tooltip__open, a[${A.target}], a[${A.interactive}], [data-vs-mermaid-drawn][${A.interactive}]:not([data-vs-mermaid-derived])`);
   if (link && !link.closest(`.${DOM.toolbar}, #vs-refpanel`)) {
     const id = link.getAttribute(A.term) ?? targetIdFromHref(link) ?? link.getAttribute(A.target);
     if (id && canonical(id) instanceof HTMLDetailsElement) {

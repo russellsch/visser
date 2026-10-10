@@ -6,6 +6,7 @@ import ElkModule from 'elkjs/lib/elk.bundled.js';
 import type { ELK as ElkInstance, ElkExtendedEdge, ElkNode } from 'elkjs/lib/elk-api.js';
 import type { MathMetrics } from '../math/engine.ts';
 import { measureRichSegments, richFallbackLines, type RichLine } from './math-text.ts';
+import { adaptFlowchartLayout } from './flowchart-geometry.ts';
 
 // elkjs is CommonJS; Node's ESM interop gives the constructor as the default
 // export, but its typings describe an ES module default.
@@ -63,10 +64,12 @@ function box(text: string, maxWidth: number, padX: number, padY: number, extra: 
 
 export type GraphInput = {
   id: string;
+  /** Flowchart-only fixed preferred rank axis. Other families retain auto choice. */
+  direction?: LayoutDirection;
   // `extra` adds secondary lines under the label (a transform stage's representation and location).
   // `marked` reserves side padding for a corner mark (a check, a question mark, or an initial dot).
   // `drum` reserves bottom padding for the storage drum line.
-  nodes: Array<{ id: string; label: string; segments?: string[]; group?: string; extra?: string[]; extraSegments?: string[][]; marked?: boolean; drum?: boolean }>;
+  nodes: Array<{ id: string; label: string; segments?: string[]; group?: string; extra?: string[]; extraSegments?: string[][]; marked?: boolean; drum?: boolean; flowKind?: 'start' | 'action' | 'decision' | 'end' }>;
   groups: Array<{ id: string; label: string; segments?: string[]; parent?: string }>;
   edges: Array<{ id: string; from: string; to: string; label: string; segments?: string[] }>;
   // A domain map: the number of glossary rows that share its row on the page.
@@ -82,6 +85,8 @@ export type Point = { x: number; y: number };
 export type GraphLayout = {
   width: number;
   height: number;
+  /** Flowchart-only work count carried from the layout worker into SVG folding. */
+  flowchartGeometryWork?: number;
   nodes: Array<{ id: string; x: number; y: number; width: number; height: number; lines: string[]; richLines?: RichLine[] }>;
   groups: Array<{ id: string; x: number; y: number; width: number; height: number; label: string; richLines?: RichLine[] }>;
   edges: Array<{ id: string; points: Point[]; label?: { x: number; y: number; width: number; height: number; lines: string[]; richLines?: RichLine[] } }>;
@@ -227,12 +232,13 @@ export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGH
   const lines = new Map<string, string[]>();
   const rich = new Map<string, RichLine[]>();
   const elkNodes = new Map<string, ElkNode>();
+  const flowchart = graph.nodes.some((n) => n.flowKind !== undefined);
   for (const g of graph.groups) {
     const measured = measureRichSegments(segmentsOf(g.label, g.segments), Number.POSITIVE_INFINITY, graph.mathMetrics, textWidth);
     if (measured) rich.set(g.id, measured.lines);
     elkNodes.set(g.id, {
       id: g.id,
-      labels: [{ text: g.label, width: measured?.width ?? textWidth(g.label), height: measured?.height ?? LINE_HEIGHT }],
+      labels: [{ text: g.label, width: (measured?.width ?? textWidth(g.label)) + (flowchart ? 70 : 0), height: measured?.height ?? LINE_HEIGHT }],
       layoutOptions: { 'elk.padding': `[top=${measured ? Math.max(30, Math.ceil(measured.height + 12)) : 30},left=12,bottom=12,right=12]`, 'elk.nodeLabels.placement': 'INSIDE V_TOP H_LEFT' },
       children: [],
     });
@@ -240,6 +246,16 @@ export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGH
   for (const n of graph.nodes) {
     const b = measuredNodeBox(graph, n.label, n.extra ?? [], n.marked ?? false, n.drum ?? false, n.segments, n.extraSegments)
       ?? nodeBox(n.label, n.extra, n.marked, n.drum);
+    if (n.flowKind === 'decision') {
+      // A rectangle of padded text fits the interior of a diamond only when
+      // paddedWidth/W + paddedHeight/H <= 1. Doubling both is sufficient.
+      b.width = Math.max(80, b.width * 2);
+      b.height = Math.max(64, b.height * 2);
+    } else if (n.flowKind === 'start' || n.flowKind === 'end') {
+      // Reserve a separate cue band above the authored label in the pill.
+      b.height += 18;
+      b.width = Math.max(b.width + 16, b.height + 16);
+    }
     lines.set(n.id, b.lines);
     const richLines = (b as { richLines?: RichLine[] }).richLines;
     if (richLines) rich.set(n.id, richLines);
@@ -267,7 +283,8 @@ export function toElkGraph(graph: GraphInput, direction: LayoutDirection = 'RIGH
     lines.set(e.id, b.lines);
     const richLines = (b as { richLines?: RichLine[] }).richLines;
     if (richLines) rich.set(e.id, richLines);
-    const edge: ElkExtendedEdge = { id: e.id, sources: [e.from], targets: [e.to], labels: [{ id: `${e.id}:label`, text: e.label, width: b.width, height: b.height }] };
+    const edge: ElkExtendedEdge = { id: e.id, sources: [e.from], targets: [e.to],
+      labels: flowchart && e.label === '' ? [] : [{ id: `${e.id}:label`, text: e.label, width: b.width, height: b.height }] };
     root.edges!.push(edge);
   }
   return { root, lines, rich };
@@ -433,8 +450,10 @@ export async function layoutGraph(graph: GraphInput): Promise<GraphLayout> {
   const elk = new ELK();
   const run = async (direction: LayoutDirection) => {
     const { root, lines, rich } = toElkGraph(graph, direction);
-    return fromElk(graph, await elk.layout(structuredClone(root)), lines, rich);
+    const layout = fromElk(graph, await elk.layout(structuredClone(root)), lines, rich);
+    return graph.nodes.some((n) => n.flowKind) ? adaptFlowchartLayout(graph, layout) : layout;
   };
+  if (graph.direction) return run(graph.direction);
   // Direction rule: left-to-right first. A layout wider than MAX_FIGURE_WIDTH
   // switches to top-to-bottom when that is narrower. The choice depends only on
   // the layout input, so the output stays byte-deterministic (§7.5).

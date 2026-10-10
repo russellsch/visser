@@ -11,7 +11,7 @@ import { inlineText, type MNode, type TargetModel } from './targets.ts';
 import { DIFF_MAX_LINES, excerptLines } from './diff.ts';
 import { EQUATION_PARENTS } from '../syntax/profile.ts';
 
-type AttrType = 'string' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'strings' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region' | 'date';
+type AttrType = 'string' | 'optionalString' | 'boolean' | 'number' | 'integer' | 'id' | 'ids' | 'strings' | 'stringOrStrings' | 'stringOrNumber' | 'lines' | 'region' | 'date';
 
 /** A calendar date in ISO 8601 form, YYYY-MM-DD (a task `due`, docs/IMPROVEMENTS.md §4.4). */
 export const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -56,7 +56,7 @@ const QUANTITY = { quantity: 'string', evidence: 'ids' } as const;
 /** The three note kinds; there is no free kind (docs/IMPROVEMENTS.md §14.2, §14.11). */
 export const NOTE_KINDS = ['limit', 'assumption', 'warning'] as const;
 /** The figures that take a `steps` walkthrough (docs/IMPROVEMENTS.md §14.1). */
-export const STEPS_PARENTS = ['graph', 'trace', 'transform', 'compare', 'annotated', 'domain'] as const;
+export const STEPS_PARENTS = ['graph', 'flowchart', 'trace', 'transform', 'compare', 'annotated', 'domain'] as const;
 /** Limits of the §14 components: steps and tree entries warn above these; a measure stops at 12 readings. */
 export const STEPS_WARN = 8;
 export const TREE_WARN_ENTRIES = 40;
@@ -64,14 +64,20 @@ export const MEASURE_MAX_READINGS = 12;
 export const DIFF_WARN_LINES = 80;
 /** A diff side above this many lines is `E_LIMIT`, so the build memory stays bounded (§14.7). */
 export { DIFF_MAX_LINES };
-const DETAIL_PARENTS = ['graph', 'group', 'node', 'edge', 'state', 'transition', 'factor', 'causal-link', 'task', 'dependency',
+const DETAIL_PARENTS = ['graph', 'flowchart', 'group', 'node', 'edge', 'state', 'transition', 'factor', 'causal-link', 'task', 'dependency', 'start', 'action', 'decision', 'end', 'flow',
   'trace', 'actor', 'event', 'branch', 'transform', 'stage', 'conversion', 'compare', 'option', 'criterion', 'cell',
   'annotated', 'annotation', 'domain', 'concept', 'relation', 'definition', 'detail'] as const;
 
 const SPECS: Record<string, TagSpec> = {
   graph: { required: { ...VISUAL, mode: 'string' }, optional: {}, enums: { mode: ['architecture', 'state', 'cause', 'plan'] } },
   // `collapsed=true`: with JavaScript, the group starts folded into one box (docs/IMPROVEMENTS.md §14.9).
-  group: { required: { id: 'id', label: 'string' }, optional: { parent: 'id', collapsed: 'boolean' }, parents: ['graph'], graphModes: ['architecture'] },
+  group: { required: { id: 'id', label: 'string' }, optional: { parent: 'id', collapsed: 'boolean' }, parents: ['graph', 'flowchart'], graphModes: ['architecture'] },
+  flowchart: { required: { ...VISUAL }, optional: { direction: 'string' }, enums: { direction: ['down', 'right'] } },
+  start: { required: { id: 'id', label: 'string' }, optional: { group: 'id', ...PART_EVIDENCE }, parents: ['flowchart'] },
+  action: { required: { id: 'id', label: 'string' }, optional: { group: 'id', ...PART_EVIDENCE }, parents: ['flowchart'] },
+  decision: { required: { id: 'id', label: 'string' }, optional: { group: 'id', ...PART_EVIDENCE }, parents: ['flowchart'] },
+  end: { required: { id: 'id', label: 'string' }, optional: { group: 'id', ...PART_EVIDENCE }, parents: ['flowchart'] },
+  flow: { required: { id: 'id', from: 'id', to: 'id' }, optional: { label: 'optionalString', ...PART_EVIDENCE }, parents: ['flowchart'] },
   node: {
     required: { id: 'id', role: 'string' }, optional: { label: 'string', group: 'id', entity: 'id', ...PART_EVIDENCE },
     enums: { role: ['process', 'storage', 'external', 'interface', 'decision', 'concept'] }, parents: ['graph'], graphModes: ['architecture'],
@@ -190,6 +196,17 @@ for (const tag of EMPHASIS_TAGS) {
 /** The attribute rules for each tag; `catalogue show --part schema` and the guide tests read them. */
 export const TAG_SPECS: Readonly<Record<string, Readonly<TagSpec>>> = SPECS;
 
+/** Attribute contract that depends on the immediate owning figure. */
+export function tagSpecForOwner(tag: string, owner?: string | { tagName?: string; attributes?: Record<string, unknown> }): Readonly<TagSpec> | undefined {
+  const ownerTag = typeof owner === 'string' ? (owner === 'architecture' ? 'graph' : owner) : owner?.tagName;
+  const architecture = typeof owner === 'string' ? owner === 'architecture' : ownerTag === 'graph' && owner?.attributes?.['mode'] === 'architecture';
+  if (tag !== 'group') return SPECS[tag];
+  if (ownerTag === 'flowchart') return { ...SPECS.group!, optional: { ...SPECS.group!.optional, color: 'string' }, enums: { ...SPECS.group!.enums, color: ['neutral', 'teal', 'violet', 'amber'] } };
+  // The public base contract intentionally remains color-free.  This also
+  // keeps architecture groups from gaining a flowchart-only attribute.
+  return architecture || ownerTag === undefined ? SPECS.group : SPECS.group;
+}
+
 const INLINE_SPECS: Record<string, { required: Record<string, AttrType>; optional: Record<string, AttrType>; refKind?: string }> = {
   term: { required: { ref: 'id' }, optional: {}, refKind: 'definition' },
   cite: { required: { ref: 'id' }, optional: { note: 'string' }, refKind: 'source' },
@@ -215,7 +232,7 @@ const ENTITY_CHILDREN: Record<string, readonly string[]> = {
  * The part tags that take an `evidence` attribute (docs/IMPROVEMENTS.md §4.4),
  * with a measure `reading` and a tree `entry` (§14.4, §14.5).
  */
-export const PART_EVIDENCE_TAGS: ReadonlySet<string> = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry']);
+export const PART_EVIDENCE_TAGS: ReadonlySet<string> = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry', 'start', 'action', 'decision', 'end', 'flow']);
 /** The relationship tags that take a `quantity` and its `evidence` (docs/IMPROVEMENTS.md §14.9). */
 export const QUANTITY_TAGS: ReadonlySet<string> = new Set(['edge', 'conversion', 'dependency']);
 const GRAPH_WARN_NODES = 25;
@@ -223,6 +240,41 @@ const GRAPH_WARN_NODES = 25;
 const UNMARKED_TAGS: ReadonlySet<string> = new Set(['detail']);
 const GRAPH_MAX_NODES = 200;
 const GRAPH_MAX_EDGES = 400;
+/** Flowchart-only bounds measured for W0 before layout/proxy allocation. */
+export const FLOWCHART_LIMITS = {
+  groups: 16,
+  parentDepth: 4,
+  prospectiveVisibleProxyCombinations: 256,
+  nodes: GRAPH_MAX_NODES,
+  flows: GRAPH_MAX_EDGES,
+} as const;
+
+/** Count fold proxy endpoint choices without constructing any proxies. */
+export function prospectiveFlowchartProxyCombinations(
+  flows: readonly ParsedTarget[], nodes: readonly ParsedTarget[], groups: readonly ParsedTarget[], cap = FLOWCHART_LIMITS.prospectiveVisibleProxyCombinations,
+): number {
+  const parent = new Map(groups.map((group) => [group.id, typeof group.attributes['parent'] === 'string' ? group.attributes['parent'] : undefined]));
+  const membership = new Map(nodes.map((node) => [node.id, node.attributes['group']]));
+  const ancestors = (id: string): string[] => {
+    const out: string[] = [];
+    for (let current = membership.get(id); typeof current === 'string' && out.length <= cap; current = parent.get(current)) out.push(current);
+    return out;
+  };
+  let total = 0;
+  for (const flow of flows) {
+    const from = ancestors(String(flow.attributes['from']));
+    const to = ancestors(String(flow.attributes['to']));
+    for (const source of ['', ...from]) for (const destination of ['', ...to]) {
+      // Original-to-original is the authored edge, not a generated proxy.
+      // Do not emit a boundary proxy which collapses to the same group or
+      // crosses an ancestor boundary that already contains the other end.
+      if ((!source && !destination) || source === destination || (destination && from.includes(destination)) || (source && to.includes(source))) continue;
+      total++;
+      if (total > cap) return total;
+    }
+  }
+  return total;
+}
 const RASTER = /\.(png|jpe?g|webp)$/i;
 
 function typeOk(value: unknown, type: AttrType): boolean {
@@ -230,6 +282,7 @@ function typeOk(value: unknown, type: AttrType): boolean {
     case 'string':
     case 'id':
       return typeof value === 'string' && value !== '';
+    case 'optionalString': return typeof value === 'string';
     case 'boolean':
       return typeof value === 'boolean';
     case 'number':
@@ -258,6 +311,7 @@ function typeText(type: AttrType): string {
   switch (type) {
     case 'date': return 'an ISO 8601 date such as 2026-10-03';
     case 'ids': return 'a list of IDs, such as ["src_a"]';
+    case 'optionalString': return 'a string';
     default: return type;
   }
 }
@@ -356,7 +410,8 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
   // Pass 1: attributes, types, enums, and placement of every tag target.
   for (const t of parsed.targets) {
     if (t.origin !== 'tag' || !t.tagName) continue;
-    const spec = SPECS[t.tagName];
+    const parent = t.parentId ? byId.get(t.parentId) : undefined;
+    const spec = tagSpecForOwner(t.tagName, parent);
     if (!spec) continue;
     const a = t.attributes;
     for (const [name, type] of Object.entries(spec.required)) {
@@ -459,7 +514,88 @@ export function validateDocument(parsed: ParsedSource, model: TargetModel, asset
   const children = (id: string, tag?: string) => parsed.targets.filter((c) => c.parentId === id && (tag === undefined || c.tagName === tag));
   for (const figure of parsed.targets) {
     const tag = figure.tagName;
-    if (tag === 'graph') {
+    if (tag === 'flowchart') {
+      const before = diagnostics.length;
+      const nodes = children(figure.id).filter((c) => ['start', 'action', 'decision', 'end'].includes(c.tagName ?? ''));
+      const groups = children(figure.id, 'group');
+      const flows = children(figure.id, 'flow');
+      // References are checked before topology.  Their failures (including
+      // unknown IDs emitted by targets.ts) suppress all semantic inference.
+      for (const node of nodes) expectRef(node, 'group', ['group'], figure.id);
+      for (const group of groups) expectRef(group, 'parent', ['group'], figure.id);
+      for (const flow of flows) {
+        expectRef(flow, 'from', ['start', 'action', 'decision', 'end'], figure.id);
+        expectRef(flow, 'to', ['start', 'action', 'decision', 'end'], figure.id);
+      }
+      const ownError = (d: Diagnostic) => d.severity === 'error' && d.targetId !== undefined && rootOf(byId.get(d.targetId) ?? figure) === figure.id;
+      if (diagnostics.slice(0, before).some(ownError) || diagnostics.slice(before).some(ownError) || model.diagnostics.some(ownError)) continue;
+      if (nodes.length > GRAPH_MAX_NODES || flows.length > GRAPH_MAX_EDGES || groups.length > FLOWCHART_LIMITS.groups) {
+        report('E_LAYOUT_LIMIT', `flowchart ${figure.id} has ${nodes.length} nodes, ${flows.length} flows, and ${groups.length} groups; the cap is ${GRAPH_MAX_NODES}/${GRAPH_MAX_EDGES}/${FLOWCHART_LIMITS.groups}`, figure);
+        continue;
+      }
+      const shown = visibleNodeCount(nodes, groups);
+      if (shown > GRAPH_WARN_NODES) report('W_VISUAL_DENSITY', `flowchart ${figure.id} shows ${shown} nodes${shown !== nodes.length ? ` (a collapsed group counts as one)` : ''}; consider splitting it (warning above ${GRAPH_WARN_NODES})`, figure, 'warning');
+      const parentOf = new Map(groups.map((g) => [g.id, typeof g.attributes['parent'] === 'string' ? g.attributes['parent'] as string : undefined]));
+      const groupCycle = findCycle(groups.map((g) => g.id), groups.flatMap((g) => ids(g.attributes['parent']).map((p): [string, string] => [g.id, p])));
+      if (groupCycle) {
+        report('E_SEMANTIC', `flowchart ${figure.id}: group nesting is cyclic (${groupCycle.join(' -> ')})`, figure);
+        continue;
+      }
+      let tooDeep = false;
+      for (const group of groups) {
+        let depth = 1;
+        for (let parent = parentOf.get(group.id); parent !== undefined && depth <= FLOWCHART_LIMITS.parentDepth; parent = parentOf.get(parent)) depth++;
+        if (depth > FLOWCHART_LIMITS.parentDepth) { report('E_LAYOUT_LIMIT', `flowchart ${figure.id}: group ${group.id} exceeds the parent depth cap of ${FLOWCHART_LIMITS.parentDepth}`, group); tooDeep = true; }
+      }
+      if (tooDeep) continue;
+      const proxyCombinations = prospectiveFlowchartProxyCombinations(flows, nodes, groups);
+      if (proxyCombinations > FLOWCHART_LIMITS.prospectiveVisibleProxyCombinations) {
+        report('E_LAYOUT_LIMIT', `flowchart ${figure.id} has more than ${FLOWCHART_LIMITS.prospectiveVisibleProxyCombinations} prospective visible proxy combinations`, figure);
+        continue;
+      }
+      for (const group of groups) {
+        // A group is nonempty when it or a descendant contains a node.
+        const hasNode = nodes.some((n) => { for (let g = typeof n.attributes['group'] === 'string' ? n.attributes['group'] : undefined; g !== undefined; g = parentOf.get(g)) if (g === group.id) return true; return false; });
+        if (!hasNode) report('E_SEMANTIC', `flowchart ${figure.id}: group ${group.id} is empty`, group);
+      }
+      const incoming = new Map(nodes.map((n) => [n.id, 0]));
+      const outgoing = new Map(nodes.map((n) => [n.id, 0]));
+      const adjacency = new Map(nodes.map((n) => [n.id, [] as string[]]));
+      const reverse = new Map(nodes.map((n) => [n.id, [] as string[]]));
+      for (const flow of flows) {
+        const from = String(flow.attributes['from']), to = String(flow.attributes['to']);
+        outgoing.set(from, (outgoing.get(from) ?? 0) + 1); incoming.set(to, (incoming.get(to) ?? 0) + 1);
+        adjacency.get(from)?.push(to); reverse.get(to)?.push(from);
+      }
+      const starts = nodes.filter((n) => n.tagName === 'start');
+      const ends = nodes.filter((n) => n.tagName === 'end');
+      if (starts.length !== 1) report('E_SEMANTIC', `flowchart ${figure.id} needs exactly one start, not ${starts.length}`, figure);
+      if (ends.length < 1) report('E_SEMANTIC', `flowchart ${figure.id} needs at least one end`, figure);
+      for (const node of nodes) {
+        const ins = incoming.get(node.id) ?? 0, outs = outgoing.get(node.id) ?? 0;
+        if (node.tagName === 'start' && (ins !== 0 || outs !== 1)) report('E_SEMANTIC', `start ${node.id} needs zero incoming and exactly one outgoing flow`, node);
+        if (node.tagName === 'action' && (ins < 1 || outs !== 1)) report('E_SEMANTIC', `action ${node.id} needs at least one incoming and exactly one outgoing flow`, node);
+        if (node.tagName === 'decision') {
+          if (ins < 1 || outs < 2) report('E_SEMANTIC', `decision ${node.id} needs at least one incoming and at least two outgoing flows`, node);
+          const labels = new Set<string>();
+          for (const flow of flows.filter((f) => f.attributes['from'] === node.id)) {
+            const label = typeof flow.attributes['label'] === 'string' ? flow.attributes['label'].trim().replace(/\s+/g, ' ') : '';
+            if (!label) report('E_SEMANTIC', `decision ${node.id}: outgoing flow ${flow.id} needs a nonempty label`, flow);
+            else if (labels.has(label)) report('E_SEMANTIC', `decision ${node.id}: outcome label "${label}" is duplicated`, flow);
+            else labels.add(label);
+          }
+        }
+        if (node.tagName === 'end' && (ins < 1 || outs !== 0)) report('E_SEMANTIC', `end ${node.id} needs at least one incoming and zero outgoing flows`, node);
+      }
+      if (diagnostics.slice(before).some((d) => d.severity === 'error')) continue;
+      const walkGraph = (seed: readonly string[], graph: ReadonlyMap<string, readonly string[]>) => { const seen = new Set(seed), queue = [...seed]; for (let i = 0; i < queue.length; i++) for (const next of graph.get(queue[i]!) ?? []) if (!seen.has(next)) { seen.add(next); queue.push(next); } return seen; };
+      const reachable = walkGraph([starts[0]!.id], adjacency);
+      const reachesEnd = walkGraph(ends.map((n) => n.id), reverse);
+      for (const node of nodes) {
+        if (!reachable.has(node.id)) report('W_FLOW_UNREACHABLE', `flowchart ${figure.id}: ${node.id} is not reachable from the start`, node, 'warning');
+        else if (!reachesEnd.has(node.id)) report('W_FLOW_NO_END_PATH', `flowchart ${figure.id}: ${node.id} has no path to an end`, node, 'warning');
+      }
+    } else if (tag === 'graph') {
       const mode = String(figure.attributes['mode']);
       const entityTag = ENTITY_CHILDREN[mode]?.[0];
       const entities = entityTag ? children(figure.id, entityTag) : [];

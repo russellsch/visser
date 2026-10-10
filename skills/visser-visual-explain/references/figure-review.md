@@ -15,6 +15,7 @@ Give the reviewer:
 - Reader profile, the figure's question, and the task the reader must perform.
 - Figure source with stable IDs, adjacent main-path prose, and authored details.
 - Relevant source excerpts and their provenance, including uncertainty or gaps.
+- Source formulas, symbol definitions, units, and assumptions when math is material.
 - Matching catalogue reference and the shared visual-language reference.
 - Current rendered images at desktop and narrow widths, when available.
 - Shared terminology, related figure relationships, and the permitted review scope.
@@ -30,6 +31,7 @@ source-blind reader required by the staged review.
 > matching catalogue checks and shared visual language. Determine whether this
 > representation answers the reader's question; a simpler representation is valid.
 > Check the important relationships, conditions, terminology, and useful depth.
+> Check notation, units, assumptions, and a boundary case when math is material.
 > Inspect supplied renders for misleading geometry and legibility; without them,
 > mark visual checks unperformed. Do not infer successful interaction from an image.
 > Return material findings with target ID, likely wrong interpretation, source

@@ -1,14 +1,13 @@
 // Catalogue guides (§9.1): each guide has the required sections, stays short,
 // documents the attribute rules that the validator enforces, and has one
 // template that checks with no errors. Code wins over prose: the attribute
-// tables are compared with TAG_SPECS, so a guide cannot drift from the checker.
+// tables are compared with the catalogue schema, so a guide cannot drift.
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { guideHeader, guideTemplate, PATTERNS } from '../../packages/core/src/catalogue/index.ts';
+import { guideHeader, guideTemplate, PATTERNS, patternSchema } from '../../packages/core/src/catalogue/index.ts';
 import { loadBundle } from '../../packages/core/src/model/bundle.ts';
-import { TAG_SPECS } from '../../packages/core/src/model/validate.ts';
 
 const DIR = new URL('../../skills/visser-visual-explain/references/catalogue/', import.meta.url).pathname;
 const WRAPPER = [
@@ -60,7 +59,7 @@ describe('catalogue guides (§9.1) @R16', () => {
   it('every pattern has a guide, and no guide is orphaned', () => {
     for (const p of PATTERNS) expect(existsSync(join(DIR, `${p.name}.md`)), p.name).toBe(true);
     expect(PATTERNS.map((p) => p.name).sort()).toEqual(
-      ['annotated', 'architecture', 'cause', 'compare', 'decision', 'domain', 'measure', 'mermaid', 'note', 'plan', 'prose', 'self-check', 'state', 'steps', 'trace', 'transform', 'tree'],
+      ['annotated', 'architecture', 'cause', 'compare', 'decision', 'domain', 'flowchart', 'measure', 'mermaid', 'note', 'plan', 'prose', 'self-check', 'state', 'steps', 'trace', 'transform', 'tree'],
     );
   });
 
@@ -89,10 +88,11 @@ describe('catalogue guides (§9.1) @R16', () => {
       if (pattern.tag) {
         it('documents exactly the attributes and enum values that the validator enforces', () => {
           const table = attributeTable(text);
+          const schemas = new Map(patternSchema(pattern).map((schema) => [schema.tag, schema]));
           const tags = [pattern.tag!, ...pattern.children, ...(pattern.name === 'annotated' ? ['source'] : [])];
           expect([...table.keys()].sort()).toEqual([...tags].sort());
           for (const tag of tags) {
-            const spec = TAG_SPECS[tag]!;
+            const spec = schemas.get(tag)!;
             expect(table.get(tag)!.required, `${tag} required`).toEqual(Object.keys(spec.required).sort());
             expect(table.get(tag)!.optional, `${tag} optional`).toEqual(Object.keys(spec.optional).sort());
             for (const [name, values] of Object.entries(spec.enums ?? {})) {
@@ -108,5 +108,13 @@ describe('catalogue guides (§9.1) @R16', () => {
   it('a broken template is caught: an unknown edge kind fails the check', () => {
     const template = guideTemplate(readFileSync(join(DIR, 'architecture.md'), 'utf8')).replace('kind="call"', 'kind="talks-to"');
     expect(errors(template).some((e) => e.startsWith('E_SYNTAX'))).toBe(true);
+  });
+
+  it('projects group attributes for the owning figure', () => {
+    const architecture = patternSchema(PATTERNS.find((p) => p.name === 'architecture')!).find((schema) => schema.tag === 'group')!;
+    const flowchart = patternSchema(PATTERNS.find((p) => p.name === 'flowchart')!).find((schema) => schema.tag === 'group')!;
+    expect(architecture.optional).not.toHaveProperty('color');
+    expect(flowchart.optional).toHaveProperty('color');
+    expect(flowchart.enums.color).toEqual(['neutral', 'teal', 'violet', 'amber']);
   });
 });

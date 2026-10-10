@@ -38,7 +38,8 @@ invalid example for each rule.
 - Use "if" for a condition and "when" for a time.
 - Keep the articles. Terse means fewer ideas in a sentence, not fewer words.
 
-These rules do not apply to captured code, quoted material, or identifiers.
+These rules do not apply to captured code, quoted material, identifiers, or
+exact mathematical notation. Preserve TeX, units, inequalities, and symbols.
 
 ## Safety and the toolkit
 
@@ -57,6 +58,8 @@ Always read `references/format.md` before you write or edit source. Read
 `references/handoff.md` before a change that starts from a reference packet.
 Read `references/operations.md` for the lock and for a document inside the
 Visser repository. Use `--dev-toolkit` only for a document in that repository.
+Read `references/math.md` for supported math in prose, labels, displays, or
+equation targets.
 
 ## New document workflow
 
@@ -94,6 +97,7 @@ for a small edit, limited to changed content and affected relationships.
    | Question | Choice | Not this one because |
    |---|---|---|
    | What exists, and who calls whom? | `architecture` | The order of events is a `trace`. Left to right never means "first". |
+   | What happens next when a condition changes? | `flowchart` | One run across actors is a `trace`. A short straight procedure is a numbered list. |
    | Which things does the document name, what does each mean, and how do they relate? | `domain` | Who calls whom is an `architecture`. One term needs only a `definition`. |
    | What happens in one run, with waits and partial order? | `trace` | All allowed runs are a `state`. A straight line is a numbered list. |
    | Which transitions does the system allow? | `state` | One run is a `trace`. Steps of work are a `plan`. |
@@ -111,6 +115,10 @@ for a small edit, limited to changed content and affected relationships.
    | Can text answer it as well as a figure? | `prose` | More than two services, an order, or a lifecycle at once needs a figure. |
 
    A root-cause document normally has `cause` first and `trace` second.
+   Use a flowchart for alternative steps and retries in one process. Use a
+   trace for actors and partial order. Use a state figure for an object's
+   allowed states. A short procedure usually needs only a
+   numbered list.
    Never infer chronology from layout. Read guides for components you consider:
    `visser catalogue show NAME`. `mermaid` is an escape hatch; see its guide.
 5. **Create the bundle.** Run `visser init PATH --kind KIND --title TITLE`,
@@ -125,7 +133,9 @@ for a small edit, limited to changed content and affected relationships.
    capture it with `--kind example`. Never type an `excerptSha256`, a commit,
    or a line range by hand. Keep the minimum useful context.
 7. **Author declaratively.** Write canonical source, never generated HTML.
-   - Label each relationship with what it does. Review node labels above 4
+   - Label each architecture relationship with what it does. A flowchart flow
+     labels an outcome when it leaves a decision; other flows may omit it.
+     Review node labels above 4
      words and edge labels above 5. Apply the node review to event, state,
      task, stage, and group labels. Keep enough words to identify a
      distinct entity and the meaning of a relationship. Put extra explanation

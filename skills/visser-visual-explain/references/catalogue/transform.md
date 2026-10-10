@@ -2,7 +2,7 @@
 
 **Question:** How do information, representation, dimensions, or ownership change?
 
-**Confused with:** `architecture` (services, not representations) and `trace` (the order of steps, not the change of a value).
+**Confused with:** `flowchart` (process choices), `architecture` (services, not representations) and `trace` (the order of steps, not the change of a value).
 
 ## Use it when
 
@@ -15,6 +15,7 @@
 
 - The boxes are services, not representations of one value. Use `architecture`.
 - Only the order of steps matters. Use prose or `trace`.
+- The question is which alternative action follows a condition. Use `flowchart`.
 
 ## Misleading example
 

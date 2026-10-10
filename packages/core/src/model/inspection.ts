@@ -153,6 +153,8 @@ export function inspectionProfile(model: TargetModel, targetId: TargetId): Inspe
         context.add(`nested-detail:${detailId}`);
       }
     }
+    const owner = record.ownerComponentId ? model.targets.get(record.ownerComponentId) : undefined;
+    if (owner?.kind === 'flowchart' && ['group', 'start', 'action', 'decision', 'end'].includes(record.kind)) context.add('flowchart:structure');
   }
 
   if (record && isPart(record)) {

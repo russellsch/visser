@@ -2,7 +2,7 @@
 
 **Question:** What happens in a concrete execution, including waits and partial order?
 
-**Confused with:** `state` (all runs, not one run), `architecture` (who calls whom, with no order), and `cause` (a mechanism; timing alone is not a cause).
+**Confused with:** `flowchart` (one process path), `state` (all runs, not one run), `architecture` (who calls whom, with no order), and `cause` (a mechanism; timing alone is not a cause).
 
 ## Use it when
 
@@ -11,6 +11,7 @@
 ## Do not use it when
 
 - Use `state` for all-run transitions or unbounded loops; show a finite iteration.
+  Use `flowchart` for one process's alternative next steps and retries.
   Do not draw unsupported order; use numbered `prose` for an unbranched line.
 
 ## Misleading example

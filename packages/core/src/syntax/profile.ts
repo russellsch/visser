@@ -13,6 +13,7 @@ export const INLINE_TAGS: ReadonlySet<string> = new Set(['term', 'cite', 'focus'
 export const BLOCK_TAGS: ReadonlySet<string> = new Set([
   'detail', 'definition', 'source', 'equation',
   'graph', 'group', 'node', 'edge', 'state', 'transition', 'factor', 'causal-link', 'task', 'dependency',
+  'flowchart', 'start', 'action', 'decision', 'end', 'flow',
   'trace', 'actor', 'event', 'branch',
   'transform', 'stage', 'conversion',
   'compare', 'option', 'criterion', 'cell',
@@ -43,7 +44,7 @@ export const LIMITS = {
 export const ADDRESSABLE_BLOCKS: ReadonlySet<string> = new Set(['heading', 'paragraph', 'list', 'table', 'blockquote', 'fence', 'math_display']);
 
 /** Direct tag bodies whose authored block prose has a canonical reader host. */
-export const EQUATION_PARENTS: ReadonlySet<string> = new Set(['detail', 'definition', 'source', 'note', 'self-check', 'step']);
+export const EQUATION_PARENTS: ReadonlySet<string> = new Set(['detail', 'definition', 'source', 'note', 'self-check', 'step', 'flowchart', 'group', 'start', 'action', 'decision', 'end', 'flow']);
 
 /** Decoded tag string fields rendered as authored text; ID/URL/code fields stay literal. */
 export const MATH_TEXT_ATTRIBUTES: ReadonlySet<string> = new Set([

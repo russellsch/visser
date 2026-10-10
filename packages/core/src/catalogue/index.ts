@@ -1,10 +1,11 @@
 // The component catalogue (§9.1, §17.1 `catalogue list|show`). Each pattern
 // has a guide in the toolkit at skills/visser-visual-explain/references/catalogue/NAME.md.
 // The guide holds the prose and one `markdown visser-template` fence; the
-// attribute rules come from the validator's TAG_SPECS, so they cannot drift.
+// attribute rules come from the validator's contextual tag contracts, so they
+// cannot drift.
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TAG_SPECS } from '../model/validate.ts';
+import { TAG_SPECS, tagSpecForOwner } from '../model/validate.ts';
 
 export type CataloguePattern = {
   name: string;
@@ -24,6 +25,7 @@ export type CataloguePattern = {
 export const PATTERNS: readonly CataloguePattern[] = [
   { name: 'prose', tag: null, children: [] },
   { name: 'architecture', tag: 'graph', mode: 'architecture', children: ['group', 'node', 'edge'] },
+  { name: 'flowchart', tag: 'flowchart', children: ['group', 'start', 'action', 'decision', 'end', 'flow'] },
   { name: 'domain', tag: 'domain', children: ['concept', 'relation'] },
   { name: 'trace', tag: 'trace', children: ['actor', 'event', 'branch'] },
   { name: 'state', tag: 'graph', mode: 'state', children: ['state', 'transition'] },
@@ -96,7 +98,7 @@ export function guideTemplate(text: string): string {
 export function patternSchema(pattern: CataloguePattern): TagSchema[] {
   const tags = [...(pattern.tag ? [pattern.tag] : []), ...pattern.children, ...(pattern.name === 'annotated' ? ['source'] : [])];
   return tags.map((tag) => {
-    const spec = TAG_SPECS[tag];
+    const spec = tagSpecForOwner(tag, pattern.name === 'architecture' ? 'architecture' : pattern.name === 'flowchart' ? 'flowchart' : undefined) ?? TAG_SPECS[tag];
     if (!spec) throw new Error(`no attribute rules for tag ${tag}`);
     return { tag, required: { ...spec.required }, optional: { ...spec.optional }, enums: { ...(spec.enums ?? {}) }, parents: spec.parents ?? null };
   });

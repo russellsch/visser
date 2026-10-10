@@ -112,6 +112,34 @@ export function render(node: HNode | string): string {
   return `<${node.tag}${attrs}>${node.children.map(render).join('')}</${node.tag}>`;
 }
 
+/** Count escaped UTF-8 output incrementally, without constructing an oversized serialization. */
+export function assertRenderedByteLimit(node: HNode | string, limit: number): void {
+  const encoder = new TextEncoder();
+  let bytes = 0;
+  const count = (value: string) => {
+    bytes += encoder.encode(value).length;
+    if (bytes > limit) throw Object.assign(new Error(`flowchart SVG exceeds ${limit} bytes`), { code: 'E_LAYOUT_LIMIT' });
+  };
+  const escaped = (value: string, attribute: boolean) => {
+    // Chunk boundaries can split surrogate pairs; keep each Unicode scalar intact.
+    for (const char of value) count(char === '&' ? '&amp;' : char === '<' ? '&lt;' : char === '>' ? '&gt;'
+      : attribute && char === '"' ? '&quot;' : attribute && char === "'" ? '&#39;' : char);
+  };
+  const visit = (part: HNode | string): void => {
+    if (typeof part === 'string') { escaped(part, false); return; }
+    count(`<${part.tag}`);
+    for (const [name, value] of part.attrs) {
+      count(` ${name}`);
+      if (!(value === '' && ['hidden', 'defer', 'open'].includes(name))) { count('="'); escaped(value, true); count('"'); }
+    }
+    count('>');
+    if (VOID.has(part.tag)) return;
+    for (const child of part.children) visit(child);
+    count(`</${part.tag}>`);
+  };
+  visit(node);
+}
+
 // --- URL safety (§15.2) ---------------------------------------------------
 
 const BASE = 'https://visser.invalid/d/doc/rev/build/index.html';

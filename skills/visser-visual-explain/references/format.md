@@ -607,7 +607,45 @@ retiredTargets:
 # A full queue blocks producers
 ```
 
+### Flowcharts
+
+Use `flowchart` for one process with alternative paths or retries. All parts
+are direct children. A `group` is scoped to its flowchart, so `color` is valid
+there but invalid on an architecture group. Group bodies explain a boundary;
+they do not contain parts. `direction` is `down` by default and may be `right`.
+
+```markdown visser-valid
+{% flowchart id="approval" title="Approve one request" question="When can a request proceed?" %}
+{% group id="review" label="Review" color="teal" /%}
+{% start id="received" label="Request received" /%}
+{% decision id="approved" label="Request approved?" group="review" /%}
+{% end id="accepted" label="Request accepted" /%}
+{% end id="rejected" label="Request rejected" /%}
+{% flow id="f_start" from="received" to="approved" /%}
+{% flow id="f_yes" from="approved" to="accepted" label="Yes" /%}
+{% flow id="f_no" from="approved" to="rejected" label="No" /%}
+{% /flowchart %}
+```
+
+Each flow has an `id`, `from`, and `to`. A decision's outgoing flows need
+nonempty, distinct outcome labels. Other flows may omit `label`. `start`,
+`action`, `decision`, and `end` need `id` and `label`; each can use `group`
+and `evidence`. A group needs `id` and `label`, and can use `parent`, `color`,
+and `collapsed`. Flowchart `evidence` names source targets.
+
+An architecture group cannot use `color`:
+
+```markdown visser-invalid E_SYNTAX
+{% graph id="system" mode="architecture" title="A system" question="Who calls whom?" %}
+{% group id="service" label="Service" color="teal" /%}
+{% /graph %}
+```
+
 ## 10. Equations
+
+Read [math guidance](math.md) when you choose or explain notation. This
+section defines syntax; the math guide explains when notation helps and how to
+review its meaning.
 
 Use `$...$` for inline LaTeX and standalone `$$` lines for an unnumbered display.
 Keep whitespace outside inline delimiters. Code spans, fenced examples and captured
@@ -652,6 +690,10 @@ See {% eqref ref="eq_missing" /%}.
 Readable label attributes also accept inline math. Escape each backslash twice in a
 quoted Markdoc attribute; ordinary Markdown and raw equation bodies use one.
 Keep each opening tag on one line.
+
+Flowchart titles, questions, node labels, flow labels, and supported bodies
+accept inline math. IDs, group colors, directions, endpoints, and references
+remain literal.
 
 ```markdown visser-valid
 {% detail id="d_ratio" label="Ratio $\\frac{a}{b}$" %}

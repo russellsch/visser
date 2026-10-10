@@ -2,7 +2,7 @@
 
 **Question:** What did the team decide, why, and when does the team look at it again?
 
-**Confused with:** `compare` alone (a comparison has no winner) and a design proposal (a decision is already made).
+**Confused with:** a `flowchart` `decision` part (a process diamond), `compare` alone (a comparison has no winner), and a design proposal (a decision is already made).
 
 ## Use it when
 
@@ -26,7 +26,8 @@ on one option. The table then claims a verdict that it cannot support.
 
 ## Rules
 
-A decision record has this fixed shape. There is no `decision` tag.
+A decision record has this fixed shape. There is no decision-record tag. A
+process decision diamond belongs in a `flowchart`.
 
 1. The title is the decision, written as a claim: "Charge requests go
    through a bounded queue", not "Queue options".

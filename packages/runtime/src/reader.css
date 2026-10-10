@@ -1,3 +1,4 @@
+/*! visser-flowchart-reader/1 */
 /* Visser reader stylesheet (§10). System fonts, no remote resources.
    Accent marks action. Category hue marks one variable per figure
    (docs/IMPROVEMENTS.md §2.1). The accent (blue) means "you can act on this":
@@ -1247,3 +1248,42 @@ body.vs-refmode [data-vs-target] { cursor: crosshair; }
   }
   .vs-equation, .vs-math-display { break-inside: auto; }
 }
+
+/* Native flowchart group colors express phase membership, never status. */
+.vs-flow-group-color-neutral { --vs-flow-fill: #eef1f5; --vs-flow-line: #475569; }
+.vs-flow-group-color-teal { --vs-flow-fill: #e6f4f2; --vs-flow-line: #0f766e; }
+.vs-flow-group-color-violet { --vs-flow-fill: #f0eafb; --vs-flow-line: #6d28d9; }
+.vs-flow-group-color-amber { --vs-flow-fill: #fdf1e1; --vs-flow-line: #b45309; }
+.vs-viewport svg[data-vs-flowchart] .vs-group > rect:first-child,
+.vs-viewport svg[data-vs-flowchart] .vs-flow-fold-summary .vs-fold-shape {
+  fill: var(--vs-flow-fill, var(--vs-panel)); stroke: var(--vs-flow-line, var(--vs-line));
+}
+.vs-viewport svg[data-vs-flowchart] .vs-group-label { fill: var(--vs-flow-line, var(--vs-fg)); }
+.vs-viewport svg[data-vs-flowchart] .vs-flow-terminal-cue { fill: var(--vs-muted); }
+.vs-viewport svg .vs-fold-expand { cursor: pointer; color: var(--vs-fg); }
+.vs-viewport svg .vs-flow-fold-summary .vs-fold-count { fill: var(--vs-muted); }
+.vs-viewport svg .vs-fold-expand rect { fill: var(--vs-panel); stroke: var(--vs-rule); }
+.vs-viewport svg .vs-fold-expand text { fill: var(--vs-fg); }
+.vs-viewport svg .vs-fold-selection { fill: var(--vs-accent); font-size: 11px; }
+.vs-flow-reading { color: var(--vs-muted); font-size: .875rem; }
+.vs-flow-context p { margin-top: .25rem; }
+@media (prefers-color-scheme: dark) {
+  .vs-flow-group-color-neutral { --vs-flow-fill: #33363c; --vs-flow-line: #cbd5e1; }
+  .vs-flow-group-color-teal { --vs-flow-fill: #223a39; --vs-flow-line: #5eead4; }
+  .vs-flow-group-color-violet { --vs-flow-fill: #323140; --vs-flow-line: #c4b5fd; }
+  .vs-flow-group-color-amber { --vs-flow-fill: #3d3424; --vs-flow-line: #fbbf24; }
+}
+@media (forced-colors: active) {
+  .vs-viewport svg[data-vs-flowchart] .vs-group > rect:first-child,
+  .vs-viewport svg[data-vs-flowchart] .vs-flow-fold-summary .vs-fold-shape,
+  .vs-viewport svg .vs-fold-expand rect { fill: Canvas; stroke: CanvasText; forced-color-adjust: none; }
+  .vs-viewport svg[data-vs-flowchart] .vs-group-label,
+  .vs-viewport svg[data-vs-flowchart] .vs-fold-expand text,
+  .vs-viewport svg[data-vs-flowchart] .vs-flow-terminal-cue { fill: CanvasText; }
+  .vs-viewport svg .vs-fold-selection { fill: LinkText; }
+}
+@media print {
+  .vs-viewport svg [data-vs-fold-expand], .vs-viewport svg .vs-fold-selection { display: none !important; }
+}
+
+.vs-viewport svg[data-vs-flowchart] .vs-shape { stroke-width: 1.5; }

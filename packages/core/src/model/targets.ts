@@ -48,7 +48,7 @@ const TAG_REF_ATTRIBUTES: Readonly<Record<string, readonly string[]>> = { concep
 // Inline tags that reference IDs; their attribute is `ref` or `targets`.
 const INLINE_REF_TAGS = new Set(['cite', 'term', 'detail-link', 'focus', 'eqref']);
 // Tags whose targets have a canonical detail element (§7.1 `inspectable`).
-const COMPONENT_ROOTS = new Set(['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
+const COMPONENT_ROOTS = new Set(['graph', 'flowchart', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'mermaid', 'extension']);
 // A walkthrough and its steps render in their figure, not in the appendix
 // (docs/IMPROVEMENTS.md §14.1): the steps list is their canonical element.
 const IN_FIGURE_ONLY = new Set(['steps', 'step']);
@@ -282,6 +282,12 @@ export function buildTargetRecords(parsed: ParsedSource): TargetModel {
       relationships.push({ id: t.id, from, to, kind: fixedKind[t.tagName]!, label: record.label, ...basis, evidenceIds: evidenceOf(record) });
     } else if (t.tagName === 'dependency' && from && to) {
       relationships.push({ id: t.id, from, to, kind: typeof a['kind'] === 'string' ? a['kind'] : 'finish-start', label: record.label, evidenceIds: evidenceOf(record) });
+    } else if (t.tagName === 'flow' && from && to) {
+      // Keep the authored condition distinct from the canonical target label.
+      relationships.push({ id: t.id, from, to, kind: 'flow', label: typeof a['label'] === 'string' ? a['label'] : '', evidenceIds: evidenceOf(record) });
+      const source = targets.get(from)?.label ?? from;
+      const destination = targets.get(to)?.label ?? to;
+      record.label = `${source} — ${typeof a['label'] === 'string' && a['label'] !== '' ? a['label'] : 'continues to'} → ${destination}`;
     } else if (t.tagName === 'event') {
       if (to) relationships.push({ id: t.id, from: String(a['actor']), to, kind: 'message', label: record.label, evidenceIds: evidenceOf(record) });
       for (const prereq of idsIn(a['after'])) {

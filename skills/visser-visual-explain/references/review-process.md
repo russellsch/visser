@@ -63,6 +63,8 @@ Ask: **What can the reader wrongly conclude, and does the evidence rule it out?*
 - Replace vague branch conditions with the actual decision rule. Separate a
   default from an override and identify precedence. State scenario inputs,
   including assumed defaults. Branch selection does not prove successful execution.
+- When math is material, check each symbol, unit, assumption, and equality or
+  inequality boundary against the source. Test a changed input at the boundary.
 
 Evidence: point to the supporting source and main-path target for each
 `mustUnderstand` answer. State an unsupported answer as unknown, narrow the
@@ -114,6 +116,8 @@ Keep the final whole-document pass; local corrections must preserve shared meani
 - Check whether layout implies sequence, causation, scale, or a shared boundary
   that the source does not support. Verify guards, loss, and joins that need
   multiple inputs. Keep uncertainty visible.
+- For a flowchart, trace one contrasting decision outcome and any retry. Check
+  that group color does not imply an outcome, priority, or execution order.
 - Distinguish entities with similar names. Check that shortened labels retain
   identity. Split by reader question before hiding meaning in a tooltip.
 - Replace a figure with prose or a numbered list if it only draws a straight
@@ -199,6 +203,8 @@ An unsupported reviewer criticism is not a required edit.
 If a decision point changes the outcome, include a contrasting case at that point,
 such as a changed prerequisite or existing target. Keep the question neutral
 and check the answer against source evidence. Do not test only the worked example.
+When math is material, include a boundary case and ask the reader to interpret
+the symbols, units, and inequality before checking the calculation.
 
 Fix material misunderstandings and rerun the affected task on the revised
 presentation. Do not restart every pass for punctuation. If the same material

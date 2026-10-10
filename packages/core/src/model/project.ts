@@ -202,7 +202,7 @@ function evidenceLine(ctx: Context, id: string): string | undefined {
 }
 
 /** Parts that take an `evidence` attribute (docs/IMPROVEMENTS.md §4.4). */
-const PART_EVIDENCE_KINDS = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry']);
+const PART_EVIDENCE_KINDS = new Set(['node', 'event', 'state', 'stage', 'task', 'cell', 'reading', 'entry', 'start', 'action', 'decision', 'end', 'flow']);
 
 function idList(value: unknown): string[] {
   const all = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
@@ -218,7 +218,8 @@ function relationshipLine(ctx: Context, id: string): string | undefined {
   if (!rel) return undefined;
   // A `quantity` follows the label in parentheses (docs/IMPROVEMENTS.md §14.9).
   const quantity = ctx.nodes.get(id)?.attributes['quantity'];
-  const label = typeof quantity === 'string' ? `${rel.label} (${quantity})` : rel.label;
+  const authored = rel.kind === 'flow' && rel.label === '' ? 'continues to' : rel.label;
+  const label = typeof quantity === 'string' ? `${authored} (${quantity})` : authored;
   return `${labelOf(ctx, rel.from)} --[${rel.kind}; ${label}]--> ${labelOf(ctx, rel.to)}${rel.basis ? ` (basis: ${rel.basis})` : ''}`;
 }
 
@@ -245,6 +246,19 @@ function childLines(ctx: Context, child: TargetRecord, node: MNode): string[] {
       const line = relationshipLine(ctx, child.id);
       if (line) lines.push(line);
       if (child.kind === 'conversion') lines.push(...attrLines(node, ['loss', 'condition']));
+      break;
+    }
+    case 'flow': {
+      // A procedural flow's target label is its accessible canonical summary;
+      // unlike graph edges it is deliberately not an authored relation tuple.
+      lines.push(child.label);
+      break;
+    }
+    case 'start':
+    case 'action':
+    case 'decision':
+    case 'end': {
+      lines.push(`${cap(child.kind)} ${child.label}${attr(node, 'group') ? ` (group: ${attr(node, 'group')})` : ''}`);
       break;
     }
     case 'transition': {
@@ -544,6 +558,7 @@ function renderComponent(ctx: Context, record: TargetRecord, node: MNode): strin
     const scale = attr(node, 'scale') ?? 'ordinal';
     out.push(scale === 'ordinal' ? 'Ordering, not duration.' : `Time scale: ${attr(node, 'timeUnit') ?? '?'}.`);
   }
+  if (record.kind === 'flowchart') out.push(`Direction: ${attr(node, 'direction') ?? 'down'}. Flows describe possible paths through one process; source order is reading order, not execution order.`);
   if (mode === 'plan') out.push('Tasks are listed in source order; only the stated prerequisites order them.');
   if (record.kind === 'extension') {
     // The text form never depends on running the extension (§14.3).
@@ -659,7 +674,7 @@ export function projectText(parsed: ParsedSource, targets?: Map<TargetId, Target
         ...childTargets(ctx, record.id).map((child) => childBlock(ctx, child))].join('\n\n'));
       continue;
     }
-    const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'extension'].includes(record.kind);
+    const isComponent = childTargets(ctx, record.id).length > 0 || ['graph', 'flowchart', 'trace', 'transform', 'compare', 'annotated', 'domain', 'measure', 'tree', 'extension'].includes(record.kind);
     const parts = isComponent
       ? renderComponent(ctx, record, node)
       : [renderBlock(node, ctx.equations)];

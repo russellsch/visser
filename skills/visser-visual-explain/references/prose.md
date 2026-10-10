@@ -18,7 +18,8 @@ with valid frontmatter and an `overview` heading.
 
 The rules apply to prose, figure titles, questions, part labels, part
 bodies, and definitions. They do not apply to captured code, quoted material,
-or identifiers.
+identifiers, or exact mathematical notation. Do not rewrite TeX, units,
+inequalities, symbols, or source quotations merely to meet a prose rule.
 
 A review prompt is a question, not a verdict. A simple text test gives false
 positives. If the sentence is correct, keep it.

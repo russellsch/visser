@@ -30,6 +30,7 @@ export class FigureViewer {
   private previousRef = false;
   private lists: Array<{ node: Element; marker: Comment }> = [];
   private touchEntry = false;
+  private detailEntry = false;
   private remembered = new WeakMap<Element, { cx: number; cy: number; unitsPerPixel: number }>();
   private hooks: ViewerHooks;
   constructor(hooks: ViewerHooks) { this.hooks = hooks; }
@@ -40,6 +41,7 @@ export class FigureViewer {
   }
   get mouseInput(): boolean { return this.pointerType === "mouse"; }
   get active(): boolean { return !!this.figure; }
+  get dismissWithDetail(): boolean { return this.active && this.detailEntry; }
   get guardingEntry(): boolean { return this.touchEntry && !this.active; }
   register(): void {
     for (const figure of Array.from(document.querySelectorAll<HTMLElement>('figure.vs-figure'))) {
@@ -69,8 +71,11 @@ export class FigureViewer {
       const enter = this.touchEntry || ('pointerType' in e && e.pointerType === 'touch');
       this.touchEntry = false;
       if (!figure || !target.closest('.vs-viewport') || !enter || innerWidth > DOM.narrowMaxWidth || this.hooks.referenceMode() || figure.classList.contains('vs-view-list') || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || getSelection()?.toString()) return;
-      e.preventDefault(); e.stopImmediatePropagation();
       this.open(figure, figure.querySelector<HTMLElement>('.vs-viewer-open') ?? figure);
+      // Keep the same tap alive for the shared reader's detail handler after
+      // moving the figure into the viewer. Background taps only enter the viewer.
+      if (target.closest(`[${DOM.attr.interactive}]`)) { this.detailEntry = true; return; }
+      e.preventDefault(); e.stopImmediatePropagation();
     }, true);
     addEventListener('resize', () => { if (innerWidth > DOM.narrowMaxWidth) this.close(); else this.resizeCanvas(); });
     addEventListener('beforeprint', () => this.close());
@@ -165,7 +170,7 @@ export class FigureViewer {
   revealTarget(target: Element | undefined, sheet: HTMLElement): void {
     const fromList = Boolean(target?.closest('.vs-viewer-parts'));
     const id = target?.getAttribute(DOM.attr.target);
-    target = id && this.svg ? Array.from(this.svg.querySelectorAll(`[${DOM.attr.target}]`)).find(node => node.getAttribute(DOM.attr.target) === id && !node.closest('[hidden]')) : undefined;
+    target = id && this.svg ? Array.from(this.svg.querySelectorAll(`[${DOM.attr.target}]`)).find(node => node.getAttribute(DOM.attr.target) === id && !node.closest('[hidden], [aria-hidden="true"]')) : undefined;
     if (!target || !this.svg || (sheet.classList.contains('vs-sheet-expanded') && !fromList)) return;
     // Following a text-list link may have scrolled the dialog below its canvas.
     // Bring the canvas back, then use drawn geometry without changing zoom.
@@ -195,6 +200,7 @@ export class FigureViewer {
   }
   close(): void {
     if (!this.figure) return;
+    this.detailEntry = false;
     this.remembered.set(this.figure, this.savedView());
     this.hooks.closeDetail(); this.hooks.clearTransient(); this.hooks.setReferenceMode(this.previousRef);
     this.gestureAbort?.abort(); this.pointers.clear();

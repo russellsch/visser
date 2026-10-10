@@ -51,7 +51,7 @@ test('viewer moves canonical figure, preserves zoom across sheet close and resto
   await expect(page.locator('.vs-viewer-placeholder')).toHaveCount(0);
 });
 
-test('first touch and real multi-pointer gestures do not inspect parts @R06 @R12', async ({ page }) => {
+test('first touch opens block details immediately; real gestures do not inspect parts @R06 @R12', async ({ page }) => {
   test.skip(!isNarrow(page), 'touch viewer');
   await openSnapshot(page, '', 'order-intake');
   const figure = page.locator('[id="x-components"]');
@@ -59,8 +59,12 @@ test('first touch and real multi-pointer gestures do not inspect parts @R06 @R12
   await figure.locator('[id="v-components.n_api"]').tap();
   const dialog = page.locator('.vs-figure-viewer');
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.vs-inspector, .vs-tooltip')).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Back to article' })).toBeFocused();
+  await expect(dialog.locator('.vs-inspector details[data-vs-target="n_api"]')).toBeVisible();
+  await dialog.locator('.vs-inspector').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await figure.getByRole('button', {name:'Explore full diagram'}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.vs-inspector:visible, .vs-tooltip')).toHaveCount(0);
   const svg = dialog.locator('.vs-viewport svg');
   const original = await svg.getAttribute('viewBox');
   const bounds = await svg.boundingBox();
@@ -78,7 +82,7 @@ test('first touch and real multi-pointer gestures do not inspect parts @R06 @R12
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
   const pinched = (await svg.getAttribute('viewBox'))!.split(' ').map(Number);
   expect(pinched[2]).toBeLessThan(Number(panned!.split(' ')[2]));
-  await expect(dialog.locator('.vs-inspector, .vs-tooltip')).toHaveCount(0);
+  await expect(dialog.locator('.vs-inspector:visible, .vs-tooltip')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Back to article' }).click();
   expect(await figure.locator('.vs-viewport svg').getAttribute('viewBox')).toBe(articleBox);
   await cdp.detach();

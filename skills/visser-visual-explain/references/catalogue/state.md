@@ -2,7 +2,7 @@
 
 **Question:** What states are possible, and which events and guards permit transitions?
 
-**Confused with:** `trace` (one run) and `plan` (steps, not states).
+**Confused with:** `flowchart` (process actions), `trace` (one run), and `plan` (steps, not states).
 
 ## Use it when
 
@@ -14,6 +14,7 @@
 ## Do not use it when
 
 - The point is one concrete run with waits. Use `trace`.
+- The boxes are actions and choices in one process. Use `flowchart`.
 - There are two independent machines. Use two figures; v1 has no regions.
 - The states are really steps of a plan. Use `plan`.
 
